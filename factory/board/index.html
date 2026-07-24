@@ -8,7 +8,7 @@
   :root {
     --bg: #edf0f2; --panel: #ffffff; --ink: #1d2329; --muted: #5a6572;
     --line: #d3d9df; --amber: #b45309; --amber-soft: #b4530918;
-    --ok: #256e4b; --danger: #a63a2e; --rail: #c6ced5;
+    --ok: #256e4b; --danger: #a63a2e; --rail: #c6ced5; --build: #2f6f9f;
     --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
     --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
@@ -16,125 +16,195 @@
     :root {
       --bg: #131619; --panel: #1b2126; --ink: #e7eaec; --muted: #8a949e;
       --line: #2a3138; --amber: #e3a23f; --amber-soft: #e3a23f1f;
-      --ok: #4cae82; --danger: #d0705f; --rail: #3a434c;
+      --ok: #4cae82; --danger: #d0705f; --rail: #3a434c; --build: #5f9fd0;
     }
   }
   * { box-sizing: border-box; margin: 0; }
   html { -webkit-text-size-adjust: 100%; }
-  body {
-    background: var(--bg); color: var(--ink);
-    font: 13px/1.5 var(--mono); padding-bottom: 4rem;
-  }
-  a { color: inherit; }
+  body { background: var(--bg); color: var(--ink); font: 13px/1.5 var(--mono); padding-bottom: 4rem; }
   :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 
-  /* ── status bar ───────────────────────────────────────────── */
   header {
     position: sticky; top: 0; z-index: 5;
     display: flex; flex-wrap: wrap; gap: .35rem 1.5rem; align-items: baseline;
-    padding: .65rem 1.25rem; border-bottom: 1px solid var(--line);
-    background: var(--panel);
+    padding: .65rem 1.25rem; border-bottom: 1px solid var(--line); background: var(--panel);
   }
-  header h1 {
-    font: 700 .82rem/1 var(--mono); letter-spacing: .22em; text-transform: uppercase;
-  }
+  header h1 { font: 700 .82rem/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; }
   header h1 span { color: var(--amber); }
   .stat { color: var(--muted); }
   .stat b { color: var(--ink); font-weight: 600; }
   #tick { margin-left: auto; display: inline-flex; align-items: center; gap: .45rem; color: var(--muted); }
-  #tick i {
-    width: 7px; height: 7px; border-radius: 50%; background: var(--ok); display: inline-block;
-    animation: pulse 4s ease-in-out infinite;
-  }
+  #tick i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); animation: pulse 4s ease-in-out infinite; }
   #tick.stale i { background: var(--danger); animation: none; }
   @keyframes pulse { 50% { opacity: .35; } }
 
   main { max-width: 1200px; margin: 0 auto; padding: 1.25rem; }
-  section { margin-top: 1.75rem; }
-  .eyebrow {
-    font-size: .68rem; letter-spacing: .2em; text-transform: uppercase;
-    color: var(--muted); margin-bottom: .6rem;
-  }
+  section { margin-top: 1.6rem; }
+  .eyebrow { font-size: .68rem; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin-bottom: .6rem; }
   .eyebrow em { font-style: normal; color: var(--amber); }
 
-  /* ── callouts: only rendered when something needs a human ─── */
+  /* ── project header: how far, and what is stuck ───────────── */
+  .project { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: .9rem 1rem; }
+  .headline { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1rem; }
+  .headline b { font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; }
+  .headline span { color: var(--muted); }
+  .bar { display: flex; height: 10px; border-radius: 2px; overflow: hidden; background: var(--rail); margin: .7rem 0 .5rem; }
+  .bar i { display: block; }
+  .bar i.shipped  { background: var(--ok); }
+  .bar i.building { background: var(--build); }
+  .bar i.ready    { background: var(--amber); }
+  .bar i.blocked  { background: var(--rail); box-shadow: inset 0 0 0 1px var(--line); }
+  .legend { display: flex; flex-wrap: wrap; gap: .3rem 1.1rem; color: var(--muted); }
+  .legend b { color: var(--ink); font-weight: 600; }
+  .legend s { text-decoration: none; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: .4rem; }
+  .needs { margin-top: .6rem; padding-top: .6rem; border-top: 1px solid var(--line); color: var(--muted); }
+  .needs b { color: var(--amber); font-weight: 600; }
+  .needs.clear b { color: var(--ok); }
+
   .callout {
     display: flex; flex-wrap: wrap; gap: .3rem 1rem; align-items: baseline;
-    border: 1px solid var(--amber); border-left-width: 4px;
-    background: var(--amber-soft); border-radius: 4px;
-    padding: .6rem .9rem; margin-top: 1rem;
+    border: 1px solid var(--amber); border-left-width: 4px; background: var(--amber-soft);
+    border-radius: 4px; padding: .6rem .9rem; margin-top: .8rem;
   }
   .callout.danger { border-color: var(--danger); background: transparent; }
   .callout code { color: var(--amber); }
   .callout.danger strong { color: var(--danger); }
 
-  /* ── frontier ─────────────────────────────────────────────── */
   .chips { display: flex; flex-wrap: wrap; gap: .5rem; }
-  .chip {
-    border: 1px solid var(--amber); color: var(--amber);
-    border-radius: 3px; padding: .2rem .6rem; font-weight: 600;
-  }
+  .chip { border: 1px solid var(--amber); color: var(--amber); border-radius: 3px; padding: .2rem .6rem; font-weight: 600; }
   .chip small { color: var(--muted); font-weight: 400; margin-left: .5em; }
 
-  /* ── story rails (the signature) ──────────────────────────── */
-  .epic { margin-top: 1.1rem; }
-  .epic-name {
-    display: flex; align-items: center; gap: .75rem;
-    font-size: .68rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted);
+  /* ── tree: epic › story › task ─────────────────────────────── */
+  details.epic { margin-top: .9rem; }
+  details.epic > summary, details.story > summary { cursor: pointer; list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  .caret { display: inline-block; width: .8rem; color: var(--muted); }
+  details[open] > summary .caret { transform: rotate(90deg); }
+  .caret::before { content: "\25B8"; }
+
+  .epic-row { display: flex; align-items: center; gap: .6rem; padding: .3rem 0; }
+  .epic-name { font-size: .7rem; letter-spacing: .18em; text-transform: uppercase; }
+  .epic-rule { flex: 1; border-top: 1px solid var(--line); }
+  .epic-count { color: var(--muted); font-size: .72rem; }
+  .epic-mini { display: flex; gap: 2px; }
+  .epic-mini i { width: 14px; height: 4px; border-radius: 1px; background: var(--rail); }
+  .epic-mini i.on { background: var(--ok); }
+
+  details.story {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+    margin: .4rem 0 .4rem 1.1rem; padding: .1rem .2rem;
   }
-  .epic-name::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
-  .story {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .25rem 1.5rem;
-    align-items: center; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 4px; padding: .7rem .9rem; margin-top: .5rem;
-  }
-  .story.frontier { border-left: 4px solid var(--amber); }
-  .story.shipped { opacity: .62; }
-  .s-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .6rem; min-width: 0; }
+  details.story.attention { border-left: 3px solid var(--amber); }
+  details.story.done > summary { opacity: .6; }
+  .s-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; padding: .5rem .7rem; }
   .s-key { font-weight: 700; }
-  .s-title {
-    font: .84rem/1.4 var(--sans); color: var(--muted);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .s-flag { font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--amber); }
-  .rail-wrap { overflow-x: auto; padding: .15rem 0; }
-  .rail { display: flex; align-items: center; width: max-content; }
-  .st { display: flex; flex-direction: column; align-items: center; gap: .3rem; width: 3.4rem; }
-  .st i {
-    width: 11px; height: 11px; border-radius: 50%;
-    border: 2px solid var(--rail); background: transparent;
-  }
-  .st.on i   { border-color: var(--ok); background: var(--ok); }
-  .st.part i { border-color: var(--ok); background: transparent; }
-  .st.bad i  { border-color: var(--danger); background: transparent; }
+  .s-title { font: .84rem/1.4 var(--sans); color: var(--muted); flex: 1; min-width: 8rem; }
+  .mini { display: flex; gap: 3px; margin-left: auto; }
+  .mini i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--rail); }
+  .mini i.on { background: var(--ok); border-color: var(--ok); }
+  .mini i.part { border-color: var(--ok); }
+  .mini i.bad { border-color: var(--danger); }
+  .state { font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; min-width: 6.5rem; text-align: right; }
+  .state.shipped { color: var(--ok); }
+  .state.building { color: var(--build); }
+  .state.ready { color: var(--amber); }
+  .state.blocked, .state.waiting { color: var(--muted); }
+
+  .s-body { padding: .1rem .8rem .7rem 1.5rem; border-top: 1px dashed var(--line); margin-top: .1rem; }
+  .rail-wrap { overflow-x: auto; padding: .6rem 0 .2rem; }
+  .rail { display: flex; align-items: flex-start; width: max-content; }
+  .st { display: flex; flex-direction: column; align-items: center; gap: .3rem; width: 3.6rem; }
+  .st i { width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--rail); }
+  .st.on i { border-color: var(--ok); background: var(--ok); }
+  .st.part i { border-color: var(--ok); }
+  .st.bad i { border-color: var(--danger); }
   .st b { font-size: .58rem; font-weight: 500; letter-spacing: .1em; color: var(--muted); }
   .st.on b { color: var(--ink); }
   .st small { font-size: .6rem; color: var(--muted); min-height: .9em; }
-  .link { flex: 0 0 1.15rem; border-top: 2px solid var(--rail); margin: 0 -.55rem; transform: translateY(-.68rem); }
+  .link { flex: 0 0 1.2rem; border-top: 2px solid var(--rail); margin: 0 -.6rem; transform: translateY(.32rem); }
   .link.on { border-color: var(--ok); }
 
-  /* ── ledgers ──────────────────────────────────────────────── */
-  .ledgers { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; }
-  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; }
-  th, td { text-align: left; padding: .45rem .7rem; border-top: 1px solid var(--line); }
-  thead th { font-size: .64rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); border-top: 0; }
-  td.muted { color: var(--muted); }
-  .tag { font-size: .68rem; padding: .1rem .45rem; border-radius: 3px; border: 1px solid var(--line); color: var(--muted); }
-  .tag.confirmed { border-color: var(--ok); color: var(--ok); }
-  .tag.draft { border-color: var(--amber); color: var(--amber); }
+  .tasks { list-style: none; padding: .3rem 0 0; }
+  .tasks li { display: flex; gap: .55rem; padding: .12rem 0; color: var(--muted); }
+  .tasks li.done { color: var(--ink); }
+  .tasks li em { font-style: normal; width: .9rem; }
+  .tasks li.done em { color: var(--ok); }
+  .tasks li.active em { color: var(--build); }
+  .note { color: var(--muted); padding: .5rem 0 .1rem; }
+  .note code, .empty code, footer code { color: var(--amber); }
 
-  /* ── empty state ──────────────────────────────────────────── */
-  .empty { border: 1px dashed var(--line); border-radius: 4px; padding: 1rem; color: var(--muted); background: transparent; }
-  .empty code { color: var(--amber); }
+  /* ── artifact panels: read the plan and evidence in place ─── */
+  .tabs { display: flex; gap: .3rem; margin: .7rem 0 0; border-bottom: 1px solid var(--line); }
+  .tabs button {
+    font: inherit; color: var(--muted); background: none; border: 0;
+    border-bottom: 2px solid transparent; padding: .35rem .7rem; cursor: pointer;
+    letter-spacing: .12em; text-transform: uppercase; font-size: .64rem;
+  }
+  .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--amber); }
+  .tabs .spacer { flex: 1; }
+  .tabs button.raw { text-transform: none; letter-spacing: 0; font-size: .68rem; }
+  .panel { max-height: 26rem; overflow: auto; padding: .7rem .2rem .2rem; }
+  .panel pre {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 3px;
+    padding: .6rem .7rem; overflow-x: auto; font-size: .72rem; line-height: 1.5;
+  }
+  .md h1, .md h2, .md h3 { font: 600 .84rem/1.4 var(--mono); letter-spacing: .04em; margin: .9rem 0 .3rem; }
+  .md h1 { font-size: .95rem; }
+  .md h2 { color: var(--amber); }
+  .md p { font: .82rem/1.6 var(--sans); margin: .4rem 0; }
+  .md ul, .md ol { font: .82rem/1.6 var(--sans); margin: .3rem 0 .3rem 1.1rem; }
+  .md li { margin: .12rem 0; }
+  .md code { font-family: var(--mono); font-size: .74rem; background: var(--bg); padding: 0 .25em; border-radius: 2px; }
+  .md pre code { background: none; padding: 0; }
+  .md strong { font-weight: 700; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: .2rem 1rem; font-size: .76rem; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; }
+  .verdict { font-weight: 600; }
+  .verdict.ok { color: var(--ok); }
+  .verdict.none { color: var(--muted); }
+  .verdict.bad { color: var(--danger); }
+  .finding { border-left: 2px solid var(--danger); padding: .1rem .6rem; margin: .3rem 0; }
+  .finding.minor { border-left-color: var(--rail); }
 
+  /* ── what now ─────────────────────────────────────────────── */
+  .whatnow { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: .75rem .9rem; }
+  .whatnow ol { margin: .4rem 0 0; padding-left: 1.2rem; font: .8rem/1.6 var(--sans); }
+  .whatnow li { margin: .15rem 0; }
+  .whatnow li code, .whatnow li b { font-family: var(--mono); font-size: .74rem; }
+  .whatnow .phase { color: var(--muted); }
+  .whatnow .phase b { color: var(--ink); font-weight: 600; }
+
+  /* ── approval readiness ───────────────────────────────────── */
+  .ready-box { border: 1px solid var(--line); border-radius: 3px; padding: .55rem .7rem; margin-bottom: .8rem; }
+  .ready-box.blocked { border-left: 3px solid var(--amber); }
+  .ready-head { font-size: .64rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+  .ready-head b { color: var(--amber); }
+  .ready-box.clear .ready-head b { color: var(--ok); }
+  .check { display: flex; gap: .5rem; align-items: baseline; font-size: .76rem; padding: .1rem 0; }
+  .check em { font-style: normal; width: .9rem; color: var(--ok); }
+  .check.no em { color: var(--danger); }
+  .check .fix { color: var(--muted); font-size: .72rem; }
+
+  .decisions { columns: 2; column-gap: 1.5rem; font-size: .74rem; }
+  .decisions a { color: inherit; text-decoration: none; }
+  .decisions div { break-inside: avoid; padding: .1rem 0; color: var(--muted); }
+  .decisions b { color: var(--ink); font-weight: 600; }
+  .open-file { color: var(--muted); font-size: .7rem; text-decoration: none; border-bottom: 1px dotted var(--line); }
+  .open-file:hover { color: var(--amber); }
+
+  .specs-line { color: var(--muted); }
+  .specs-line b { color: var(--ink); font-weight: 600; }
+  .specs-line .draft { color: var(--amber); }
+
+  .empty { border: 1px dashed var(--line); border-radius: 4px; padding: 1rem; color: var(--muted); }
   footer { max-width: 1200px; margin: 3rem auto 0; padding: 0 1.25rem; color: var(--muted); font-size: .68rem; }
 
-  @media (prefers-reduced-motion: reduce) {
-    #tick i { animation: none; }
-  }
+  @media (prefers-reduced-motion: reduce) { #tick i { animation: none; } }
   @media (max-width: 640px) {
-    .story { grid-template-columns: 1fr; }
-    header { gap: .2rem .9rem; }
+    .mini { margin-left: 0; }
+    .state { text-align: left; }
+    details.story { margin-left: .4rem; }
   }
 </style>
 </head>
@@ -146,24 +216,26 @@
 </header>
 
 <main>
+  <section id="project-section" style="margin-top:0"></section>
   <div id="callouts"></div>
+  <section id="next-section"></section>
   <section id="frontier-section" hidden>
     <div class="eyebrow"><em>Ready to plan in parallel</em> — dependencies met, no plan yet</div>
     <div class="chips" id="frontier"></div>
   </section>
   <section>
-    <div class="eyebrow">Stories · gate rail per story</div>
-    <div id="stories"></div>
+    <div class="eyebrow">Epics · stories · tasks</div>
+    <div id="tree"></div>
   </section>
-  <section class="ledgers">
-    <div>
-      <div class="eyebrow">Specs ledger</div>
-      <div id="specs"></div>
-    </div>
-    <div>
-      <div class="eyebrow">Plans ledger</div>
-      <div id="plans"></div>
-    </div>
+  <section id="specs-section">
+    <div class="eyebrow">Specs</div>
+    <div id="specs"></div>
+  </section>
+  <section>
+    <details id="decisions-details">
+      <summary class="eyebrow" style="cursor:pointer">Active decisions <span id="dec-count"></span></summary>
+      <div class="decisions" id="decisions"></div>
+    </details>
   </section>
 </main>
 
@@ -176,47 +248,386 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 let lastOk = 0;
+// Which rows the user opened — reapplied after every poll so a refresh
+// never collapses what they are reading.
+const open = {epics: new Set(), stories: new Set()};
+let firstPaint = true;
+// #RAIL-3 opens that story — the skill links straight to the plan it saved.
+const deepLink = () => decodeURIComponent(location.hash.replace(/^#/, ""));
+if (deepLink()) open.stories.add(deepLink());
+addEventListener("hashchange", () => {
+  const key = deepLink();
+  if (!key) return;
+  open.stories.add(key);
+  const el = document.querySelector(`details.story[data-story="${CSS.escape(key)}"]`);
+  if (el) { el.open = true; el.scrollIntoView({block: "center"}); }
+});
 
-function station(cls, label, note) {
-  // cls and label are internal constants; note carries ledger data (a spec's
-  // status field), so it is escaped here — one place, applied to every rail.
-  return `<span class="st ${cls}"><i></i><b>${label}</b><small>${esc(note || "")}</small></span>`;
+function stations(story) {
+  const lc = story.lifecycle || {};
+  const stages = lc.stages;
+  const reviews = lc.reviews || {};
+  const reviewCount = ["quality", "performance", "security"].filter(a => reviews[a]).length;
+  const checksDone = [lc.verify, lc.tests].filter(Boolean).length + reviewCount;
+  return [
+    {cls: lc.spec === "confirmed" ? "on" : (lc.spec === "draft" ? "part" : "bad"),
+     label: "SPEC", note: lc.spec === "missing" ? "missing" : lc.spec},
+    {cls: lc.roadmap ? "on" : "", label: "STORY", note: ""},
+    {cls: lc.planned ? "on" : "", label: "PLAN", note: ""},
+    {cls: !stages ? "" : (stages.done === stages.total && stages.total ? "on" : (stages.done ? "part" : "")),
+     label: "BUILD", note: stages ? `${stages.done}/${stages.total}` : ""},
+    {cls: checksDone === 5 ? "on" : (checksDone ? "part" : ""),
+     label: "CHECKS", note: checksDone ? `${checksDone}/5` : ""},
+    {cls: lc.shipped ? "on" : "", label: "SHIPPED", note: ""},
+  ];
 }
 
-function railFor(story) {
-  const lc = story.lifecycle || {};
-  const spec = lc.spec === "confirmed" ? "on" : (lc.spec === "draft" ? "part" : "bad");
-  const specNote = lc.spec === "missing" ? "missing" : lc.spec;
-  const stages = lc.stages;
-  const stagesCls = !stages ? "" : (stages.done === stages.total && stages.total > 0 ? "on" : (stages.done > 0 ? "part" : ""));
-  const stagesNote = stages ? `${stages.done}/${stages.total}` : "";
-  const reviews = lc.reviews || {};
-  const reviewCount = ["quality","performance","security"].filter(a => reviews[a]).length;
-  const checksOn = lc.verify && lc.tests && reviewCount === 3;
-  const checksPart = lc.verify || lc.tests || reviewCount > 0;
-  const checksNote = checksOn ? "3/3" : (checksPart ? `${[lc.verify, lc.tests].filter(Boolean).length + reviewCount}/5` : "");
-  const nodes = [
-    [spec, "SPEC", specNote],
-    [lc.roadmap ? "on" : "", "STORY", ""],
-    [lc.planned ? "on" : "", "PLAN", ""],
-    [stagesCls, "BUILD", stagesNote],
-    [checksOn ? "on" : (checksPart ? "part" : ""), "CHECKS", checksNote],
-    [lc.shipped ? "on" : "", "SHIPPED", ""],
-  ];
+function miniRail(story) {
+  return `<span class="mini">${stations(story)
+    .map(s => `<i class="${s.cls}"></i>`).join("")}</span>`;
+}
+
+function fullRail(story) {
+  const nodes = stations(story);
   let html = "";
-  nodes.forEach(([cls, label, note], i) => {
-    if (i) html += `<span class="link ${cls === "on" || cls === "part" ? "on" : ""}"></span>`;
-    html += station(cls, label, note);
+  nodes.forEach((s, i) => {
+    if (i) html += `<span class="link ${s.cls === "on" || s.cls === "part" ? "on" : ""}"></span>`;
+    html += `<span class="st ${s.cls}"><i></i><b>${s.label}</b><small>${esc(s.note || "")}</small></span>`;
   });
-  return `<span class="rail">${html}</span>`;
+  return `<div class="rail-wrap"><span class="rail">${html}</span></div>`;
+}
+
+function taskList(story) {
+  const tasks = story.tasks || [];
+  if (!tasks.length) {
+    return story.lifecycle?.planned
+      ? `<div class="note">Planned, no tasks recorded yet — they appear once the decomposition is recorded.</div>`
+      : `<div class="note">Tasks appear after this story is planned and decomposed.</div>`;
+  }
+  const mark = {done: "✓", "in-progress": "◐"};
+  return `<ul class="tasks">${tasks.map(t => {
+    const cls = t.status === "done" ? "done" : (t.status === "in-progress" ? "active" : "");
+    return `<li class="${cls}"><em>${mark[t.status] || "○"}</em>
+      <span>${esc(t.id)}</span><span>${esc(t.title || "")}</span></li>`;
+  }).join("")}</ul>`;
+}
+
+/* Minimal markdown for what plans actually use. Input is escaped FIRST, so
+   nothing here can inject — the patterns only add tags around safe text. */
+function md(src) {
+  const lines = esc(src).split(/\r?\n/);
+  const out = [];
+  let list = null, fence = false;
+  const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  const inline = (s) => s
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  for (const line of lines) {
+    if (/^```/.test(line)) {
+      closeList();
+      out.push(fence ? "</code></pre>" : "<pre><code>");
+      fence = !fence;
+      continue;
+    }
+    if (fence) { out.push(line); continue; }
+    const heading = line.match(/^(#{1,3})\s+(.*)$/);
+    const bullet = line.match(/^\s*[-*]\s+(.*)$/);
+    const numbered = line.match(/^\s*\d+\.\s+(.*)$/);
+    if (heading) {
+      closeList();
+      const level = heading[1].length;
+      out.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+    } else if (bullet) {
+      if (list !== "ul") { closeList(); out.push("<ul>"); list = "ul"; }
+      out.push(`<li>${inline(bullet[1])}</li>`);
+    } else if (numbered) {
+      if (list !== "ol") { closeList(); out.push("<ol>"); list = "ol"; }
+      out.push(`<li>${inline(numbered[1])}</li>`);
+    } else if (!line.trim()) {
+      closeList();
+    } else {
+      closeList();
+      out.push(`<p>${inline(line)}</p>`);
+    }
+  }
+  closeList();
+  if (fence) out.push("</code></pre>");
+  return `<div class="md">${out.join("\n")}</div>`;
+}
+
+const rawBlock = (value) =>
+  `<pre>${esc(JSON.stringify(value, null, 2))}</pre>`;
+
+function findingList(items, cls) {
+  if (!items || !items.length) return "";
+  return items.map(f => {
+    const text = typeof f === "string" ? f
+      : [f.category, f.area, f.summary].filter(Boolean).join(" · ");
+    return `<div class="finding ${cls}">${esc(text)}</div>`;
+  }).join("");
+}
+
+function evidencePanel(detail) {
+  const ev = detail.evidence || {};
+  const rows = [];
+  const verify = ev.verify;
+  rows.push(["verify", verify
+    ? `<span class="verdict ${verify.ok ? "ok" : "bad"}">${verify.ok ? "passed" : "failed"}</span>`
+    : `<span class="verdict none">not recorded</span>`]);
+  const tests = ev.tests;
+  rows.push(["tests", tests
+    ? Object.keys(tests).map(k => esc(k)).join(", ")
+    : `<span class="verdict none">not recorded</span>`]);
+  for (const [aspect, review] of Object.entries(ev.reviews || {})) {
+    rows.push([aspect, review
+      ? `<span class="verdict ${review.score >= 8 ? "ok" : "bad"}">${esc(review.score)}/10</span>
+         ${esc(review.summary || "")}
+         ${findingList(review.blocking_findings, "")}
+         ${findingList(review.non_blocking_findings, "minor")}`
+      : `<span class="verdict none">not recorded</span>`]);
+  }
+  for (const [gate, grill] of Object.entries(ev.grills || {})) {
+    rows.push([`grill:${gate}`, grill
+      ? `<span class="verdict ${grill.verdict === "pass" ? "ok" : "bad"}">${esc(grill.verdict)}</span>`
+      : ""]);
+  }
+  return `<dl class="kv">${rows.map(([k, v]) =>
+    `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
+}
+
+function decompositionPanel(detail) {
+  const d = detail.evidence?.decomposition;
+  if (!d) return `<div class="note">No decomposition recorded yet — it is written when the approved plan is broken into bounded tasks.</div>`;
+  const tasks = d.tasks || [];
+  return `<dl class="kv">
+      <dt>user facing</dt><dd>${d.user_facing ? "yes" : "no"}</dd>
+      <dt>recorded by</dt><dd>${esc(d.generated_by || "")}</dd>
+      <dt>tasks</dt><dd>${tasks.length}</dd>
+    </dl>
+    <ul class="tasks">${tasks.map(t =>
+      `<li><em>·</em><span>${esc(t.id || "")}</span><span>${esc(t.title || t.summary || "")}</span></li>`
+    ).join("")}</ul>`;
+}
+
+const RAW_SOURCE = {
+  plan: (d) => ({path: d.plan?.path, frontmatter: d.plan, body: d.plan_body}),
+  decomposition: (d) => d.evidence?.decomposition,
+  evidence: (d) => ({verify: d.evidence?.verify, tests: d.evidence?.tests,
+                     reviews: d.evidence?.reviews, grills: d.evidence?.grills}),
+  spec: (d) => d.spec,
+};
+
+let repoRoot = "";
+// Opens the real file in VS Code — review in the browser, edit in the editor.
+const openFile = (rel) => rel
+  ? `<a class="open-file" href="vscode://file/${esc(repoRoot)}/${esc(rel)}">${esc(rel)} ↗</a>`
+  : "";
+
+function readinessBlock(detail) {
+  const checks = detail.readiness || [];
+  if (!checks.length) return "";
+  const blockers = checks.filter(c => !c.ok);
+  return `<div class="ready-box ${blockers.length ? "blocked" : "clear"}">
+    <div class="ready-head">Approval readiness —
+      <b>${blockers.length ? `${blockers.length} blocker${blockers.length === 1 ? "" : "s"}` : "ready to approve"}</b>
+    </div>
+    ${checks.map(c => `<div class="check ${c.ok ? "" : "no"}">
+        <em>${c.ok ? "✓" : "✗"}</em><span>${esc(c.label)}</span>
+        ${c.ok ? "" : `<span class="fix">${esc(c.fix)}</span>`}
+      </div>`).join("")}
+    ${blockers.length ? `<div class="check"><em></em><span class="fix">Approval happens in chat —
+      the grill is an interrogation, not a button.</span></div>` : ""}
+  </div>`;
+}
+
+function renderPanel(host, detail, tab, raw) {
+  if (raw) { host.innerHTML = rawBlock(RAW_SOURCE[tab](detail)); return; }
+  if (tab === "plan") {
+    host.innerHTML = readinessBlock(detail) + (detail.plan_body
+      ? `<div class="note">${openFile(detail.plan?.path)}</div>` + md(detail.plan_body)
+      : `<div class="note">No plan saved for this story yet — <code>forge.py plan save --from &lt;plan-file&gt;</code>.</div>`);
+  } else if (tab === "spec") {
+    host.innerHTML = detail.spec
+      ? `<div class="note">${openFile(detail.spec.path)}</div>` + md(detail.spec.body)
+      : `<div class="note">This story has no spec linked.</div>`;
+  } else if (tab === "decomposition") {
+    host.innerHTML = decompositionPanel(detail);
+  } else {
+    host.innerHTML = evidencePanel(detail);
+  }
+}
+
+async function mountArtifacts(box, key) {
+  if (box.dataset.loaded) return;
+  box.dataset.loaded = "1";
+  box.innerHTML = `<div class="note">Loading artifacts…</div>`;
+  let detail;
+  try {
+    const res = await fetch(`/api/story/${encodeURIComponent(key)}`, {cache: "no-store"});
+    detail = await res.json();
+    if (detail.error) throw new Error(detail.error);
+  } catch {
+    box.innerHTML = `<div class="note">Could not load artifacts for ${esc(key)}.</div>`;
+    box.dataset.loaded = "";
+    return;
+  }
+  const tabs = ["plan", "spec", "decomposition", "evidence"];
+  let current = "plan", raw = false;
+  box.innerHTML = `<div class="tabs">
+      ${tabs.map(t => `<button data-tab="${t}" aria-selected="${t === current}">${t}</button>`).join("")}
+      <span class="spacer"></span>
+      <button class="raw" data-raw="1" aria-selected="false">raw json</button>
+    </div><div class="panel"></div>`;
+  const panel = box.querySelector(".panel");
+  const paint = () => {
+    box.querySelectorAll("[data-tab]").forEach(b =>
+      b.setAttribute("aria-selected", String(b.dataset.tab === current)));
+    box.querySelector("[data-raw]").setAttribute("aria-selected", String(raw));
+    renderPanel(panel, detail, current, raw);
+  };
+  box.querySelectorAll("[data-tab]").forEach(b =>
+    b.addEventListener("click", () => { current = b.dataset.tab; paint(); }));
+  box.querySelector("[data-raw]").addEventListener("click", () => { raw = !raw; paint(); });
+  paint();
+}
+
+function projectHeader(state) {
+  const sum = state.summary;
+  if (!sum || !sum.stories.total) { $("project-section").innerHTML = ""; return; }
+  const s = sum.stories, total = s.total;
+  const pct = (n) => `${(n / total) * 100}%`;
+  const segments = [
+    ["shipped", s.shipped], ["building", s.building],
+    ["ready", s.ready], ["blocked", s.blocked + s.waiting],
+  ];
+  const a = sum.attention;
+  const bits = [];
+  if (a.contradictions.length) bits.push(`${plural(a.contradictions.length, "contradiction")} to resolve`);
+  if (a.assumptions) bits.push(`${plural(a.assumptions, "assumption")} to guide`);
+  if (a.spec_gaps.length) bits.push(`${plural(a.spec_gaps.length, "story")} ahead of its spec (${a.spec_gaps.map(esc).join(", ")})`);
+
+  $("project-section").innerHTML = `<div class="project">
+    <div class="headline"><b>${s.shipped}/${total}</b><span>stories shipped</span></div>
+    <div class="bar">${segments.filter(([, n]) => n)
+      .map(([cls, n]) => `<i class="${cls}" style="width:${pct(n)}"></i>`).join("")}</div>
+    <div class="legend">
+      <span><s style="background:var(--ok)"></s><b>${s.shipped}</b> shipped</span>
+      <span><s style="background:var(--build)"></s><b>${s.building}</b> building</span>
+      <span><s style="background:var(--amber)"></s><b>${s.ready}</b> ready to plan</span>
+      <span><s style="background:var(--rail)"></s><b>${s.blocked + s.waiting}</b> blocked</span>
+    </div>
+    <div class="needs ${a.total ? "" : "clear"}">
+      ${a.total
+        ? `<b>${plural(a.total, "thing")} need you</b> — ${bits.join(" · ")}`
+        : `<b>Nothing waiting on you</b> — no contradictions, assumptions or spec gaps`}
+    </div>
+  </div>`;
+}
+
+function tree(state) {
+  const stories = state.stories || [];
+  if (!stories.length) {
+    $("tree").innerHTML = `<div class="empty">No stories yet. They are derived from confirmed specs —
+      save specs while prototyping (<code>./forge spec save &lt;slug&gt; --from &lt;draft.md&gt;</code>),
+      confirm them, then <code>./forge roadmap derive --input &lt;roadmap.json&gt;</code>.</div>`;
+    return;
+  }
+  const rollup = new Map((state.summary?.epics || []).map(e => [e.key, e]));
+  const byEpic = new Map();
+  for (const s of stories) {
+    const epic = s.epic || "Backlog";
+    if (!byEpic.has(epic)) byEpic.set(epic, []);
+    byEpic.get(epic).push(s);
+  }
+  let html = "";
+  for (const [epic, list] of byEpic) {
+    const roll = rollup.get(epic) || {shipped: 0, total: list.length};
+    // epics open by default on first paint; afterwards honour the user
+    const epicOpen = firstPaint ? true : open.epics.has(epic);
+    html += `<details class="epic" data-epic="${esc(epic)}"${epicOpen ? " open" : ""}>
+      <summary><div class="epic-row"><span class="caret"></span>
+        <span class="epic-name">${esc(epic)}</span><span class="epic-rule"></span>
+        <span class="epic-mini">${list.map(s =>
+          `<i class="${s.state === "shipped" ? "on" : ""}"></i>`).join("")}</span>
+        <span class="epic-count">${roll.shipped}/${roll.total} shipped</span>
+      </div></summary>`;
+    for (const s of list) {
+      const attention = s.state === "ready" || s.lifecycle?.spec !== "confirmed";
+      const blocked = (s.blocked_by || []).length
+        ? ` — waiting on ${s.blocked_by.map(esc).join(", ")}` : "";
+      html += `<details class="story ${s.state === "shipped" ? "done" : ""}
+          ${attention && s.state !== "shipped" ? "attention" : ""}"
+          data-story="${esc(s.key)}"${open.stories.has(s.key) ? " open" : ""}>
+        <summary><div class="s-row"><span class="caret"></span>
+          <span class="s-key">${esc(s.key)}</span>
+          <span class="s-title">${esc(s.title || "")}</span>
+          ${miniRail(s)}
+          <span class="state ${s.state}">${esc(s.state)}</span>
+        </div></summary>
+        <div class="s-body">${fullRail(s)}
+          ${blocked ? `<div class="note">Blocked${blocked}</div>` : ""}
+          ${taskList(s)}
+          <div class="artifacts" data-key="${esc(s.key)}"></div></div>
+      </details>`;
+    }
+    html += `</details>`;
+  }
+  $("tree").innerHTML = html;
+  $("tree").querySelectorAll("details.epic").forEach(el => {
+    if (firstPaint && el.open) open.epics.add(el.dataset.epic);
+    el.addEventListener("toggle", () =>
+      el.open ? open.epics.add(el.dataset.epic) : open.epics.delete(el.dataset.epic));
+  });
+  $("tree").querySelectorAll("details.story").forEach(el => {
+    // Artifacts load on first open, not on every poll — the tree payload
+    // stays small and a plan body is fetched only when someone reads it.
+    const load = () => {
+      if (!el.open) return;
+      open.stories.add(el.dataset.story);
+      mountArtifacts(el.querySelector(".artifacts"), el.dataset.story);
+    };
+    el.addEventListener("toggle", () => {
+      if (el.open) load(); else open.stories.delete(el.dataset.story);
+    });
+    load();
+  });
+  if (firstPaint && deepLink()) {
+    const target = $("tree").querySelector(`details.story[data-story="${CSS.escape(deepLink())}"]`);
+    if (target) target.scrollIntoView({block: "center"});
+  }
+  firstPaint = false;
+}
+
+function whatNow(state) {
+  const next = state.next || {};
+  if (!next.phase && !(next.steps || []).length) { $("next-section").innerHTML = ""; return; }
+  // Command-shaped fragments read as commands, so mark them up as such.
+  const asCode = (s) => esc(s)
+    .replace(/(^|\s)((?:\.\/forge|forge\.py|python3|\/grill-me)[^,;()]*)/g, "$1<code>$2</code>")
+    .replace(/^\[([^\]]+)\]/, "<b>[$1]</b>");
+  $("next-section").innerHTML = `<div class="whatnow">
+    <div class="phase">Phase: <b>${esc(next.phase || "—")}</b> — what to do now, as <code>./forge next</code> computes it</div>
+    <ol>${(next.steps || []).map(s => `<li>${asCode(s)}</li>`).join("")}</ol>
+  </div>`;
+}
+
+function decisionsPanel(state) {
+  const list = state.decisions || [];
+  $("dec-count").textContent = list.length ? `(${list.length})` : "";
+  $("decisions").innerHTML = list.map(d =>
+    `<div><b>${esc(d.id)}</b> ${esc(d.title)} ${openFile(d.path)}</div>`).join("");
 }
 
 function render(state) {
+  repoRoot = state.root || "";
   const run = state.run || {};
   $("run-stat").innerHTML = run.issue_key
     ? `run <b>${esc(run.issue_key)}</b> · phase <b>${esc(run.phase)}</b> · plan <b>${esc(run.plan_status || "—")}</b>`
     : `no active task · phase <b>${esc(run.phase || "—")}</b>`;
+
+  projectHeader(state);
 
   const callouts = [];
   for (const sig of state.signals || []) {
@@ -237,62 +648,32 @@ function render(state) {
   $("frontier").innerHTML = frontier.map(s =>
     `<span class="chip">${esc(s.key)}<small>${esc(s.title || "")}</small></span>`).join("");
 
-  const stories = state.stories || [];
-  if (!stories.length) {
-    $("stories").innerHTML = `<div class="empty">No stories yet. They are derived from confirmed specs —
-      save specs while prototyping (<code>./forge spec save &lt;slug&gt; --from &lt;draft.md&gt;</code>),
-      confirm them, then <code>./forge roadmap derive --input &lt;roadmap.json&gt;</code>.</div>`;
+  whatNow(state);
+  tree(state);
+  decisionsPanel(state);
+
+  const sp = state.summary?.specs;
+  if (!sp || !sp.total) {
+    $("specs").innerHTML = `<div class="empty">No specs saved. First capability:
+      <code>./forge spec save &lt;slug&gt; --from &lt;draft.md&gt;</code></div>`;
   } else {
-    const byEpic = new Map();
-    for (const s of stories) {
-      const epic = s.epic || "Backlog";
-      if (!byEpic.has(epic)) byEpic.set(epic, []);
-      byEpic.get(epic).push(s);
-    }
-    let html = "";
-    for (const [epic, list] of byEpic) {
-      html += `<div class="epic"><div class="epic-name">${esc(epic)}</div>`;
-      for (const s of list) {
-        const cls = (s.ready_to_plan ? " frontier" : "") + (s.lifecycle?.shipped ? " shipped" : "");
-        html += `<article class="story${cls}">
-          <div class="s-head"><span class="s-key">${esc(s.key)}</span>
-            <span class="s-title">${esc(s.title || "")}</span>
-            ${s.ready_to_plan ? '<span class="s-flag">ready to plan</span>' : ""}</div>
-          <div class="rail-wrap">${railFor(s)}</div></article>`;
-      }
-      html += `</div>`;
-    }
-    $("stories").innerHTML = html;
+    const parts = [`<b>${sp.total}</b> total`];
+    parts.push(sp.draft.length
+      ? `<span class="draft"><b>${sp.draft.length}</b> draft (${sp.draft.map(esc).join(", ")})</span>`
+      : "none draft");
+    if (sp.unreferenced.length)
+      parts.push(`<span class="draft"><b>${sp.unreferenced.length}</b> unreferenced by any story (${sp.unreferenced.map(esc).join(", ")})</span>`);
+    $("specs").innerHTML = `<div class="specs-line">${parts.join(" · ")}</div>`;
   }
-
-  const specs = state.specs || [];
-  $("specs").innerHTML = specs.length
-    ? `<table><thead><tr><th>spec</th><th>status</th></tr></thead><tbody>` +
-      specs.map(sp => `<tr><td>${esc(sp.slug || sp.path || "")}</td>
-        <td><span class="tag ${esc(sp.status || "draft")}">${esc(sp.status || "draft")}</span></td></tr>`).join("") +
-      `</tbody></table>`
-    : `<div class="empty">No specs saved. First capability: <code>./forge spec save &lt;slug&gt; --from &lt;draft.md&gt;</code></div>`;
-
-  const plans = [...(state.plans?.active || []), ...(state.plans?.completed || [])];
-  $("plans").innerHTML = plans.length
-    ? `<table><thead><tr><th>plan</th><th>story</th><th>state</th></tr></thead><tbody>` +
-      plans.map(p => `<tr><td>${esc(p.issue || p.path)}</td>
-        <td class="muted">${esc(p.story || "—")}</td>
-        <td class="muted">${esc(p.location)}</td></tr>`).join("") +
-      `</tbody></table>`
-    : `<div class="empty">No plans saved. Plans appear once a story enters planning
-      (<code>forge.py plan save --from &lt;plan-file&gt;</code>).</div>`;
 }
 
 async function poll() {
   try {
-    const res = await fetch("/api/state", { cache: "no-store" });
+    const res = await fetch("/api/state", {cache: "no-store"});
     if (!res.ok) throw new Error(res.status);
     render(await res.json());
     lastOk = Date.now();
-  } catch {
-    /* tick label reflects staleness */
-  }
+  } catch { /* staleness shows in the tick */ }
 }
 function tick() {
   const el = $("tick"), label = $("tick-label");

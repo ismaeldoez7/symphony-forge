@@ -66,7 +66,10 @@ or route:
 | who does what / role handoffs | `docs/ROLES.md` — forge next tags every step [PM]/[EM]/[dev] |
 | start a task / new feature | `python3 factory/scripts/intake.py --issue <KEY> --title "<title>"` — then check `forge.py context list --pending` BEFORE planning |
 | plan is approved | `python3 factory/scripts/forge.py plan save --from <plan-file> --story <key>` (frontmatter attests every active decision) |
-| show implementation progress | `./forge plan list` or `./forge board` (read-only localhost lifecycle view) |
+| show implementation progress / how far along are we / show the board | `./forge board` — see "Show, don't recite" below. `./forge plan list` is the text fallback |
+| review the plan / let me read the plan | open the board at that story: `./forge board` then share `http://127.0.0.1:8765/#<STORY-KEY>`. The plan renders there with an approval-readiness checklist; approval still happens in chat (the grill is an interrogation, not a button) |
+| I need a small fix without a plan | `./forge quickfix start "<reason>"` — a bounded, ledgered window (5 product files) that the hook tracks; close it with `./forge quickfix done`. Exceeding the budget forces plan mode, and pr_ready refuses to ship with a window open |
+| why is my edit blocked | the planning lock is ALWAYS armed (decision 0013): product writes need an approved plan or an open quickfix. `.factory/` is never hand-written; recorded state comes from the record_* scripts |
 | record the decomposition | `python3 factory/scripts/record_decomposition_from_json.py --input <json>`, then `update_run.py --phase implementing --decomposition-status recorded` |
 | record a decision | `./forge decision new <slug>` — draft only |
 | this decision replaces an old one | `./forge decision new <slug> --supersedes <old-slug>` — never edit/delete the old record by hand |
@@ -95,6 +98,27 @@ or route:
 | mine for skills / retro | follow `factory/prompts/skill-miner.md` |
 | improve the animations / motion audit | run the `improve-animations` skill (read-only audit → prioritized plans); land its items via `./forge roadmap add` or a task intake — never apply fixes straight from the audit |
 | update a client repo to the latest harness | from the HARNESS clone: `./forge upgrade --target <client-repo>` (clean tree required; review the diff, run the linter + gate tests, commit) |
+
+## Show, don't recite
+
+When a dev asks anything status-shaped — "what now", "how far along", "show me
+progress", "review the plan", "what can we parallelise" — put it on screen
+instead of narrating it:
+
+```bash
+./forge board            # serves http://127.0.0.1:8765/ and opens the browser
+```
+
+- **Reuse, never duplicate.** If the board is already serving this repo, give
+  the URL rather than starting a second one; a busy port means it is running.
+- **Deep-link to the story you are talking about**: `…:8765/#RAIL-3` expands
+  that story with its plan, spec, decomposition and evidence.
+- **After saving a plan**, hand over the link so the dev reads the rendered
+  plan and its approval-readiness checklist instead of the markdown file.
+- The board is READ-ONLY on purpose. It shows what blocks approval; it never
+  approves. Recording still goes through the gated commands above.
+- Still report the outcome in chat — the board supplements your answer, it
+  does not replace it.
 
 ## Hard rules
 

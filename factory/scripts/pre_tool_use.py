@@ -177,7 +177,9 @@ def bash_write_paths(value: str) -> list[str]:
     # if a real bypass shows up.
     """
     found: list[str] = []
-    for segment in re.split(r"[;&|]+", strip_heredoc_bodies(value)):
+    # Newlines separate commands too: without them a multi-line script is one
+    # segment, and an earlier command's operand list swallows later lines.
+    for segment in re.split(r"[;&|\n]+", strip_heredoc_bodies(value)):
         tokens = tokenize(segment)
         if tokens is None:
             continue

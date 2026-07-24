@@ -6,6 +6,7 @@ description: >-
   docs/context inbox, check gate status, and review proposed skills. Invoke
   when the user says "start a task", "save this plan", "record a decision",
   "harvest context", "is this PR ready", "harness status", "what now",
+  "show me progress", "show the board", "review the plan",
   "create a new app", "set up a new project", or "/forge".
 ---
 

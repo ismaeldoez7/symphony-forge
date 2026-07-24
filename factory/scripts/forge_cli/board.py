@@ -3,13 +3,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from factory_lib import load_json, now_iso, repo_root
 
+from .assumptions import open_count as open_assumptions
+from .decisions import decision_records
 from .plans import parse_frontmatter
 from .quickfix import load_active
 from .roadmap import load_roadmap, ready_pending
@@ -40,10 +43,15 @@ def _stage_summary(base: Path) -> dict:
     }
 
 
-def _plan_evidence(base: Path, plan: dict | None) -> tuple[dict | None, dict]:
+def _plan_evidence(base: Path, plan: dict | None) -> tuple[dict | None, dict, list]:
+    """Stage progress, gate evidence, and the story's real task list.
+
+    Tasks exist only once a story's plan is approved and decomposed, so an
+    unplanned story returns none rather than inventing children.
+    """
     empty_reviews = {aspect: False for aspect in ("quality", "performance", "security")}
     if not plan:
-        return None, {"verify": False, "tests": False, "reviews": empty_reviews}
+        return None, {"verify": False, "tests": False, "reviews": empty_reviews}, []
     if plan.get("location") == "completed":
         root = base / ".factory" / "history" / str(plan.get("issue", ""))
     else:
@@ -56,6 +64,11 @@ def _plan_evidence(base: Path, plan: dict | None) -> tuple[dict | None, dict]:
             "done": sum(1 for stage in stages if stage.get("status") == "done"),
             "total": len(stages),
         }
+    tasks = [
+        {"id": stage.get("id"), "title": stage.get("title"),
+         "status": stage.get("status", "pending")}
+        for stage in stages
+    ]
     evidence = {
         "verify": load_json(root / "verify.json", default={}).get("ok") is True,
         "tests": (root / "tests.json").is_file(),
@@ -64,7 +77,54 @@ def _plan_evidence(base: Path, plan: dict | None) -> tuple[dict | None, dict]:
             for aspect in ("quality", "performance", "security")
         },
     }
-    return progress, evidence
+    return progress, evidence, tasks
+
+
+# The four states every story is in, exactly once — the segments of the
+# project bar. "blocked" is a graph fact that clears when a parent ships;
+# "needs you" is counted separately because a human must act on it.
+def _story_state(story: dict, blocked: bool) -> str:
+    lifecycle = story["lifecycle"]
+    if lifecycle["shipped"]:
+        return "shipped"
+    if lifecycle["planned"]:
+        return "building"
+    if blocked:
+        return "blocked"
+    return "ready" if story["ready_to_plan"] else "waiting"
+
+
+def _summary(stories: list[dict], specs: list[dict], signals: list[dict],
+             assumptions_open: int) -> dict:
+    counts = {state: 0 for state in
+              ("shipped", "building", "ready", "waiting", "blocked")}
+    for story in stories:
+        counts[story["state"]] += 1
+    spec_gaps = [s["key"] for s in stories
+                 if s["lifecycle"]["spec"] != "confirmed" and not s["lifecycle"]["shipped"]]
+    contradictions = [s["id"] for s in signals if s.get("kind") == "contradiction"]
+    referenced = {s.get("spec") for s in stories if s.get("spec")}
+    epics: dict[str, dict] = {}
+    for story in stories:
+        key = story.get("epic") or "Backlog"
+        bucket = epics.setdefault(key, {"key": key, "total": 0, "shipped": 0})
+        bucket["total"] += 1
+        bucket["shipped"] += story["state"] == "shipped"
+    return {
+        "stories": {"total": len(stories), **counts},
+        "attention": {
+            "total": len(contradictions) + assumptions_open + len(spec_gaps),
+            "contradictions": contradictions,
+            "assumptions": assumptions_open,
+            "spec_gaps": spec_gaps,
+        },
+        "specs": {
+            "total": len(specs),
+            "draft": [s["slug"] for s in specs if s.get("status") != "confirmed"],
+            "unreferenced": [s["slug"] for s in specs if s["path"] not in referenced],
+        },
+        "epics": list(epics.values()),
+    }
 
 
 def aggregate_state(base: Path) -> dict:
@@ -89,13 +149,17 @@ def aggregate_state(base: Path) -> dict:
     spec_status = {record["path"]: record.get("status", "draft") for record in specs}
     run = load_json(base / ".factory" / "run.json", default={})
     stages = _stage_summary(base)
+    done_keys = {item.get("key") for item in items if item.get("status") == "done"}
     stories = []
     for item in items:
         story = dict(item)
         plan = plan_by_story.get(item.get("key"))
-        progress, evidence = _plan_evidence(base, plan)
+        progress, evidence, tasks = _plan_evidence(base, plan)
         story["ready_to_plan"] = item.get("key") in frontier
         story["plan"] = plan
+        story["tasks"] = tasks
+        story["blocked_by"] = [dep for dep in item.get("depends_on", [])
+                               if dep not in done_keys]
         story["lifecycle"] = {
             "spec": spec_status.get(item.get("spec"), "missing"),
             "roadmap": True,
@@ -106,12 +170,16 @@ def aggregate_state(base: Path) -> dict:
             "reviews": evidence["reviews"],
             "shipped": item.get("status") == "done",
         }
+        story["state"] = _story_state(story, bool(story["blocked_by"]))
         stories.append(story)
+    signals = open_signals(base)
     return {
         "generated_at": now_iso(),
+        "root": str(base.resolve()),
         "specs": specs,
         "epics": roadmap.get("epics", []),
         "stories": stories,
+        "summary": _summary(stories, specs, signals, open_assumptions(base)),
         "frontier": frontier,
         "plans": plans,
         "run": {
@@ -122,7 +190,129 @@ def aggregate_state(base: Path) -> dict:
         "stages": stages,
         "signals": open_signals(base),
         "quickfix": load_active(base) or None,
+        "next": next_actions(base),
+        "decisions": active_decisions(base),
     }
+
+
+def next_actions(base: Path) -> dict:
+    """The deterministic 'where am I / what now', as the CLI computes it.
+
+    # ponytail: captures cmd_next's own output rather than duplicating 100
+    # lines of gate branching — one source of truth. If the shape ever needs
+    # more than phase + steps, extract a builder from cmd_next instead.
+    """
+    import argparse
+    import contextlib
+    import io
+
+    from .phase import cmd_next
+
+    buffer = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buffer):
+            cmd_next(argparse.Namespace(repo=str(base)))
+    except SystemExit:
+        pass
+    phase, steps = "", []
+    for line in buffer.getvalue().splitlines():
+        if line.startswith("PHASE:"):
+            phase = line[len("PHASE:"):].strip()
+        elif re.match(r"\s+\d+\.\s", line):
+            steps.append(line.strip().split(". ", 1)[-1])
+    return {"phase": phase, "steps": steps}
+
+
+def active_decisions(base: Path) -> list[dict]:
+    records = decision_records(base)
+    return [
+        {"id": str(r.get("id") or r.get("slug") or ""),
+         "title": str(r.get("title") or ""),
+         "status": str(r.get("status") or ""),
+         "path": Path(str(r["path"])).relative_to(base).as_posix() if r.get("path") else ""}
+        for r in records if r.get("status") == "accepted"
+    ]
+
+
+def approval_readiness(base: Path, detail: dict) -> list[dict]:
+    """What still stands between this story's plan and approval.
+
+    Mirrors the refusals in `forge plan save` so the board explains a gate
+    rather than offering a button that would bypass it.
+    """
+    checks = []
+    plan = detail.get("plan")
+    body = detail.get("plan_body") or ""
+    grill = (detail.get("evidence", {}).get("grills") or {}).get("plan")
+    reviewed = set(plan.get("decisions_reviewed") or []) if plan else set()
+    active = {d["id"] for d in active_decisions(base)}
+    missing = sorted(active - reviewed)
+    contradictions = [s["id"] for s in open_signals(base)
+                      if s.get("kind") == "contradiction"]
+    checks.append({
+        "ok": bool(plan), "label": "plan saved",
+        "fix": "forge.py plan save --from <plan-file>"})
+    checks.append({
+        "ok": bool(grill) and grill.get("verdict") == "pass",
+        "label": "plan grill passed",
+        "fix": "/grill-me, then record_grill_from_json.py --gate plan"})
+    checks.append({
+        "ok": not missing,
+        "label": "decisions reviewed" + (f" — missing {', '.join(missing)}" if missing else ""),
+        "fix": "list every active decision in the plan's decisions_reviewed"})
+    checks.append({
+        "ok": "## Surface Impact" in body,
+        "label": "Surface Impact section",
+        "fix": "classify every surface in the plan (factory/prompts/planner.md)"})
+    checks.append({
+        "ok": not contradictions,
+        "label": "no open contradiction" + (f" — {', '.join(contradictions)}" if contradictions else ""),
+        "fix": "forge.py signal resolve <id> --notes \"...\""})
+    return checks
+
+
+def story_detail(base: Path, key: str) -> dict | None:
+    """The evidence bundle for one story, loaded on demand.
+
+    The key is matched against the roadmap rather than used as a path, so no
+    request can address a file outside the artifacts this story owns.
+    """
+    items = load_roadmap(base).get("items", [])
+    item = next((i for i in items if i.get("key") == key), None)
+    if item is None:
+        return None
+    plan = next(
+        (record for location in ("active", "completed")
+         for record in _plan_records(base, location)
+         if record.get("story") == key or record.get("issue") == key),
+        None,
+    )
+    plan_body = ""
+    if plan:
+        _, plan_body = parse_frontmatter((base / plan["path"]).read_text())
+    root = base / ".factory"
+    if plan and plan.get("location") == "completed":
+        root = root / "history" / str(plan.get("issue", ""))
+    evidence = {
+        name: load_json(root / f"{name}.json", default=None)
+        for name in ("decomposition", "verify", "tests", "stages")
+    }
+    evidence["reviews"] = {
+        aspect: load_json(root / "reviews" / f"{aspect}.json", default=None)
+        for aspect in ("quality", "performance", "security")
+    }
+    evidence["grills"] = {
+        path.stem: load_json(path, default=None)
+        for path in sorted((root / "grills").glob("*.json"))
+    }
+    spec_path = item.get("spec")
+    spec = None
+    if spec_path and (base / spec_path).is_file():
+        spec = {"path": spec_path, "body": (base / spec_path).read_text()}
+    detail = {"key": key, "story": item, "plan": plan, "plan_body": plan_body,
+              "spec": spec, "evidence": evidence}
+    detail["readiness"] = approval_readiness(base, detail)
+    return detail
 
 
 def make_server(base: Path, port: int) -> ThreadingHTTPServer:
@@ -135,6 +325,11 @@ def make_server(base: Path, port: int) -> ThreadingHTTPServer:
                 body = json.dumps(aggregate_state(root)).encode()
                 content_type = "application/json; charset=utf-8"
                 status = 200
+            elif route.startswith("/api/story/"):
+                detail = story_detail(root, unquote(route[len("/api/story/"):]))
+                body = json.dumps(detail or {"error": "unknown story"}).encode()
+                content_type = "application/json; charset=utf-8"
+                status = 200 if detail else 404
             elif route == "/":
                 body = (root / "factory" / "board" / "index.html").read_bytes()
                 content_type = "text/html; charset=utf-8"
@@ -158,8 +353,28 @@ def make_server(base: Path, port: int) -> ThreadingHTTPServer:
     return ThreadingHTTPServer(("127.0.0.1", port), BoardHandler)
 
 
+def already_serving(port: int) -> bool:
+    """True when a board for this repo is already up on the port.
+
+    The skill is told to reuse rather than duplicate; without this a second
+    `forge board` dies on 'address in use' and looks broken.
+    """
+    import urllib.error
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/state", timeout=1) as r:
+            return json.loads(r.read()).get("root") is not None
+    except (urllib.error.URLError, OSError, ValueError):
+        return False
+
+
 def cmd_board(args: argparse.Namespace) -> None:
     base = Path(args.repo).resolve() if args.repo else repo_root()
+    if already_serving(args.port):
+        url = f"http://127.0.0.1:{args.port}/"
+        print(f"Lifecycle board already running: {url}")
+        webbrowser.open(url)
+        return
     server = make_server(base, args.port)
     url = f"http://127.0.0.1:{server.server_port}/"
     print(f"Lifecycle board: {url} (Ctrl+C to stop)")

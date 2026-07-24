@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 import threading
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -2417,11 +2418,39 @@ def test_board_serves_live_lifecycle_state(repo, tmp_path):
             item for item in refreshed["stories"] if item["key"] == "ENG-1")
         assert refreshed_story["lifecycle"]["shipped"] is True
 
+        # project rollup: every story lands in exactly one state, and the
+        # things a human must act on are counted apart from graph blockage
+        summary = refreshed["summary"]
+        assert summary["stories"]["total"] == sum(
+            summary["stories"][state] for state in
+            ("shipped", "building", "ready", "waiting", "blocked"))
+        assert summary["stories"]["shipped"] == sum(
+            1 for item in refreshed["stories"] if item["state"] == "shipped")
+        # every story is counted under exactly one epic bucket
+        assert sum(e["total"] for e in summary["epics"]) == summary["stories"]["total"]
+        assert summary["attention"]["contradictions"] == [
+            s["id"] for s in refreshed["signals"] if s["kind"] == "contradiction"]
+        # the deterministic next actions and live decision corpus travel too
+        assert refreshed["next"]["phase"] and isinstance(refreshed["next"]["steps"], list)
+        assert all(d["status"] == "accepted" for d in refreshed["decisions"])
+
+        # per-story artifacts load lazily, keyed off the roadmap not a path
+        detail = json.loads(urllib.request.urlopen(
+            f"{base_url}/api/story/ENG-1", timeout=5).read())
+        assert detail["key"] == "ENG-1" and "## Surface Impact" in detail["plan_body"]
+        assert {c["label"] for c in detail["readiness"]} >= {"plan saved"}
+        try:
+            urllib.request.urlopen(f"{base_url}/api/story/nope", timeout=5)
+            raise AssertionError("unknown story must 404")
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 404
+
         page = urllib.request.urlopen(base_url, timeout=5).read().decode()
         # Structural anchors, not prose: the page polls /api/state and mounts
-        # the frontier and story regions the aggregator feeds.
+        # the regions the aggregator feeds.
         assert "setInterval" in page and "/api/state" in page
-        assert 'id="frontier"' in page and 'id="stories"' in page
+        assert 'id="frontier"' in page and 'id="tree"' in page
+        assert 'id="next-section"' in page and 'id="decisions"' in page
         assert "Ready to plan" in page
     finally:
         server.shutdown()
