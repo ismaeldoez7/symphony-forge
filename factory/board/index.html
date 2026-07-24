@@ -179,7 +179,9 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&l
 let lastOk = 0;
 
 function station(cls, label, note) {
-  return `<span class="st ${cls}"><i></i><b>${label}</b><small>${note || ""}</small></span>`;
+  // cls and label are internal constants; note carries ledger data (a spec's
+  // status field), so it is escaped here — one place, applied to every rail.
+  return `<span class="st ${cls}"><i></i><b>${label}</b><small>${esc(note || "")}</small></span>`;
 }
 
 function railFor(story) {
@@ -225,7 +227,7 @@ function render(state) {
   if (state.quickfix) {
     const q = state.quickfix;
     callouts.push(`<div class="callout"><strong>Quickfix window open</strong>
-      <span>${esc(q.id)} — ${esc(q.reason)} (${(q.files || []).length}/${q.max_files} files)</span>
+      <span>${esc(q.id)} — ${esc(q.reason)} (${(q.files || []).length}/${esc(q.max_files)} files)</span>
       <code>./forge quickfix done</code></div>`);
   }
   $("callouts").innerHTML = callouts.join("");
