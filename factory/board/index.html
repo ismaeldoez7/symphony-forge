@@ -1,92 +1,308 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Symphony Forge lifecycle board</title>
-  <style>
-    body { font: 14px system-ui, sans-serif; margin: 24px; color: #222; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background: #f3f3f3; }
-    tr.ready { background: #eef9ee; }
-    .meta { display: flex; gap: 24px; margin: 12px 0; }
-    .error { color: #a00; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forge Board</title>
+<style>
+  :root {
+    --bg: #edf0f2; --panel: #ffffff; --ink: #1d2329; --muted: #5a6572;
+    --line: #d3d9df; --amber: #b45309; --amber-soft: #b4530918;
+    --ok: #256e4b; --danger: #a63a2e; --rail: #c6ced5;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #131619; --panel: #1b2126; --ink: #e7eaec; --muted: #8a949e;
+      --line: #2a3138; --amber: #e3a23f; --amber-soft: #e3a23f1f;
+      --ok: #4cae82; --danger: #d0705f; --rail: #3a434c;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 13px/1.5 var(--mono); padding-bottom: 4rem;
+  }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  /* ── status bar ───────────────────────────────────────────── */
+  header {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; flex-wrap: wrap; gap: .35rem 1.5rem; align-items: baseline;
+    padding: .65rem 1.25rem; border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  header h1 {
+    font: 700 .82rem/1 var(--mono); letter-spacing: .22em; text-transform: uppercase;
+  }
+  header h1 span { color: var(--amber); }
+  .stat { color: var(--muted); }
+  .stat b { color: var(--ink); font-weight: 600; }
+  #tick { margin-left: auto; display: inline-flex; align-items: center; gap: .45rem; color: var(--muted); }
+  #tick i {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--ok); display: inline-block;
+    animation: pulse 4s ease-in-out infinite;
+  }
+  #tick.stale i { background: var(--danger); animation: none; }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 1.25rem; }
+  section { margin-top: 1.75rem; }
+  .eyebrow {
+    font-size: .68rem; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: .6rem;
+  }
+  .eyebrow em { font-style: normal; color: var(--amber); }
+
+  /* ── callouts: only rendered when something needs a human ─── */
+  .callout {
+    display: flex; flex-wrap: wrap; gap: .3rem 1rem; align-items: baseline;
+    border: 1px solid var(--amber); border-left-width: 4px;
+    background: var(--amber-soft); border-radius: 4px;
+    padding: .6rem .9rem; margin-top: 1rem;
+  }
+  .callout.danger { border-color: var(--danger); background: transparent; }
+  .callout code { color: var(--amber); }
+  .callout.danger strong { color: var(--danger); }
+
+  /* ── frontier ─────────────────────────────────────────────── */
+  .chips { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .chip {
+    border: 1px solid var(--amber); color: var(--amber);
+    border-radius: 3px; padding: .2rem .6rem; font-weight: 600;
+  }
+  .chip small { color: var(--muted); font-weight: 400; margin-left: .5em; }
+
+  /* ── story rails (the signature) ──────────────────────────── */
+  .epic { margin-top: 1.1rem; }
+  .epic-name {
+    display: flex; align-items: center; gap: .75rem;
+    font-size: .68rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted);
+  }
+  .epic-name::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+  .story {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .25rem 1.5rem;
+    align-items: center; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 4px; padding: .7rem .9rem; margin-top: .5rem;
+  }
+  .story.frontier { border-left: 4px solid var(--amber); }
+  .story.shipped { opacity: .62; }
+  .s-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .6rem; min-width: 0; }
+  .s-key { font-weight: 700; }
+  .s-title {
+    font: .84rem/1.4 var(--sans); color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .s-flag { font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--amber); }
+  .rail-wrap { overflow-x: auto; padding: .15rem 0; }
+  .rail { display: flex; align-items: center; width: max-content; }
+  .st { display: flex; flex-direction: column; align-items: center; gap: .3rem; width: 3.4rem; }
+  .st i {
+    width: 11px; height: 11px; border-radius: 50%;
+    border: 2px solid var(--rail); background: transparent;
+  }
+  .st.on i   { border-color: var(--ok); background: var(--ok); }
+  .st.part i { border-color: var(--ok); background: transparent; }
+  .st.bad i  { border-color: var(--danger); background: transparent; }
+  .st b { font-size: .58rem; font-weight: 500; letter-spacing: .1em; color: var(--muted); }
+  .st.on b { color: var(--ink); }
+  .st small { font-size: .6rem; color: var(--muted); min-height: .9em; }
+  .link { flex: 0 0 1.15rem; border-top: 2px solid var(--rail); margin: 0 -.55rem; transform: translateY(-.68rem); }
+  .link.on { border-color: var(--ok); }
+
+  /* ── ledgers ──────────────────────────────────────────────── */
+  .ledgers { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; }
+  th, td { text-align: left; padding: .45rem .7rem; border-top: 1px solid var(--line); }
+  thead th { font-size: .64rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); border-top: 0; }
+  td.muted { color: var(--muted); }
+  .tag { font-size: .68rem; padding: .1rem .45rem; border-radius: 3px; border: 1px solid var(--line); color: var(--muted); }
+  .tag.confirmed { border-color: var(--ok); color: var(--ok); }
+  .tag.draft { border-color: var(--amber); color: var(--amber); }
+
+  /* ── empty state ──────────────────────────────────────────── */
+  .empty { border: 1px dashed var(--line); border-radius: 4px; padding: 1rem; color: var(--muted); background: transparent; }
+  .empty code { color: var(--amber); }
+
+  footer { max-width: 1200px; margin: 3rem auto 0; padding: 0 1.25rem; color: var(--muted); font-size: .68rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #tick i { animation: none; }
+  }
+  @media (max-width: 640px) {
+    .story { grid-template-columns: 1fr; }
+    header { gap: .2rem .9rem; }
+  }
+</style>
 </head>
 <body>
-  <h1>Lifecycle board</h1>
-  <p>Read-only view. Data refreshes every three seconds.</p>
-  <div class="meta">
-    <span id="phase">Phase: loading…</span>
-    <span id="frontier">Ready to plan: loading…</span>
-    <span id="updated"></span>
-  </div>
-  <p id="status" role="status"></p>
-  <table>
-    <thead>
-      <tr>
-        <th>Story</th>
-        <th>Spec</th>
-        <th>Roadmap</th>
-        <th>Planned</th>
-        <th>Stages</th>
-        <th>Verify</th>
-        <th>Tests</th>
-        <th>Reviews</th>
-        <th>Lifecycle</th>
-      </tr>
-    </thead>
-    <tbody id="stories"></tbody>
-  </table>
-  <script>
-    const textCell = (row, value) => {
-      const cell = document.createElement("td");
-      cell.textContent = value;
-      row.appendChild(cell);
-    };
+<header>
+  <h1>Forge <span>/</span> Board</h1>
+  <span class="stat" id="run-stat"></span>
+  <span id="tick"><i></i><span id="tick-label">connecting</span></span>
+</header>
 
-    function render(state) {
-      document.querySelector("#phase").textContent = `Phase: ${state.run.phase || "not started"}`;
-      document.querySelector("#frontier").textContent =
-        `Ready to plan: ${state.frontier.join(", ") || "none"}`;
-      document.querySelector("#updated").textContent = `Updated: ${state.generated_at}`;
-      const body = document.querySelector("#stories");
-      body.replaceChildren();
-      for (const story of state.stories) {
-        const row = document.createElement("tr");
-        if (story.ready_to_plan) row.className = "ready";
-        const life = story.lifecycle;
-        textCell(row, `${story.key} — ${story.title}`);
-        textCell(row, `${story.spec || "missing"} (${life.spec})`);
-        textCell(row, story.status || "pending");
-        textCell(row, life.planned ? story.plan.location : "no");
-        textCell(row, life.stages ? `${life.stages.done}/${life.stages.total}` : "—");
-        textCell(row, life.verify ? "yes" : "no");
-        textCell(row, life.tests ? "yes" : "no");
-        const reviewCount = Object.values(life.reviews).filter(Boolean).length;
-        textCell(row, `${reviewCount}/3`);
-        textCell(row, life.shipped ? "shipped" : (story.ready_to_plan ? "Ready to plan" : "in progress"));
-        body.appendChild(row);
-      }
-      document.querySelector("#status").textContent = "";
-      document.querySelector("#status").className = "";
+<main>
+  <div id="callouts"></div>
+  <section id="frontier-section" hidden>
+    <div class="eyebrow"><em>Ready to plan in parallel</em> — dependencies met, no plan yet</div>
+    <div class="chips" id="frontier"></div>
+  </section>
+  <section>
+    <div class="eyebrow">Stories · gate rail per story</div>
+    <div id="stories"></div>
+  </section>
+  <section class="ledgers">
+    <div>
+      <div class="eyebrow">Specs ledger</div>
+      <div id="specs"></div>
+    </div>
+    <div>
+      <div class="eyebrow">Plans ledger</div>
+      <div id="plans"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Read-only. Actions live in the CLI — <code>./forge next</code> prints the current move.
+  Stations: SPEC confirmed · STORY derived · PLAN saved · BUILD stages · CHECKS verify+tests+reviews · SHIPPED.
+</footer>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let lastOk = 0;
+
+function station(cls, label, note) {
+  return `<span class="st ${cls}"><i></i><b>${label}</b><small>${note || ""}</small></span>`;
+}
+
+function railFor(story) {
+  const lc = story.lifecycle || {};
+  const spec = lc.spec === "confirmed" ? "on" : (lc.spec === "draft" ? "part" : "bad");
+  const specNote = lc.spec === "missing" ? "missing" : lc.spec;
+  const stages = lc.stages;
+  const stagesCls = !stages ? "" : (stages.done === stages.total && stages.total > 0 ? "on" : (stages.done > 0 ? "part" : ""));
+  const stagesNote = stages ? `${stages.done}/${stages.total}` : "";
+  const reviews = lc.reviews || {};
+  const reviewCount = ["quality","performance","security"].filter(a => reviews[a]).length;
+  const checksOn = lc.verify && lc.tests && reviewCount === 3;
+  const checksPart = lc.verify || lc.tests || reviewCount > 0;
+  const checksNote = checksOn ? "3/3" : (checksPart ? `${[lc.verify, lc.tests].filter(Boolean).length + reviewCount}/5` : "");
+  const nodes = [
+    [spec, "SPEC", specNote],
+    [lc.roadmap ? "on" : "", "STORY", ""],
+    [lc.planned ? "on" : "", "PLAN", ""],
+    [stagesCls, "BUILD", stagesNote],
+    [checksOn ? "on" : (checksPart ? "part" : ""), "CHECKS", checksNote],
+    [lc.shipped ? "on" : "", "SHIPPED", ""],
+  ];
+  let html = "";
+  nodes.forEach(([cls, label, note], i) => {
+    if (i) html += `<span class="link ${cls === "on" || cls === "part" ? "on" : ""}"></span>`;
+    html += station(cls, label, note);
+  });
+  return `<span class="rail">${html}</span>`;
+}
+
+function render(state) {
+  const run = state.run || {};
+  $("run-stat").innerHTML = run.issue_key
+    ? `run <b>${esc(run.issue_key)}</b> · phase <b>${esc(run.phase)}</b> · plan <b>${esc(run.plan_status || "—")}</b>`
+    : `no active task · phase <b>${esc(run.phase || "—")}</b>`;
+
+  const callouts = [];
+  for (const sig of state.signals || []) {
+    callouts.push(`<div class="callout danger"><strong>Worker paused</strong>
+      <span>${esc(sig.kind)} ${esc(sig.id)}: ${esc(sig.message)}</span>
+      <code>./forge signal resolve ${esc(sig.id)} --notes "…"</code></div>`);
+  }
+  if (state.quickfix) {
+    const q = state.quickfix;
+    callouts.push(`<div class="callout"><strong>Quickfix window open</strong>
+      <span>${esc(q.id)} — ${esc(q.reason)} (${(q.files || []).length}/${q.max_files} files)</span>
+      <code>./forge quickfix done</code></div>`);
+  }
+  $("callouts").innerHTML = callouts.join("");
+
+  const frontier = (state.stories || []).filter(s => s.ready_to_plan);
+  $("frontier-section").hidden = frontier.length === 0;
+  $("frontier").innerHTML = frontier.map(s =>
+    `<span class="chip">${esc(s.key)}<small>${esc(s.title || "")}</small></span>`).join("");
+
+  const stories = state.stories || [];
+  if (!stories.length) {
+    $("stories").innerHTML = `<div class="empty">No stories yet. They are derived from confirmed specs —
+      save specs while prototyping (<code>./forge spec save &lt;slug&gt; --from &lt;draft.md&gt;</code>),
+      confirm them, then <code>./forge roadmap derive --input &lt;roadmap.json&gt;</code>.</div>`;
+  } else {
+    const byEpic = new Map();
+    for (const s of stories) {
+      const epic = s.epic || "Backlog";
+      if (!byEpic.has(epic)) byEpic.set(epic, []);
+      byEpic.get(epic).push(s);
     }
-
-    async function loadState() {
-      try {
-        const response = await fetch("/api/state", {cache: "no-store"});
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        render(await response.json());
-      } catch (error) {
-        const status = document.querySelector("#status");
-        status.textContent = `Refresh failed: ${error.message}`;
-        status.className = "error";
+    let html = "";
+    for (const [epic, list] of byEpic) {
+      html += `<div class="epic"><div class="epic-name">${esc(epic)}</div>`;
+      for (const s of list) {
+        const cls = (s.ready_to_plan ? " frontier" : "") + (s.lifecycle?.shipped ? " shipped" : "");
+        html += `<article class="story${cls}">
+          <div class="s-head"><span class="s-key">${esc(s.key)}</span>
+            <span class="s-title">${esc(s.title || "")}</span>
+            ${s.ready_to_plan ? '<span class="s-flag">ready to plan</span>' : ""}</div>
+          <div class="rail-wrap">${railFor(s)}</div></article>`;
       }
+      html += `</div>`;
     }
+    $("stories").innerHTML = html;
+  }
 
-    loadState();
-    setInterval(loadState, 3000);
-  </script>
+  const specs = state.specs || [];
+  $("specs").innerHTML = specs.length
+    ? `<table><thead><tr><th>spec</th><th>status</th></tr></thead><tbody>` +
+      specs.map(sp => `<tr><td>${esc(sp.slug || sp.path || "")}</td>
+        <td><span class="tag ${esc(sp.status || "draft")}">${esc(sp.status || "draft")}</span></td></tr>`).join("") +
+      `</tbody></table>`
+    : `<div class="empty">No specs saved. First capability: <code>./forge spec save &lt;slug&gt; --from &lt;draft.md&gt;</code></div>`;
+
+  const plans = [...(state.plans?.active || []), ...(state.plans?.completed || [])];
+  $("plans").innerHTML = plans.length
+    ? `<table><thead><tr><th>plan</th><th>story</th><th>state</th></tr></thead><tbody>` +
+      plans.map(p => `<tr><td>${esc(p.issue || p.path)}</td>
+        <td class="muted">${esc(p.story || "—")}</td>
+        <td class="muted">${esc(p.location)}</td></tr>`).join("") +
+      `</tbody></table>`
+    : `<div class="empty">No plans saved. Plans appear once a story enters planning
+      (<code>forge.py plan save --from &lt;plan-file&gt;</code>).</div>`;
+}
+
+async function poll() {
+  try {
+    const res = await fetch("/api/state", { cache: "no-store" });
+    if (!res.ok) throw new Error(res.status);
+    render(await res.json());
+    lastOk = Date.now();
+  } catch {
+    /* tick label reflects staleness */
+  }
+}
+function tick() {
+  const el = $("tick"), label = $("tick-label");
+  if (!lastOk) { label.textContent = "connecting"; return; }
+  const secs = Math.round((Date.now() - lastOk) / 1000);
+  const stale = secs > 15;
+  el.classList.toggle("stale", stale);
+  label.textContent = stale ? `stale ${secs}s — is \`./forge board\` still running?` : `live · ${secs}s ago`;
+}
+poll();
+setInterval(poll, 4000);
+setInterval(tick, 1000);
+</script>
 </body>
 </html>
