@@ -1,7 +1,8 @@
 ---
-status: accepted
+status: superseded
 confirmed_by: "Ravi"
 date: 2026-07-15
+superseded_by: 0013-always-armed-planning-lock
 ---
 
 # Planning is mandatory and hook-enforced before implementation

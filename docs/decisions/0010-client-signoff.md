@@ -1,7 +1,8 @@
 ---
-status: accepted
+status: superseded
 confirmed_by: "vrknetha"
 date: 2026-07-24
+superseded_by: 0014-specs-before-signoff
 ---
 
 # Client Signoff
