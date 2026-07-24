@@ -402,6 +402,47 @@ def test_update_run_approved_requires_plan_file(repo):
     assert code != 0 and "plan save" in out
 
 
+def test_hand_written_plan_cannot_approve_itself(repo):
+    """plans/ is writable while locked, so file existence must not mean approval."""
+    sign_off(repo)
+    intake(repo)
+    issue = run_state(repo)["issue_key"]
+    forged = repo / "plans" / "active" / f"{issue}-forged.md"
+    forged.parent.mkdir(parents=True, exist_ok=True)
+    forged.write_text("---\nstatus: approved\n---\n\n## Surface Impact\n\nnone\n")
+    # the plan file now exists; approval must still refuse
+    code, out = run(repo, "update_run.py", "--plan-status", "approved")
+    assert code != 0 and "plan save" in out
+    assert run_state(repo).get("plan_status") != "approved"
+    # ...and the lock is still armed for product writes
+    code, out = hook(repo, {"tool_name": "Edit", "permission_mode": "default",
+                            "tool_input": {"file_path": str(repo / "src" / "app.ts")}})
+    assert "deny" in out
+
+
+def test_factory_state_is_never_hand_written(repo):
+    """run.json carries plan_status — a hand edit would disarm the lock."""
+    for mode in ("default", "plan"):
+        code, out = hook(repo, {
+            "tool_name": "Write", "permission_mode": mode,
+            "tool_input": {"file_path": str(repo / ".factory" / "run.json")}})
+        assert code == 0 and "deny" in out and "never hand-written" in out
+    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                            "tool_input": {"command": "echo {} > .factory/verify.json"}})
+    assert "deny" in out and "never hand-written" in out
+    # the session scratchpad is memory, not evidence
+    code, out = hook(repo, {"tool_name": "Write", "permission_mode": "default",
+                            "tool_input": {"file_path": str(repo / ".factory" / "scratchpad.md")}})
+    assert "deny" not in out
+
+
+def test_plan_mode_is_not_a_bash_side_door(repo):
+    """Plan mode stops the Edit tools; it must not open a shell write path."""
+    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "plan",
+                            "tool_input": {"command": "printf a > src/app.ts"}})
+    assert code == 0 and "deny" in out
+
+
 def test_pr_ready_requires_saved_plan(repo, tmp_path):
     sign_off(repo)
     intake(repo)
@@ -1472,7 +1513,8 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
                             "tool_input": {"file_path": str(repo / "src" / "app.ts")}})
     assert code == 0 and "deny" in out and "PLAN MODE" in out
     # planning-phase writes stay open: the plan itself, decisions, docs
-    for ok_path in ("plans/draft.md", "docs/decisions/0009-x.md", ".factory/notes.json"):
+    # (.factory/ is NOT among them — recorded state is never hand-written)
+    for ok_path in ("plans/draft.md", "docs/decisions/0009-x.md", "docs/notes.md"):
         code, out = hook(repo, {"tool_name": "Write", "permission_mode": "default",
                                 "tool_input": {"file_path": str(repo / ok_path)}})
         assert "deny" not in out, ok_path

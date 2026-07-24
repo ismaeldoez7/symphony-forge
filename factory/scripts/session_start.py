@@ -69,17 +69,19 @@ if run_state.get("issue_key"):
             f"Active plan: {run_state['plan_file']} — "
             f"Story: {run_state.get('story', run_state.get('issue_key', '?'))}"
         )
-    if run_state.get("plan_status") != "approved" and not load_active(root):
-        context.append(
-            "PLANNING LOCK ARMED: enter plan mode (shift+tab) and plan per "
-            "factory/prompts/planner.md, or open a bounded window with "
-            "`./forge quickfix start \"<reason>\"`. Product writes stay blocked until "
-            "the plan is saved and approved or the quickfix is open. "
-            "The plan must be GRILLED before approval (/grill-me; record via "
-            "record_grill_from_json.py --gate plan) — plan save refuses without it. "
-            "Codex alternative: the planner-high agent."
-        )
 quickfix = load_active(root)
+# The lock is armed by the ABSENCE of an approved plan, so it is armed hardest
+# when there is no task at all (decision 0013) — announce it outside the
+# active-issue block, or a fresh session meets the wall with no warning.
+if run_state.get("plan_status") != "approved" and not quickfix:
+    context.append(
+        "PLANNING LOCK ARMED: product writes are blocked until a plan is saved "
+        "and approved, or a bounded window is open. Enter plan mode (shift+tab) "
+        "and plan per factory/prompts/planner.md, or run "
+        "`./forge quickfix start \"<reason>\"`. The plan must be GRILLED before "
+        "approval (/grill-me; record via record_grill_from_json.py --gate plan) "
+        "— plan save refuses without it. Codex alternative: the planner-high agent."
+    )
 if quickfix:
     context.append(
         f"OPEN QUICKFIX {quickfix['id']}: {quickfix['reason']} — "

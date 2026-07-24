@@ -31,12 +31,26 @@ def deny(reason: str) -> None:
 # or a bounded quickfix is open. Planning surfaces stay available.
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 PLANNING_WRITE_OK = (
-    "plans/", "docs/", ".factory/", "factory/", ".claude/", ".codex/",
+    "plans/", "docs/", "factory/", ".claude/", ".codex/",
     ".gstack/", ".github/", "constitution/", "harness/", "prototype/",
+)
+# .factory/ is deliberately NOT writable by hand: run.json holds plan_status,
+# so a hand-edit disarms this very lock, and AGENTS.md already requires that
+# evidence enter .factory/ only through the record_* scripts. Those scripts
+# write it as themselves — this guard classifies tool-call targets, not what a
+# sanctioned script does internally. The scratchpad is the one hand-written
+# file there, and `forge note` writes it.
+FACTORY_STATE_MSG = (
+    ".factory/ is recorded state, never hand-written (AGENTS.md): run.json "
+    "carries plan_status, so editing it disarms the planning lock. Use the "
+    "record_* scripts, `./forge note` for the scratchpad, or `./forge stage` "
+    "for stage status."
 )
 PLANNING_WRITE_OK_FILES = {
     "AGENTS.md", "CLAUDE.md", "WORKFLOW.md", "harness.yaml", "README.md",
     ".gitignore", ".gitattributes", ".envrc",
+    # session memory, not evidence — gitignored, and `forge note` appends to it
+    ".factory/scratchpad.md",
 }
 PLAN_MODE_MSG = (
     "Planning lock is armed — product writes require an approved plan. "
@@ -55,10 +69,6 @@ OPAQUE_WRITE_MSG = (
     "approved plan, or use `./forge quickfix start \"<reason>\"` for direct edits "
     "whose product paths the hook can record."
 )
-
-
-def planning_locked(state: dict, quickfix: dict) -> bool:
-    return state.get("plan_status") != "approved" and not quickfix
 
 
 def product_path(raw: str, root: Path) -> str | None:
@@ -145,6 +155,21 @@ def redirect_targets(tokens: list[str]) -> list[str]:
     return targets
 
 
+def in_factory_state(raw: str, root: Path) -> bool:
+    """True when a write target lands inside .factory/ (excluding the scratchpad)."""
+    value = raw.strip().strip("\"'")
+    if not value or "$" in value or "`" in value:
+        return False
+    candidate = Path(value).expanduser()
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        rel = candidate.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return False
+    return rel.startswith(".factory/") and rel != ".factory/scratchpad.md"
+
+
 def bash_write_paths(value: str) -> list[str]:
     """Extract likely write targets from a shell command.
 
@@ -195,6 +220,8 @@ def guard_product_writes(targets: list[str], state: dict, root: Path) -> None:
     ))
     if not product or state.get("plan_status") == "approved":
         return
+    # An open window does not skip this: each product file it touches must be
+    # claimed against the budget, which is what bounds the escape hatch.
     quickfix = load_active(root)
     if not quickfix:
         deny(PLAN_MODE_MSG)
@@ -260,13 +287,21 @@ GATED_PHASES = (
 root = repo_root()
 run_state = load_json(run_state_path(root), default={})
 
+edit_target = (tool_input.get("file_path") or tool_input.get("notebook_path") or "")
+write_targets = [edit_target] if tool_name in EDIT_TOOLS and edit_target else []
+if tool_name == "Bash":
+    write_targets = bash_write_paths(command)
+
+# Recorded state is never hand-written, in any mode and at any plan status.
+for candidate in write_targets:
+    if in_factory_state(candidate, root):
+        deny(FACTORY_STATE_MSG)
+
+# The lock covers plan mode too: plan mode stops the Edit tools, not a Bash
+# redirect, and writing product code while planning is the thing being stopped.
+if permission_mode != "plan" or tool_name == "Bash":
+    guard_product_writes(write_targets, run_state, root)
 if permission_mode != "plan":
-    if tool_name in EDIT_TOOLS:
-        target = (tool_input.get("file_path") or tool_input.get("notebook_path") or "")
-        if target:
-            guard_product_writes([target], run_state, root)
-    if tool_name == "Bash":
-        guard_product_writes(bash_write_paths(command), run_state, root)
     if tool_name == "Bash" and run_state.get("plan_status") != "approved" \
             and "codex-companion.mjs" in command \
             and " task" in command and "--write" in command:

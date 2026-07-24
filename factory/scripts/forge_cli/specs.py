@@ -102,11 +102,17 @@ def cmd_confirm(args: argparse.Namespace) -> None:
         expect_digest_of=path,
     )
     updated = re.sub(
-        r"(^---\r?\n.*?^status:\s*)draft(\s*$)",
+        r"(^---\r?\n.*?^status:[ \t]*)[\"']?draft[\"']?([ \t]*\r?$)",
         r"\1confirmed\2",
         text,
         count=1,
         flags=re.DOTALL | re.MULTILINE,
     )
+    # Never report a confirmation the file did not receive: parse_frontmatter
+    # is lenient (it strips quotes) where this rewrite is exact, so a status
+    # line it accepts could otherwise leave the spec on disk still draft.
+    if updated == text or parse_frontmatter(updated).get("status") != "confirmed":
+        fail(f"could not rewrite the status line in {path.relative_to(base)} — "
+             "set `status: draft` on its own frontmatter line and retry")
     path.write_text(updated)
     print(f"Spec confirmed: {path.relative_to(base)}")

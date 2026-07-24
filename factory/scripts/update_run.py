@@ -62,12 +62,17 @@ IMPL_PHASES = {"implementing", "testing", "reviewing", "functional-check", "pr-r
 
 issue = state.get("issue_key", "")
 plan_files = list((root / "plans" / "active").glob(f"{issue}-*.md")) if issue else []
-if args.plan_status == "approved" and not plan_files:
+# Approval is `forge plan save` and nothing else. Accepting the flag here let
+# a locked worker hand-write plans/active/<issue>-x.md (plans/ is writable
+# during planning), flip this field, and skip every gate plan save enforces —
+# grill digest, decisions_reviewed coverage, contradiction signals, Surface
+# Impact. Same treatment as --phase pr-ready.
+if args.plan_status == "approved":
     raise SystemExit(
-        "plan_status 'approved' requires the plan in-repo. Save it first with "
-        f"`python3 factory/scripts/forge.py plan save --from <plan-file>` "
-        f"(expected plans/active/{issue or '<issue>'}-*.md). Approval is the plan "
-        "file, not this flag."
+        "plan_status 'approved' is set only by "
+        "`python3 factory/scripts/forge.py plan save --from <plan-file>`, which "
+        "runs the approval gates. update_run.py cannot set it: approval is the "
+        "saved plan, not this flag."
     )
 if args.phase in IMPL_PHASES:
     effective_plan_status = args.plan_status or state.get("plan_status")
