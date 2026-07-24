@@ -35,7 +35,7 @@ or route:
 | `next` says | Do |
 |---|---|
 | discovery/prototype | gstack `/office-hours` for the discovery conversation; prototype freely |
-| roadmap missing | run the project-level decomposition (`factory/prompts/decomposer.md`), then `./forge roadmap import --input <json>` |
+| roadmap missing | confirm captured specs, run the project-level decomposition (`factory/prompts/decomposer.md`), then `./forge roadmap derive --input <json>` |
 | planning | plan per `factory/prompts/planner.md` (Claude plan mode default, `planner-high` Codex agent alternate); exploration ONLY via `/codex:rescue --model gpt-5.6-terra --effort high` (read-only by default) — never Claude Code itself, never raw codex exec |
 | decomposing | run docs-decomposer per task, record with `record_decomposition_from_json.py` (schema incl. `user_facing`) |
 | implementing | delegate the leaf task (Claude: `/codex:rescue --background`; Codex: `factory/prompts/implementer.md`) — the implementer writes and records the tests; user-facing tasks MUST load + attest emil-design-eng + frontend-design in `skills_used` (recorder-enforced; harness.yaml `required_skills`) |
@@ -56,16 +56,17 @@ or route:
 | what's left to build / show the roadmap | `./forge roadmap list` (`--pending` for what's next; grouped by epic, shows @assignee) |
 | what can run in parallel / fan out the work | `./forge roadmap parallel` — the unblocked frontier, one `git worktree add` + intake per story; drive each with `/codex:rescue --background`. Fan out WITHIN a task only across disjoint `write_scope` leaf tasks |
 | roadmap merge conflict / duplicate items after merging branches | `./forge roadmap heal` — deterministic union (done-wins); mid-merge it rebuilds from the merge stages, then `git add plans/roadmap.json` |
-| grill the handover / stress-test before a gate | `factory/prompts/griller.md` — one question at a time vs the actual docs; resolve findings; record `record_grill_from_json.py --gate signoff\|epics\|plan`. Sign-off, roadmap import, AND plan save REFUSE without a fresh pass |
+| grill the handover / stress-test before a gate | `factory/prompts/griller.md` — one question at a time vs the actual docs; resolve findings; record `record_grill_from_json.py --gate spec\|signoff\|epics\|plan`. Spec confirm, sign-off, legacy roadmap import, and plan save refuse without their required fresh pass |
 | grill me on this plan | `/grill-me` against the draft plan (satisfies the plan-gate contract), then record `--gate plan` — mandatory before `plan save` |
-| PM approves the epics | `./forge decision new epics-approved` — THE PM runs the accept; roadmap import is refused without it (and without a passing epics grill) |
-| here's the project backlog / handoff decomposition | `./forge roadmap import --input <json>` (epics + stories w/ acceptance_criteria + skill) |
-| add a story to the roadmap | `./forge roadmap add <KEY> "<title>" --epic <epic> --skill frontend\|backend\|fullstack` |
+| capture a capability spec | `./forge spec save <slug> --from <draft.md>`; confirmation requires a digest-bound spec grill, then `./forge spec confirm <slug>` |
+| here's the derived project backlog | `./forge roadmap derive --input <json>` (pre-sign-off, every story links a confirmed spec) |
+| add a story to the roadmap | `./forge roadmap add <KEY> "<title>" --spec docs/specs/<slug>.md --epic <epic> --skill frontend\|backend\|fullstack` |
 | define the team / who's on this project | `./forge team set <handle> --role dev --skills frontend,backend` (optional roster; `./forge team list`) |
 | assign a story / distribute work (EM) | `./forge roadmap assign <KEY> --to <dev>` — checked against the roster; match story skill to dev skills |
 | who does what / role handoffs | `docs/ROLES.md` — forge next tags every step [PM]/[EM]/[dev] |
 | start a task / new feature | `python3 factory/scripts/intake.py --issue <KEY> --title "<title>"` — then check `forge.py context list --pending` BEFORE planning |
-| plan is approved | `python3 factory/scripts/forge.py plan save --from <plan-file>` (plan must follow `factory/prompts/planner.md`, incl. Decisions section) |
+| plan is approved | `python3 factory/scripts/forge.py plan save --from <plan-file> --story <key>` (frontmatter attests every active decision) |
+| show implementation progress | `./forge plan list` or `./forge board` (read-only localhost lifecycle view) |
 | record the decomposition | `python3 factory/scripts/record_decomposition_from_json.py --input <json>`, then `update_run.py --phase implementing --decomposition-status recorded` |
 | record a decision | `./forge decision new <slug>` — draft only |
 | this decision replaces an old one | `./forge decision new <slug> --supersedes <old-slug>` — never edit/delete the old record by hand |

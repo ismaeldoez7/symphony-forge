@@ -20,7 +20,8 @@ You never memorize these — the command you're about to run refuses and tells
 you what's missing. But this is the shape of the whole system:
 
 ```text
-grill ▶ SIGN-OFF ▶ grill ▶ EPICS ACCEPTED ▶ roadmap+team ▶ per task:
+prototype ▶ spec grills ▶ CONFIRMED SPECS ▶ derived roadmap ▶ sign-off grill
+  ▶ SIGN-OFF ▶ roadmap+team ▶ per task:
   PLAN MODE (hook-forced) ▶ grill ▶ plan saved (incl. Surface Impact) ▶
   decompose (creates the stage tracker) ▶ per stage: implement (rescue-only)
   ▶ LOCAL autoreview until clean ▶ commit ▶ stage done ▶ … ▶ verify ▶
@@ -28,11 +29,11 @@ grill ▶ SIGN-OFF ▶ grill ▶ EPICS ACCEPTED ▶ roadmap+team ▶ per task:
   pr_ready (stages done + refactor ratchet) ▶ archive
 ```
 
-- Three **grills** (adversarial gaps/contradictions passes): before sign-off,
-  before the epics handoff, before every plan approval (`/grill-me`). Stale
-  or blocked verdicts don't open gates.
-- One **keystroke gate**: unplanned task → product-code edits and writing
-  Codex delegation are denied until the plan is saved. And `/codex:rescue`
+- **Grills** are adversarial gaps/contradictions passes: each spec
+  confirmation, sign-off, and every plan approval (`/grill-me`) require the
+  relevant fresh pass.
+- One **write gate** is always armed: product edits are denied until the plan
+  is saved, unless a bounded `forge quickfix start` window is open. `/codex:rescue`
   is the ONLY Codex invocation — raw `codex exec` is always denied.
 - Every artifact is **attested**: `generated_by` on the allowlist,
   `skills_used` mandatory on user-facing work, commit-stamped and fresh.
@@ -122,6 +123,16 @@ fill `docs/product/DISCOVERY.md` and `docs/product/BRIEF.md` from it.
 Prototype freely — no `.factory` ceremony before sign-off; the prototype is
 preserved under `prototype/` afterwards as the forever UX reference.
 
+As capabilities emerge, save each one as a draft spec, grill the exact file,
+then confirm it:
+
+```bash
+./forge spec save billing --from /tmp/billing.md
+python3 factory/scripts/record_grill_from_json.py --gate spec \
+  --input /tmp/spec-grill.json --input-digest docs/specs/billing.md
+./forge spec confirm billing
+```
+
 Capture every client decision as you go — say: **"Record that as a
 decision."**
 
@@ -129,10 +140,17 @@ decision."**
 ./forge decision new <slug>
 ```
 
-## 5. Grill, then record client sign-off (the gate)
+## 5. Derive the roadmap, grill, then record client sign-off
+
+After every spec is confirmed, say **"Build the project roadmap."** The
+docs-decomposer derives spec-linked epics and stories:
+
+```bash
+./forge roadmap derive --input /tmp/roadmap.json
+```
 
 First say: **"Grill the handover."** The agent interrogates DISCOVERY, BRIEF,
-decisions, and prototype notes for gaps and contradictions — one question at
+confirmed specs, the derived roadmap, decisions, and prototype notes — one question at
 a time, findings resolved into doc edits or decision records — and records
 the verdict (`record_grill_from_json.py --gate signoff`).
 **`record_signoff.py` refuses without a fresh, passing grill** (fresh =
@@ -156,33 +174,17 @@ Say: **"Scaffold the workspace."** The agent hands
 `harness/nestjs-react/SCAFFOLD_PROMPT.md` to Codex to generate the nx
 workspace per `harness/nestjs-react/conventions/` and `constitution/`.
 
-## 7. Epics, stories, and the team (the role handoffs — see docs/ROLES.md)
+## 7. Review, assign, and view the derived roadmap
 
-Say: **"Build the project roadmap."** The agent runs the project-level
-decomposition (`docs-decomposer`) against the BRIEF and architecture docs,
-producing **epics** (for the PM) and **stories** with acceptance criteria and
-a `skill` tag (for the EM). Then the handoffs, each an artifact plus a gate:
-
-1. **Grill the epics handover, then PM approves** (import is refused without
-   both — a passing `epics` grill AND the accepted decision). Say: **"Grill
-   the epics"** — coverage vs the BRIEF, criteria vs decisions, order sanity:
-
-```bash
-python3 factory/scripts/record_grill_from_json.py --gate epics --input <json>
-./forge decision new epics-approved
-./forge decision accept epics-approved --by "<PM name>"   # human-typed
-```
-
-2. **EM records and distributes the backlog** — optionally defining the team
-   first so assignment is checked and skill-matched (full-stack devs take
-   anything; specialists take their lane):
+The PM reviews coverage and the EM distributes the already-derived stories.
+Optionally define the team first so assignment is checked and skill-matched:
 
 ```bash
 ./forge team set alice --role dev --skills frontend
 ./forge team set bob --role dev --skills fullstack
-./forge roadmap import --input /tmp/roadmap.json   # epics + stories, execution order
 ./forge roadmap assign ENG-101 --to alice
 ./forge roadmap list                               # grouped by epic, shows @assignee
+./forge board                                      # read-only live lifecycle view
 ```
 
 `plans/roadmap.json` is the durable backlog: intake marks items active,

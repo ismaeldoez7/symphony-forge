@@ -97,7 +97,7 @@ A task is not PR-ready until all of these exist:
 
 ## Non-Negotiables
 
-- Keep tasks bounded and capability-driven.
+- Keep tasks bounded and capability-driven; plans bind one roadmap story and attest all active decisions.
 - The planning lock is always armed: use plan mode or a bounded, ledgered quickfix.
 - Do not decompose by document file or arbitrary file count.
 - Do not bypass `verify.py` with ad hoc validation commands.

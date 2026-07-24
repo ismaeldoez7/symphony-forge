@@ -61,8 +61,8 @@ something you type.
 ## The Lifecycle
 
 ```text
-0a discovery ──▶ 0b prototype ──[GRILL]──▶ CLIENT SIGN-OFF ──▶ scaffold (nx) ──[GRILL]──▶ epics OK'd ──▶ roadmap + team
-                                              (hard gate)                     (PM accept)                    │
+0a discovery ──▶ 0b prototype+specs ──[SPEC GRILLS]──▶ 0c derived roadmap ──[GRILL]──▶ CLIENT SIGN-OFF ──▶ roadmap + team
+                                                                                       (hard gate)                 │
       ┌───────────────────────────────────────────────────────────────────────────────────────────────────────┘
       ▼
   per feature (own branch):
@@ -70,7 +70,9 @@ something you type.
              (Claude)                     (+ surfaces)  (stages)          (Codex, attested)   (until clean)                  (ONE autoreview)     (ship gate)
 ```
 
-- **Before sign-off**: lightweight on purpose — no ceremony, no time-box. Discovery via gstack `/office-hours`; the prototype that earns sign-off is preserved in `prototype/` as the permanent UX reference.
+- **Before sign-off**: discovery and prototyping are lightweight; capability
+  specs are saved and grilled as they emerge, then the roadmap is derived from
+  the confirmed set. The prototype remains the permanent UX reference.
 - **After sign-off**: deterministic gates. Plans live in `plans/`, decisions in `docs/decisions/`, evidence in `.factory/`; the ship gate archives every shipped task's plan + proof to `plans/completed/` and `.factory/history/`.
 - **Continuously**: dump raw context (client emails, transcripts, notes) into `docs/context/` — dumping is free, tracking is automatic. Say *"process the context dump"* and an agent scans it into the ledger, harvests it into proposed decisions and BRIEF/architecture updates, and marks each file. You can't miss pending context: it greets every session start, tops every *"what now?"*, raises a daily `gardener` issue, and **blocks plan approval** until harvested or explicitly ignored. Dev corrections get mined into proposed skills that humans promote.
 - **The repo learns from itself**: review findings are structured and clustered across tasks — ask *"are we fixing the same thing again?"* and the agent shows which defect classes recur; the same class recurring 3+ times triggers a refactor story + invariant decision, never a fourth patch (decision 0005). Repeated failures become ledgered lessons that resurface before anyone touches the same paths again (decision 0006). Say *"this is out of scope for now"* and the parked scope keeps an explicit revisit trigger instead of vanishing.
@@ -86,11 +88,11 @@ column describes that machinery. In lifecycle order:
 
 | # | Gate | Refuses until | Enforced by |
 |---|---|---|---|
-| 1 | **Signoff grill** | an adversarial gaps/contradictions pass over DISCOVERY/BRIEF/decisions is recorded — fresh (docs unchanged since) and `pass` | `record_signoff.py` |
-| 2 | **Client sign-off** | an accepted `client-signoff` decision names a human | `record_signoff.py`; every later phase checks the flag |
-| 3 | **Epics grill + PM accept** | the epics/stories are grilled vs the BRIEF AND the PM accepts `epics-approved` | `forge roadmap import` (checks both, in order) |
+| 1 | **Specs + derived roadmap** | every capability spec has a digest-bound grill and confirmed status; every derived story links one | `forge spec confirm`; `forge roadmap derive` |
+| 2 | **Signoff grill** | an adversarial pass over DISCOVERY/BRIEF/specs/roadmap/decisions is fresh and `pass` | `record_signoff.py` |
+| 3 | **Client sign-off** | an accepted `client-signoff` decision names a human, all specs are confirmed, and the roadmap covers them | `record_signoff.py`; every later phase checks the flag |
 | 4 | **Roster check** | assignees exist on `plans/team.json` (when a roster is defined) | `forge roadmap assign` |
-| 5 | **Planning lock** | the active task has an approved, saved plan — until then product-code edits and writing Codex delegation are DENIED, with routing to PLAN MODE | PreToolUse hook (decision 0004 — the one sanctioned keystroke gate) |
+| 5 | **Planning lock** | product writes have an approved plan or a bounded, ledgered quickfix window | PreToolUse hook (decision 0013) |
 | 6 | **Rescue-only invocation** | always: raw `codex exec` is denied in every phase, no escape hatch — `/codex:rescue` is the runtime | PreToolUse hook |
 | 7 | **Plan grill** | the draft plan survives `/grill-me` vs the story's acceptance criteria + active decisions — same-issue, fresh, `pass` | `forge plan save` |
 | 8 | **Surface Impact** | the plan classifies every surface (runtime/API/data/CLI/UI/docs/tests) — Deferred and Unchanged-by-design rows carry reasons | `forge plan save` |
@@ -135,12 +137,12 @@ your behalf, not for you to type.
 | existing repo | "Migrate this repo into the harness" | `knacklabs-migrate-project` skill → `./forge adopt` | vendored machinery; old context → `docs/context/` |
 | any phase, lost | "What now?" | `/forge` skill → `./forge next` | — |
 | 0a discovery | "Let's run office hours" | gstack `/office-hours` | `docs/product/DISCOVERY.md`, `BRIEF.md`; design docs + decisions in `.gstack/projects/` (in-repo via `.envrc`) |
-| 0b prototype | build freely | ponytail (lite) allowed | preserved under `prototype/` |
-| grills (every gate) | "Grill the handover" / "Grill the epics" / "Grill me on this plan" | `griller` contract; `/grill-me` satisfies the plan gate | `record_grill_from_json.py` → `.factory/grills/`; sign-off, roadmap import, AND plan save refuse without a fresh pass |
+| 0b prototype | build freely; save/confirm specs as capabilities emerge | ponytail (lite) allowed | `prototype/` + `docs/specs/` |
+| 0c roadmap | "Derive the roadmap" | `docs-decomposer` | `./forge roadmap derive` → spec-linked `plans/roadmap.json` |
+| grills (every gate) | "Grill this spec" / "Grill the handover" / "Grill me on this plan" | `griller` contract; `/grill-me` satisfies the plan gate | digest-bound `.factory/grills/` records |
 | sign-off | "The client signed off" | none — human confirms `decision accept` (chat confirmation suffices; agent may run it with their name) | `record_signoff.py` → `run.json` |
 | workspace | "Scaffold the workspace" | Codex `/codex:rescue` + `SCAFFOLD_PROMPT.md` | nx workspace |
-| epics (PM) | "Build the project roadmap" | `docs-decomposer` proposes; PM accepts `epics-approved` | epics in `plans/roadmap.json`; import gated on the accept |
-| stories + distribution (EM) | "Record the backlog", "assign ENG-101 to alice" | `./forge roadmap import` / `assign` / `team set` | stories w/ acceptance criteria, `@assignee` (roster-checked) |
+| stories + distribution (PM/EM) | "Review the roadmap", "assign ENG-101 to alice" | `./forge roadmap list` / `assign` / `team set` | derived stories with spec links, criteria, and `@assignee` |
 | intake | "Start the next task on the roadmap" | `/forge` → `intake.py` | `.factory/run.json` |
 | plan | "Plan this task" | Claude PLAN MODE — forced by the hook (or Codex `planner-high`); exploration ONLY via `/codex:rescue --model gpt-5.6-terra --effort high`, read-only | grilled plan → `./forge plan save` → `plans/active/` |
 | decompose | "Decompose it" | `docs-decomposer` | `record_decomposition_from_json.py` (incl. `user_facing`) |

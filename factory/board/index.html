@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Symphony Forge lifecycle board</title>
+  <style>
+    body { font: 14px system-ui, sans-serif; margin: 24px; color: #222; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #f3f3f3; }
+    tr.ready { background: #eef9ee; }
+    .meta { display: flex; gap: 24px; margin: 12px 0; }
+    .error { color: #a00; }
+  </style>
+</head>
+<body>
+  <h1>Lifecycle board</h1>
+  <p>Read-only view. Data refreshes every three seconds.</p>
+  <div class="meta">
+    <span id="phase">Phase: loading…</span>
+    <span id="frontier">Ready to plan: loading…</span>
+    <span id="updated"></span>
+  </div>
+  <p id="status" role="status"></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Story</th>
+        <th>Spec</th>
+        <th>Roadmap</th>
+        <th>Planned</th>
+        <th>Stages</th>
+        <th>Verify</th>
+        <th>Tests</th>
+        <th>Reviews</th>
+        <th>Lifecycle</th>
+      </tr>
+    </thead>
+    <tbody id="stories"></tbody>
+  </table>
+  <script>
+    const textCell = (row, value) => {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.appendChild(cell);
+    };
+
+    function render(state) {
+      document.querySelector("#phase").textContent = `Phase: ${state.run.phase || "not started"}`;
+      document.querySelector("#frontier").textContent =
+        `Ready to plan: ${state.frontier.join(", ") || "none"}`;
+      document.querySelector("#updated").textContent = `Updated: ${state.generated_at}`;
+      const body = document.querySelector("#stories");
+      body.replaceChildren();
+      for (const story of state.stories) {
+        const row = document.createElement("tr");
+        if (story.ready_to_plan) row.className = "ready";
+        const life = story.lifecycle;
+        textCell(row, `${story.key} — ${story.title}`);
+        textCell(row, `${story.spec || "missing"} (${life.spec})`);
+        textCell(row, story.status || "pending");
+        textCell(row, life.planned ? story.plan.location : "no");
+        textCell(row, life.stages ? `${life.stages.done}/${life.stages.total}` : "—");
+        textCell(row, life.verify ? "yes" : "no");
+        textCell(row, life.tests ? "yes" : "no");
+        const reviewCount = Object.values(life.reviews).filter(Boolean).length;
+        textCell(row, `${reviewCount}/3`);
+        textCell(row, life.shipped ? "shipped" : (story.ready_to_plan ? "Ready to plan" : "in progress"));
+        body.appendChild(row);
+      }
+      document.querySelector("#status").textContent = "";
+      document.querySelector("#status").className = "";
+    }
+
+    async function loadState() {
+      try {
+        const response = await fetch("/api/state", {cache: "no-store"});
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        render(await response.json());
+      } catch (error) {
+        const status = document.querySelector("#status");
+        status.textContent = `Refresh failed: ${error.message}`;
+        status.className = "error";
+      }
+    }
+
+    loadState();
+    setInterval(loadState, 3000);
+  </script>
+</body>
+</html>

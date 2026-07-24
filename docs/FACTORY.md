@@ -29,7 +29,8 @@ Hooks are not the workflow engine. They only add guardrails and continuation log
 ## Factory Phases
 
 0a. `discovery` — lightweight problem, stakeholder, and constraint discovery. It does not require `.factory` ceremony.
-0b. `prototype` — lightweight proof work before the factory loop. It does not require `.factory` ceremony.
+0b. `prototype` — prototype freely and save capability specs as they emerge. It does not require `.factory` ceremony.
+0c. `roadmap` — confirm every spec, then derive epics and stories from them.
 1. `planning`
 2. `decomposing`
 3. `awaiting-approval`
@@ -40,7 +41,11 @@ Hooks are not the workflow engine. They only add guardrails and continuation log
 8. `pr-ready`
 9. `done` or `blocked`
 
-The sign-off gate sits between `prototype` and `planning`. `python3 factory/scripts/record_signoff.py` records an accepted client sign-off decision by setting `client_signoff: true` in `.factory/run.json`.
+The sign-off gate sits between roadmap derivation and planning.
+`record_signoff.py` requires at least one confirmed spec, a derived roadmap
+with at least one story, and coverage of every confirmed spec. It then records
+the accepted client sign-off decision by setting `client_signoff: true` in
+`.factory/run.json`.
 
 Phases at `planning` or later are refused by `update_run.py` and `pre_tool_use.py` until `client_signoff` is true.
 

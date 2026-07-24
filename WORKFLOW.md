@@ -17,6 +17,8 @@
   conflict. History already in a personal store: `./forge gstack migrate`.
 - Product intent lives in `docs/product/BRIEF.md`.
 - Architecture and decision docs live in the repo under `docs/architecture/` and `docs/decisions/`.
+- Durable project facts live under `docs/memory/`; SessionStart injects its
+  `MEMORY.md` index into both runtimes.
 - `docs/decisions/` overrides ambiguous or conflicting architecture guidance.
 
 ## Runtime Modes
@@ -328,7 +330,10 @@ read-only by default, never Claude Code itself, never raw `codex exec`); devs ma
 architecture, or existing records becomes a `docs/decisions/` record
 (`forge.py decision new`) before decomposition is recorded. Approval means the
 plan is in-repo — `forge.py plan save --from <plan-file>` writes
-`plans/active/<issue>-<slug>.md`; `update_run.py` refuses
+`plans/active/<issue>-<slug>.md`. The draft frontmatter lists every ID from
+`forge decision list --active`, and `--story <key>` binds it to the roadmap;
+open contradiction signals or incomplete decision coverage refuse the save.
+`update_run.py` refuses
 `plan_status approved` without it.
 
 During implementation, any call the plan does not cover is recorded the moment
