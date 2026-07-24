@@ -67,7 +67,7 @@ or route:
 | start a task / new feature | `python3 factory/scripts/intake.py --issue <KEY> --title "<title>"` — then check `forge.py context list --pending` BEFORE planning |
 | plan is approved | `python3 factory/scripts/forge.py plan save --from <plan-file> --story <key>` (frontmatter attests every active decision) |
 | show implementation progress / how far along are we / show the board | `./forge board` — see "Show, don't recite" below. `./forge plan list` is the text fallback |
-| review the plan / let me read the plan | open the board at that story: `./forge board` then share `http://127.0.0.1:8765/#<STORY-KEY>`. The plan renders there with an approval-readiness checklist; approval still happens in chat (the grill is an interrogation, not a button) |
+| review the plan / let me read the plan | open the board at that story: `./forge board` then share `http://127.0.0.1:8765/#<STORY-KEY>`. Its drawer renders the plan with an approval-readiness checklist; approval still happens in chat (the grill is an interrogation, not a button) |
 | I need a small fix without a plan | `./forge quickfix start "<reason>"` — a bounded, ledgered window (5 product files) that the hook tracks; close it with `./forge quickfix done`. Exceeding the budget forces plan mode, and pr_ready refuses to ship with a window open |
 | why is my edit blocked | the planning lock is ALWAYS armed (decision 0013): product writes need an approved plan or an open quickfix. `.factory/` is never hand-written; recorded state comes from the record_* scripts |
 | record the decomposition | `python3 factory/scripts/record_decomposition_from_json.py --input <json>`, then `update_run.py --phase implementing --decomposition-status recorded` |
@@ -111,8 +111,13 @@ instead of narrating it:
 
 - **Reuse, never duplicate.** If the board is already serving this repo, give
   the URL rather than starting a second one; a busy port means it is running.
-- **Deep-link to the story you are talking about**: `…:8765/#RAIL-3` expands
-  that story with its plan, spec, decomposition and evidence.
+- Stories are cards on a swimlane board — epic lanes across the lifecycle
+  columns — so progress is read from where a card sits, not from prose.
+- **Deep-link to the story you are talking about**: `…:8765/#RAIL-3` opens that
+  story's drawer with its gate rail, what blocks the next gate, and its
+  artifacts (plan, spec, decomposition, evidence).
+- Specs, decisions, the plans ledger and quickfix history sit behind the
+  **Library** panel in the header — reference material, off the main surface.
 - **After saving a plan**, hand over the link so the dev reads the rendered
   plan and its approval-readiness checklist instead of the markdown file.
 - The board is READ-ONLY on purpose. It shows what blocks approval; it never

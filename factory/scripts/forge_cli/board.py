@@ -14,7 +14,7 @@ from factory_lib import load_json, now_iso, repo_root
 from .assumptions import open_count as open_assumptions
 from .decisions import decision_records
 from .plans import parse_frontmatter
-from .quickfix import load_active
+from .quickfix import ledger_path, load_active
 from .roadmap import load_roadmap, ready_pending
 from .signal import open_signals
 from .specs import spec_records
@@ -127,6 +127,27 @@ def _summary(stories: list[dict], specs: list[dict], signals: list[dict],
     }
 
 
+def quickfix_ledger(base: Path) -> list[dict]:
+    """Closed quickfix windows, for the Library panel.
+
+    # ponytail: skips unreadable lines instead of reusing quickfix.load_events,
+    # which raises. The ledger is JSONL merged across worktrees, so a bad merge
+    # can leave a torn line — and a viewer must not blank the page over one.
+    """
+    path = ledger_path(base)
+    if not path.exists():
+        return []
+    records = []
+    for line in path.read_text().splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(event, dict) and event.get("event") == "done":
+            records.append(event)
+    return records
+
+
 def aggregate_state(base: Path) -> dict:
     roadmap = load_roadmap(base)
     items = roadmap.get("items", [])
@@ -190,6 +211,7 @@ def aggregate_state(base: Path) -> dict:
         "stages": stages,
         "signals": open_signals(base),
         "quickfix": load_active(base) or None,
+        "quickfix_ledger": quickfix_ledger(base),
         "next": next_actions(base),
         "decisions": active_decisions(base),
     }
@@ -258,7 +280,10 @@ def approval_readiness(base: Path, detail: dict) -> list[dict]:
         "fix": "/grill-me, then record_grill_from_json.py --gate plan"})
     checks.append({
         "ok": not missing,
-        "label": "decisions reviewed" + (f" — missing {', '.join(missing)}" if missing else ""),
+        "label": "decisions reviewed" + (f" — {len(missing)} missing" if missing else ""),
+        # The ids are the evidence, but sixteen of them inline is a wall of
+        # text; the board discloses them behind the count.
+        "detail": missing,
         "fix": "list every active decision in the plan's decisions_reviewed"})
     checks.append({
         "ok": "## Surface Impact" in body,

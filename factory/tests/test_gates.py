@@ -2445,13 +2445,24 @@ def test_board_serves_live_lifecycle_state(repo, tmp_path):
         except urllib.error.HTTPError as exc:
             assert exc.code == 404
 
+        # quickfix history: the ledger carries CLOSED windows only, so the
+        # window opened above is still in `quickfix` and absent from it until
+        # `quickfix done` files it.
+        assert refreshed["quickfix"]["id"] not in {
+            event["id"] for event in refreshed["quickfix_ledger"]}
+        run(repo, "forge.py", "quickfix", "done")
+        closed = json.loads(urllib.request.urlopen(
+            f"{base_url}/api/state", timeout=5).read())
+        assert closed["quickfix"] is None
+        assert refreshed["quickfix"]["id"] in {
+            event["id"] for event in closed["quickfix_ledger"]}
+
         page = urllib.request.urlopen(base_url, timeout=5).read().decode()
         # Structural anchors, not prose: the page polls /api/state and mounts
         # the regions the aggregator feeds.
         assert "setInterval" in page and "/api/state" in page
-        assert 'id="frontier"' in page and 'id="tree"' in page
-        assert 'id="next-section"' in page and 'id="decisions"' in page
-        assert "Ready to plan" in page
+        assert 'id="lanes"' in page and 'id="drawer"' in page
+        assert 'id="library"' in page
     finally:
         server.shutdown()
         server.server_close()
