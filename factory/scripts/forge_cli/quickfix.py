@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 from pathlib import Path
 
 from factory_lib import dump_json, load_json, now_iso, repo_root
@@ -64,8 +66,14 @@ def cmd_start(args: argparse.Namespace) -> None:
     if load_active(base):
         fail("a quickfix is already open — finish it with `./forge quickfix done`")
     sequence = sum(1 for event in load_events(base) if event.get("event") == "open") + 1
+    # Collision-resistant like signal ids: `roadmap parallel` puts several
+    # worktrees on the same ledger, and two opening at once would otherwise
+    # both mint Q-0001 — pairing the wrong closure with the wrong window.
+    suffix = hashlib.sha256(
+        f"{os.getpid()}:{now_iso()}:{reason}".encode()
+    ).hexdigest()[:4]
     active = {
-        "id": f"Q-{sequence:04d}",
+        "id": f"Q-{sequence:04d}-{suffix}",
         "reason": reason,
         "started_at": now_iso(),
         "max_files": MAX_FILES,

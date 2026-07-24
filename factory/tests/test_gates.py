@@ -9,6 +9,7 @@ exercised through their real CLI surface.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import threading
@@ -1875,6 +1876,41 @@ def test_signal_events_block_ship_until_resolved(repo, tmp_path):
     # channel archived with the task, working copy cleaned
     assert (repo / ".factory" / "history" / "ENG-1" / "signals.jsonl").exists()
     assert not (repo / ".factory" / "signals.jsonl").exists()
+
+
+def test_open_quickfix_blocks_ship_until_closed(repo, tmp_path):
+    """An open window is the lock still disarmed — and an unwritten ledger row."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    write_passing_artifacts(repo)
+    run(repo, "update_run.py", "--decomposition-status", "recorded")
+
+    code, out = run(repo, "forge.py", "quickfix", "start", "tweak the copy")
+    assert code == 0
+    quickfix_id = re.search(r"Q-\d{4}-[0-9a-f]{4}", out).group(0)
+
+    code, out = run(repo, "pr_ready.py")
+    assert code != 0 and quickfix_id in out and "quickfix done" in out
+
+    code, _ = run(repo, "forge.py", "quickfix", "done")
+    assert code == 0
+    code, out = run(repo, "pr_ready.py")
+    assert code == 0, out
+
+
+def test_quickfix_ids_survive_concurrent_worktrees(repo):
+    """Same-sequence windows from parallel worktrees must not share an id."""
+    _, first = run(repo, "forge.py", "quickfix", "start", "fix a")
+    run(repo, "forge.py", "quickfix", "done")
+    # a second worktree that has not seen the first ledger row computes the
+    # same sequence number; the suffix is what keeps the ids distinct
+    (repo / "plans" / "quickfixes.jsonl").unlink()
+    _, second = run(repo, "forge.py", "quickfix", "start", "fix b")
+    first_id = re.search(r"Q-0001-[0-9a-f]{4}", first).group(0)
+    second_id = re.search(r"Q-0001-[0-9a-f]{4}", second).group(0)
+    assert first_id != second_id
 
 
 def test_codex_exec_ban_matches_invocations_not_prose(repo):

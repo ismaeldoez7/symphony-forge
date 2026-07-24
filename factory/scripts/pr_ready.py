@@ -18,6 +18,7 @@ from factory_lib import (
 )
 from forge_cli.assumptions import blocking_for_issue
 from forge_cli.roadmap import load_items, mark_status
+from forge_cli.quickfix import load_active
 from forge_cli.signal import open_signals, signals_path
 
 # Commits touching only these paths after evidence was recorded do not
@@ -153,6 +154,16 @@ if open_sigs:
     missing.append(
         f"resolution of {len(open_sigs)} open worker signal(s): {ids} — "
         "`forge.py signal resolve <id> --notes ...`"
+    )
+
+# An open quickfix window is the planning lock still disarmed: it would carry
+# into the next task, and its ledger entry only records the files it touched
+# when it is closed. Ship with the hatch shut.
+open_quickfix = load_active(root)
+if open_quickfix:
+    missing.append(
+        f"closure of quickfix {open_quickfix['id']} ({open_quickfix['reason']}) — "
+        "`forge.py quickfix done`"
     )
 
 # Assumptions are guided before shipping: the orchestrator confirms, demands
