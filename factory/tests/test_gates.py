@@ -1541,6 +1541,53 @@ def test_planning_lock_is_always_armed_and_guards_bash_writes(repo):
     assert code == 0 and "deny" not in out
 
 
+def test_bash_write_guard_classifies_only_real_product_writes(repo):
+    """The guard must not tax ordinary shell work it cannot classify."""
+    def decision(command):
+        code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                                "tool_input": {"command": command}})
+        assert code == 0
+        return "deny" in out
+
+    # writes the hook CAN see landing in product code
+    assert decision("printf a > ./src/app.ts")
+    assert decision("echo x >> src/app.ts")
+    assert decision("echo x >src/app.ts")
+    assert decision("sed -i '' s/a/b/ src/app.ts")
+    assert decision("cp README.md src/copy.ts")
+
+    # a redirect character inside a quoted argument is text, not a write
+    assert not decision("git commit -m 'x > y'")
+    assert not decision('git commit -m "moved a -> b"')
+    # unexpanded shell expansions are unclassifiable, not product (0013)
+    assert not decision('echo x > "$SCRATCH/probe.md"')
+    assert not decision("echo x > $HOME/notes.md")
+    assert not decision("echo x > $(mktemp)")
+    # stderr duplication is not a file write
+    assert not decision("make build 2>&1")
+    # a heredoc body with an apostrophe must not blind the guard
+    assert decision("cat > src/app.ts <<'EOF'\nit's fine\nEOF")
+    assert not decision("echo it's fine")
+    assert not decision(
+        'git add f && git commit -q -m "fix: quoted \'a > b\' and \\$HOME/x"')
+
+    # heredoc BODIES are data, not commands: prose that mentions a tool or a
+    # redirect character is not an invocation (the command line still is).
+    prose = ("git commit -F - <<'MSG'\n"
+             "fix: real writes still deny\n"
+             "moved src/a.ts > src/b.ts by hand, ran sed -i on src/c.ts\n"
+             "MSG")
+    assert not decision(prose)
+    # ...and a tool named only in passing, outside command position, is prose
+    assert not decision("echo 'use sed -i src/app.ts to patch it'")
+    assert decision("sed -i '' s/a/b/ src/app.ts")
+    # env-var prefixes do not hide the command
+    assert decision("LC_ALL=C sed -i '' s/a/b/ src/app.ts")
+    # allowlisted surfaces stay open
+    assert not decision("echo x > factory/board/x.html")
+    assert not decision("echo x > plans/roadmap.json")
+
+
 def test_quickfix_lifecycle_tracks_files_and_enforces_budget(repo):
     code, out = run(repo, "forge.py", "quickfix", "start", "repair parser")
     assert code == 0 and "Q-" in out, out
@@ -2293,8 +2340,11 @@ def test_board_serves_live_lifecycle_state(repo, tmp_path):
         assert refreshed_story["lifecycle"]["shipped"] is True
 
         page = urllib.request.urlopen(base_url, timeout=5).read().decode()
-        assert "setInterval" in page
-        assert "Ready to plan" in page and "Lifecycle" in page
+        # Structural anchors, not prose: the page polls /api/state and mounts
+        # the frontier and story regions the aggregator feeds.
+        assert "setInterval" in page and "/api/state" in page
+        assert 'id="frontier"' in page and 'id="stories"' in page
+        assert "Ready to plan" in page
     finally:
         server.shutdown()
         server.server_close()

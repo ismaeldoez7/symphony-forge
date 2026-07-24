@@ -66,6 +66,12 @@ def product_path(raw: str, root: Path) -> str | None:
     value = raw.strip().strip("\"'")
     if not value or value in {"-", "/dev/null"}:
         return None
+    # Unexpanded shell expansions ($HOME, $(pwd), backticks) cannot be
+    # classified — the hook sees the literal, not the destination. Treat as
+    # unknown rather than product: this guard defends drift, and a drifting
+    # worker writes plain paths (decision 0013; artifact gates backstop).
+    if "$" in value or "`" in value:
+        return None
     candidate = Path(value).expanduser()
     if not candidate.is_absolute():
         candidate = root / candidate
@@ -82,6 +88,63 @@ def product_path(raw: str, root: Path) -> str | None:
     return rel
 
 
+def tokenize(segment: str) -> list[str] | None:
+    """Shell tokens, or None when the segment cannot be parsed at all.
+
+    Non-posix mode is the fallback because it survives the apostrophe in a
+    heredoc body (`cat > src/app.ts <<'EOF'\\nit's fine`) that posix mode
+    rejects — losing that would blind the guard to a real product write.
+    """
+    for posix in (True, False):
+        try:
+            return shlex.split(segment, posix=posix)
+        except ValueError:
+            continue
+    return None
+
+
+HEREDOC_START = re.compile(r"<<-?\s*[\"']?(\w+)[\"']?")
+
+
+def strip_heredoc_bodies(value: str) -> str:
+    """Drop heredoc BODIES, keep the command lines that open them.
+
+    `cat > src/app.ts <<'EOF'` is a product write and must still be seen; the
+    body is data — prose there ("changed a > b", "sed -i") is not a command.
+    """
+    lines = value.splitlines()
+    kept: list[str] = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        kept.append(line)
+        match = HEREDOC_START.search(line)
+        index += 1
+        if not match:
+            continue
+        terminator = match.group(1)
+        while index < len(lines) and lines[index].strip() != terminator:
+            index += 1
+        index += 1  # skip the terminator itself
+    return "\n".join(kept)
+
+
+def redirect_targets(tokens: list[str]) -> list[str]:
+    """Write targets of unquoted > / >> operators.
+
+    Token-level so a redirect character INSIDE a quoted argument
+    (git commit -m 'a > b') is text, not a redirect.
+    """
+    targets: list[str] = []
+    for index, token in enumerate(tokens):
+        if token in {">", ">>"}:
+            if index + 1 < len(tokens):
+                targets.append(tokens[index + 1])
+        elif token.startswith(">") and token.lstrip(">"):
+            targets.append(token.lstrip(">"))
+    return targets
+
+
 def bash_write_paths(value: str) -> list[str]:
     """Extract likely write targets from a shell command.
 
@@ -89,23 +152,24 @@ def bash_write_paths(value: str) -> list[str]:
     # if a real bypass shows up.
     """
     found: list[str] = []
-    redirect = re.compile(
-        r"(?<![<>])>{1,2}(?![>&])\s*(\"[^\"]+\"|'[^']+'|[^\s;&|]+)"
-    )
-    found.extend(match.group(1) for match in redirect.finditer(value))
-    for segment in re.split(r"[;&|]+", value):
-        try:
-            tokens = shlex.split(segment)
-        except ValueError:
+    for segment in re.split(r"[;&|]+", strip_heredoc_bodies(value)):
+        tokens = tokenize(segment)
+        if tokens is None:
             continue
+        found.extend(redirect_targets(tokens))
+        # Command POSITION only (after env-var prefixes) — the same discipline
+        # the codex-exec guard uses. Otherwise prose that merely mentions a
+        # tool ("...sed -i, cp, mv...") is parsed as an invocation.
         command_index = next(
             (index for index, token in enumerate(tokens)
-             if token.rsplit("/", 1)[-1] in {"tee", "sed", "cp", "mv", "touch"}),
+             if not re.fullmatch(r"\w+=\S*", token)),
             None,
         )
         if command_index is None:
             continue
         command_name = tokens[command_index].rsplit("/", 1)[-1]
+        if command_name not in {"tee", "sed", "cp", "mv", "touch"}:
+            continue
         args = tokens[command_index + 1:]
         operands = [token for token in args
                     if not token.startswith("-") and token not in {">", ">>"}]
