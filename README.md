@@ -95,7 +95,7 @@ column describes that machinery. In lifecycle order:
 | 7 | **Plan grill** | the draft plan survives `/grill-me` vs the story's acceptance criteria + active decisions — same-issue, fresh, `pass` | `forge plan save` |
 | 8 | **Surface Impact** | the plan classifies every surface (runtime/API/data/CLI/UI/docs/tests) — Deferred and Unchanged-by-design rows carry reasons | `forge plan save` |
 | 9 | **Pending context** | every `docs/context/` dump is harvested or explicitly ignored (and scans REFUSE secrets/oversize files outright) | `forge plan save`; `context scan` |
-| 10 | **Schema + generator + skill attestation** | every evidence payload matches its `.agents/schemas/` file: `generated_by` on the allowlist, mandatory design skills attested in `skills_used` on user-facing artifacts | every `record_*` script |
+| 10 | **Schema + generator + skill attestation** | every evidence payload matches its `factory/schemas/` file: `generated_by` on the allowlist, mandatory design skills attested in `skills_used` on user-facing artifacts | every `record_*` script |
 | 11 | **Stage loop** | every decomposition stage ran its loop — order-enforced start, LOCAL autoreview until clean, commit, done | `forge stage start/done`; `pr_ready.py` refuses open stages (decision 0007) |
 | 12 | **Assumptions guided** | every `forge plan assume` row for the task is confirmed/promoted by the orchestrator (`fix-needed` keeps blocking) | `pr_ready.py` |
 | 13 | **Refactor ratchet** | a `kind: refactor` story shows non-positive net product-source line delta — refactors shrink or hold the line | `check_refactor_delta.py` in `pr_ready.py` |
@@ -121,7 +121,7 @@ relays the accept command, and waits; it never runs it.
 
 `harness.yaml` is the ALLOWLIST — these are the only pinned tools per stage,
 and recorders refuse evidence from anything else (`generated_by` is checked
-against `.agents/schemas/`). Adopting a new tool = a PR here, never a local
+against `factory/schemas/`). Adopting a new tool = a PR here, never a local
 choice.
 
 **Devs only ever say the "You say" column.** The other columns are what the
@@ -153,14 +153,14 @@ your behalf, not for you to type.
 | guide assumptions (orchestrator) | "review the assumptions" | `./forge assumptions list --open` / `resolve` | `plans/assumptions.md` — ship gate reads it |
 | context dump | drop files in `docs/context/`, then "scan the context" | `/forge` → `./forge context scan` | `docs/context/ledger.json` |
 | context harvest | "Process the context dump" | agent per `harvester.md` → proposed decisions + BRIEF edits | `./forge context mark --harvested\|--ignored` |
-| retro / evolution | "Mine for skills" / "are we fixing the same thing again?" | agent per `skill-miner.md` (incl. lessons curation) + daily `gardener` workflow; `./forge findings patterns` flags recurring classes | proposals in `.agents/skills/proposed/`; refactor stories (`kind: refactor`, delta-ratcheted) on the roadmap |
+| retro / evolution | "Mine for skills" / "are we fixing the same thing again?" | agent per `skill-miner.md` (incl. lessons curation) + daily `gardener` workflow; `./forge findings patterns` flags recurring classes | proposals in `factory/skills/proposed/`; refactor stories (`kind: refactor`, delta-ratcheted) on the roadmap |
 | park scope | "this is out of scope for now" | none — deterministic ledger | `./forge defer add --why --trigger` → `plans/deferrals.md`; `forge next` surfaces open triggers |
 
 ## Structure
 
 ```text
 symphony-forge/
-├── .agents/                        # Shared substance: prompts, deterministic scripts, proposed skills
+├── factory/                        # Shared substance: prompts, deterministic scripts, proposed skills
 ├── .claude/                        # Claude Code adapter + /forge skill (thin, linter-enforced)
 ├── .codex/                         # Codex adapter: config, hooks, agent registrations (thin)
 ├── .factory/                       # Run state + per-task history archive

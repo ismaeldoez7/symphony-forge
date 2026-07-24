@@ -15,7 +15,7 @@ matters here.
 
 ## Prompt Usage Model
 
-Prompt files under `.agents/prompts/` are explicit phase contracts.
+Prompt files under `factory/prompts/` are explicit phase contracts.
 
 They are used in three ways:
 - `SessionStart` reports run state
@@ -40,7 +40,7 @@ Hooks are not the workflow engine. They only add guardrails and continuation log
 8. `pr-ready`
 9. `done` or `blocked`
 
-The sign-off gate sits between `prototype` and `planning`. `python3 .agents/scripts/record_signoff.py` records an accepted client sign-off decision by setting `client_signoff: true` in `.factory/run.json`.
+The sign-off gate sits between `prototype` and `planning`. `python3 factory/scripts/record_signoff.py` records an accepted client sign-off decision by setting `client_signoff: true` in `.factory/run.json`.
 
 Phases at `planning` or later are refused by `update_run.py` and `pre_tool_use.py` until `client_signoff` is true.
 
@@ -134,7 +134,7 @@ Each leaf task must include:
 
 Store the decomposition in `.factory/decomposition.json` — that artifact is
 canonical. Mirroring into a tracker (Linear, GitHub Issues, Jira) is optional;
-`python3 .agents/scripts/render_linear_task_graph.py` renders a deterministic
+`python3 factory/scripts/render_linear_task_graph.py` renders a deterministic
 Markdown view of the graph if you want one to review or sync.
 
 ## AGENTS Hygiene

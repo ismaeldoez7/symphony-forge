@@ -34,7 +34,7 @@ the app just must not be built here.
      || git clone git@github.com:knacklabs/symphony-forge.git "$HARNESS"
    ```
 
-2. **Doctor.** Run `python3 "$HARNESS/.agents/scripts/forge.py" doctor`.
+2. **Doctor.** Run `python3 "$HARNESS/factory/scripts/forge.py" doctor`.
    If it reports misses, rerun with `--fix` (user approves) — that installs
    everything installable: Codex CLI, codex-plugin-cc, ponytail, gstack,
    autoreview, all from their canonical GitHub sources. Only logins remain
@@ -48,7 +48,7 @@ the app just must not be built here.
 
 4. **Scaffold.**
    ```bash
-   python3 "$HARNESS/.agents/scripts/forge.py" init --name <name> --target <dir>
+   python3 "$HARNESS/factory/scripts/forge.py" init --name <name> --target <dir>
    ```
    Never pass `--force` without explicit user confirmation — it overwrites.
 
@@ -70,7 +70,7 @@ the app just must not be built here.
    repo's `.gstack/`), so office-hours design docs, decisions, and learnings
    are committed and shared instead of stranded in `~/.gstack`.
 
-7. **Hand off.** In `<dir>`, run `python3 .agents/scripts/forge.py next`,
+7. **Hand off.** In `<dir>`, run `python3 factory/scripts/forge.py next`,
    relay its output, and tell the user: open future sessions IN `<dir>` —
    this repo's own `/forge` skill (and `forge.py next`) drives every phase
    from here, discovery first. If the current session is still sitting in

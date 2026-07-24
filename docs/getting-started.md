@@ -85,8 +85,8 @@ cd ../my-app
 ```
 
 This scaffolds a complete, git-initialized repo: dual-runtime adapters
-(`.claude/`, `.codex/`), shared agent assets (`.agents/`, including the
-artifact schemas under `.agents/schemas/`), the vendored engineering
+(`.claude/`, `.codex/`), shared agent assets (`factory/`, including the
+artifact schemas under `factory/schemas/`), the vendored engineering
 constitution, the phase manifest + skill allowlist (`harness.yaml`), doc
 contracts, and an armed sign-off gate. It refuses a target containing files
 it would overwrite (listing them); a non-empty target with no collisions is fine.
@@ -145,7 +145,7 @@ is the human's decision, not their keystroke — an explicit chat confirmation
 ```bash
 ./forge decision new client-signoff
 ./forge decision accept client-signoff --by "<human name>"   # human-confirmed
-python3 .agents/scripts/record_signoff.py
+python3 factory/scripts/record_signoff.py
 ```
 
 Every phase from `planning` onward is refused until this is recorded.
@@ -168,7 +168,7 @@ a `skill` tag (for the EM). Then the handoffs, each an artifact plus a gate:
    the epics"** — coverage vs the BRIEF, criteria vs decisions, order sanity:
 
 ```bash
-python3 .agents/scripts/record_grill_from_json.py --gate epics --input <json>
+python3 factory/scripts/record_grill_from_json.py --gate epics --input <json>
 ./forge decision new epics-approved
 ./forge decision accept epics-approved --by "<PM name>"   # human-typed
 ```
@@ -195,7 +195,7 @@ about unassigned ones). Refine it by PR as planning teaches you more.
 Start each feature with: **"Start the next task on the roadmap."**
 
 ```bash
-python3 .agents/scripts/intake.py --issue ENG-123 --title "Build billing dashboard"
+python3 factory/scripts/intake.py --issue ENG-123 --title "Build billing dashboard"
 git checkout -b feat/ENG-123-build-billing-dashboard   # one task per branch (WORKFLOW.md Concurrency)
 ```
 
@@ -206,7 +206,7 @@ merge.
 1. **Plan (mandatory — enforced)** — say: **"Plan this task."** and switch to
    PLAN MODE (shift+tab). While the task is unplanned, the hook blocks
    product-code edits and writing Codex delegation, so there is no way to
-   "just start coding". Plan per `.agents/prompts/planner.md`; exploration is
+   "just start coding". Plan per `factory/prompts/planner.md`; exploration is
    delegated, never done by Claude Code itself:
    `/codex:rescue --model gpt-5.6-terra --effort high` (read-only by default;
    raw `codex exec` is hook-blocked, no exceptions).
@@ -221,12 +221,12 @@ merge.
 ```
 
 2. **Decompose** — say: **"Decompose it."** (`docs-decomposer`; the recorded
-   JSON must match `.agents/schemas/decomposition.json`, incl. the
+   JSON must match `factory/schemas/decomposition.json`, incl. the
    `user_facing` flag):
 
 ```bash
-python3 .agents/scripts/record_decomposition_from_json.py --input /tmp/decomposition.json
-python3 .agents/scripts/update_run.py --phase implementing --plan-status approved --decomposition-status recorded
+python3 factory/scripts/record_decomposition_from_json.py --input /tmp/decomposition.json
+python3 factory/scripts/update_run.py --phase implementing --plan-status approved --decomposition-status recorded
 ```
 
 3. **Implement** — say: **"Implement it."** (Codex,
@@ -239,25 +239,25 @@ python3 .agents/scripts/update_run.py --phase implementing --plan-status approve
    records the artifact itself:
 
 ```bash
-python3 .agents/scripts/record_test_from_json.py --kind automated --input /tmp/automated-test.json
-python3 .agents/scripts/verify.py
+python3 factory/scripts/record_test_from_json.py --kind automated --input /tmp/automated-test.json
+python3 factory/scripts/verify.py
 ```
 
 4. **Review** — say: **"Review it."** ONE autoreview run in Codex, three
-   lenses (`.agents/prompts/reviewer.md`), three recorded artifacts:
+   lenses (`factory/prompts/reviewer.md`), three recorded artifacts:
 
 ```bash
-python3 .agents/scripts/record_review_from_json.py --aspect quality --input /tmp/quality-review.json
-python3 .agents/scripts/record_review_from_json.py --aspect performance --input /tmp/performance-review.json
-python3 .agents/scripts/record_review_from_json.py --aspect security --input /tmp/security-review.json
+python3 factory/scripts/record_review_from_json.py --aspect quality --input /tmp/quality-review.json
+python3 factory/scripts/record_review_from_json.py --aspect performance --input /tmp/performance-review.json
+python3 factory/scripts/record_review_from_json.py --aspect security --input /tmp/security-review.json
 ```
 
 5. **Functional check** — only when the decomposition says
    `user_facing: true`; then: **"Is this PR ready?"**
 
 ```bash
-python3 .agents/scripts/record_test_from_json.py --kind functional --input /tmp/functional-test.json
-python3 .agents/scripts/pr_ready.py
+python3 factory/scripts/record_test_from_json.py --kind functional --input /tmp/functional-test.json
+python3 factory/scripts/pr_ready.py
 ```
 
 `pr_ready.py` exits non-zero if any required artifact is missing, unstamped,
@@ -273,7 +273,7 @@ automatic. Then say: **"Process the context dump."**
 
 ```bash
 ./forge context scan                 # register files in docs/context/ledger.json
-# agent harvests per .agents/prompts/harvester.md:
+# agent harvests per factory/prompts/harvester.md:
 #   pending file -> proposed decision records + DISCOVERY/BRIEF/architecture edits
 ./forge context mark <file> --harvested --outputs <paths>   # or --ignored --notes "why"
 ./forge context list --pending
@@ -293,16 +293,16 @@ Decisions proposed by a harvest still need a HUMAN accept
 ## Keeping your repo honest
 
 Recorders refuse any artifact that does not match its schema in
-`.agents/schemas/` — wrong shape, wrong types, or a `generated_by` outside
+`factory/schemas/` — wrong shape, wrong types, or a `generated_by` outside
 the `harness.yaml` allowlist. Adopting a new tool is a harness PR, never a
 local choice (see WORKFLOW.md "Determinism Contract").
 
 CI runs these on every PR (and you can run them any time):
 
 ```bash
-python3 .agents/scripts/check_dual_runtime.py   # reference-not-duplicate + schema/allowlist parity
-python3 .agents/scripts/check_agents_hygiene.py # AGENTS.md size + links
-python3 .agents/scripts/check_factory_scaffold.py
+python3 factory/scripts/check_dual_runtime.py   # reference-not-duplicate + schema/allowlist parity
+python3 factory/scripts/check_agents_hygiene.py # AGENTS.md size + links
+python3 factory/scripts/check_factory_scaffold.py
 ```
 
 If codex-plugin-cc is unavailable, see `docs/degraded-mode.md` — same phase
@@ -339,8 +339,8 @@ Say: **"Upgrade this repo to the latest harness."** From the harness clone
 ./forge upgrade --target ../my-app
 ```
 
-Harness-owned machinery (`.agents/` incl. schemas, adapters, `constitution/`,
+Harness-owned machinery (`factory/` incl. schemas, adapters, `constitution/`,
 contracts) is replaced; project-owned content (`harness.yaml`, `AGENTS.md`,
 plans incl. the roadmap, decisions, context, prototype, `.factory/`) is never
-touched, and `.agents/skills/proposed/` survives the swap. Review the diff,
+touched, and `factory/skills/proposed/` survives the swap. Review the diff,
 run the checks, commit.

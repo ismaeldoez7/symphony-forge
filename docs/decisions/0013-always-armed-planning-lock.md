@@ -36,6 +36,6 @@ tee, sed -i, cp, mv, touch) that target product paths while locked.
 - The Bash guard is a drift defense, not an adversarial sandbox: it is a
   heuristic and may need pattern tightening; artifact gates
   (verify/review/pr_ready) remain the backstop, as under 0004.
-- Allowlisted planning surfaces (plans/, docs/, .factory/, .agents/,
+- Allowlisted planning surfaces (plans/, docs/, .factory/, factory/,
   prototype/, harness files) stay freely writable, keeping discovery and
   prototyping ceremony-free.

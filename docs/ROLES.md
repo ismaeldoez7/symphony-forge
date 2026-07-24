@@ -13,7 +13,7 @@ Owns the business truth: what we're building and why.
 | Discovery conversation | "Let's run office hours" (gstack `/office-hours`) |
 | Product intent | own `docs/product/DISCOVERY.md` + `BRIEF.md` |
 | Client decisions | "Record that as a decision" → you are the human who runs `./forge decision accept <slug> --by "<you>"` |
-| **Grill before sign-off** | "Grill the handover" — an adversarial pass (`.agents/prompts/griller.md`) interrogates DISCOVERY/BRIEF/decisions for gaps and contradictions, one question at a time; findings become doc edits or decision records. `record_signoff.py` REFUSES without a fresh, passing `.factory/grills/signoff.json` |
+| **Grill before sign-off** | "Grill the handover" — an adversarial pass (`factory/prompts/griller.md`) interrogates DISCOVERY/BRIEF/decisions for gaps and contradictions, one question at a time; findings become doc edits or decision records. `record_signoff.py` REFUSES without a fresh, passing `.factory/grills/signoff.json` |
 | Client sign-off | the `client-signoff` decision + `record_signoff.py` — nothing proceeds without you |
 | **Grill the epics handover** | same drill against the proposed epics/stories (coverage vs BRIEF, criteria vs decisions, order sanity) — `roadmap import` refuses without a passing `epics` grill |
 | **Epics (the PM→EM handoff)** | after the grill: `./forge decision new epics-approved` (list the epics in it) → `./forge decision accept epics-approved --by "<you>"`. **Roadmap import is refused until this exists.** |

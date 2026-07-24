@@ -9,5 +9,5 @@ description: >-
   "create a new app", "set up a new project", or "/forge".
 ---
 
-Read `.agents/skills/forge.md` and follow it exactly — it is the canonical
-skill body shared by both runtimes. <!-- canon: .agents/skills/forge.md -->
+Read `factory/skills/forge.md` and follow it exactly — it is the canonical
+skill body shared by both runtimes. <!-- canon: factory/skills/forge.md -->

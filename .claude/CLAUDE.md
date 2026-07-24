@@ -28,13 +28,13 @@ Read `AGENTS.md` first; it is the contract. Standards live in `constitution/`
 - If the plugin is unavailable, follow `docs/degraded-mode.md`.
 
 ## Ground rules
-
-- Per-task planning is MANDATORY in PLAN MODE here (`.agents/prompts/planner.md`);
-  the hook blocks product-code edits while unplanned — switch modes, don't
-  fight it. Grill the plan (`/grill-me`), then it's approved only when saved:
-  `python3 .agents/scripts/forge.py plan save --from <plan-file>`.
+- The planning lock is always armed. Enter PLAN MODE per `factory/prompts/planner.md`
+  or run `./forge quickfix start "<reason>"`; do not fight the hook. Grill the plan
+  (`/grill-me`), then it is approved only when saved:
+  `python3 factory/scripts/forge.py plan save --from <plan-file>`.
 - Decisions: `./forge decision new <slug>`; acceptance is HUMAN chat
   confirmation — then run accept/sign-off yourself, `--by "<name>"` + trailer.
-- Phases ≥ planning require client sign-off (`python3 .agents/scripts/record_signoff.py`).
-- `python3 .agents/scripts/check_dual_runtime.py` must stay green.
+- Recording sign-off requires confirmed specs and their derived roadmap.
+- Project facts go in `docs/memory/` (0012); user-level memory is personal only.
+- `python3 factory/scripts/check_dual_runtime.py` must stay green.
 - gstack `/codex` and `/ship` are disabled in factory repos (see `harness.yaml`).
