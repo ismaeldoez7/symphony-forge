@@ -31,6 +31,7 @@ context = []
 # a teammate who just cloned/pulled learns their machine is not ready at the
 # first session, not at the first mid-task delegation failure.
 from forge_cli.doctor import fast_status  # noqa: E402
+from forge_cli.quickfix import load_active  # noqa: E402
 required_missing, advisory_missing = fast_status()
 if required_missing:
     context.append(
@@ -63,15 +64,28 @@ if run_state.get("issue_key"):
         f"Decomposition status: {run_state.get('decomposition_status')}",
         f"Client sign-off: {run_state.get('client_signoff', False)}",
     ]
-    if run_state.get("client_signoff") and run_state.get("plan_status") != "approved":
+    if run_state.get("plan_file"):
         context.append(
-            "PLANNING IS MANDATORY: enter PLAN MODE now (shift+tab) and plan per "
-            "factory/prompts/planner.md — the PreToolUse hook blocks product-code "
-            "edits and non-read-only codex exec until the plan is saved and approved. "
+            f"Active plan: {run_state['plan_file']} — "
+            f"Story: {run_state.get('story', run_state.get('issue_key', '?'))}"
+        )
+    if run_state.get("plan_status") != "approved" and not load_active(root):
+        context.append(
+            "PLANNING LOCK ARMED: enter plan mode (shift+tab) and plan per "
+            "factory/prompts/planner.md, or open a bounded window with "
+            "`./forge quickfix start \"<reason>\"`. Product writes stay blocked until "
+            "the plan is saved and approved or the quickfix is open. "
             "The plan must be GRILLED before approval (/grill-me; record via "
             "record_grill_from_json.py --gate plan) — plan save refuses without it. "
             "Codex alternative: the planner-high agent."
         )
+quickfix = load_active(root)
+if quickfix:
+    context.append(
+        f"OPEN QUICKFIX {quickfix['id']}: {quickfix['reason']} — "
+        f"{len(quickfix.get('files', []))}/{quickfix.get('max_files', 5)} files; "
+        "close with `./forge quickfix done`."
+    )
 ledger = load_json(root / "docs" / "context" / "ledger.json", default={"files": {}})
 pending = sum(1 for e in ledger.get("files", {}).values() if e.get("status") == "pending")
 if pending:
@@ -112,6 +126,9 @@ if proposed:
     context.append(
         f"Proposed skills awaiting human review: {proposed} in factory/skills/proposed/."
     )
+memory = root / "docs" / "memory" / "MEMORY.md"
+if memory.is_file() and memory.read_text().strip():
+    context.append("PROJECT MEMORY (docs/memory/MEMORY.md):\n" + memory.read_text().strip())
 if not context:
     print(json.dumps({}))
     raise SystemExit(0)

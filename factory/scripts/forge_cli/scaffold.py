@@ -33,11 +33,16 @@ DOC_CONTRACTS = [
     ("docs/harness-philosophy.md", "docs/harness-philosophy.md"),
     ("docs/degraded-mode.md", "docs/degraded-mode.md"),
     ("docs/context/README.md", "docs/context/README.md"),
+    ("docs/specs/README.md", "docs/specs/README.md"),
 ]
 
 GENERATED_FILES = ["AGENTS.md", "docs/product/BRIEF.md", "docs/product/DISCOVERY.md",
                    "prototype/README.md", ".factory/run.json",
                    "constitution/VENDORED_FROM", "constitution/VENDOR_MANIFEST.json"]
+PROJECT_STARTERS = [
+    "docs/memory/MEMORY.md",
+    "docs/memory/factory-entry-contract.md",
+]
 
 
 def _would_write(root: Path, target: Path) -> list[Path]:
@@ -54,7 +59,8 @@ def _would_write(root: Path, target: Path) -> list[Path]:
                 if f.is_file() and "__pycache__" not in f.parts and f.suffix != ".pyc":
                     dests.append(target / f.relative_to(root))
     for rel in [*COPY_WORKFLOWS, *(f".codex/{n}" for n in COPY_CODEX),
-                *COPY_FILES, *(dst for _, dst in DOC_CONTRACTS), *GENERATED_FILES]:
+                *COPY_FILES, *(dst for _, dst in DOC_CONTRACTS), *GENERATED_FILES,
+                *PROJECT_STARTERS]:
         dests.append(target / rel)
     return dests
 
@@ -171,8 +177,9 @@ root, then:
   only logins stay manual.
 - **Ask "what now?" whenever you are unsure.** The harness answers with the
   current phase and the exact next step. There is nothing to memorize.
-- **Every feature starts with a plan the agent must defend.** Plan mode is
-  enforced by hooks; work then runs stage by stage with a local review
+- **Every feature starts with a plan the agent must defend.** Product writes
+  require plan mode and an approved plan, or an explicit five-file quickfix;
+  planned work then runs stage by stage with a local review
   before every commit, and shipping refuses until the evidence gates pass.
 - **The map:** `AGENTS.md` is the contract and read order, `WORKFLOW.md` the
   doctrine, `docs/product/BRIEF.md` what this product is. Standards that are
@@ -197,6 +204,25 @@ def ensure_onboarding(target: Path, name: str) -> bool:
         return False
     with readme.open("a") as fh:
         fh.write(f"\n{ONBOARDING_SECTION}")
+    return True
+
+
+def ensure_jsonl_attributes(target: Path, harness: Path) -> bool:
+    """Add missing harness JSONL merge rules without replacing project rules."""
+    destination = target / ".gitattributes"
+    if not destination.exists():
+        shutil.copy2(harness / ".gitattributes", destination)
+        return True
+    current = destination.read_text()
+    required = [
+        line for line in (harness / ".gitattributes").read_text().splitlines()
+        if "merge=jsonl-append" in line
+    ]
+    missing = [line for line in required if line not in current.splitlines()]
+    if not missing:
+        return False
+    with destination.open("a") as handle:
+        handle.write("\n" + "\n".join(missing) + "\n")
     return True
 
 
@@ -242,6 +268,12 @@ def cmd_init(args: argparse.Namespace) -> None:
             dst = target / dst_rel
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
+    for rel in PROJECT_STARTERS:
+        src = root / rel
+        if src.exists():
+            dst = target / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
 
     # Pin the vendored constitution to its source commit.
     try:
@@ -268,6 +300,7 @@ def cmd_init(args: argparse.Namespace) -> None:
     )
     (target / "docs" / "decisions").mkdir(parents=True, exist_ok=True)
     (target / "docs" / "architecture").mkdir(parents=True, exist_ok=True)
+    (target / "docs" / "specs").mkdir(parents=True, exist_ok=True)
     (target / "prototype").mkdir(parents=True, exist_ok=True)
     (target / "prototype" / "README.md").write_text(PROTOTYPE_README)
     for sub in ("active", "completed", "debt"):
@@ -292,7 +325,7 @@ def cmd_init(args: argparse.Namespace) -> None:
     print("  0. cd in and run `direnv allow` (once per machine) — pins gstack "
          "output into the repo's .gstack/, not ~/.gstack")
     print("  1. Fill docs/product/DISCOVERY.md (phase 0a) and BRIEF.md")
-    print("  2. Prototype (phase 0b), then: ./forge decision new client-signoff")
-    print("  3. After `./forge decision accept client-signoff --by <name>`: "
+    print("  2. Prototype; save and confirm specs, then derive the roadmap")
+    print("  3. Grill sign-off, accept `client-signoff --by <name>`, then: "
           "python3 factory/scripts/record_signoff.py")
     print(f"  4. Generate the {args.stack} workspace via harness/{args.stack}/SCAFFOLD_PROMPT.md")

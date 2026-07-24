@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """forge — the harness CLI. `./forge <command>` from the repo root.
 
-Commands: doctor, init, adopt, upgrade, next, plan (save|assume),
-roadmap (import|list|add), context (scan|list|mark), decision (new|accept).
+Commands include doctor, init/adopt/upgrade, next, board, spec, plan,
+quickfix, roadmap, context, and decision management.
 Implementations live in forge_cli/ — one module per concern; this file is
 argument wiring only.
 """
@@ -12,16 +12,18 @@ import argparse
 
 from forge_cli import adopt as adopt_mod
 from forge_cli import audit as audit_mod
+from forge_cli import board as board_mod
 from forge_cli import assumptions as assumptions_mod
 from forge_cli import context as ctx
 from forge_cli import deferrals as deferrals_mod
 from forge_cli import findings as findings_mod
 from forge_cli import lessons as lessons_mod
+from forge_cli import quickfix as quickfix_mod
 from forge_cli import scratchpad as scratchpad_mod
 from forge_cli import stages as stages_mod
 from forge_cli import gstack as gstack_mod
 from forge_cli import signal as signal_mod
-from forge_cli import decisions, doctor, phase, plans, roadmap, scaffold, team, upgrade
+from forge_cli import decisions, doctor, phase, plans, roadmap, scaffold, specs, team, upgrade
 
 
 def main() -> None:
@@ -38,6 +40,11 @@ def main() -> None:
     p_next = sub.add_parser("next", help="where am I and what do I do now (deterministic)")
     p_next.add_argument("--repo")
     p_next.set_defaults(func=phase.cmd_next)
+
+    p_board = sub.add_parser("board", help="open the read-only local lifecycle board")
+    p_board.add_argument("--port", type=int, default=8765)
+    p_board.add_argument("--repo")
+    p_board.set_defaults(func=board_mod.cmd_board)
 
     p_init = sub.add_parser("init", help="scaffold a new client repo from this harness")
     p_init.add_argument("--name", required=True)
@@ -66,14 +73,45 @@ def main() -> None:
                         help="path to the approved plan file (e.g. the Claude Code plan)")
     p_save.add_argument("--issue", help="issue key (defaults to .factory/run.json)")
     p_save.add_argument("--title", help="plan title (defaults to run.json title)")
+    p_save.add_argument("--story",
+                        help="roadmap story key (defaults to the active issue key)")
     p_save.add_argument("--repo", help="target repo (defaults to this repo)")
     p_save.set_defaults(func=plans.cmd_save)
+    p_pl = plan_sub.add_parser("list", help="show plans, roadmap status, and stage progress")
+    p_pl.add_argument("--repo")
+    p_pl.set_defaults(func=plans.cmd_list)
     p_assume = plan_sub.add_parser(
         "assume", help="record an implementation assumption on the active plan")
     p_assume.add_argument("text", help="the assumption, one sentence")
     p_assume.add_argument("--issue", help="issue key (defaults to .factory/run.json)")
     p_assume.add_argument("--repo")
     p_assume.set_defaults(func=plans.cmd_assume)
+
+    p_qf = sub.add_parser("quickfix", help="bounded, ledgered planning-lock escape hatch")
+    qf_sub = p_qf.add_subparsers(dest="quickfix_command", required=True)
+    p_qfs = qf_sub.add_parser("start", help="open a five-file quickfix window")
+    p_qfs.add_argument("reason")
+    p_qfs.add_argument("--repo")
+    p_qfs.set_defaults(func=quickfix_mod.cmd_start)
+    p_qfd = qf_sub.add_parser("done", help="close the active quickfix window")
+    p_qfd.add_argument("--repo")
+    p_qfd.set_defaults(func=quickfix_mod.cmd_done)
+    p_qfl = qf_sub.add_parser("list", help="show the active and completed quickfixes")
+    p_qfl.add_argument("--repo")
+    p_qfl.set_defaults(func=quickfix_mod.cmd_list)
+
+    p_spec = sub.add_parser("spec", help="capture and confirm capability specs")
+    spec_sub = p_spec.add_subparsers(dest="spec_command", required=True)
+    p_sps = spec_sub.add_parser("save", help="save a capability spec as draft")
+    p_sps.add_argument("slug")
+    p_sps.add_argument("--from", dest="source", required=True)
+    p_sps.add_argument("--title")
+    p_sps.add_argument("--repo")
+    p_sps.set_defaults(func=specs.cmd_save)
+    p_spc = spec_sub.add_parser("confirm", help="confirm a freshly grilled spec")
+    p_spc.add_argument("slug")
+    p_spc.add_argument("--repo")
+    p_spc.set_defaults(func=specs.cmd_confirm)
 
     p_rm = sub.add_parser("roadmap", help="the durable project backlog (plans/roadmap.json)")
     rm_sub = p_rm.add_subparsers(dest="roadmap_command", required=True)
@@ -83,6 +121,11 @@ def main() -> None:
                        help='JSON: {"items": [{key,title,epic}]} in execution order')
     p_imp.add_argument("--repo")
     p_imp.set_defaults(func=roadmap.cmd_import)
+    p_der = rm_sub.add_parser(
+        "derive", help="record a pre-sign-off roadmap derived from confirmed specs")
+    p_der.add_argument("--input", required=True)
+    p_der.add_argument("--repo")
+    p_der.set_defaults(func=roadmap.cmd_derive)
     p_rl = rm_sub.add_parser("list", help="show the roadmap with status")
     p_rl.add_argument("--pending", action="store_true")
     p_rl.add_argument("--repo")
@@ -93,6 +136,7 @@ def main() -> None:
     p_ra.add_argument("--epic")
     p_ra.add_argument("--skill", help="frontend | backend | fullstack")
     p_ra.add_argument("--kind", help="feature | refactor (refactor => source-delta ratchet at pr_ready)")
+    p_ra.add_argument("--spec", help="confirmed docs/specs/<slug>.md source (required)")
     p_ra.add_argument("--repo")
     p_ra.set_defaults(func=roadmap.cmd_add)
     p_rh = rm_sub.add_parser("heal",

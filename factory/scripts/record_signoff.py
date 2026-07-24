@@ -8,8 +8,9 @@ import sys
 from pathlib import Path
 
 from factory_lib import dump_json, load_json, now_iso, repo_root, require_grill, run_state_path
+from forge_cli.specs import spec_records
 
-FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
+FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.DOTALL)
 
 
 def parse_frontmatter(text: str) -> dict[str, str]:
@@ -26,12 +27,46 @@ def parse_frontmatter(text: str) -> dict[str, str]:
 
 def main() -> int:
     root = repo_root()
+    specs = spec_records(root)
+    roadmap_path = root / "plans" / "roadmap.json"
+    roadmap = load_json(roadmap_path, default={})
+    stories = roadmap.get("items", []) if isinstance(roadmap, dict) else []
+    problems: list[str] = []
+    if not specs:
+        problems.append("at least one confirmed spec in docs/specs/")
+    unconfirmed = [
+        record["path"] for record in specs if record.get("status") != "confirmed"
+    ]
+    if unconfirmed:
+        problems.append(f"specs still draft or unconfirmed: {', '.join(unconfirmed)}")
+    if not stories:
+        problems.append("plans/roadmap.json with at least one story")
+    confirmed = {
+        record["path"] for record in specs if record.get("status") == "confirmed"
+    }
+    referenced = {
+        Path(item["spec"]).as_posix()
+        for item in stories
+        if isinstance(item, dict) and isinstance(item.get("spec"), str)
+    }
+    missing_refs = sorted(confirmed - referenced)
+    if missing_refs:
+        problems.append(
+            "confirmed specs not referenced by any roadmap story: "
+            + ", ".join(missing_refs)
+        )
+    if problems:
+        print("SIGN-OFF REFUSED — missing workflow inputs:")
+        for problem in problems:
+            print(f"- {problem}")
+        return 1
     # The handover must be grilled for gaps/contradictions BEFORE it becomes
     # the contract downstream work builds on. Fresh = product docs unchanged
     # since the grill (the sign-off record itself is expected exhaust).
     require_grill(
         root, "signoff",
-        ("docs/product/", "docs/decisions/", "prototype/"),
+        ("docs/product/", "docs/decisions/", "docs/specs/",
+         "plans/roadmap.json", "prototype/"),
         ignore_names=("client-signoff", "epics-approved"),
     )
     decisions = root / "docs" / "decisions"

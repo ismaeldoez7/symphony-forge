@@ -6,11 +6,17 @@ downstream as rework. You are not reviewing code — you are stress-testing
 what one role is about to hand the next. The gate scripts REFUSE without
 your fresh, passing record.
 
-Two gates, two scopes:
+Four gates, four scopes:
 
+- `--gate spec` (prototype → confirmed capability) — interrogate the exact
+  `docs/specs/<slug>.md` file against BRIEF, architecture, decisions, and the
+  prototype. Hunt: behavior the prototype proved but the spec omitted,
+  implementation choices masquerading as requirements, vague acceptance
+  language, and conflicts with active decisions.
 - `--gate signoff` (client → PM, before `record_signoff.py`) — interrogate
-  `docs/product/DISCOVERY.md`, `BRIEF.md`, `docs/decisions/`, and the
-  prototype notes. Hunt: unanswered stakeholder/constraint questions, scope
+  `docs/product/DISCOVERY.md`, `BRIEF.md`, confirmed specs, the spec-linked
+  roadmap, `docs/decisions/`, and prototype notes. Hunt: unanswered
+  stakeholder/constraint questions, scope
   the client saw vs. scope the BRIEF claims, decisions that contradict the
   BRIEF, acceptance criteria that are vibes instead of checks, non-functional
   requirements nobody asked about (auth, data retention, environments).
@@ -32,8 +38,10 @@ Two gates, two scopes:
   work with no named consumer — shims, deprecation paths, migration flows
   the BRIEF and decisions justify for NOBODY (conduct §5: a breaking
   replacement deletes the old path unless live users are named), choices missing
-  from the plan's Decisions section, contradictions with accepted
-  decisions, unbounded tasks, a Verify Plan that can't actually falsify the
+  from the plan's Decisions section. Reconcile the plan explicitly against
+  EVERY ID from `forge decision list --active`; a conflict becomes a
+  contradiction signal or a superseding decision, never a silent exception.
+  Also hunt unbounded tasks and a Verify Plan that can't actually falsify the
   work, a `## Surface Impact` row left implicit (every Deferred /
   Unchanged-by-design entry needs a reason), and any RECURRING finding
   class (`./forge findings patterns`) in this story's area the plan neither
@@ -58,7 +66,7 @@ Method:
    `"generated_by": "griller"`):
 
 ```bash
-python3 factory/scripts/record_grill_from_json.py --gate <signoff|epics|plan> --input <json> [--input-digest <artifact>]
+python3 factory/scripts/record_grill_from_json.py --gate <spec|signoff|epics|plan> --input <json> [--input-digest <artifact>]
 ```
 
 5. Commit the resolution edits BEFORE recording the grill — the gates check
@@ -66,8 +74,8 @@ python3 factory/scripts/record_grill_from_json.py --gate <signoff|epics|plan> --
    guarded doc changing after the grill (even uncommitted) stales it.
    (The sign-off / epics-approved decision records themselves are expected
    afterwards and don't stale it.)
-6. `--input-digest` is REQUIRED for the epics and plan gates: pass the exact
-   roadmap input / plan draft you interrogated. The gate verifies the
+6. `--input-digest` is REQUIRED for the spec, epics, and plan gates: pass the
+   exact spec / roadmap input / plan draft you interrogated. The gate verifies the
    digest — grilling version A never approves an edited version B; if the
    artifact changes, re-grill it.
 

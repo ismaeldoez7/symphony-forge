@@ -69,7 +69,7 @@ def mark_status(base: Path, key: str, status: str, **extra: str) -> bool:
     return False
 
 
-FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
+FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.DOTALL)
 
 
 def epics_approved(base: Path) -> bool:
@@ -148,6 +148,17 @@ def check_dag(items: list[dict]) -> None:
             remaining.pop(k)
 
 
+def check_epics(epics: list[dict]) -> None:
+    for pos, epic in enumerate(epics, 1):
+        if not isinstance(epic, dict):
+            fail(f"epic {pos} must be an object")
+        for field in ("id", "title"):
+            if not isinstance(epic.get(field), str) or not epic[field].strip():
+                fail(f"epic {pos}: '{field}' must be a non-empty string")
+    if len({epic["id"] for epic in epics}) != len(epics):
+        fail("duplicate epic id in input")
+
+
 def ready_pending(items: list[dict]) -> tuple[list[dict], list[tuple[dict, list[str]]]]:
     """The parallelizable frontier: pending items whose depends_on are all
     done. Anything else pending is blocked, with the keys it waits on."""
@@ -170,6 +181,64 @@ def require_signoff(base: Path, action: str) -> None:
     if not _lj(_rsp(base), default={}).get("client_signoff"):
         fail(f"{action} is a post-sign-off activity — record client sign-off first "
              "(record_signoff.py).")
+
+
+def cmd_derive(args: argparse.Namespace) -> None:
+    """Write the pre-sign-off roadmap derived from confirmed specs."""
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    source = Path(args.input).expanduser()
+    if not source.is_file():
+        fail(f"roadmap input {source} not found")
+    try:
+        payload = json.loads(source.read_text())
+    except json.JSONDecodeError as exc:
+        fail(f"invalid JSON in {source}: {exc}")
+    if not isinstance(payload, dict):
+        fail('roadmap input must be {"generated_by": "...", "epics": [...], "items": [...]}')
+    validate_payload(base, "roadmap", payload)
+    if payload.get("generated_by") != "docs-decomposer":
+        fail("roadmap derive requires generated_by: docs-decomposer; the backlog is "
+             "derived from specs, never hand-authored")
+    incoming = payload["items"]
+    if not incoming:
+        fail("roadmap input has no items")
+    from .specs import resolve_spec_reference
+    seen: set[str] = set()
+    normalized: list[dict] = []
+    for pos, item in enumerate(incoming, 1):
+        check_item(item, pos)
+        if item["key"] in seen:
+            fail(f"duplicate roadmap key: {item['key']}")
+        seen.add(item["key"])
+        spec = item.get("spec")
+        if not isinstance(spec, str) or not spec.strip():
+            fail(f"roadmap item {item['key']}: 'spec' is required")
+        spec_path = resolve_spec_reference(base, spec, confirmed=True)
+        entry = {key: value for key, value in item.items()
+                 if key not in LIFECYCLE_FIELDS}
+        entry["spec"] = spec_path.relative_to(base).as_posix()
+        entry["order"] = pos
+        entry["status"] = "pending"
+        normalized.append(entry)
+    for item in normalized:
+        for dependency in item.get("depends_on", []):
+            if dependency == item["key"]:
+                fail(f"roadmap item {item['key']} depends on itself")
+            if dependency not in seen:
+                fail(f"roadmap item {item['key']}: depends_on '{dependency}' "
+                     "is not in the derived roadmap")
+    check_dag(normalized)
+    epics = payload.get("epics", [])
+    check_epics(epics)
+    save_roadmap(
+        base,
+        normalized,
+        epics=epics,
+        generated_by=payload["generated_by"],
+    )
+    print(f"Derived roadmap: {len(normalized)} stor"
+          f"{'y' if len(normalized) == 1 else 'ies'} from confirmed specs -> "
+          f"{roadmap_path(base).relative_to(base)}")
 
 
 def cmd_import(args: argparse.Namespace) -> None:
@@ -220,14 +289,7 @@ def cmd_import(args: argparse.Namespace) -> None:
             if dep not in known:
                 fail(f"roadmap item {item['key']}: depends_on '{dep}' is not on the roadmap")
     incoming_epics = payload.get("epics", [])
-    for pos, epic in enumerate(incoming_epics, 1):
-        if not isinstance(epic, dict):
-            fail(f"epic {pos} must be an object")
-        for field in ("id", "title"):
-            if not isinstance(epic.get(field), str) or not epic[field].strip():
-                fail(f"epic {pos}: '{field}' must be a non-empty string")
-    if len({e["id"] for e in incoming_epics}) != len(incoming_epics):
-        fail("duplicate epic id in input")
+    check_epics(incoming_epics)
     existing = {item["key"]: item for item in load_items(base)}
     merged: list[dict] = []
     added = updated = 0
@@ -272,7 +334,6 @@ def cmd_add(args: argparse.Namespace) -> None:
         fail(f"{args.key} is already on the roadmap")
     order = max((item.get("order", 0) for item in items), default=0) + 1
     item = {"key": args.key, "title": args.title, "order": order, "status": "pending"}
-    check_item(item, order)
     if args.epic:
         item["epic"] = args.epic
     if args.skill:
@@ -281,7 +342,12 @@ def cmd_add(args: argparse.Namespace) -> None:
         item["skill"] = args.skill
     if getattr(args, "kind", None):
         item["kind"] = args.kind
-        check_item(item, order)
+    check_item(item, order)
+    if not args.spec:
+        fail("--spec docs/specs/<slug>.md is required for every new roadmap story")
+    from .specs import resolve_spec_reference
+    item["spec"] = resolve_spec_reference(
+        base, args.spec, confirmed=True).relative_to(base).as_posix()
     items.append(item)
     save_roadmap(base, items)
     print(f"Added {args.key} to the roadmap (order {order})")

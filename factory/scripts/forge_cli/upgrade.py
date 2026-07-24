@@ -14,7 +14,10 @@ from pathlib import Path
 from factory_lib import head_sha, repo_root
 
 from .common import fail
-from .scaffold import COPY_CODEX, COPY_WORKFLOWS, DOC_CONTRACTS
+from .scaffold import (
+    COPY_CODEX, COPY_WORKFLOWS, DOC_CONTRACTS, PROJECT_STARTERS,
+    ensure_jsonl_attributes,
+)
 
 # Harness-owned: replaced wholesale on upgrade.
 UPGRADE_TREES = ["factory", "constitution", "harness"]
@@ -33,6 +36,7 @@ CLAUDE_HARNESS_OWNED = ["CLAUDE.md", "settings.json", "skills/forge"]
 PROJECT_OWNED = [
     "harness.yaml", "AGENTS.md", ".factory/", "plans/", "prototype/",
     "docs/product/", "docs/decisions/", "docs/architecture/", "docs/context/",
+    "docs/specs/", "docs/memory/",
     ".github/ (except the harness factory workflows)",
     ".claude/ and .codex/ additions the harness does not ship (project skills, agents, launch.json)",
 ]
@@ -158,14 +162,8 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     if not (target / ".envrc").exists():
         shutil.copy2(harness / ".envrc", target / ".envrc")
         ensured.append(".envrc (run `direnv allow` in the repo)")
-    attrs = target / ".gitattributes"
-    if not attrs.exists():
-        shutil.copy2(harness / ".gitattributes", attrs)
-        ensured.append(".gitattributes")
-    elif "merge=jsonl-append" not in attrs.read_text():
-        with attrs.open("a") as fh:
-            fh.write("\n.gstack/**/*.jsonl merge=jsonl-append\n")
-        ensured.append(".gitattributes (jsonl merge rule appended)")
+    if ensure_jsonl_attributes(target, harness):
+        ensured.append(".gitattributes (missing JSONL merge rules added)")
     from .scaffold import ensure_onboarding
     if ensure_onboarding(target, target.name):
         ensured.append("README.md ('Working in this repo' onboarding section appended)")
@@ -177,6 +175,12 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
                      ".gstack/tmp/\n.gstack/.*\n.gstack/**/brain-cache/\n"
                      ".gstack/**/timeline.jsonl\n.gstack/slug-cache/\n")
         ensured.append(".gitignore (gstack entries appended)")
+    for rel in PROJECT_STARTERS:
+        destination = target / rel
+        if not destination.exists():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(harness / rel, destination)
+            ensured.append(rel)
 
     commit = head_sha(harness) or "unknown"
     (target / "constitution" / "VENDORED_FROM").write_text(

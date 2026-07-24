@@ -1,0 +1,2 @@
+{"event": "open", "id": "Q-0001", "reason": "probe: verify budget path", "started_at": "2026-07-24T17:28:32+00:00", "max_files": 5, "files": []}
+{"event": "done", "id": "Q-0001", "reason": "probe: verify budget path", "started_at": "2026-07-24T17:28:32+00:00", "completed_at": "2026-07-24T17:28:32+00:00", "files": ["src/app.ts"]}

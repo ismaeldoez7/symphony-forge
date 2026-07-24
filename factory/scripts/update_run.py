@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
-from factory_lib import dump_json, load_json, now_iso, repo_root, run_state_path
+from factory_lib import (
+    dump_json, load_json, now_iso, repo_root, review_dir, run_state_path,
+    tests_state_path, verify_state_path,
+)
 
 parser = argparse.ArgumentParser(description="Update factory run state")
 parser.add_argument("--phase")
@@ -25,12 +28,30 @@ GATED_PHASES = {
     "functional-check",
     "pr-ready",
 }
+PHASE_PREREQS = {
+    "reviewing": (
+        ("successful .factory/verify.json",
+         lambda base: load_json(verify_state_path(base), default={}).get("ok") is True),
+        (".factory/tests.json",
+         lambda base: tests_state_path(base).is_file()),
+    ),
+    "functional-check": tuple(
+        (f".factory/reviews/{aspect}.json",
+         lambda base, name=aspect: (review_dir(base) / f"{name}.json").is_file())
+        for aspect in ("quality", "performance", "security")
+    ),
+}
 
 root = repo_root()
 path = run_state_path(root)
 state = load_json(path, default={})
 if not state:
     raise SystemExit("Missing .factory/run.json. Run intake first.")
+if args.phase == "pr-ready":
+    raise SystemExit(
+        "Phase 'pr-ready' is reachable only through "
+        "`python3 factory/scripts/pr_ready.py`; update_run.py cannot set it directly."
+    )
 if args.phase in GATED_PHASES and not state.get("client_signoff"):
     raise SystemExit(
         f"Phase '{args.phase}' requires client sign-off. Get "
@@ -63,6 +84,15 @@ if args.phase in IMPL_PHASES:
             "(record_decomposition_from_json.py after plan approval). "
             "Implementation never starts before decomposition."
         )
+missing_prereqs = [
+    label for label, ready in PHASE_PREREQS.get(args.phase, ())
+    if not ready(root)
+]
+if missing_prereqs:
+    raise SystemExit(
+        f"Phase '{args.phase}' requires: {', '.join(missing_prereqs)}. "
+        "Complete the preceding artifact gates first."
+    )
 for key, value in {
     "phase": args.phase,
     "plan_status": args.plan_status,

@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import threading
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -33,7 +35,7 @@ DECOMP = {"status": "recorded", "generated_by": "docs-decomposer",
           "user_facing": True,
           "tasks": [{"id": "T1", "title": "core slice", "write_scope": ["src/"]}]}
 
-# Minimal plan body passing `plan save` content gates (Decisions + Surface Impact)
+# Minimal plan body passing `plan save` content gates (Decisions + Surface Impact).
 PLAN_BODY = ("## Decisions\nNo new decisions\n\n"
              "## Surface Impact\nAll surfaces: N-A (test plan)\n")
 
@@ -72,9 +74,73 @@ def record_grill(repo: Path, gate: str, verdict: str = "pass",
                stdin=json.dumps(payload))
 
 
+def active_decision_ids(repo: Path) -> list[str]:
+    active = []
+    for record in sorted((repo / "docs" / "decisions").glob("[0-9][0-9][0-9][0-9]-*.md")):
+        frontmatter = record.read_text().split("---", 2)[1]
+        if "status: accepted" in frontmatter:
+            active.append(record.stem)
+    return active
+
+
+def plan_draft(repo: Path, body: str = PLAN_BODY,
+               decisions: list[str] | None = None) -> str:
+    reviewed = active_decision_ids(repo) if decisions is None else decisions
+    listed = "\n".join(f"  - {decision}" for decision in reviewed)
+    value = f"\n{listed}" if listed else " []"
+    return f"---\ndecisions_reviewed:{value}\n---\n\n{body}"
+
+
+def ensure_story(repo: Path, key: str, title: str | None = None) -> None:
+    path = repo / "plans" / "roadmap.json"
+    data = json.loads(path.read_text()) if path.exists() else {
+        "generated_by": "docs-decomposer", "epics": [], "items": [],
+    }
+    if not any(item.get("key") == key for item in data["items"]):
+        data["items"].append({
+            "key": key,
+            "title": title or key,
+            "spec": "docs/specs/base.md",
+            "status": "pending",
+            "order": len(data["items"]) + 1,
+        })
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2) + "\n")
+
+
+def seed_signoff_inputs(repo: Path) -> None:
+    specs = repo / "docs" / "specs"
+    specs.mkdir(parents=True, exist_ok=True)
+    spec = specs / "base.md"
+    if not spec.exists():
+        spec.write_text(
+            "---\nslug: base\ntitle: Base\nstatus: confirmed\n"
+            "saved: 2026-07-24T00:00:00+00:00\n---\n\n# Base\n"
+        )
+    roadmap = repo / "plans" / "roadmap.json"
+    if not roadmap.exists():
+        roadmap.parent.mkdir(parents=True, exist_ok=True)
+        roadmap.write_text(json.dumps({
+            "generated_by": "docs-decomposer",
+            "epics": [],
+            "items": [{
+                "key": "SIGNOFF-0",
+                "title": "Sign-off coverage",
+                "spec": "docs/specs/base.md",
+                "status": "done",
+                "order": 1,
+            }],
+        }, indent=2) + "\n")
+    tracked = ["docs/specs/base.md", "plans/roadmap.json"]
+    git(repo, "add", *tracked)
+    if git(repo, "diff", "--cached", "--name-only"):
+        git(repo, "commit", "-q", "-m", "seed signoff inputs")
+
+
 def sign_off(repo: Path) -> None:
     if json.loads((repo / ".factory" / "run.json").read_text()).get("client_signoff"):
         return  # idempotent: already signed off
+    seed_signoff_inputs(repo)
     code, out = record_grill(repo, "signoff")
     assert code == 0, out
     code, out = run(repo, "forge.py", "decision", "new", "client-signoff", "--repo", str(repo))
@@ -94,16 +160,22 @@ def intake(repo: Path, key: str = "ENG-1", title: str = "Invoices", *extra: str)
 
 
 def save_plan(repo: Path, tmp_path: Path) -> tuple[int, str]:
+    state = run_state(repo)
+    story = state.get("issue_key", "ENG-1")
+    ensure_story(repo, story, state.get("title"))
     plan = tmp_path / "plan.md"
-    plan.write_text(PLAN_BODY)
+    plan.write_text(plan_draft(repo))
     record_grill(repo, "plan", digest_of=plan)  # grill bound to THIS draft
-    return run(repo, "forge.py", "plan", "save", "--from", str(plan))
+    return run(repo, "forge.py", "plan", "save", "--from", str(plan), "--story", story)
 
 
 def save_plan_raw(repo: Path, tmp_path: Path) -> tuple[int, str]:
+    state = run_state(repo)
+    story = state.get("issue_key", "ENG-1")
+    ensure_story(repo, story, state.get("title"))
     plan = tmp_path / "plan.md"
-    plan.write_text(PLAN_BODY)
-    return run(repo, "forge.py", "plan", "save", "--from", str(plan))
+    plan.write_text(plan_draft(repo))
+    return run(repo, "forge.py", "plan", "save", "--from", str(plan), "--story", story)
 
 
 def write_passing_artifacts(repo: Path, commit: str | None = None) -> None:
@@ -244,6 +316,7 @@ def test_intake_starts_discovery_before_signoff_and_planning_after(repo, tmp_pat
 
 
 def test_record_signoff_requires_accepted_and_confirmed(repo):
+    seed_signoff_inputs(repo)
     code, out = run(repo, "record_signoff.py")
     assert code != 0 and "grill" in out.lower()  # grill gate fires first
     record_grill(repo, "signoff")
@@ -252,6 +325,71 @@ def test_record_signoff_requires_accepted_and_confirmed(repo):
     run(repo, "forge.py", "decision", "new", "client-signoff", "--repo", str(repo))
     code, out = run(repo, "record_signoff.py")
     assert code != 0 and "status" in out  # proposed, not accepted
+
+
+def test_record_signoff_refuses_without_confirmed_specs_and_roadmap(repo):
+    specs = repo / "docs" / "specs"
+    specs.mkdir(parents=True, exist_ok=True)
+    (specs / "draft.md").write_text(
+        "---\nslug: draft\ntitle: Draft\nstatus: draft\n"
+        "saved: 2026-07-24T00:00:00+00:00\n---\n\n# Draft\n"
+    )
+    code, out = run(repo, "record_signoff.py")
+    assert code != 0
+    assert "specs still draft or unconfirmed: docs/specs/draft.md" in out
+    assert "plans/roadmap.json" in out
+
+
+def test_spec_confirm_roadmap_derive_and_signoff_gate(repo, tmp_path):
+    draft = tmp_path / "billing.md"
+    draft.write_text("# Billing\n\nInvoices and payments.\n")
+    code, out = run(repo, "forge.py", "spec", "save", "billing",
+                    "--from", str(draft))
+    assert code == 0, out
+    spec = repo / "docs" / "specs" / "billing.md"
+    assert "status: draft" in spec.read_text()
+
+    code, out = run(repo, "forge.py", "spec", "confirm", "billing")
+    assert code != 0 and "grill" in out.lower()
+    code, out = record_grill(repo, "spec", digest_of=spec)
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "spec", "confirm", "billing")
+    assert code == 0 and "confirmed" in out
+    assert "status: confirmed" in spec.read_text()
+
+    roadmap_input = tmp_path / "derived-roadmap.json"
+    roadmap_input.write_text(json.dumps({
+        "generated_by": "docs-decomposer",
+        "items": [{"key": "BILL-0", "title": "Missing source"}],
+    }))
+    code, out = run(repo, "forge.py", "roadmap", "derive",
+                    "--input", str(roadmap_input))
+    assert code != 0 and "'spec' is required" in out
+    roadmap_input.write_text(json.dumps({
+        "generated_by": "docs-decomposer",
+        "epics": [{"id": "billing", "title": "Billing"}],
+        "items": [{
+            "key": "BILL-1", "title": "Invoices", "epic": "billing",
+            "spec": "docs/specs/billing.md", "depends_on": [],
+        }],
+    }))
+    code, out = run(repo, "forge.py", "roadmap", "derive",
+                    "--input", str(roadmap_input))
+    assert code == 0 and "Derived roadmap" in out, out
+    item = json.loads((repo / "plans" / "roadmap.json").read_text())["items"][0]
+    assert item["spec"] == "docs/specs/billing.md"
+    assert item["status"] == "pending" and item["order"] == 1
+
+    git(repo, "add", "docs/specs/billing.md", "plans/roadmap.json")
+    git(repo, "commit", "-q", "-m", "confirm billing contract")
+    record_grill(repo, "signoff")
+    run(repo, "forge.py", "decision", "new", "client-signoff", "--repo", str(repo))
+    record = next((repo / "docs" / "decisions").glob("*-client-signoff.md"))
+    record.write_text(record.read_text()
+        .replace("status: proposed", "status: accepted")
+        .replace('confirmed_by: ""', 'confirmed_by: "Client PM"'))
+    code, out = run(repo, "record_signoff.py")
+    assert code == 0 and "client_signoff recorded" in out, out
 
 
 # ------------------------------------------------------- plan approval gates
@@ -413,6 +551,36 @@ def test_phase_implementing_requires_approved_saved_plan(repo, tmp_path):
     assert code == 0, out
 
 
+def test_update_run_enforces_artifact_phase_order(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    code, out = save_plan(repo, tmp_path)
+    assert code == 0, out
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    assert code == 0, out
+
+    code, out = run(repo, "update_run.py", "--phase", "reviewing")
+    assert code != 0 and "verify.json" in out
+    (repo / ".factory" / "verify.json").write_text(json.dumps({"ok": True}))
+    code, out = run(repo, "update_run.py", "--phase", "reviewing")
+    assert code != 0 and "tests.json" in out
+    (repo / ".factory" / "tests.json").write_text(json.dumps({"automated": {}}))
+    code, out = run(repo, "update_run.py", "--phase", "reviewing")
+    assert code == 0, out
+
+    code, out = run(repo, "update_run.py", "--phase", "functional-check")
+    assert code != 0 and "reviews" in out
+    reviews = repo / ".factory" / "reviews"
+    reviews.mkdir(exist_ok=True)
+    for aspect in ("quality", "performance", "security"):
+        (reviews / f"{aspect}.json").write_text(json.dumps({"score": 9}))
+    code, out = run(repo, "update_run.py", "--phase", "functional-check")
+    assert code == 0, out
+
+    code, out = run(repo, "update_run.py", "--phase", "pr-ready")
+    assert code != 0 and "pr_ready.py" in out
+
+
 def test_decomposition_refused_without_run_state(repo):
     (repo / ".factory" / "run.json").unlink()
     code, out = run(repo, "record_decomposition_from_json.py",
@@ -513,6 +681,8 @@ def test_upgrade_replaces_machinery_preserves_project(repo, tmp_path):
     proposed = repo / "factory" / "skills" / "proposed"
     proposed.mkdir(parents=True, exist_ok=True)
     (proposed / "keep-me.md").write_text("status: proposed\n")
+    memory = repo / "docs" / "memory" / "MEMORY.md"
+    memory.write_text("# Project Memory\n\nClient-specific fact.\n")
     run(repo, "forge.py", "decision", "new", "keep-decision", "--repo", str(repo))
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "project state")
@@ -524,6 +694,7 @@ def test_upgrade_replaces_machinery_preserves_project(repo, tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert (repo / "factory" / "scripts" / "verify.py").exists()  # machinery restored
     assert (proposed / "keep-me.md").exists()  # evolution state preserved
+    assert "Client-specific fact" in memory.read_text()  # project memory preserved
     assert list((repo / "docs" / "decisions").glob("*keep-decision.md"))  # project-owned untouched
     assert head(repo) in (repo / "constitution" / "VENDORED_FROM").read_text() or \
         "symphony-forge @" in (repo / "constitution" / "VENDORED_FROM").read_text()
@@ -563,6 +734,7 @@ def test_upgrade_refuses_dirty_target(repo):
 # --------------------------------------------------------- misc deterministic
 
 def test_decision_accept_and_plain_issue_keys(repo):
+    seed_signoff_inputs(repo)
     record_grill(repo, "signoff")
     code, out = run(repo, "forge.py", "decision", "new", "client-signoff", "--repo", str(repo))
     assert code == 0
@@ -697,9 +869,11 @@ def test_roadmap_import_and_add_validation(repo, tmp_path):
         {"key": "A", "title": "x"}, {"key": "A", "title": "y"},
     ]})
     assert code != 0 and "duplicate" in out
-    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-9", "Reports")
+    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-9", "Reports",
+                    "--spec", "docs/specs/base.md")
     assert code == 0, out
-    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-9", "Reports")
+    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-9", "Reports",
+                    "--spec", "docs/specs/base.md")
     assert code != 0 and "already" in out
 
 
@@ -1030,6 +1204,7 @@ def test_next_tags_steps_with_roles(repo):
 # ------------------------------------------------------------ handover grills
 
 def test_grill_recorder_refuses_pass_with_unresolved_findings(repo):
+    seed_signoff_inputs(repo)
     code, out = record_grill(repo, "signoff",
                              gaps=["no data-retention answer"], resolutions=[])
     assert code != 0 and "unresolved" in out
@@ -1048,6 +1223,7 @@ def test_grill_recorder_refuses_pass_with_unresolved_findings(repo):
 
 
 def test_stale_grill_refused_after_handover_docs_change(repo):
+    seed_signoff_inputs(repo)
     record_grill(repo, "signoff")
     # resolve-then-edit AFTER the grill: BRIEF changes, committed
     brief = repo / "docs" / "product" / "BRIEF.md"
@@ -1339,6 +1515,87 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
     assert "deny" in out and "codex:rescue" in out
 
 
+def test_planning_lock_is_always_armed_and_guards_bash_writes(repo):
+    product = repo / "src" / "app.ts"
+    payload = {"tool_name": "Edit", "permission_mode": "default",
+               "tool_input": {"file_path": str(product)}}
+    code, out = hook(repo, payload)
+    assert code == 0 and "deny" in out
+    assert "enter plan mode (shift+tab)" in out
+    assert './forge quickfix start \\"<reason>\\"' in out
+
+    code, out = hook(repo, {**payload, "permission_mode": "plan"})
+    assert code == 0 and "deny" not in out
+    code, out = hook(repo, {"tool_name": "Write", "permission_mode": "default",
+                            "tool_input": {"file_path": str(repo / "docs" / "notes.md")}})
+    assert code == 0 and "deny" not in out
+
+    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                            "tool_input": {"command": "cat > src/app.ts"}})
+    assert code == 0 and "deny" in out
+    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                            "tool_input": {"command": "cat > docs/notes.md"}})
+    assert code == 0 and "deny" not in out
+    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                            "tool_input": {"command": "echo hi > /tmp/forge-hook-test"}})
+    assert code == 0 and "deny" not in out
+
+
+def test_quickfix_lifecycle_tracks_files_and_enforces_budget(repo):
+    code, out = run(repo, "forge.py", "quickfix", "start", "repair parser")
+    assert code == 0 and "Q-" in out, out
+    active_path = repo / ".factory" / "quickfix.json"
+    active = json.loads(active_path.read_text())
+    assert active["reason"] == "repair parser"
+    assert active["max_files"] == 5 and active["files"] == []
+
+    companion = "node /x/codex-companion.mjs task --write 'repair parser'"
+    code, out = hook(repo, {
+        "tool_name": "Bash", "permission_mode": "default",
+        "tool_input": {"command": companion},
+    })
+    assert code == 0 and "deny" in out and "five-file budget" in out
+    assert "PLAN MODE" in out and "./forge quickfix start" in out
+    assert json.loads(active_path.read_text())["files"] == []
+
+    for number in range(1, 6):
+        code, out = hook(repo, {
+            "tool_name": "Edit", "permission_mode": "default",
+            "tool_input": {"file_path": str(repo / "src" / f"file-{number}.py")},
+        })
+        assert code == 0 and "deny" not in out, out
+    # Repeating a file is free; only distinct product paths consume budget.
+    code, out = hook(repo, {
+        "tool_name": "Bash", "permission_mode": "default",
+        "tool_input": {"command": "touch src/file-5.py"},
+    })
+    assert code == 0 and "deny" not in out
+    assert len(json.loads(active_path.read_text())["files"]) == 5
+
+    code, out = hook(repo, {
+        "tool_name": "Edit", "permission_mode": "default",
+        "tool_input": {"file_path": str(repo / "src" / "file-6.py")},
+    })
+    assert code == 0 and "deny" in out and "scope exceeded" in out
+    assert len(json.loads(active_path.read_text())["files"]) == 5
+
+    code, out = run(repo, "forge.py", "quickfix", "list")
+    assert code == 0 and "repair parser" in out and "5/5" in out
+    code, out = run(repo, "forge.py", "quickfix", "done")
+    assert code == 0 and "5 file(s)" in out, out
+    assert not active_path.exists()
+    events = [json.loads(line) for line in
+              (repo / "plans" / "quickfixes.jsonl").read_text().splitlines()]
+    assert [event["event"] for event in events] == ["open", "done"]
+    assert events[-1]["files"] == [f"src/file-{number}.py" for number in range(1, 6)]
+
+    code, out = hook(repo, {
+        "tool_name": "Edit", "permission_mode": "default",
+        "tool_input": {"file_path": str(repo / "src" / "again.py")},
+    })
+    assert code == 0 and "deny" in out
+
+
 # ---------------------------------------------------------------- plan grill
 
 def test_plan_save_requires_a_fresh_same_issue_grill(repo, tmp_path):
@@ -1348,7 +1605,7 @@ def test_plan_save_requires_a_fresh_same_issue_grill(repo, tmp_path):
     code, out = save_plan_raw(repo, tmp_path)
     assert code != 0 and "grill" in out.lower()
     plan_file = tmp_path / "plan.md"
-    plan_file.write_text(PLAN_BODY)
+    plan_file.write_text(plan_draft(repo))
     # blocked grill never satisfies the gate
     record_grill(repo, "plan", verdict="blocked", digest_of=plan_file,
                  gaps=["criteria 2 unaddressed"])
@@ -1389,6 +1646,61 @@ def test_plan_grill_recorder_stamps_the_active_issue(repo, tmp_path):
     assert code == 0, out
     data = json.loads((repo / ".factory" / "grills" / "plan.json").read_text())
     assert data["issue"] == "ENG-1"
+
+
+def test_plan_save_requires_decision_coverage_and_no_open_contradiction(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    ensure_story(repo, "ENG-1", "Invoices")
+    draft = tmp_path / "decision-plan.md"
+
+    draft.write_text(PLAN_BODY)
+    record_grill(repo, "plan", digest_of=draft)
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(draft),
+                    "--story", "ENG-1")
+    assert code != 0 and "decisions_reviewed" in out
+
+    draft.write_text(plan_draft(repo, decisions=[]))
+    record_grill(repo, "plan", digest_of=draft)
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(draft),
+                    "--story", "ENG-1")
+    assert code != 0 and "missing active decisions" in out
+
+    draft.write_text(plan_draft(repo, decisions=[*active_decision_ids(repo), "9999-phantom"]))
+    record_grill(repo, "plan", digest_of=draft)
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(draft),
+                    "--story", "ENG-1")
+    assert code != 0 and "unknown or inactive" in out
+
+    draft.write_text(plan_draft(repo))
+    record_grill(repo, "plan", digest_of=draft)
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(draft),
+                    "--story", "NOPE-1")
+    assert code != 0 and "not in plans/roadmap.json" in out
+    run(repo, "forge.py", "signal", "raise", "--kind", "contradiction",
+        "--by", "implementer", "-m", "draft conflicts with an active decision")
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(draft),
+                    "--story", "ENG-1")
+    assert code != 0 and "open contradiction" in out.lower()
+    signal_id = json.loads(
+        (repo / ".factory" / "signals.jsonl").read_text().splitlines()[0]
+    )["id"]
+    run(repo, "forge.py", "signal", "resolve", signal_id,
+        "--notes", "plan updated to follow the decision")
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(draft),
+                    "--story", "ENG-1")
+    assert code == 0, out
+    saved = next((repo / "plans" / "active").glob("ENG-1-*.md")).read_text()
+    assert "story: ENG-1" in saved
+    for decision in active_decision_ids(repo):
+        assert f"  - {decision}" in saved
+
+    (repo / ".factory" / "stages.json").write_text(json.dumps({
+        "issue": "ENG-1",
+        "stages": [{"id": "T1", "status": "done"}, {"id": "T2", "status": "pending"}],
+    }))
+    code, out = run(repo, "forge.py", "plan", "list")
+    assert code == 0 and "ENG-1" in out and "1/2" in out
 
 
 def test_trailer_check_targets_the_acceptance_commit(repo):
@@ -1531,7 +1843,7 @@ def test_codex_exec_ban_matches_invocations_not_prose(repo):
         code, out = bash(cmd)
         assert "deny" in out, cmd
     # prose mentioning the phrase (heredocs, greps, docs): allowed
-    for cmd in ('cat > notes.md << EOF\nthe hook denies raw codex exec always\nEOF',
+    for cmd in ('cat > docs/notes.md << EOF\nthe hook denies raw codex exec always\nEOF',
                 'grep -rn "codex exec" docs/ || true'):
         code, out = bash(cmd)
         assert "deny" not in out, cmd
@@ -1741,8 +2053,10 @@ def test_stage_loop_orders_execution_and_gates_pr_ready(repo, tmp_path):
 def test_plan_save_requires_surface_impact_section(repo, tmp_path):
     sign_off(repo)
     intake(repo)
+    ensure_story(repo, "ENG-1", "Invoices")
     plan = tmp_path / "plan.md"
-    plan.write_text("## Decisions\nNo new decisions\n")  # no Surface Impact
+    plan.write_text(plan_draft(
+        repo, body="## Decisions\nNo new decisions\n"))  # no Surface Impact
     record_grill(repo, "plan", digest_of=plan)
     code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan))
     assert code != 0 and "Surface Impact" in out
@@ -1917,6 +2231,74 @@ def test_machine_readiness_checked_every_session(repo, tmp_path):
         [sys.executable, str(repo / "factory" / "scripts" / "session_start.py")],
         cwd=repo, env=env, capture_output=True, text=True, input="{}")
     assert proc.returncode == 0 and "MACHINE NOT READY" in proc.stdout
+
+
+def test_session_start_injects_project_memory_plan_and_quickfix(repo, tmp_path):
+    memory = repo / "docs" / "memory" / "MEMORY.md"
+    assert memory.exists()
+    memory.write_text("# Project Memory\n\nThe billing cutoff is 17:00 UTC.\n")
+    sign_off(repo)
+    intake(repo)
+    code, out = save_plan(repo, tmp_path)
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "quickfix", "start", "adjust cutoff")
+    assert code == 0, out
+    code, out = run(repo, "session_start.py", stdin="{}")
+    assert code == 0, out
+    context = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    assert "PROJECT MEMORY" in context
+    assert "billing cutoff is 17:00 UTC" in context
+    assert "plans/active/ENG-1-invoices.md" in context
+    assert "Story: ENG-1" in context
+    assert "OPEN QUICKFIX" in context and "adjust cutoff" in context
+
+
+def test_board_serves_live_lifecycle_state(repo, tmp_path):
+    sign_off(repo)
+    ensure_story(repo, "ENG-1", "Invoices")
+    intake(repo)
+    code, out = save_plan(repo, tmp_path)
+    assert code == 0, out
+    (repo / ".factory" / "stages.json").write_text(json.dumps({
+        "issue": "ENG-1",
+        "stages": [{"id": "T1", "status": "done"}, {"id": "T2", "status": "pending"}],
+    }))
+    run(repo, "forge.py", "signal", "raise", "--kind", "blocked",
+        "--by", "implementer", "-m", "waiting for fixture")
+    run(repo, "forge.py", "quickfix", "start", "board fixture")
+
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.board import make_server
+    server = make_server(repo, 0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base_url = f"http://127.0.0.1:{server.server_port}"
+        state = json.loads(urllib.request.urlopen(
+            f"{base_url}/api/state", timeout=5).read())
+        story = next(item for item in state["stories"] if item["key"] == "ENG-1")
+        assert state["frontier"] == []
+        assert story["plan"]["location"] == "active"
+        assert story["lifecycle"]["spec"] == "confirmed"
+        assert story["lifecycle"]["stages"] == {"done": 1, "total": 2}
+        assert state["signals"] and state["quickfix"]["reason"] == "board fixture"
+
+        roadmap = json.loads((repo / "plans" / "roadmap.json").read_text())
+        next(item for item in roadmap["items"] if item["key"] == "ENG-1")["status"] = "done"
+        (repo / "plans" / "roadmap.json").write_text(json.dumps(roadmap))
+        refreshed = json.loads(urllib.request.urlopen(
+            f"{base_url}/api/state", timeout=5).read())
+        refreshed_story = next(
+            item for item in refreshed["stories"] if item["key"] == "ENG-1")
+        assert refreshed_story["lifecycle"]["shipped"] is True
+
+        page = urllib.request.urlopen(base_url, timeout=5).read().decode()
+        assert "setInterval" in page
+        assert "Ready to plan" in page and "Lifecycle" in page
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
 
 
 def test_adopt_normalizes_case_variant_contract_files(repo, tmp_path):

@@ -24,7 +24,9 @@ from .scaffold import (
     COPY_WORKFLOWS,
     DISCOVERY_TEMPLATE,
     DOC_CONTRACTS,
+    PROJECT_STARTERS,
     PROTOTYPE_README,
+    ensure_jsonl_attributes,
 )
 from .upgrade import UPGRADE_TREES
 
@@ -181,14 +183,8 @@ def cmd_adopt(args: argparse.Namespace) -> None:
             fh.write('\n# symphony-forge: project-local gstack store\n'
                      'export GSTACK_HOME="$PWD/.gstack"\n')
         created.append(".envrc (GSTACK_HOME appended; re-run `direnv allow`)")
-    attrs = target / ".gitattributes"
-    if not attrs.exists():
-        shutil.copy2(harness / ".gitattributes", attrs)
-        created.append(".gitattributes")
-    elif "merge=jsonl-append" not in attrs.read_text():
-        with attrs.open("a") as fh:
-            fh.write("\n.gstack/**/*.jsonl merge=jsonl-append\n")
-        created.append(".gitattributes (jsonl merge rule appended)")
+    if ensure_jsonl_attributes(target, harness):
+        created.append(".gitattributes (missing JSONL merge rules added)")
     brief_src = harness / "harness" / "nestjs-react" / "BRIEF_TEMPLATE.md"
     if brief_src.exists() and not (target / "docs" / "product" / "BRIEF.md").exists():
         (target / "docs" / "product").mkdir(parents=True, exist_ok=True)
@@ -196,6 +192,8 @@ def cmd_adopt(args: argparse.Namespace) -> None:
         created.append("docs/product/BRIEF.md")
     ensure("docs/product/DISCOVERY.md", DISCOVERY_TEMPLATE.format(name=name))
     ensure("prototype/README.md", PROTOTYPE_README)
+    for rel in PROJECT_STARTERS:
+        ensure(rel, (harness / rel).read_text())
     # Devs land on the README first: tell them the repo is harness-run and
     # that starting is conversational — append, never rewrite (project-owned).
     from .scaffold import ensure_onboarding
@@ -206,7 +204,8 @@ def cmd_adopt(args: argparse.Namespace) -> None:
         if not plan_dir.exists():
             plan_dir.mkdir(parents=True, exist_ok=True)
             (plan_dir / ".gitkeep").touch()
-    for rel in ("docs/decisions", "docs/architecture", "docs/context"):
+    for rel in ("docs/decisions", "docs/architecture", "docs/context",
+                "docs/specs", "docs/memory"):
         (target / rel).mkdir(parents=True, exist_ok=True)
     if not (target / ".factory" / "run.json").exists():
         (target / ".factory" / "reviews").mkdir(parents=True, exist_ok=True)

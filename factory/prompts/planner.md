@@ -12,6 +12,18 @@ Inputs:
 - the active issue context from `.factory/run.json`
 - any existing plans under `plans/`
 
+The draft starts with frontmatter attesting the live decision corpus:
+
+```yaml
+---
+decisions_reviewed:
+  - 0001-example-active-decision
+---
+```
+
+List every ID printed by `./forge decision list --active`. Missing, unknown,
+proposed, or superseded IDs make `plan save` refuse.
+
 Output exactly these sections:
 1. Problem
 2. Scope / Non-goals
@@ -76,6 +88,6 @@ Rules:
   and the architecture docs. Resolve findings into the plan or new decision
   records, then record:
   `python3 factory/scripts/record_grill_from_json.py --gate plan`.
-- Approval means the plan file is in-repo: `python3 factory/scripts/forge.py
-  plan save --from <plan-file>`. `update_run.py` refuses `plan_status approved`
-  until it is.
+- Approval means the plan file is in-repo and bound to its roadmap story:
+  `python3 factory/scripts/forge.py plan save --from <plan-file> --story
+  <story-key>`. `update_run.py` refuses `plan_status approved` until it is.

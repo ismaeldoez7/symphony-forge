@@ -24,11 +24,11 @@ from factory_lib import (
 VERDICTS = {"pass", "blocked"}
 
 parser = argparse.ArgumentParser(description="Record a handover/plan grill from structured JSON")
-parser.add_argument("--gate", required=True, choices=["signoff", "epics", "plan"])
+parser.add_argument("--gate", required=True, choices=["signoff", "spec", "epics", "plan"])
 parser.add_argument("--input", help="Path to grill JSON. If omitted, read from stdin.")
 parser.add_argument("--input-digest", dest="input_digest",
                     help="Path to the artifact this grill interrogated (roadmap input for "
-                         "--gate epics, the plan draft for --gate plan); its sha256 binds "
+                         "--gate spec/epics, the plan draft for --gate plan); its sha256 binds "
                          "the grill to THAT version. Required for epics and plan gates.")
 args = parser.parse_args()
 
@@ -57,11 +57,11 @@ if payload["verdict"] == "pass" and unresolved > 0:
         "needs a resolution (doc edit or decision record), an explicit open_items park, "
         "or the verdict is 'blocked'."
     )
-if args.gate in ("epics", "plan"):
+if args.gate in ("spec", "epics", "plan"):
     if not args.input_digest:
         raise SystemExit(
             f"--gate {args.gate} requires --input-digest <artifact>: the grill must be "
-            "bound to the exact roadmap input / plan draft it interrogated."
+            "bound to the exact spec / roadmap input / plan draft it interrogated."
         )
     digest_target = Path(args.input_digest).expanduser()
     if not digest_target.is_file():

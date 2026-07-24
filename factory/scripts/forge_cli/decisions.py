@@ -27,6 +27,27 @@ date: {date}
 ## Consequences
 <!-- What follows: tradeoffs accepted, doors closed, work implied. -->
 """
+FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.DOTALL)
+
+
+def decision_records(base: Path) -> list[dict[str, str | Path]]:
+    records = []
+    for path in sorted((base / "docs" / "decisions").glob("[0-9][0-9][0-9][0-9]-*.md")):
+        match = FRONTMATTER.match(path.read_text())
+        fields: dict[str, str] = {}
+        if match:
+            for line in match.group(1).splitlines():
+                if ":" in line:
+                    key, _, value = line.partition(":")
+                    fields[key.strip()] = value.strip().strip("\"'")
+        records.append({"id": path.stem, "status": fields.get("status", "proposed"),
+                        "path": path})
+    return records
+
+
+def active_decision_ids(base: Path) -> list[str]:
+    return [str(record["id"]) for record in decision_records(base)
+            if record["status"] == "accepted"]
 
 
 def cmd_new(args: argparse.Namespace) -> None:
@@ -77,25 +98,23 @@ def cmd_list(args: argparse.Namespace) -> None:
     not `ls docs/decisions/`."""
     base = Path(args.repo).resolve() if args.repo else repo_root()
     decisions = base / "docs" / "decisions"
-    records = sorted(decisions.glob("[0-9][0-9][0-9][0-9]-*.md"))
+    records = decision_records(base)
     if not records:
         print("No decision records yet (./forge decision new <slug>).")
         return
     for record in records:
-        text = record.read_text()
-        status = "proposed"
-        match = re.search(r"status:\s*(\S+)", text)
-        if match:
-            status = match.group(1)
+        path = record["path"]
+        text = path.read_text()
+        status = str(record["status"])
         if args.active and status != "accepted":
             continue
         title_match = re.search(r"^# (.+)$", text, re.MULTILINE)
-        title = title_match.group(1) if title_match else record.stem
+        title = title_match.group(1) if title_match else path.stem
         superseded = ""
         by = re.search(r"superseded_by:\s*(\S+)", text)
         if by:
             superseded = f" -> {by.group(1)}"
-        print(f"[{status:<10}] {record.stem}: {title}{superseded}")
+        print(f"[{status:<10}] {path.stem}: {title}{superseded}")
 
 
 def cmd_accept(args: argparse.Namespace) -> None:

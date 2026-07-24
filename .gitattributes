@@ -3,3 +3,4 @@
 # clone by the SessionStart hook (merge.jsonl-append.driver -> gstack-jsonl-merge).
 .gstack/**/*.jsonl merge=jsonl-append
 plans/lessons.jsonl merge=jsonl-append
+plans/quickfixes.jsonl merge=jsonl-append

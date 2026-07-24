@@ -35,26 +35,19 @@ phases:
       screenshots, walkthrough notes) as the UX reference for future UI/UX
       changes. Reference forever, imported never: production code must not
       depend on anything in prototype/.
-  handoff:
+  roadmap: # 0c
     owner: "codex:docs-decomposer"
     allowed:
       - "docs-decomposer"
-      - "human"
-    artifact: "plans/roadmap.json via ./forge roadmap import"
+    artifact: "plans/roadmap.json via ./forge roadmap derive"
     schema: "factory/schemas/roadmap.json"
-    roles: "docs/ROLES.md — PM approves epics, EM grooms + assigns, dev picks"
-    gate: "accepted epics-approved decision (PM) — import refuses without it"
-    grill:
-      contract: "factory/prompts/griller.md"
-      allowed: ["griller"]
-      schema: "factory/schemas/grill.json"
-      gate: "roadmap import also refuses without a fresh, passing .factory/grills/epics.json"
+    roles: "docs/ROLES.md — PM reviews derived scope, EM grooms + assigns, dev picks"
+    gate: "every story references an existing confirmed docs/specs/<slug>.md"
     notes: >-
-      The project-level decomposition after sign-off: PM-approved epics and
-      EM-groomed stories (story, acceptance_criteria, skill, assignee) in
-      build-wave order. The roadmap survives task cycles; refined by PR (a
-      human edit counts as generated_by: human). Team roster: plans/team.json
-      (optional; ./forge team set).
+      The project-level decomposition before sign-off: epics and stories are
+      derived from confirmed capability specs in build-wave order, never
+      hand-authored. The roadmap survives task cycles and is refined by PR.
+      Team roster: plans/team.json (optional; ./forge team set).
   planning:
     owner: "claude-code:plan-mode"
     alternate: "codex:planner-high"

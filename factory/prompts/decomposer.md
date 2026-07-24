@@ -38,11 +38,11 @@ Each epic should include:
 - `objective`
 - `source_refs`
 
-## Project roadmap (handoff only)
+## Project roadmap (pre-sign-off)
 
-When you run at handoff — the first, project-level decomposition after client
-sign-off — you are producing the PM→EM handoff: epics for the PM to approve,
-stories for the EM to distribute.
+After capability specs are confirmed, derive the project roadmap from them.
+This happens before client sign-off; it is the reviewed PM→EM handoff, never
+a hand-authored backlog.
 
 1. Emit epics + story items in ONE payload (build-wave order = list order).
    Give each item `depends_on: ["<KEY>", ...]` for REAL dependencies only
@@ -54,17 +54,15 @@ stories for the EM to distribute.
 {"generated_by": "docs-decomposer",
  "epics": [{"id": "billing", "title": "Billing", "objective": "...", "source_refs": ["docs/product/BRIEF.md#billing"]}],
  "items": [{"key": "<ISSUE-KEY>", "title": "...", "epic": "billing",
+            "spec": "docs/specs/billing.md",
             "story": "As a <user>, ...", "acceptance_criteria": ["..."],
             "skill": "frontend|backend|fullstack"}]}
 ```
 
-2. The epics grill must be recorded AGAINST THIS FILE
-   (`record_grill_from_json.py --gate epics --input-digest /tmp/roadmap.json`)
-   and the PM must approve BEFORE the import — relay:
-   `./forge decision new epics-approved` (list the epics), then THE PM runs
-   `./forge decision accept epics-approved --by "<PM>"`.
-3. Then record: `./forge roadmap import --input /tmp/roadmap.json` — the
-   import verifies the grill digest matches this exact file.
+2. Every story's `spec` must reference an existing confirmed capability spec.
+3. Record the result with
+   `./forge roadmap derive --input /tmp/roadmap.json`. The command validates
+   the schema, spec links, dependencies, and DAG before writing the roadmap.
 
 `plans/roadmap.json` survives every task cycle (intake marks items active,
 pr_ready marks them done, the EM assigns with `forge roadmap assign`,

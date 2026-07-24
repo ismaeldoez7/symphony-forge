@@ -48,9 +48,23 @@ def cmd_next(args: argparse.Namespace) -> None:
         steps.append("Existing project, new feature? this repo has no .factory/run.json — "
                      "run: python3 factory/scripts/intake.py --issue <KEY> --title \"<title>\"")
     elif not state.get("client_signoff"):
-        phase("discovery/prototype (0a/0b)")
+        phase("discovery/prototype/specs/roadmap (0a/0b/0c)")
         steps.append("[PM] Fill docs/product/DISCOVERY.md and BRIEF.md; prototype freely (no ceremony)")
         steps.append("[PM] Capture client decisions: forge.py decision new <slug>")
+        from .specs import spec_records
+        specs = spec_records(base)
+        if not specs:
+            steps.append("[PM] Save capability specs as they emerge: "
+                         "./forge spec save <slug> --from <draft.md>")
+        drafts = [spec["slug"] for spec in specs if spec.get("status") != "confirmed"]
+        if drafts:
+            steps.append("[PM] Grill and confirm every draft spec: "
+                         f"{', '.join(drafts)} (`record_grill_from_json.py --gate spec "
+                         "--input-digest docs/specs/<slug>.md`, then `forge spec confirm <slug>`)")
+        if specs and not drafts and not load_items(base):
+            steps.append("[PM/EM] Derive the spec-linked roadmap before sign-off: "
+                         "./forge roadmap derive --input <json> "
+                         "(factory/prompts/decomposer.md)")
         signoff_grill = load_json(factory / "grills" / "signoff.json", default={})
         if signoff_grill.get("verdict") != "pass":
             steps.append("[PM] Before sign-off: grill the handover for gaps/contradictions "
@@ -92,31 +106,26 @@ def cmd_next(args: argparse.Namespace) -> None:
                          "extend it, or start an off-roadmap task: "
                          "python3 factory/scripts/intake.py --issue <KEY> --title \"<title>\"")
         else:
-            epics_grill = load_json(factory / "grills" / "epics.json", default={})
-            if epics_grill.get("verdict") != "pass":
-                steps.append("[PM] Grill the epics handover for coverage gaps/contradictions "
-                             "(factory/prompts/griller.md), record: "
-                             "record_grill_from_json.py --gate epics")
-            steps.append("[PM] Approve the epics: forge.py decision new epics-approved, then "
-                         "a human runs decision accept epics-approved --by <PM>")
-            steps.append("[EM] Then record the backlog: ./forge roadmap import --input <json> "
-                         "(project-level decomposition, factory/prompts/decomposer.md); "
-                         "distribute with ./forge roadmap assign")
+            steps.append("[PM/EM] This sign-off predates a roadmap or it was removed. "
+                         "Confirm capability specs, then derive it: "
+                         "./forge roadmap derive --input <json>")
             steps.append("[dev] Or start a task directly: python3 factory/scripts/intake.py "
                          "--issue <KEY> --title \"<title>\"")
     elif state.get("plan_status") != "approved":
         phase("planning")
-        steps.append("[dev] MANDATORY: switch to PLAN MODE (shift+tab) and plan per "
-                     "factory/prompts/planner.md — product-code edits are hook-blocked "
-                     "until the plan is approved (Codex alternative: planner-high; "
-                     "exploration: codex exec --profile explore -s read-only)")
+        steps.append("[dev] MANDATORY: enter plan mode (shift+tab) and plan per "
+                     "factory/prompts/planner.md, or deliberately open a bounded "
+                     "`./forge quickfix start \"<reason>\"` window. Product writes are "
+                     "hook-blocked otherwise (Codex planning alternative: planner-high; "
+                     "exploration via /codex:rescue read-only).")
         steps.append("[dev] Record new decisions as you go: forge.py decision new <slug>")
         plan_grill = load_json(factory / "grills" / "plan.json", default={})
         if plan_grill.get("verdict") != "pass" or plan_grill.get("issue") != state.get("issue_key"):
             steps.append("[dev] MANDATORY before approval: grill the plan (/grill-me, or "
                          "factory/prompts/griller.md --gate plan) and record: "
                          "record_grill_from_json.py --gate plan — plan save refuses without it")
-        steps.append("[dev] On approval: forge.py plan save --from <plan-file>")
+        steps.append("[dev] On approval: forge.py plan save --from <plan-file> "
+                     f"--story {state.get('issue_key')}")
     elif state.get("decomposition_status") != "recorded":
         phase("decomposing")
         steps.append("[dev] Run docs-decomposer (factory/prompts/decomposer.md), then "
