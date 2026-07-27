@@ -22,7 +22,11 @@
     {
       "id": "DELEG-3",
       "title": "forge delegate composes the brief and the invocation",
-      "status": "pending"
+      "status": "done",
+      "started_at": "2026-07-27T12:31:31+00:00",
+      "base_sha": "e1110e772450fa7affa5d81fbf8b8c48ab68ccf9",
+      "dirty_at_start": [],
+      "completed_at": "2026-07-27T12:34:51+00:00"
     },
     {
       "id": "DELEG-4",

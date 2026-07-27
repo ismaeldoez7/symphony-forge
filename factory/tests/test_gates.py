@@ -8,6 +8,7 @@ exercised through their real CLI surface.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -2713,6 +2714,66 @@ def test_doctor_reports_prose_verify_commands(repo, tmp_path):
         {**DECOMP, "tasks": [{**STAGE_TASK, "verify_commands": ["package test script"]}]}))
     found = prose_verify_commands(repo)
     assert len(found) == 1 and "package test script" in found[0] and "T1" in found[0]
+
+
+DELEGATE_TASK = {**STAGE_TASK, "required_tests": ["test_slice"],
+                 "reviewer_focus": "the retry path",
+                 "verify_commands": ["true"]}
+
+
+def test_delegate_brief_carries_criteria_and_scope(repo, tmp_path):
+    """The executor is told not to inspect the repo, so everything it needs
+    has to travel with the brief — including what already exists in scope."""
+    start_stage(repo, tmp_path, DELEGATE_TASK)
+    write_in_scope(repo, "src/existing_helper.py")
+    code, out = run(repo, "forge.py", "delegate", "T1")
+    assert code == 0, out
+    brief = (repo / ".factory" / "briefs" / "T1.md").read_text()
+    assert "the slice runs green" in brief          # acceptance criteria
+    assert "src/" in brief                          # write scope
+    assert "src/existing_helper.py" in brief        # existing modules
+    assert "test_slice" in brief                    # required tests
+    assert "the retry path" in brief                # reviewer focus
+    assert "Implementer contract" in brief          # the prompt, inlined
+    assert "--prompt-file .factory/briefs/T1.md" in out
+
+
+def test_delegate_derives_write_from_stage_state(repo, tmp_path):
+    """Write permission stopped being a per-request opinion: three layers
+    disagreed on the default and a read-only sandbox can neither write nor ask."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [DELEGATE_TASK]}))
+    assert code == 0, out
+    # stage not started -> read only
+    code, out = run(repo, "forge.py", "delegate", "T1")
+    assert code == 0 and "--write" not in out and "Write access: NO" in out
+    run(repo, "forge.py", "stage", "start", "T1")
+    code, out = run(repo, "forge.py", "delegate", "T1")
+    assert code == 0 and "--write" in out
+    # ...and --read-only is the explicit exception
+    code, out = run(repo, "forge.py", "delegate", "T1", "--read-only")
+    assert code == 0 and "--write" not in out
+
+
+def test_delegate_records_ledger_entry(repo, tmp_path):
+    start_stage(repo, tmp_path, DELEGATE_TASK)
+    code, out = run(repo, "forge.py", "delegate", "T1")
+    assert code == 0, out
+    lines = [json.loads(x) for x in
+             (repo / ".factory" / "delegations.jsonl").read_text().splitlines() if x.strip()]
+    assert len(lines) == 1
+    entry = lines[0]
+    assert entry["task"] == "T1" and entry["write"] is True
+    assert entry["generated_by"] == "orchestrator" and entry["model"]
+    digest = hashlib.sha256(
+        (repo / ".factory" / "briefs" / "T1.md").read_bytes()).hexdigest()
+    assert entry["brief_sha256"] == digest
+    # an unknown task id is refused, and never reaches the filesystem
+    code, out = run(repo, "forge.py", "delegate", "../escape")
+    assert code != 0 and "not a task" in out
 
 
 def test_plan_save_requires_surface_impact_section(repo, tmp_path):

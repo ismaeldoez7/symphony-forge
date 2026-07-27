@@ -1,9 +1,81 @@
-# Implementer Prompt
+# Brief — DELEG-3: forge delegate composes the brief and the invocation
 
-This file is not something you go and fetch: `./forge delegate <task-id>`
-inlines it into your brief along with the task contract, the active decisions
-and the lessons for your paths. If the brief is missing something you need,
-raise a signal — do not go hunting for it, and do not guess.
+Story: FORGE-DELEG-1 | write access: YES — you may edit files in the write scope
+
+This brief is the whole context you are given. It was composed from the recorded decomposition, the implementer contract, the active decisions and the lessons ledger. Do not go looking for the rules elsewhere; if something needed is missing, raise a signal instead of guessing (`./forge signal raise`).
+
+## Objective
+
+Delegation becomes a command instead of a judgement. It builds a brief from artifacts that already exist, derives write permission from stage state rather than a per-request opinion, prints the exact invocation, and records the delegation with the brief's digest.
+
+## Acceptance criteria
+
+- forge delegate <task-id> writes .factory/briefs/<task-id>.md carrying the objective, acceptance criteria, write_scope with the modules already in it, required_tests, reviewer_focus, the implementer prompt, the active decisions and the matching lessons
+- for user-facing work the brief inlines the design rules, because the executing runtime cannot load them
+- write permission is derived: an active stage with a non-empty write_scope is a write run, and --read-only is the explicit exception
+- the printed invocation carries --prompt-file, the pinned model and effort, and the derived write flag
+- the delegation is recorded in .factory/delegations.jsonl against factory/schemas/delegation.json with the brief's sha256
+
+## Write scope — nothing outside this
+
+- factory/scripts/forge_cli/delegate.py
+- factory/schemas/delegation.json
+- factory/scripts/forge.py
+- factory/prompts/implementer.md
+- .gitattributes
+- factory/tests/test_gates.py
+
+`forge stage done` refuses a change outside this list.
+
+## What already exists in that scope (use it, do not re-create it)
+
+- factory/scripts/forge_cli/delegate.py
+- factory/schemas/delegation.json
+- factory/scripts/forge.py
+- factory/prompts/implementer.md
+- .gitattributes
+- factory/tests/test_gates.py
+
+## Tests you must write
+
+- test_delegate_brief_carries_criteria_and_scope
+- test_delegate_derives_write_from_stage_state
+- test_delegate_records_ledger_entry
+
+The implementer writes and records the tests; a declared test that exists nowhere refuses the stage.
+
+## Verify commands (they will be run when the stage closes)
+
+- `python3 -m pytest factory/tests/test_gates.py -q -k delegate`
+
+## Reviewer focus
+
+the task id must be resolved against the recorded decomposition and never used to build a filesystem path; the ledger is append-only and union-merged
+
+## Active decisions — binding
+
+- 0001-determinism-contract: Determinism contract: pinned skills, schema-validated recorders
+- 0002-concurrency-one-task-per-branch: Concurrency: one task per branch
+- 0003-model-tiers-terra-explore-sol-implement: Model tiers: Terra@high explores, Sol@medium implements
+- 0005-recurring-findings-escalation: Recurring review findings escalate to refactors, never a fourth patch
+- 0006-lessons-ledger: Committed lessons ledger with schema-validated recording and pre-work relevance injection
+- 0007-stage-commit-loop: Decomposition tasks execute as stages; local autoreview gates every commit
+- 0008-loop-health-audit: The improvement loops are themselves audited (forge audit)
+- 0009-frozen-gate-integrity: The vendored gate surface is frozen between vendorings
+- 0011-orchestrator-runs-autoreview: Orchestrator Runs Autoreview
+- 0012-project-level-memory: Project-Level Memory
+- 0013-always-armed-planning-lock: Always-armed planning lock with quickfix escape hatch
+- 0014-specs-before-signoff: Confirmed specs and derived roadmap gate client sign-off
+- 0015-plan-contradiction-gate: Plan save refuses unresolved contradictions with active decisions
+- 0016-machinery-dir-rename: Harness machinery lives in factory/, not .agents/ (Codex sandbox collision)
+
+## Lessons recorded against these paths
+
+- Never git add a conflicted file until the resolution is machine-verified (anchored ^marker regex + ast.parse for Python) — content can legitimately contain marker-like strings, and add-after-failed-resolver commits the markers. Separate verification from commit; never chain a may-fail step to a commit via newline.
+
+## Implementer contract
+
+# Implementer Prompt
 
 You are an implementation worker. Conduct is constitutional:
 `constitution/09-agent-conduct.md` — think before coding, simplicity first,
@@ -64,13 +136,9 @@ Rules:
   either way.
 - **Feature-type skills (pinned in harness.yaml; ENFORCED at record time).**
   Check the recorded decomposition BEFORE writing code:
-  - `user_facing: true` → `emil-design-eng` AND `frontend-design` are
-    MANDATORY before writing components/styles, and you must attest them in
-    the testing artifact's `skills_used` list or the recorder refuses it.
-    Your runtime may not be able to LOAD them, so the brief inlines their
-    rules; if the brief says a rule set is not installed, say so and stop
-    rather than attesting a skill that never reached you
-    (`./forge doctor --fix` installs it).
+  - `user_facing: true` → loading `emil-design-eng` AND `frontend-design` is
+    MANDATORY, before writing components/styles — and you must attest them in
+    the testing artifact's `skills_used` list, or the recorder refuses it.
   - Gestures, transitions, springs, or any motion → also load `apple-design`
     (advisory); use `animation-vocabulary` to name effects precisely. List
     advisory skills in `skills_used` too when you use them.

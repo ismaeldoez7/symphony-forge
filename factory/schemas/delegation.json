@@ -1,0 +1,20 @@
+{
+  "artifact": "delegation",
+  "phase": "implementing",
+  "recorded_by": "forge.py delegate",
+  "generated_by": ["orchestrator"],
+  "required": {
+    "generated_by": "str",
+    "at": "str",
+    "task": "str",
+    "brief_sha256": "str",
+    "write": "bool",
+    "model": "str",
+    "effort": "str"
+  },
+  "optional": {
+    "story": "str",
+    "background": "bool"
+  },
+  "kind_note": "One append-only line per delegation in .factory/delegations.jsonl. `brief_sha256` binds the record to the exact brief handed to the executor: the pre-tool hook re-digests the file on disk, so an edited brief invalidates the delegation rather than silently authorizing a different one. `write` is DERIVED from stage state, never typed per request — three layers disagreed on the default and a read-only sandbox with approvalPolicy never can neither write nor ask."
+}

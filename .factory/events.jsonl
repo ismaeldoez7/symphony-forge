@@ -15,3 +15,6 @@
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-07-27T12:28:23+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-1 stage done becomes a measurement"}
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-07-27T12:28:59+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-2 verify_commands must be runnable, not prose"}
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-07-27T12:31:22+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-2 verify_commands must be runnable, not prose"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-07-27T12:31:31+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-3 forge delegate composes the brief and the invocation"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-07-27T12:33:25+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-3 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-07-27T12:34:51+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-3 forge delegate composes the brief and the invocation"}

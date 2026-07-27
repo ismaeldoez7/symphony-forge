@@ -16,6 +16,7 @@ from forge_cli import board as board_mod
 from forge_cli import assumptions as assumptions_mod
 from forge_cli import context as ctx
 from forge_cli import deferrals as deferrals_mod
+from forge_cli import delegate as delegate_mod
 from forge_cli import findings as findings_mod
 from forge_cli import lessons as lessons_mod
 from forge_cli import outcome as outcome_mod
@@ -260,6 +261,14 @@ def main() -> None:
                            "and the gap lands in the timeline")
     p_sd.add_argument("--repo")
     p_sd.set_defaults(func=stages_mod.cmd_done)
+    p_del = sub.add_parser("delegate", help="compose the brief + invocation for one task")
+    p_del.add_argument("id", help="task id from the recorded decomposition")
+    p_del.add_argument("--read-only", action="store_true",
+                       help="exploration run: override the derived write flag")
+    p_del.add_argument("--background", action="store_true")
+    p_del.add_argument("--repo")
+    p_del.set_defaults(func=delegate_mod.cmd_delegate)
+
     p_sls = st_sub.add_parser("list", help="show stage progress")
     p_sls.add_argument("--repo")
     p_sls.set_defaults(func=stages_mod.cmd_list)
