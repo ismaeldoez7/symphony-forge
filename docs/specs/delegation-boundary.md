@@ -37,21 +37,27 @@ composes a brief from artifacts that already exist — the task's objective,
 acceptance criteria, `write_scope`, `required_tests`, `reviewer_focus`, the
 implementer prompt, the active decisions, the lessons matching the task's
 paths, and the modules already present in that scope — writes it to
-`.factory/briefs/<task-id>.md`, prints the exact invocation, and records the
-delegation with the brief's digest.
+`.factory/briefs/<task-id>.md`, invokes the installed companion directly with
+a subprocess argument vector, and records a successful launch with the
+brief's digest. `--print-only` is diagnostic and never counts as a launch.
 
 **Write permission is derived, not typed.** An active stage with a non-empty
 `write_scope` is a write run. `--read-only` is the explicit exception.
 
-**A brief is not skippable.** A `--write` companion call with no matching
-recorded brief is denied by the pre-tool hook, and editing the brief on disk
-invalidates the record.
+**A brief is not skippable.** `forge delegate` is the canonical execution
+boundary; direct companion Bash calls are off-contract and routed back to it.
+`stage done` refuses without a successful write launch bound to the active
+stage, current task contract, and current brief digest. The hook does not try
+to authorize arbitrary shell by reconstructing its final argv.
 
 **Completion is a measurement.** `forge stage done` refuses unless the diff
 since the stage's base commit is non-empty, every changed product path is
-covered by the task's `write_scope`, every `required_tests` entry resolves to
-a file, and every `verify_commands` entry runs green. `verify_commands` must
-therefore be runnable — prose is refused at record time.
+covered by the task's `write_scope`, a successful write launch was recorded,
+every `required_tests` proof names an existing repo-relative path and its
+runner-owned command exits green, and every `verify_commands` entry runs
+green. Required tests use `{id, path, command}` objects; source-text inference
+is not test evidence. Test and verify commands must therefore be runnable —
+prose is refused at record time.
 
 **Partial delivery is sayable.** `forge stage done --incomplete "<what is
 missing>"` leaves the stage open and records the gap, so a worker that
@@ -73,8 +79,10 @@ expected to attest them, and `--fix` installs what is missing.
 - `--parallel` is checked: two stages claiming parallelism must have disjoint
   `write_scope`.
 - A decomposition recording prose where a command belongs is refused.
-- A `--write` delegation without a fresh recorded brief is denied by the hook,
-  and the refusal names the command that fixes it.
+- A stage without a successful fresh write launch through `forge delegate`
+  cannot close; direct literal companion Bash calls are routed to that command.
+- New decompositions reject opaque `required_tests` strings; each required
+  test is a runner-owned `{id, path, command}` proof executed at stage close.
 - The generated brief carries the acceptance criteria, the write scope with
   its existing modules, and — for user-facing work — the design rules inline.
 - `forge codex status` reports the write flag per job and flags a stalled one.

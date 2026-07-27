@@ -35,16 +35,20 @@ The delegation boundary is instrumented rather than described. Six gates:
 
 1. `stage start` records the stage's base commit and the dirt already in the
    tree; `stage done` measures against them and refuses on an empty product
-   diff, an out-of-scope path, an unresolvable `required_tests` entry, or a
-   failing `verify_commands` entry.
+   diff, an out-of-scope path, a missing successful write launch, a failing
+   required-test proof, or a failing `verify_commands` entry.
 2. `stage done --incomplete "<what is missing>"` gives partial delivery a
    vocabulary: the stage stays open and the gap enters the timeline.
-3. `forge delegate` composes the brief and the invocation, derives write
-   permission from stage state, and records the delegation with the brief's
-   digest.
-4. The pre-tool hook denies a `--write` companion call with no fresh recorded
-   brief.
-5. `verify_commands` must be runnable; prose is refused at record time.
+3. `forge delegate` composes the brief, derives write permission from stage
+   state, invokes the installed companion directly with a subprocess argument
+   vector, and records successful launch evidence. `--print-only` is
+   diagnostic and cannot satisfy stage close.
+4. Direct companion Bash calls are off-contract and routed to `forge
+   delegate`; the pre-tool hook is not an authorization parser for arbitrary
+   shell. `stage done` enforces the successful-launch postcondition.
+5. Required tests are runner-owned `{id, path, command}` proof objects and
+   execute at stage close. `verify_commands` remain broader proof commands;
+   both command classes must be runnable and prose is refused at record time.
 6. `forge doctor` checks that every skill the harness demands is loadable by
    each runtime expected to attest it.
 
@@ -76,6 +80,10 @@ that it could not. Two costs are accepted:
   inside this stage's window. Disjointness is verified at `stage start`, so a
   path in a sibling's `write_scope` is that sibling's to answer for. Without
   this, the parallel workflow the harness advertises could never complete.
+- Companion cache lookup can drift. Delegation fails closed with
+  `forge doctor --fix` guidance and never falls back to a pasted shell command.
+- Runner ownership stays in the decomposition: Forge executes the declared
+  required-test command instead of guessing collection from source syntax.
 
 Existing shipped history is untouched: the `verify_commands` refusal applies at
 record time only, and `forge doctor` reports an active decomposition still
