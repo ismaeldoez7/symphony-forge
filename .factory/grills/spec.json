@@ -1,0 +1,18 @@
+{
+  "generated_by": "griller",
+  "gate": "spec",
+  "verdict": "pass",
+  "gaps": [],
+  "contradictions": [
+    "The design assigned the new repository-system-of-record decision number 0016, which is already occupied by the accepted machinery-directory decision."
+  ],
+  "resolutions": [
+    "The design and captured capability spec now assign the next available decision number 0017; no accepted decision was changed."
+  ],
+  "open_items": [],
+  "summary": "The capability is decision-complete, testable, and consistent with the active decision corpus after correcting the stale decision number.",
+  "questions_asked": 0,
+  "input_sha256": "a37321807f7850fc299f9d14f42ee53e4023278610b7c1407604cdf2ce674931",
+  "recorded_at": "2026-07-27T08:29:21+00:00",
+  "commit": "c9a7fe4d0b5f8c5779284eb2128d1ac3c4971903"
+}
