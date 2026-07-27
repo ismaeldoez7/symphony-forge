@@ -1,3 +1,10 @@
+---
+slug: repo-system-of-record
+title: Repository system of record and lifecycle reading layer
+status: draft
+saved: 2026-07-27T08:28:49+00:00
+---
+
 # Repo as System of Record — capture completion + board reading layer
 
 ## Context
