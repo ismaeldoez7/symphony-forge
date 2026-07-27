@@ -1,7 +1,7 @@
 ---
 slug: repo-system-of-record
 title: Repository system of record and lifecycle reading layer
-status: draft
+status: confirmed
 saved: 2026-07-27T08:28:49+00:00
 ---
 
