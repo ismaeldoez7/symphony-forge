@@ -4,7 +4,15 @@
     {
       "id": "DELEG-1",
       "title": "stage done becomes a measurement",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-07-27T12:25:55+00:00",
+      "base_sha": "d1423b64ce3b1ec823fc0f7bf6d8dbfdbfa3f173",
+      "dirty_at_start": [
+        ".factory/decomposition.json",
+        ".factory/events.jsonl",
+        ".factory/run.json",
+        ".factory/stages.json"
+      ]
     },
     {
       "id": "DELEG-2",

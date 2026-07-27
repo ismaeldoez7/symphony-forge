@@ -4,3 +4,10 @@
 {"event": "intake", "generated_by": "orchestrator", "at": "2026-07-27T12:09:46+00:00", "story": "FORGE-DELEG-1", "detail": "Briefed, bounded, measured delegation boundary"}
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-07-27T12:10:13+00:00", "story": "FORGE-DELEG-1", "detail": "plans/active/FORGE-DELEG-1-briefed-bounded-measured-delegation-boundary.md"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-07-27T12:12:32+00:00", "story": "FORGE-DELEG-1", "detail": "6 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-07-27T12:13:26+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-1 stage done becomes a measurement"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-07-27T12:23:55+00:00", "story": "FORGE-DELEG-1", "detail": "6 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-07-27T12:23:56+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-1 stage done becomes a measurement"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-07-27T12:24:23+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-1 stage done becomes a measurement"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-07-27T12:24:44+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-1 stage done becomes a measurement"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-07-27T12:25:55+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-1 stage done becomes a measurement"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-07-27T12:27:48+00:00", "story": "FORGE-DELEG-1", "detail": "6 task(s)"}

@@ -41,6 +41,7 @@
       "dependencies": [],
       "write_scope": [
         "factory/scripts/forge_cli/stages.py",
+        "factory/scripts/forge.py",
         "factory/tests/test_gates.py"
       ],
       "acceptance_criteria": [
@@ -197,14 +198,12 @@
         "factory/scripts/forge_cli/phase.py",
         "factory/skills/forge.md",
         "AGENTS.md",
-        "docs/decisions/0018-delegation-gates.md",
         "factory/tests/test_gates.py"
       ],
       "acceptance_criteria": [
         "forge next names the delegation step (brief, delegate, watch, verify) when a stage is active",
         "the forge skill maps \"delegate this task\" and \"is Codex stuck?\" to the new commands",
-        "AGENTS.md states the delegation gate in one line and stays under its 110-line cap",
-        "docs/decisions/0018-delegation-gates.md is recorded as proposed; acceptance is human confirmation, not an implementation step"
+        "AGENTS.md states the delegation gate in one line and stays under its 110-line cap"
       ],
       "verify_commands": [
         "python3 -m pytest factory/tests/test_gates.py -q -k \"next or agents\"",
@@ -216,5 +215,5 @@
       "reviewer_focus": "the AGENTS.md line count gate must actually be run, not assumed; no policy block may land in AGENTS.md"
     }
   ],
-  "commit": "74e2ceb84464fe69fd5671dffa299ce42b937ad1"
+  "commit": "d1423b64ce3b1ec823fc0f7bf6d8dbfdbfa3f173"
 }
