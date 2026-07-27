@@ -425,6 +425,25 @@
   .md code { font-family: var(--mono); font-size: .76rem; background: var(--wash); padding: .05em .3em; border-radius: 2px; }
   .md pre { background: var(--wash); border-left: 2px solid var(--rule); padding: .6rem .7rem; overflow-x: auto; margin: .6rem 0; }
   .md pre code { background: none; padding: 0; font-size: .72rem; line-height: 1.55; }
+
+  /* Plan tables (every Surface Impact is one): ruled like a ledger, not boxed.
+     The wrapper scrolls so a wide table never scrolls the page itself. */
+  .tablewrap { overflow-x: auto; margin: .7rem 0; }
+  .md table { border-collapse: collapse; width: 100%; font-size: .84rem; }
+  .md th {
+    font: 600 .62rem/1.3 var(--sans); text-transform: uppercase;
+    letter-spacing: .09em; color: var(--stone); text-align: left;
+    padding: 0 .8rem .35rem 0; border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  .md td {
+    font-family: var(--serif); line-height: 1.5; vertical-align: baseline;
+    padding: .42rem .8rem .42rem 0; border-bottom: 1px solid var(--rule);
+    color: var(--muted);
+  }
+  .md tbody tr:last-child td { border-bottom: 0; }
+  .md td.rowhead { color: var(--ink); white-space: nowrap; }
+  .md td:last-child, .md th:last-child { padding-right: 0; }
   pre.raw {
     background: var(--wash); border-left: 2px solid var(--rule); padding: .6rem .7rem;
     overflow-x: auto; font-family: var(--mono); font-size: .7rem; line-height: 1.5;
@@ -536,14 +555,39 @@ const ENTER = "cubic-bezier(.32,.72,0,1)";
 /* Minimal markdown for what plans actually use. Input is escaped FIRST, so
    nothing here can inject — the patterns only add tags around safe text. */
 function md(src) {
-  const lines = esc(src).split(/\r?\n/);
+  // Comments are notes the author wrote to themselves — a template hint, a
+  // "review before merge" reminder. Stripped BEFORE escaping, or they escape
+  // into visible text. (Safe: removing content can never inject.)
+  const lines = esc(String(src ?? "").replace(/<!--[\s\S]*?-->/g, "")).split(/\r?\n/);
   const out = [];
   let list = null, fence = false;
   const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
   const inline = (s) => s
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  for (const line of lines) {
+  const cells = (row) => row.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+  const isDivider = (row) => /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(row) && row.includes("-");
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    // A table is a header row followed by a divider — the shape every plan's
+    // Surface Impact uses, and the one thing here that must not read as pipes.
+    if (!fence && line.trim().startsWith("|") && isDivider(lines[index + 1] || "")) {
+      closeList();
+      const head = cells(line);
+      const body = [];
+      let cursor = index + 2;
+      while (cursor < lines.length && lines[cursor].trim().startsWith("|")) {
+        body.push(cells(lines[cursor]));
+        cursor++;
+      }
+      out.push(`<div class="tablewrap"><table><thead><tr>${
+        head.map(c => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${
+        body.map(row => `<tr>${row.map((c, n) =>
+          `<td${n === 0 ? ' class="rowhead"' : ""}>${inline(c)}</td>`).join("")}</tr>`)
+          .join("")}</tbody></table></div>`);
+      index = cursor - 1;
+      continue;
+    }
     if (/^```/.test(line)) {
       closeList();
       out.push(fence ? "</code></pre>" : "<pre><code>");

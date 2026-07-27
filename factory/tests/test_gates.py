@@ -2042,6 +2042,20 @@ def test_frontier_is_ranked_by_what_it_unblocks(repo, tmp_path):
     assert "unblocks 1" in out and "unblocks nothing further" in out
 
 
+def test_board_renders_plan_tables_and_hides_author_comments(repo):
+    """Every plan carries a Surface Impact TABLE — the one section that is a
+    hard gate — and template comments addressed to the dev, not the reader."""
+    page = (repo / "factory" / "board" / "index.html").read_text()
+    # tables: header + divider, emitted as a real table inside a scroll wrapper
+    assert "<thead>" in page and 'class="tablewrap"' in page
+    assert ".tablewrap { overflow-x: auto" in page
+    # comments are stripped BEFORE escaping — the other order makes them
+    # visible text, which is the bug this guards
+    strip = page.index("replace(/<!--[\\s\\S]*?-->/g")
+    assert strip < page.index("split(/\\r?\\n/)")
+    assert "esc(String(src ?? \"\").replace(/<!--" in page
+
+
 def test_board_task_rows_carry_their_own_plan_spec_and_proof(repo, tmp_path):
     """A task row that shows only an id and a title cannot answer what the
     task was for or what proves it ran."""
