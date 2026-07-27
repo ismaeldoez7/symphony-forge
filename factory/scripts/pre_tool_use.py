@@ -7,7 +7,9 @@ import shlex
 from pathlib import Path
 
 from factory_lib import load_json, read_hook_input, repo_root, run_state_path
+from forge_cli.delegate import current_delegation
 from forge_cli.quickfix import claim_files, load_active
+from forge_cli.stages import load_stages
 
 payload = read_hook_input()
 tool_name = payload.get("tool_name", "")
@@ -317,12 +319,38 @@ for candidate in write_targets:
 # redirect, and writing product code while planning is the thing being stopped.
 if permission_mode != "plan" or tool_name == "Bash":
     guard_product_writes(write_targets, run_state, root)
-if permission_mode != "plan":
-    if tool_name == "Bash" and run_state.get("plan_status") != "approved" \
-            and "codex-companion.mjs" in command \
-            and " task" in command and "--write" in command:
+# A write-capable delegation is checked in EVERY mode. Plan mode used to skip
+# this entirely, which made "enter plan mode" a way around it.
+if tool_name == "Bash" and "codex-companion.mjs" in command \
+        and " task" in command and "--write" in command:
+    if run_state.get("plan_status") != "approved":
         # Opaque delegation cannot prove that a quickfix stayed inside its budget.
         deny(OPAQUE_WRITE_MSG)
+    active = [s.get("id", "?") for s in load_stages(root).get("stages", [])
+              if s.get("status") == "active"]
+    if not active:
+        deny(
+            "A write-capable Codex run has no stage to belong to. Start the stage "
+            "it is building — `./forge stage start <task-id>` — then "
+            "`./forge delegate <task-id>`, which composes the brief and prints the "
+            "exact invocation."
+        )
+    def briefed(stage_id: str) -> bool:
+        try:
+            entry = current_delegation(root, stage_id)
+        except SystemExit:                       # unusable stage id in the tracker
+            return False
+        return bool(entry and entry.get("write"))
+
+    if not any(briefed(stage_id) for stage_id in active):
+        deny(
+            "This delegation has no recorded brief, so the run would start with "
+            "no acceptance criteria, no write scope, no active decisions and no "
+            "lessons — which is how a run ignores rules that are already written "
+            "down. Run `./forge delegate " + active[0] + "` and use the invocation "
+            "it prints. (If you already did, the brief on disk no longer matches "
+            "what was recorded — re-run delegate.)"
+        )
 
 if run_state and not run_state.get("client_signoff"):
     advancing = any(script in command for script in PHASE_ADVANCING)

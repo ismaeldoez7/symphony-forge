@@ -31,7 +31,11 @@
     {
       "id": "DELEG-4",
       "title": "the brief becomes non-skippable",
-      "status": "pending"
+      "status": "done",
+      "started_at": "2026-07-27T12:35:00+00:00",
+      "base_sha": "cd51d8bb1ffe5d58fb48c2f978e46f64985f0912",
+      "dirty_at_start": [],
+      "completed_at": "2026-07-27T12:37:26+00:00"
     },
     {
       "id": "DELEG-5",

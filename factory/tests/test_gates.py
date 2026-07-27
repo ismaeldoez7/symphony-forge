@@ -1569,6 +1569,52 @@ def hook(repo: Path, payload: dict) -> tuple[int, str]:
     return run(repo, "pre_tool_use.py", stdin=json.dumps(payload))
 
 
+COMPANION_WRITE = ("node /x/codex-companion.mjs task --model gpt-5.6-sol "
+                   "--write 'build the slice'")
+
+
+def test_hook_denies_unbriefed_write_delegation(repo, tmp_path):
+    """An unbriefed write run starts with no acceptance criteria, no write
+    scope and no decisions — which is how a run ignores rules already written
+    down. Checked in plan mode too: entering plan mode was a way around it."""
+    start_stage(repo, tmp_path, DELEGATE_TASK)
+    for mode in ("default", "plan"):
+        code, out = hook(repo, {"tool_name": "Bash", "permission_mode": mode,
+                                "tool_input": {"command": COMPANION_WRITE}})
+        assert "deny" in out and "forge delegate T1" in out, mode
+    # read-only exploration is untouched
+    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                            "tool_input": {"command": COMPANION_WRITE.replace(
+                                " --write", "")}})
+    assert "deny" not in out
+
+
+def test_hook_allows_briefed_write_delegation(repo, tmp_path):
+    start_stage(repo, tmp_path, DELEGATE_TASK)
+    code, out = run(repo, "forge.py", "delegate", "T1")
+    assert code == 0, out
+    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                            "tool_input": {"command": COMPANION_WRITE}})
+    assert "deny" not in out, out
+    # a read-only delegation does not authorize a write run
+    run(repo, "forge.py", "delegate", "T1", "--read-only")
+    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                            "tool_input": {"command": COMPANION_WRITE}})
+    assert "deny" in out
+
+
+def test_hook_denies_when_brief_edited(repo, tmp_path):
+    """The record carries the brief's digest, so the brief that was authorized
+    is the brief on disk — or the delegation is stale."""
+    start_stage(repo, tmp_path, DELEGATE_TASK)
+    run(repo, "forge.py", "delegate", "T1")
+    brief = repo / ".factory" / "briefs" / "T1.md"
+    brief.write_text(brief.read_text() + "\nAlso rewrite the auth layer.\n")
+    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                            "tool_input": {"command": COMPANION_WRITE}})
+    assert "deny" in out and "no longer matches" in out
+
+
 def test_planning_lock_forces_plan_mode(repo, tmp_path):
     sign_off(repo)
     intake(repo)  # planning phase, no approved plan
@@ -1619,6 +1665,13 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
     code, out = hook(repo, {"tool_name": "Edit", "permission_mode": "default",
                             "tool_input": {"file_path": str(repo / "src" / "app.ts")}})
     assert "deny" not in out
+    # ...but a WRITE delegation still needs a started, briefed stage: the plan
+    # authorizes the work, the brief is what the executor is actually given
+    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                            "tool_input": {"command": companion + " --write"}})
+    assert "deny" in out and "stage start" in out
+    run(repo, "forge.py", "stage", "start", "T1")
+    run(repo, "forge.py", "delegate", "T1")
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": companion + " --write"}})
     assert "deny" not in out
