@@ -256,3 +256,10 @@ ONE autoreview pass, three lenses, run directly per decision 0011.
    `--fix` installs it and the check goes green.
 7. Demo project (`toolshed`) still ships a story end to end under the new
    gates.
+
+## Implementation Assumptions
+
+<!-- Made during implementation, NOT part of the approved plan. Dev: review these before merge; promote any that matter to docs/decisions/. -->
+- 2026-07-27: stage done exempts only .factory/ and plans/, NOT pr_ready's EVIDENCE_PATHS as the plan said — that list exempts all of factory/ and docs/, which in this repo is the product, so reusing it would make the write_scope check vacuous exactly where it is dogfooded
+- 2026-07-27: required_tests entries are test NAMES by existing convention (see any recorded decomposition), not file paths as the plan assumed — resolution is a fixed-string search across tracked and untracked files, excluding .factory/ and plans/ so the declaration cannot match itself
+- 2026-07-27: stage start also records dirty_at_start and stage done subtracts it: a file already dirty when the stage began is not that stage's work, and blaming it for one would refuse honest runs over unrelated edits

@@ -255,6 +255,9 @@ def main() -> None:
     p_ss.set_defaults(func=stages_mod.cmd_start)
     p_sd = st_sub.add_parser("done", help="finish a stage AFTER local autoreview + commit")
     p_sd.add_argument("id")
+    p_sd.add_argument("--incomplete", metavar="WHAT_IS_MISSING",
+                      help="record a PARTIAL delivery: the stage stays active "
+                           "and the gap lands in the timeline")
     p_sd.add_argument("--repo")
     p_sd.set_defaults(func=stages_mod.cmd_done)
     p_sls = st_sub.add_parser("list", help="show stage progress")

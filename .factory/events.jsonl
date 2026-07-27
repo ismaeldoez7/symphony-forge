@@ -11,3 +11,5 @@
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-07-27T12:24:44+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-1 stage done becomes a measurement"}
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-07-27T12:25:55+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-1 stage done becomes a measurement"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-07-27T12:27:48+00:00", "story": "FORGE-DELEG-1", "detail": "6 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-07-27T12:28:01+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-1 stage done becomes a measurement"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-07-27T12:28:23+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-1 stage done becomes a measurement"}

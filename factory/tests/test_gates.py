@@ -55,6 +55,14 @@ def head(repo: Path) -> str:
     return git(repo, "rev-parse", "HEAD")
 
 
+def dirty_paths(repo: Path) -> list[str]:
+    return sorted(
+        line[3:].split(" -> ")[-1].strip().strip('"')
+        for line in git(repo, "status", "--porcelain", "-uall").splitlines()
+        if line[3:].strip()
+    )
+
+
 @pytest.fixture()
 def repo(tmp_path: Path) -> Path:
     target = tmp_path / "app"
@@ -2099,7 +2107,9 @@ def test_recorder_holds_the_task_narrative_contract(repo, tmp_path):
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
     assert code == 0, out
     run(repo, "forge.py", "stage", "start", "T1")
-    run(repo, "forge.py", "stage", "done", "T1")
+    write_in_scope(repo, "src/core.py")  # stage done measures the diff
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
     grown = {**DECOMP, "tasks": [DECOMP["tasks"][0],
                                  {"id": "T2", "title": "second", "objective": "more",
                                   "acceptance_criteria": ["works"]}]}
@@ -2539,6 +2549,7 @@ def test_stage_loop_orders_execution_and_gates_pr_ready(repo, tmp_path):
     assert code != 0 and "not active" in out
     code, out = run(repo, "forge.py", "stage", "start", "T1")
     assert code == 0, out
+    write_in_scope(repo, "src/api/invoices.py")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
     # pr_ready refuses while a stage is open
@@ -2546,16 +2557,124 @@ def test_stage_loop_orders_execution_and_gates_pr_ready(repo, tmp_path):
     (repo / ".factory" / "stages.json").write_text(json.dumps({
         "issue": "ENG-1", "stages": [
             {"id": "T1", "title": "api", "status": "done"},
-            {"id": "T2", "title": "ui", "status": "active"}]}))
+            {"id": "T2", "title": "ui", "status": "active",
+             "base_sha": head(repo), "dirty_at_start": dirty_paths(repo)}]}))
     run(repo, "update_run.py", "--decomposition-status", "recorded")
     code, out = run(repo, "pr_ready.py")
     assert code != 0 and "stage completion" in out and "T2" in out
     # all stages done -> ships, tracker archived and cleaned
-    run(repo, "forge.py", "stage", "done", "T2")
+    write_in_scope(repo, "src/ui/list.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T2")
+    assert code == 0, out
     code, out = run(repo, "pr_ready.py")
     assert code == 0, out
     assert not (repo / ".factory" / "stages.json").exists()
     assert (repo / ".factory" / "history" / "ENG-1" / "stages.json").exists()
+
+
+def start_stage(repo: Path, tmp_path: Path, task: dict, stage_id: str = "T1") -> None:
+    """Signed off, planned, decomposed, and the stage started — the state every
+    stage-done measurement test needs before it can measure anything."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [task]}))
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "stage", "start", stage_id)
+    assert code == 0, out
+
+
+def write_in_scope(repo: Path, rel: str, text: str = "print('work')\n") -> None:
+    path = repo / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+
+
+STAGE_TASK = {"id": "T1", "title": "core slice", "write_scope": ["src/"],
+              "objective": "Build the core slice so the feature works end to end.",
+              "acceptance_criteria": ["the slice runs green"]}
+
+
+def test_stage_done_refuses_empty_diff(repo, tmp_path):
+    """The silent-stall signature: a delegation that wrote nothing. Workflow
+    paths churn on every forge command, so they must not count as work."""
+    start_stage(repo, tmp_path, STAGE_TASK)
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "EMPTY diff" in out
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+
+
+def test_stage_done_refuses_out_of_scope_change(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "src/core.py")
+    write_in_scope(repo, "billing/ledger.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "write_scope" in out and "billing/ledger.py" in out
+
+
+def test_stage_done_refuses_missing_required_test(repo, tmp_path):
+    # Assembled at runtime, never spelled whole in this file: the fixture repo
+    # is a copy of this harness, so a name written literally here would be
+    # found inside the fixture and the gate would look satisfied by its own
+    # test source.
+    name = "test_core" + "_slice_runs_green"
+    task = {**STAGE_TASK, "required_tests": [name]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and name in out
+    write_in_scope(repo, "src/test_core.py", f"def {name}():\n    pass\n")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+
+
+def test_stage_done_refuses_failing_verify_command(repo, tmp_path):
+    task = {**STAGE_TASK, "verify_commands": ["exit 3"]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "exit 3" in out
+
+
+def test_stage_start_parallel_requires_disjoint_scope(repo, tmp_path):
+    """--parallel was an unchecked assertion; the decomposition already states
+    each task's write_scope, so the claim is verifiable."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    decomp = {**DECOMP, "tasks": [
+        {"id": "T1", "title": "api", "write_scope": ["src/api/"],
+         "objective": "Serve invoices over the api.", "acceptance_criteria": ["200 ok"]},
+        {"id": "T2", "title": "ui", "write_scope": ["src/api/", "src/ui/"],
+         "objective": "Render the invoice list.", "acceptance_criteria": ["rows show"]},
+    ]}
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(decomp))
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "stage", "start", "T2", "--parallel")
+    assert code != 0 and "overlap" in out and "src/api/" in out
+
+
+def test_stage_done_incomplete_leaves_stage_open(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1",
+                    "--incomplete", "the retry path is unwritten")
+    assert code == 0, out
+    stages = json.loads((repo / ".factory" / "stages.json").read_text())["stages"]
+    assert stages[0]["status"] == "active"
+    assert stages[0]["incomplete"] == "the retry path is unwritten"
+    events = (repo / ".factory" / "events.jsonl").read_text()
+    assert "stage-incomplete" in events and "retry path" in events
+    # and it clears once the stage really closes
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+    stages = json.loads((repo / ".factory" / "stages.json").read_text())["stages"]
+    assert stages[0]["status"] == "done" and "incomplete" not in stages[0]
 
 
 def test_plan_save_requires_surface_impact_section(repo, tmp_path):

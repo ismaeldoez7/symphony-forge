@@ -4,15 +4,11 @@
     {
       "id": "DELEG-1",
       "title": "stage done becomes a measurement",
-      "status": "active",
-      "started_at": "2026-07-27T12:25:55+00:00",
-      "base_sha": "d1423b64ce3b1ec823fc0f7bf6d8dbfdbfa3f173",
-      "dirty_at_start": [
-        ".factory/decomposition.json",
-        ".factory/events.jsonl",
-        ".factory/run.json",
-        ".factory/stages.json"
-      ]
+      "status": "done",
+      "started_at": "2026-07-27T12:28:01+00:00",
+      "base_sha": "1db615fcb2790753d83b2161628c439d6f132790",
+      "dirty_at_start": [],
+      "completed_at": "2026-07-27T12:28:23+00:00"
     },
     {
       "id": "DELEG-2",

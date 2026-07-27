@@ -11,12 +11,24 @@ scoped: archived to .factory/history/<issue>/ and cleaned at ship.
 from __future__ import annotations
 
 import argparse
+import subprocess
 from pathlib import Path
 
-from factory_lib import dump_json, load_json, now_iso, repo_root
+from factory_lib import (
+    decomposition_state_path, dump_json, head_sha, load_json, now_iso, repo_root, run_cmd,
+)
 
 from .common import fail
 from .events import append_event
+
+# The workflow writes these itself while a stage runs — the events ledger, the
+# stage tracker, an assumption row appended to the active plan. They are not
+# the product change under measurement, so write_scope does not have to name
+# them. Deliberately NARROWER than pr_ready's EVIDENCE_PATHS: that list exempts
+# all of `factory/` and `docs/`, which in the harness's own repo is the product
+# — exempting it here would make the scope check vacuous exactly where it is
+# being dogfooded.
+WORKFLOW_PATHS = (".factory/", "plans/")
 
 
 def stages_path(base: Path) -> Path:
@@ -36,7 +48,9 @@ def write_skeleton(base: Path, issue: str, tasks: list[dict]) -> None:
         old = previous.get(task["id"])
         if old:
             stage.update({k: v for k, v in old.items()
-                          if k in ("status", "started_at", "completed_at")})
+                          if k in ("status", "started_at", "completed_at",
+                                   "base_sha", "dirty_at_start", "incomplete",
+                                   "parallel")})
             stage["title"] = task["title"]
         stages.append(stage)
     dump_json(stages_path(base), {"issue": issue, "stages": stages})
@@ -49,6 +63,80 @@ def load_stages(base: Path) -> dict:
 def pending_stages(base: Path) -> list[dict]:
     return [s for s in load_stages(base).get("stages", [])
             if s.get("status") != "done"]
+
+
+def _git(base: Path, *args: str) -> str:
+    proc = subprocess.run(["git", *args], cwd=base, capture_output=True, text=True)
+    return proc.stdout if proc.returncode == 0 else ""
+
+
+def dirty_paths(base: Path) -> list[str]:
+    paths = []
+    for line in _git(base, "status", "--porcelain", "-uall").splitlines():
+        rel = line[3:].split(" -> ")[-1].strip().strip('"')
+        if rel:
+            paths.append(rel)
+    return sorted(paths)
+
+
+def changed_paths(base: Path, base_sha: str, already_dirty: list[str]) -> list[str]:
+    """Everything this stage moved: commits since base_sha plus the working
+    tree. A stage closed before its work is committed is normal, so both
+    halves count — but a file that was ALREADY dirty when the stage started
+    is not this stage's doing, and blaming it for one is how an honest run
+    gets refused for someone else's unrelated edit."""
+    paths = set()
+    head = head_sha(base)
+    if base_sha and head and base_sha != head:
+        paths.update(
+            line for line in
+            _git(base, "diff", "--name-only", f"{base_sha}..{head}").splitlines()
+            if line.strip()
+        )
+    paths.update(dirty_paths(base))
+    return sorted(paths - set(already_dirty or []))
+
+
+def _covered(path: str, scope: list[str]) -> bool:
+    for entry in scope:
+        prefix = entry.strip().rstrip("/")
+        if prefix and (path == prefix or path.startswith(prefix + "/")):
+            return True
+    return False
+
+
+def out_of_scope(paths: list[str], scope: list[str]) -> list[str]:
+    return [p for p in paths
+            if not p.startswith(WORKFLOW_PATHS) and not _covered(p, scope)]
+
+
+def task_for(base: Path, stage_id: str) -> dict:
+    tasks = load_json(decomposition_state_path(base), default={}).get("tasks", [])
+    return next((t for t in tasks if t.get("id") == stage_id), {})
+
+
+def unresolved_tests(base: Path, required: list[str]) -> list[str]:
+    """A declared test that exists nowhere is a declaration, not a test.
+
+    Entries are test NAMES by convention (see any recorded decomposition), so
+    the search is a fixed-string grep across tracked and untracked files —
+    language-agnostic, and it catches the real failure: the test was never
+    written. `.factory/` and `plans/` are excluded because the declaration
+    itself lives there and would match itself."""
+    missing = []
+    for name in required:
+        entry = name.strip()
+        if not entry:
+            continue
+        if "/" in entry or entry.endswith((".py", ".ts", ".js", ".tsx", ".go")):
+            if not (base / entry).exists():
+                missing.append(entry)
+            continue
+        found = _git(base, "grep", "-l", "--untracked", "-F", "-e", entry,
+                     "--", ":!.factory/", ":!plans/")
+        if not found.strip():
+            missing.append(entry)
+    return missing
 
 
 def _find(data: dict, stage_id: str) -> dict:
@@ -80,8 +168,29 @@ def cmd_start(args: argparse.Namespace) -> None:
             fail(f"{args.id} follows unfinished stage(s): {', '.join(not_done)} — "
                  "finish them, or pass --parallel if write scopes are disjoint "
                  "(WORKFLOW.md Concurrency).")
+    else:
+        # --parallel used to be an unchecked assertion. The decomposition
+        # already states each task's write_scope, so the claim is verifiable.
+        mine = task_for(base, args.id).get("write_scope") or []
+        for other in data["stages"]:
+            if other is stage or other.get("status") != "active":
+                continue
+            theirs = task_for(base, other["id"]).get("write_scope") or []
+            overlap = sorted(
+                {p for p in mine if _covered(p, theirs)}
+                | {p for p in theirs if _covered(p, mine)}
+            )
+            if overlap:
+                fail(f"{args.id} cannot run parallel to active stage {other['id']}: "
+                     f"their write scopes overlap on {', '.join(overlap)}. Finish "
+                     "one first, or re-decompose so the scopes are disjoint "
+                     "(WORKFLOW.md Concurrency).")
     stage["status"] = "active"
     stage["started_at"] = now_iso()
+    # `stage done` measures the diff, and a measurement needs a fixed point —
+    # plus the dirt that was already there, which is not this stage's work.
+    stage["base_sha"] = head_sha(base) or ""
+    stage["dirty_at_start"] = dirty_paths(base)
     append_event(base, "stage-start", actor="implementer", story=data.get("issue", ""),
                  detail=f"{args.id} {stage.get('title', '')}")
     if args.parallel:
@@ -93,6 +202,53 @@ def cmd_start(args: argparse.Namespace) -> None:
           f"{args.id}")
 
 
+def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> None:
+    """Closing a stage is a measurement, not an assertion.
+
+    Every other diff-based check in this repo fires when TOO MUCH changed.
+    None fired when too little did — which is exactly what a stalled or
+    half-finished delegation looks like, and it signed itself off."""
+    base_sha = stage.get("base_sha")
+    if not base_sha:
+        fail(f"{stage_id} was started before its base commit was recorded, so "
+             "there is nothing to measure against. Re-run "
+             f"`forge stage start {stage_id}` (it is still active) and close it again.")
+    # Emptiness is judged on PRODUCT paths only. A stalled run still churns
+    # .factory/ — the stage tracker and the events ledger move on every
+    # command — so counting workflow paths would make this check pass for
+    # exactly the runs it exists to catch.
+    product = [p for p in changed_paths(base, base_sha, stage.get("dirty_at_start", []))
+               if not p.startswith(WORKFLOW_PATHS)]
+    if not product:
+        fail(f"{stage_id} closes on an EMPTY diff — no product path changed since "
+             f"{base_sha[:8]}, in commits or in the working tree. That is what a "
+             "stalled or read-only run looks like. If the work is genuinely "
+             f"partial, say so: forge stage done {stage_id} --incomplete \"<what "
+             "is missing>\".")
+    scope = task.get("write_scope") or []
+    if scope:
+        strays = out_of_scope(product, scope)
+        if strays:
+            fail(f"{stage_id} changed {len(strays)} path(s) outside its declared "
+                 f"write_scope: {', '.join(strays[:10])}"
+                 f"{'…' if len(strays) > 10 else ''}. Either the work exceeded the "
+                 "task or the scope was wrong — re-record the decomposition with "
+                 "the real scope rather than closing over it.")
+    missing = unresolved_tests(base, task.get("required_tests") or [])
+    if missing:
+        fail(f"{stage_id} declares test(s) that exist nowhere in the repo: "
+             f"{', '.join(missing)}. The implementer writes and records the "
+             "tests (AGENTS.md); a declared test is not a test.")
+    for command in task.get("verify_commands") or []:
+        if not str(command).strip():
+            continue
+        result = run_cmd(str(command), base)
+        if result["exit_code"] != 0:
+            tail = (result["stderr"] or result["stdout"] or "").strip().splitlines()
+            fail(f"{stage_id} verify command failed (exit {result['exit_code']}): "
+                 f"{command}\n" + "\n".join(tail[-15:]))
+
+
 def cmd_done(args: argparse.Namespace) -> None:
     base = Path(args.repo).resolve() if args.repo else repo_root()
     data = load_stages(base)
@@ -102,6 +258,24 @@ def cmd_done(args: argparse.Namespace) -> None:
     if stage.get("status") != "active":
         fail(f"{args.id} is {stage.get('status', 'pending')!r}, not active — "
              "`forge stage start` it first; done attests a stage that actually ran.")
+    task = task_for(base, args.id)
+    incomplete = (getattr(args, "incomplete", None) or "").strip()
+    if incomplete:
+        # A worker that genuinely finished part of the job had no vocabulary for
+        # it: every signal kind presumes it wants to continue. This says so and
+        # leaves the stage open, so nothing downstream reads it as delivered.
+        stage["incomplete"] = incomplete
+        stage["updated_at"] = now_iso()
+        append_event(base, "stage-incomplete", actor="implementer",
+                     story=data.get("issue", ""),
+                     detail=f"{args.id}: {incomplete}")
+        dump_json(stages_path(base), data)
+        print(f"Stage {args.id} recorded INCOMPLETE and left active: {incomplete}")
+        print("Nothing downstream treats it as delivered. Finish the gap, then "
+              f"forge stage done {args.id}.")
+        return
+    _measure(base, args.id, stage, task)
+    stage.pop("incomplete", None)
     stage["status"] = "done"
     stage["completed_at"] = now_iso()
     append_event(base, "stage-done", actor="implementer", story=data.get("issue", ""),
