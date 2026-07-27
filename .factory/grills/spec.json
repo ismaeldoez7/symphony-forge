@@ -1,21 +1,24 @@
 {
   "generated_by": "griller",
   "gate": "spec",
-  "verdict": "pass",
+  "verdict": "blocked",
   "gaps": [
     "The board plan assumed stage state already carried immutable task details, duplicated readiness conditions implicitly, and did not define how to avoid duplicate activity or place storyless legacy decisions."
   ],
   "contradictions": [
-    "The design assigned the new repository-system-of-record decision number 0016, which is already occupied by the accepted machinery-directory decision."
+    "The design assigned the new repository-system-of-record decision number 0016, which is already occupied by the accepted machinery-directory decision.",
+    "The event ledger is specified as append-only and union-mergeable while ship-time processing removes story lines from the same file; a union merge can resurrect removed lines.",
+    "The structural gate is required to reject every decision without stories while legacy storyless decisions are required to remain valid without backfill.",
+    "Post-sign-off roadmap add without a spec conflicts with decision 0014's literal rule that stories are derived from confirmed specs, even though plan save remains gated."
   ],
   "resolutions": [
     "The design and captured capability spec now assign the next available decision number 0017; no accepted decision was changed.",
     "The design now requires a decomposition-to-stage join, shared pure readiness predicates, event-first legacy fallback, and a project-level legacy decision group, with focused automated and functional checks."
   ],
   "open_items": [],
-  "summary": "The capability is decision-complete, testable, and consistent with the active decision corpus after correcting the stale decision number and tightening the evidence-reading contract.",
+  "summary": "The display contract is tightened and the stale decision number is fixed, but capture semantics still contain blocking contradictions that require explicit product decisions before roadmap derivation.",
   "questions_asked": 0,
   "input_sha256": "15553f2b3185fc244f5af7cfd3c4e8380bd844519fb592d8bce2481ec10d7bf8",
-  "recorded_at": "2026-07-27T08:32:19+00:00",
-  "commit": "bd1e90523db87c6075904325cf11a13d937ef543"
+  "recorded_at": "2026-07-27T08:33:56+00:00",
+  "commit": "544aca1050495ff6c9ae584a0fe2aa50fad06066"
 }
