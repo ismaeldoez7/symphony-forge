@@ -161,6 +161,48 @@ def check_epics(epics: list[dict]) -> None:
         fail("duplicate epic id in input")
 
 
+def leverage(items: list[dict]) -> dict[str, int]:
+    """How many unfinished stories each story unblocks, transitively.
+
+    The frontier answers "what CAN I start"; this answers "which one buys the
+    most". Without it the two are the same list in roadmap order, and the story
+    that frees three others reads exactly like the one that frees none."""
+    dependents: dict[str, list[str]] = {}
+    for item in items:
+        for dependency in item.get("depends_on", []):
+            dependents.setdefault(dependency, []).append(item["key"])
+    done = {i["key"] for i in items if i.get("status") == "done"}
+
+    counts: dict[str, int] = {}
+    for item in items:
+        seen: set[str] = set()
+        stack = list(dependents.get(item["key"], []))
+        while stack:
+            key = stack.pop()
+            if key in seen or key in done:
+                continue
+            seen.add(key)
+            stack.extend(dependents.get(key, []))
+        counts[item["key"]] = len(seen)
+    return counts
+
+
+def epic_gating(items: list[dict]) -> list[tuple[str, int, list[str]]]:
+    """Epic-level order DERIVED from story edges — (epic, stories left, epics
+    it waits on). Epics deliberately carry no dependencies of their own: a
+    second graph would be one more thing to keep true."""
+    by_key = {i["key"]: i for i in items}
+    rows = []
+    for epic in dict.fromkeys(i.get("epic") for i in items if i.get("epic")):
+        stories = [i for i in items if i.get("epic") == epic]
+        left = sum(1 for i in stories if i.get("status") != "done")
+        waits = {by_key[d].get("epic") for i in stories for d in i.get("depends_on", [])
+                 if d in by_key and by_key[d].get("status") != "done"}
+        waits.discard(epic)
+        rows.append((epic, left, sorted(w for w in waits if w)))
+    return rows
+
+
 def ready_pending(items: list[dict]) -> tuple[list[dict], list[tuple[dict, list[str]]]]:
     """The parallelizable frontier: pending items whose depends_on are all
     done. Anything else pending is blocked, with the keys it waits on."""
@@ -525,15 +567,21 @@ def cmd_parallel(args: argparse.Namespace) -> None:
         print("No roadmap yet — nothing to parallelize (./forge roadmap import first).")
         return
     ready, blocked = ready_pending(items)
+    unblocks = leverage(items)
     if not ready:
         print("No pending stories are unblocked right now.")
     else:
         import shlex
+        # Highest leverage first: starting the story that frees three others
+        # is not the same decision as starting the one that frees none.
+        ready = sorted(ready, key=lambda i: (-unblocks.get(i["key"], 0), i.get("order", 0)))
         print(f"{len(ready)} stor{'y is' if len(ready) == 1 else 'ies are'} independent "
-              "and can run IN PARALLEL — one worktree each:")
+              "and can run IN PARALLEL — one worktree each (most unblocking first):")
         for item in ready:
             who = f" @{item['assignee']}" if item.get("assignee") else ""
             skill = f" [{item['skill']}]" if item.get("skill") else ""
+            frees = unblocks.get(item["key"], 0)
+            skill += f" — unblocks {frees}" if frees else " — unblocks nothing further"
             branch = f"feat/{item['key']}-{slugify(item['title'])}"
             wt = shlex.quote(f"../{base.name}-{item['key']}")
             print(f"\n  {item['key']} — {item['title']}{skill}{who}")
@@ -541,7 +589,27 @@ def cmd_parallel(args: argparse.Namespace) -> None:
             print(f"    (cd {wt} && python3 factory/scripts/intake.py "
                   f"--issue {shlex.quote(item['key'])} --title {shlex.quote(item['title'])})")
     for item, waiting in blocked:
-        print(f"\n  BLOCKED {item['key']} — waiting on: {', '.join(waiting)}")
+        frees = unblocks.get(item["key"], 0)
+        tail = f" (would then unblock {frees})" if frees else ""
+        print(f"\n  BLOCKED {item['key']} — waiting on: {', '.join(waiting)}{tail}")
+    # In-flight work is not on the frontier, but finishing it is often the
+    # highest-leverage move available — the frontier alone hides that.
+    active = sorted((i for i in items if i.get("status") == "active"
+                     and unblocks.get(i["key"], 0)),
+                    key=lambda i: -unblocks[i["key"]])
+    for item in active:
+        print(f"\n  IN FLIGHT {item['key']} — finishing it unblocks "
+              f"{unblocks[item['key']]}")
+    rows = epic_gating(items)
+    if any(left for _, left, _ in rows):
+        print("\nEpic order (derived from story edges — epics carry no edges of their own):")
+        for epic, left, waits in rows:
+            if not left:
+                print(f"  {epic}: complete")
+            elif waits:
+                print(f"  {epic}: {left} left, gated by {', '.join(waits)}")
+            else:
+                print(f"  {epic}: {left} left, nothing in its way")
     print("\nEach worktree carries its own branch + .factory state; roadmap "
           "status flips converge when branches merge. Parallelize stories, "
           "never one story's dependent leaf tasks.")

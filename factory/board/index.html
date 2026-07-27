@@ -330,6 +330,59 @@
   .tasks li.active em { color: var(--build); }
   .tasks li .id { font-family: var(--mono); font-size: .7rem; flex: none; }
 
+  /* A task opens onto its own dossier: what it was for, its slice of the plan,
+     and what proves it ran. Closed by default — the list stays scannable. */
+  .tasks li details { flex: 1; interpolate-size: allow-keywords; }
+  .tasks li summary {
+    display: flex; gap: .5rem; align-items: baseline; cursor: pointer;
+    list-style: none; padding: .1rem 0;
+  }
+  .tasks li summary::-webkit-details-marker { display: none; }
+  /* The native marker is replaced, not removed: a row that opens onto a
+     dossier must not look identical to one that opens onto nothing, and
+     hover is no affordance at all on the tablets this is read on. Same
+     glyph and rotation as the next-steps disclosure above. */
+  .tasks li summary::after {
+    content: "▾"; margin-left: auto; padding-left: .5rem; flex: none;
+    font-size: .7rem; display: inline-block; opacity: .5;
+    transition: transform 180ms var(--enter), opacity 140ms ease-out;
+  }
+  /* currentColor, so the marker carries the same weight as its row rather
+     than fading out on the done rows that are darkest. */
+  .tasks li summary:hover::after,
+  .tasks li details[open] summary::after { opacity: 1; }
+  .tasks li details[open] summary::after { transform: rotate(180deg); }
+  .tasks li summary:hover { color: var(--ink); }
+  .tasks li details[open] summary { color: var(--ink); }
+  .tasks li details > *:not(summary) { margin-left: 1.4rem; }
+  /* Progressive enhancement: where ::details-content is supported the dossier
+     unfolds at the same 180ms as the house .collapse pattern; elsewhere it
+     simply appears, which is the behaviour today. */
+  .tasks li details::details-content {
+    block-size: 0; overflow: hidden;
+    transition: block-size 180ms var(--enter), content-visibility 180ms allow-discrete;
+  }
+  .tasks li details[open]::details-content { block-size: auto; }
+  .task-objective { margin: .5rem 0 .3rem; color: var(--ink); line-height: 1.5; }
+  .task-ac h5, .task-plan h5, .task-proof h5, .task-focus h5 {
+    font-family: var(--sans); font-size: .62rem; text-transform: uppercase;
+    letter-spacing: .09em; color: var(--stone); margin: .7rem 0 .25rem; font-weight: 600;
+  }
+  .task-ac ul { list-style: none; display: grid; gap: .15rem; }
+  .task-ac li { padding-left: .9rem; position: relative; line-height: 1.45; }
+  .task-ac li::before { content: "◦"; position: absolute; left: 0; color: var(--stone); }
+  .task-plan { border-left: 2px solid var(--rule); padding-left: .7rem; }
+  .task-plan p { font-family: var(--serif); line-height: 1.55; margin: .2rem 0; }
+  .task-proof div { line-height: 1.6; }
+  .task-proof b {
+    font-family: var(--sans); font-size: .62rem; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--stone); font-weight: 600; margin-right: .4rem;
+  }
+  .task-proof code { font-family: var(--mono); font-size: .68rem; color: var(--muted); }
+  .task-proof .ran { color: var(--shipped); }
+  .task-proof .unproven { color: var(--ready); }
+  .task-focus p { line-height: 1.5; }
+
   .widen {
     margin-top: 1.4rem; font-size: .78rem; color: var(--accent); cursor: pointer;
     padding: .4rem 0; letter-spacing: .02em;
@@ -1054,12 +1107,61 @@ function taskBlock(story) {
       ? "Planned, no tasks recorded yet — they appear once the decomposition is recorded."
       : "Tasks appear after this story is planned and decomposed."}</p>`;
   }
-  const mark = {done: "✓", "in-progress": "◐"};
+  const mark = {done: "✓", active: "◐", "in-progress": "◐"};
   return `<ul class="tasks">${tasks.map(t => {
-    const cls = t.status === "done" ? "done" : (t.status === "in-progress" ? "active" : "");
-    return `<li class="${cls}"><em aria-hidden="true">${mark[t.status] || "○"}</em>
-      <span class="id">${esc(t.id || "")}</span><span>${esc(t.title || "")}</span></li>`;
+    const cls = t.status === "done" ? "done"
+      : (t.status === "active" || t.status === "in-progress" ? "active" : "");
+    const head = `<em aria-hidden="true">${mark[t.status] || "○"}</em>
+      <span class="id">${esc(t.id || "")}</span><span>${esc(t.title || "")}</span>`;
+    // A task with no recorded detail stays a plain row: a disclosure that opens
+    // onto nothing is worse than no disclosure.
+    const detail = taskDossier(t);
+    return detail
+      ? `<li class="${cls}"><details><summary>${head}</summary>${detail}</details></li>`
+      : `<li class="${cls}">${head}</li>`;
   }).join("")}</ul>`;
+}
+
+/** What this task was for, what the plan said, and what proves it ran. */
+function taskDossier(t) {
+  const rows = [];
+  if (t.objective) rows.push(`<p class="task-objective">${esc(t.objective)}</p>`);
+  if ((t.acceptance_criteria || []).length) {
+    rows.push(`<div class="task-ac"><h5>Done when</h5><ul>${
+      t.acceptance_criteria.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>`);
+  }
+  if (t.plan_excerpt) {
+    rows.push(`<div class="task-plan"><h5>From the plan</h5>${md(t.plan_excerpt)}</div>`);
+  }
+  const proof = t.proof || {};
+  const bits = [];
+  if (proof.spec) bits.push(`<div><b>Spec</b> ${openFile(proof.spec)}</div>`);
+  if ((proof.required_tests || []).length) {
+    const covered = new Set(proof.covered_tests || []);
+    bits.push(`<div><b>Tests</b> ${proof.required_tests.map(name =>
+      `<span class="${covered.has(name) ? "ran" : "unproven"}">${
+        covered.has(name) ? "✓" : "○"} ${esc(name)}</span>`).join(" ")}</div>`);
+  }
+  if (proof.verify_ok) {
+    bits.push(`<div><b>Verify</b> passed${proof.verify_at
+      ? ` · ${esc(String(proof.verify_at).slice(0, 10))}` : ""}</div>`);
+  }
+  if ((t.write_scope || []).length) {
+    bits.push(`<div><b>Scope</b> ${t.write_scope.map(p =>
+      `<code>${esc(p)}</code>`).join(" ")}</div>`);
+  }
+  if (t.started_at) {
+    bits.push(`<div><b>Worked</b> ${esc(String(t.started_at).slice(0, 10))}${
+      t.completed_at ? ` → ${esc(String(t.completed_at).slice(0, 10))}` : " → in progress"}</div>`);
+  }
+  if (bits.length) rows.push(`<div class="task-proof"><h5>Proof</h5>${bits.join("")}</div>`);
+  (proof.findings || []).forEach(f => rows.push(
+    `<div class="finding note">${esc(f.aspect)}: ${esc(f.summary)}</div>`));
+  if (t.reviewer_focus) {
+    rows.push(`<div class="task-focus"><h5>Reviewer focus</h5><p>${
+      esc(t.reviewer_focus)}</p></div>`);
+  }
+  return rows.join("");
 }
 
 function findingList(items, cls) {
@@ -1149,7 +1251,7 @@ function drawerBody() {
     ${blocked}
     <h3>Gate rail</h3>${railBlock(s)}
     ${readinessBlock(detail)}
-    <h3>Tasks</h3>${taskBlock(s)}
+    <h3>Tasks</h3>${taskBlock(detail.tasks ? detail : s)}
     <button class="widen" type="button" data-widen="1">Read plan, spec and proof ›</button>`;
 }
 

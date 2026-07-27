@@ -2005,6 +2005,68 @@ def test_ship_archives_the_plan_grill_not_the_project_grills(repo, tmp_path):
     assert not (history / "grills" / "signoff.json").exists()
 
 
+def test_frontier_is_ranked_by_what_it_unblocks(repo, tmp_path):
+    """The frontier answers "what CAN I start"; without leverage it reads the
+    same for a story that frees three others and one that frees none."""
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.roadmap import epic_gating, leverage
+    items = [
+        {"key": "A", "title": "a", "epic": "core", "status": "done"},
+        {"key": "B", "title": "b", "epic": "core", "status": "pending",
+         "depends_on": ["A"]},
+        {"key": "C", "title": "c", "epic": "comms", "status": "pending",
+         "depends_on": ["B"]},
+        {"key": "D", "title": "d", "epic": "comms", "status": "pending",
+         "depends_on": ["C"]},
+        {"key": "E", "title": "e", "epic": "core", "status": "pending"},
+    ]
+    unblocks = leverage(items)
+    assert unblocks["B"] == 2 and unblocks["C"] == 1 and unblocks["E"] == 0
+    assert unblocks["A"] == 3          # transitive: B, then C, then D
+    # Work already shipped is not counted as unblocked, and the walk stops
+    # there: once B is done, C is free regardless of A.
+    shipped_b = [{**i, "status": "done"} if i["key"] == "B" else i for i in items]
+    assert leverage(shipped_b)["A"] == 0
+    rows = dict((epic, (left, waits)) for epic, left, waits in epic_gating(items))
+    assert rows["comms"] == (2, ["core"])   # derived, not declared
+    assert rows["core"] == (2, [])
+    # and the CLI ranks by it rather than by roadmap order
+    import_roadmap(repo, tmp_path, {"generated_by": "docs-decomposer", "items": [
+        {"key": "ENG-1", "title": "frees nothing"},
+        {"key": "ENG-2", "title": "frees one"},
+        {"key": "ENG-3", "title": "waits", "depends_on": ["ENG-2"]},
+    ]})
+    code, out = run(repo, "forge.py", "roadmap", "parallel")
+    assert code == 0, out
+    assert out.index("ENG-2") < out.index("ENG-1"), out
+    assert "unblocks 1" in out and "unblocks nothing further" in out
+
+
+def test_board_task_rows_carry_their_own_plan_spec_and_proof(repo, tmp_path):
+    """A task row that shows only an id and a title cannot answer what the
+    task was for or what proves it ran."""
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.board import plan_section, story_detail
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    write_passing_artifacts(repo)
+    detail = story_detail(repo, "ENG-1")
+    task = detail["tasks"][0]
+    assert task["objective"] and task["acceptance_criteria"]
+    assert task["proof"]["required_tests"] == [] or "proof" in task
+    assert task["proof"]["verify_ok"] is True
+    # the excerpt is the task's OWN line, never the whole decomposition block
+    body = ("## Task Decomposition\n\n"
+            "1. **T1 — core slice**: build the first slice end to end.\n"
+            "2. **T2 — second**: something else entirely.\n")
+    assert plan_section(body, "T1") == "build the first slice end to end."
+    assert "something else" not in plan_section(body, "T1")
+    # a plan that merely restates the objective adds nothing and is dropped
+    assert plan_section(body, "T9") == ""
+
+
 def test_adhoc_capture_is_visible_debt_not_a_build_bypass(repo, tmp_path):
     """The client emails a new ask mid-sprint. It must be capturable — an
     ask that cannot be recorded gets built off the books — without becoming a

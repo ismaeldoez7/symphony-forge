@@ -7,7 +7,7 @@ from pathlib import Path
 from factory_lib import load_json, repo_root, run_state_path
 
 from .context import pending_context
-from .roadmap import load_items, ready_pending
+from .roadmap import leverage, load_items, ready_pending
 from .signal import open_signals
 
 
@@ -80,11 +80,25 @@ def cmd_next(args: argparse.Namespace) -> None:
         ready_items, _ = ready_pending(items)
         if ready_items:
             import shlex
-            nxt = ready_items[0]  # suggest only DEPENDENCY-READY work
+            # DEPENDENCY-READY, then most-unblocking: roadmap order says what was
+            # written first, not what frees the most work next.
+            unblocks = leverage(items)
+            ready_items = sorted(ready_items,
+                                 key=lambda i: (-unblocks.get(i["key"], 0), i.get("order", 0)))
+            nxt = ready_items[0]
             owner = f" (assigned: @{nxt['assignee']})" if nxt.get("assignee") else ""
-            steps.append(f"[dev] Next on the roadmap: {nxt['key']} — {nxt['title']}{owner}. "
+            frees = unblocks.get(nxt["key"], 0)
+            why = f" — unblocks {frees} more" if frees else ""
+            steps.append(f"[dev] Next on the roadmap: {nxt['key']} — {nxt['title']}{owner}{why}. "
                          f"Start it: python3 factory/scripts/intake.py --issue "
                          f"{shlex.quote(nxt['key'])} --title {shlex.quote(nxt['title'])}")
+            stuck = sorted((i for i in items if i.get("status") == "active"
+                            and unblocks.get(i["key"], 0) > frees),
+                           key=lambda i: -unblocks[i["key"]])
+            if stuck:
+                steps.append(f"[EM] {stuck[0]['key']} is already in flight and unblocks "
+                             f"{unblocks[stuck[0]['key']]} — finishing it frees more work "
+                             "than starting anything on the frontier")
             unassigned = sum(1 for i in pending_items if not i.get("assignee"))
             if unassigned and (base / "plans" / "team.json").exists():
                 steps.append(f"[EM] {unassigned} pending item(s) unassigned — distribute: "

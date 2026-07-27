@@ -43,6 +43,28 @@ def _stage_summary(base: Path) -> dict:
     }
 
 
+TASK_NARRATIVE = ("objective", "acceptance_criteria", "reviewer_focus",
+                  "write_scope", "verify_commands", "required_tests", "dependencies")
+
+
+def merge_task_detail(decomposition: dict, stages: list[dict]) -> list[dict]:
+    """The stage tracker knows what is DONE; the decomposition knows what the
+    task was FOR. Neither alone answers "what is this task?", and the tracker
+    deliberately keeps only id/title/status so the two never disagree about
+    progress — so they are joined here, at read time, by task id."""
+    planned = {t.get("id"): t for t in decomposition.get("tasks", [])}
+    tasks = []
+    for stage in stages:
+        task = {"id": stage.get("id"), "title": stage.get("title"),
+                "status": stage.get("status", "pending"),
+                "started_at": stage.get("started_at"),
+                "completed_at": stage.get("completed_at")}
+        source = planned.get(stage.get("id"), {})
+        task.update({field: source[field] for field in TASK_NARRATIVE if field in source})
+        tasks.append(task)
+    return tasks
+
+
 def _plan_evidence(base: Path, plan: dict | None) -> tuple[dict | None, dict, list]:
     """Stage progress, gate evidence, and the story's real task list.
 
@@ -64,11 +86,7 @@ def _plan_evidence(base: Path, plan: dict | None) -> tuple[dict | None, dict, li
             "done": sum(1 for stage in stages if stage.get("status") == "done"),
             "total": len(stages),
         }
-    tasks = [
-        {"id": stage.get("id"), "title": stage.get("title"),
-         "status": stage.get("status", "pending")}
-        for stage in stages
-    ]
+    tasks = merge_task_detail(load_json(root / "decomposition.json", default={}), stages)
     evidence = {
         "verify": load_json(root / "verify.json", default={}).get("ok") is True,
         "tests": (root / "tests.json").is_file(),
@@ -336,8 +354,89 @@ def story_detail(base: Path, key: str) -> dict | None:
         spec = {"path": spec_path, "body": (base / spec_path).read_text()}
     detail = {"key": key, "story": item, "plan": plan, "plan_body": plan_body,
               "spec": spec, "evidence": evidence}
+    detail["tasks"] = task_dossiers(detail)
     detail["readiness"] = approval_readiness(base, detail)
     return detail
+
+
+TASK_PREFIX = re.compile(r"^\s*(?:[-*]|\d+[.)])?\s*(?:\*\*)?[\w.-]+\s*(?:[—–-]\s*[^:*]*)?"
+                         r"(?:\*\*)?\s*[:—–-]\s*")
+
+
+def plan_section(body: str, task_id: str) -> str:
+    """This task's own line from the approved plan — the argument for why this
+    piece exists, in the plan's words.
+
+    Line-precise, not paragraph-precise: a Task Decomposition is usually one
+    unbroken list, so taking the whole block would show every sibling task
+    under each task. The leading "1. **TS-3.1 — title**:" is stripped because
+    the row above already says exactly that."""
+    if not body or not task_id:
+        return ""
+    lines = body.splitlines()
+    for index, line in enumerate(lines):
+        if task_id not in line:
+            continue
+        collected = [TASK_PREFIX.sub("", line).strip()]
+        # Keep indented continuations; stop at the next list item or blank line.
+        for follow in lines[index + 1:]:
+            if not follow.strip() or not follow.startswith((" ", "\t")):
+                break
+            collected.append(follow.strip())
+        text = " ".join(part for part in collected if part)
+        return text if len(text) > 3 else ""
+    return ""
+
+
+def task_dossiers(detail: dict) -> list[dict]:
+    """Everything known about each task, assembled once for the drawer: what it
+    was for (decomposition), what the plan said about it, which spec governs it,
+    and the proof it produced."""
+    evidence = detail.get("evidence") or {}
+    decomposition = evidence.get("decomposition") or {}
+    stages = (evidence.get("stages") or {}).get("stages", [])
+    tests = evidence.get("tests") or {}
+    verify = evidence.get("verify") or {}
+    reviews = evidence.get("reviews") or {}
+    spec_path = (detail.get("spec") or {}).get("path", "")
+
+    recorded_tests = []
+    for entry in tests.values():
+        if isinstance(entry, dict):
+            recorded_tests.extend(entry.get("tests_added_or_updated") or [])
+
+    dossiers = []
+    for task in merge_task_detail(decomposition, stages):
+        required = task.get("required_tests") or []
+        # A required test counts as proven only if a recorded artifact names it;
+        # "tests.json exists" is not evidence that THIS task was covered.
+        covered = [t for t in required
+                   if any(t in str(recorded) for recorded in recorded_tests)]
+        findings = []
+        for aspect, review in reviews.items():
+            if not isinstance(review, dict):
+                continue
+            for finding in (review.get("blocking_findings") or []) + \
+                           (review.get("non_blocking_findings") or []):
+                text = finding if isinstance(finding, str) else finding.get("summary", "")
+                area = "" if isinstance(finding, str) else finding.get("area", "")
+                if task["id"] in f"{text} {area}":
+                    findings.append({"aspect": aspect, "summary": text})
+        task["proof"] = {
+            "required_tests": required,
+            "covered_tests": covered,
+            "verify_ok": verify.get("ok") is True,
+            "verify_at": verify.get("completed_at"),
+            "findings": findings,
+            "spec": spec_path,
+        }
+        excerpt = plan_section(detail.get("plan_body", ""), task["id"])
+        # A plan that restates the objective verbatim has nothing to add; showing
+        # both reads as a rendering bug rather than as two sources agreeing.
+        objective = (task.get("objective") or "").strip()
+        task["plan_excerpt"] = "" if excerpt.strip() == objective else excerpt
+        dossiers.append(task)
+    return dossiers
 
 
 def make_server(base: Path, port: int) -> ThreadingHTTPServer:
