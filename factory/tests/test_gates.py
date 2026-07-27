@@ -2044,6 +2044,56 @@ def test_frontier_is_ranked_by_what_it_unblocks(repo, tmp_path):
     assert "unblocks 1" in out and "unblocks nothing further" in out
 
 
+def test_board_binds_evidence_to_the_story_that_owns_it(repo, tmp_path):
+    """Live .factory/ belongs to whatever story is ACTIVE. Handing it to any
+    other story shows one story's proof under another's name."""
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.board import story_detail
+    sign_off(repo)
+    ensure_story(repo, "ENG-2", "Another story")
+    intake(repo)                                   # ENG-1 is the active run
+    save_plan(repo, tmp_path)
+    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    write_passing_artifacts(repo)
+    assert story_detail(repo, "ENG-1")["evidence"]["decomposition"], "active story"
+    other = story_detail(repo, "ENG-2")["evidence"]
+    assert not other["decomposition"], "an unplanned story showed the active run's proof"
+    assert not other["verify"]
+    # the board is a viewer: no route may mutate anything
+    board = (HARNESS / "factory" / "scripts" / "forge_cli" / "board.py").read_text()
+    assert "do_POST" not in board and "do_PUT" not in board and "do_DELETE" not in board
+
+
+def test_recorder_holds_the_task_narrative_contract(repo, tmp_path):
+    """objective and acceptance_criteria were prompt convention, so a task
+    could reach the board as an id and a title."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    bare = {**DECOMP, "tasks": [{"id": "T1", "title": "core slice"}]}
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(bare))
+    assert code != 0 and "objective" in out
+    dumped = {**DECOMP, "tasks": [{**DECOMP["tasks"][0], "objective": "x " * 400}]}
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(dumped))
+    assert code != 0 and "max 500" in out, out
+    no_ac = {**DECOMP, "tasks": [{**DECOMP["tasks"][0], "acceptance_criteria": []}]}
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(no_ac))
+    assert code != 0 and "acceptance_criteria" in out
+    # and re-recording after a scope change keeps what is already built
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    assert code == 0, out
+    run(repo, "forge.py", "stage", "start", "T1")
+    run(repo, "forge.py", "stage", "done", "T1")
+    grown = {**DECOMP, "tasks": [DECOMP["tasks"][0],
+                                 {"id": "T2", "title": "second", "objective": "more",
+                                  "acceptance_criteria": ["works"]}]}
+    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(grown))
+    stages = {s["id"]: s for s in
+              json.loads((repo / ".factory" / "stages.json").read_text())["stages"]}
+    assert stages["T1"]["status"] == "done" and stages["T1"].get("completed_at")
+    assert stages["T2"]["status"] == "pending"
+
+
 def test_board_renders_plan_tables_and_hides_author_comments(repo):
     """Every plan carries a Surface Impact TABLE — the one section that is a
     hard gate — and template comments addressed to the dev, not the reader."""

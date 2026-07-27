@@ -2,7 +2,12 @@
   "artifact": "outcome",
   "phase": "pr-ready",
   "recorded_by": "forge outcome set \"<paragraph>\" (or --from <file>)",
-  "generated_by": ["implementer", "planner", "autoreview", "functional-checker"],
+  "generated_by": [
+    "implementer",
+    "planner-high",
+    "autoreview",
+    "functional-checker"
+  ],
   "required": {
     "generated_by": "str",
     "outcome": "str"

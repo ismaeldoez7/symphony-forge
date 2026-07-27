@@ -23,6 +23,7 @@ from forge_cli.events import append_event, load_events
 from forge_cli.outcome import load_outcome, outcome_path
 from forge_cli.roadmap import load_items, mark_status
 from forge_cli.quickfix import load_active
+from forge_cli.readiness import review_passed, tests_passed
 from forge_cli.signal import open_signals, signals_path
 
 # Commits touching only these paths after evidence was recorded do not
@@ -100,22 +101,19 @@ if not verify or not verify.get("ok"):
 user_facing = bool(decomposition.get("user_facing", True)) if decomposition else True
 for kind in ("automated", "functional"):
     entry = tests.get(kind, {}) if tests else {}
-    blockers = entry.get("blocking_findings", []) if entry else []
     if not entry:
         if kind == "functional" and not user_facing:
             continue
         missing.append(f".factory/tests.json:{kind}")
-    elif blockers or entry.get("status") == "failed":
-        missing.append(f"{kind} testing must have no blockers and no failed status")
-    elif kind == "functional" and entry.get("score", 0) < 8:
-        missing.append("functional testing must have score >= 8")
+    elif not tests_passed(entry, functional=(kind == "functional")):
+        missing.append(f"{kind} testing must have no blockers, no failed status"
+                       + (" and score >= 8" if kind == "functional" else ""))
 for aspect in ("quality", "performance", "security"):
     path = review_dir(root) / f"{aspect}.json"
     data = load_json(path, default={})
-    blockers = data.get("blocking_findings", []) if data else []
     if not data:
         missing.append(str(path.relative_to(root)))
-    elif data.get("score", 0) < 8 or blockers:
+    elif not review_passed(data):
         missing.append(f"{aspect} review must be >= 8 with no blockers")
 
 # The refactor ratchet: a refactor-tagged story that GREW product source is
@@ -291,18 +289,10 @@ plan_grill = root / ".factory" / "grills" / "plan.json"
 if plan_grill.exists():
     (history / "grills").mkdir(exist_ok=True)
     shutil.copy2(plan_grill, history / "grills" / "plan.json")
-# The story's timeline is COPIED to its archive, never removed from the live
-# ledger. Removing lines from a union-merged file does not survive the very
-# concurrency the union driver exists for: a parallel branch that still holds
-# those lines resurrects them on merge, so the removal is a lie that grows
-# back. Append-only means append-only; the file is the project's timeline and
-# the board filters it by story.
-# The ship itself is the last line of the story's timeline, so it is recorded
-# before the timeline is archived — not after, or it would be left behind.
+# Recorded before the archive below, or the ship event is left behind.
 append_event(root, "shipped", actor="orchestrator", story=issue_key,
              detail=(outcome_record or {}).get("outcome", "")[:200])
-# The story's timeline moves with it; discovery and other stories' lines stay
-# in the live ledger.
+# COPIED, never moved: a union-merged file cannot be pruned (decision 0017).
 story_events = load_events(root, story=issue_key)
 if story_events:
     (history / "events.jsonl").write_text(

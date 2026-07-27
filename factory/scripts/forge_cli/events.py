@@ -1,14 +1,9 @@
 """The story timeline (.factory/events.jsonl).
 
-`run.json` holds one mutable `updated_at` that every phase overwrites, so a
-story that passed through planning, building, testing and review retains a
-single timestamp and no trace of the transitions. This ledger appends one
-line per transition instead: what happened, when, and WHO — the scripts that
-change state call it themselves, so a timeline cannot be skipped by an agent
-that forgets to write it.
-
-Story-scoped lines archive to .factory/history/<issue>/events.jsonl at ship;
-discovery lines (spec save, roadmap derive) carry no story and stay.
+One append-only line per state transition — what, when, and who. The scripts
+that change state call this themselves, so a timeline cannot be skipped.
+Lines are COPIED into a story's ship archive, never pruned: the file is
+union-merged and a removal does not survive a parallel branch (decision 0017).
 """
 from __future__ import annotations
 
@@ -51,11 +46,15 @@ def append_event(base: Path, event: str, actor: str, story: str = "",
         payload["story"] = story
     if detail:
         payload["detail"] = detail
+    # Validation is NOT swallowed: an unpinned generated_by is a contract
+    # breach, and a schema that can be silently skipped is not a gate. Only
+    # the write is best-effort — a full disk must not fail the gate that was
+    # doing the real work.
+    validate_payload(base, "event", payload)
     try:
-        validate_payload(base, "event", payload)
         path = events_path(base)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a") as fh:
             fh.write(json.dumps(payload) + "\n")
-    except Exception:
+    except OSError:
         return

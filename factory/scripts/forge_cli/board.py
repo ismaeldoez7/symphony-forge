@@ -9,12 +9,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from factory_lib import load_json, now_iso, repo_root
+from factory_lib import load_json, now_iso, repo_root, run_state_path
 
 from .assumptions import open_count as open_assumptions
 from .decisions import decision_records
 from .plans import parse_frontmatter
 from .quickfix import ledger_path, load_active
+from .readiness import review_passed, tests_passed, verify_passed
 from .roadmap import load_roadmap, ready_pending
 from .signal import open_signals
 from .specs import spec_records
@@ -87,11 +88,17 @@ def _plan_evidence(base: Path, plan: dict | None) -> tuple[dict | None, dict, li
             "total": len(stages),
         }
     tasks = merge_task_detail(load_json(root / "decomposition.json", default={}), stages)
+    # The same predicates pr_ready gates on: a tick here must mean the gate
+    # would open, not merely that a file is on disk.
+    recorded = load_json(root / "tests.json", default={})
     evidence = {
-        "verify": load_json(root / "verify.json", default={}).get("ok") is True,
-        "tests": (root / "tests.json").is_file(),
+        "verify": verify_passed(load_json(root / "verify.json", default={})),
+        "tests": tests_passed(recorded.get("automated")) and (
+            tests_passed(recorded.get("functional"), functional=True)
+            if recorded.get("functional") else True),
         "reviews": {
-            aspect: (root / "reviews" / f"{aspect}.json").is_file()
+            aspect: review_passed(load_json(root / "reviews" / f"{aspect}.json",
+                                            default={}))
             for aspect in ("quality", "performance", "security")
         },
     }
@@ -175,11 +182,13 @@ def aggregate_state(base: Path) -> dict:
         "active": _plan_records(base, "active"),
         "completed": _plan_records(base, "completed"),
     }
+    # `story` postdates the earliest plans; fall back to `issue`, or every
+    # story on a legacy project renders unplanned.
     plan_by_story = {
-        plan.get("story"): plan
+        plan.get("story") or plan.get("issue"): plan
         for location in ("completed", "active")
         for plan in plans[location]
-        if plan.get("story")
+        if plan.get("story") or plan.get("issue")
     }
     specs = [
         {key: value for key, value in record.items() if key != "_path"}
@@ -333,9 +342,15 @@ def story_detail(base: Path, key: str) -> dict | None:
     plan_body = ""
     if plan:
         _, plan_body = parse_frontmatter((base / plan["path"]).read_text())
-    root = base / ".factory"
+    # Live .factory/ belongs to whatever story is ACTIVE. Handing it to any
+    # other story shows one story's proof under another's name.
+    active = load_json(run_state_path(base), default={}).get("issue_key")
     if plan and plan.get("location") == "completed":
-        root = root / "history" / str(plan.get("issue", ""))
+        root = base / ".factory" / "history" / str(plan.get("issue", ""))
+    elif active == key:
+        root = base / ".factory"
+    else:
+        root = base / ".factory" / "history" / key
     evidence = {
         name: load_json(root / f"{name}.json", default=None)
         for name in ("decomposition", "verify", "tests", "stages")
@@ -420,7 +435,10 @@ def task_dossiers(detail: dict) -> list[dict]:
                            (review.get("non_blocking_findings") or []):
                 text = finding if isinstance(finding, str) else finding.get("summary", "")
                 area = "" if isinstance(finding, str) else finding.get("area", "")
-                if task["id"] in f"{text} {area}":
+                # Bounded match: a substring test hands TS-3.10's findings to
+                # TS-3.1, which is silent misattribution of review evidence.
+                if re.search(rf"(?<![\w.]){re.escape(task['id'])}(?![\w]|\.\d)",
+                             f"{text} {area}"):
                     findings.append({"aspect": aspect, "summary": text})
         task["proof"] = {
             "required_tests": required,

@@ -92,9 +92,7 @@ A task is not PR-ready until all of these exist:
 - `.factory/decomposition.json`
 - `.factory/verify.json`
 - `.factory/tests.json`
-- `.factory/reviews/quality.json`
-- `.factory/reviews/performance.json`
-- `.factory/reviews/security.json`
+- `.factory/reviews/{quality,performance,security}.json`
 - `.factory/outcome.json` (what the story delivered — `./forge outcome set`)
 
 ## Non-Negotiables
@@ -103,8 +101,8 @@ A task is not PR-ready until all of these exist:
 - The planning lock is always armed: use plan mode or a bounded, ledgered quickfix.
 - Do not decompose by document file or arbitrary file count.
 - Do not bypass `verify.py` with ad hoc validation commands.
-- Evidence enters `.factory/` only via `record_*` scripts validating
-  `factory/schemas/` (incl. a pinned `generated_by`) — never hand-written.
+- Evidence enters `.factory/` only via a recording command validating
+  `factory/schemas/` (incl. a pinned `generated_by`) — never by hand.
 - Review = ONE autoreview pass run by the orchestrating session directly —
   never a Codex review job (decision 0011), never nested reviewers.
 - Keep the template repo independent of any client-specific source repo.

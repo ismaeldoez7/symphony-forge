@@ -112,4 +112,8 @@ for key, value in {
         state[key] = value
 state["updated_at"] = now_iso()
 dump_json(path, state)
+if args.phase:
+    from forge_cli.events import append_event
+    append_event(root, args.phase, actor="orchestrator",
+                 story=state.get("issue_key", ""))
 print("Updated factory state")
