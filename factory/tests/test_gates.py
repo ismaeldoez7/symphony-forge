@@ -2829,6 +2829,48 @@ def test_delegate_records_ledger_entry(repo, tmp_path):
     assert code != 0 and "not a task" in out
 
 
+def test_codex_status_reports_write_flag_and_stall(repo, tmp_path):
+    """The registry already recorded everything needed to see a stalled run —
+    status, phase, the write flag, timestamps. Nothing read it."""
+    start_stage(repo, tmp_path, STAGE_TASK)
+    jobs = tmp_path / "state" / "proj-abc" / "jobs"
+    jobs.mkdir(parents=True)
+    (jobs / "task-1.json").write_text(json.dumps({
+        "id": "task-1", "workspaceRoot": str(repo), "status": "running",
+        "phase": "thinking", "write": False, "startedAt": "2020-01-01T00:00:00Z",
+        "logFile": "/tmp/task-1.log"}))
+    (jobs / "task-2.json").write_text(json.dumps({
+        "id": "task-2", "workspaceRoot": "/somewhere/else", "status": "running",
+        "write": True, "startedAt": "2020-01-01T00:00:00Z"}))
+    code, out = run(repo, "forge.py", "codex", "status",
+                    "--state-root", str(tmp_path / "state"))
+    assert code == 0, out                       # advisory: never fails a gate
+    assert "task-1" in out and "task-2" not in out   # this repo's jobs only
+    assert "write=no" in out and "STALLED?" in out and "READ-ONLY" in out
+    # a missing registry degrades to a clear unknown, still exit 0
+    code, out = run(repo, "forge.py", "codex", "status",
+                    "--state-root", str(tmp_path / "nope"))
+    assert code == 0 and "unknown" in out
+
+
+def test_doctor_flags_skill_missing_for_codex_runtime(repo, tmp_path):
+    """The harness refuses a user-facing artifact whose skills_used omits
+    emil-design-eng, while the runtime asked to attest it cannot load it."""
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.doctor import skills_missing_per_runtime
+    finally:
+        sys.path.pop(0)
+    home = tmp_path / "home"
+    (home / ".claude" / "skills" / "emil-design-eng").mkdir(parents=True)
+    (home / ".claude" / "skills" / "frontend-design").mkdir(parents=True)
+    (home / ".codex" / "skills" / "frontend-design").mkdir(parents=True)
+    missing = skills_missing_per_runtime(repo, home=home)
+    assert ("codex", "emil-design-eng") in missing
+    assert ("claude", "emil-design-eng") not in missing
+    assert not [m for m in missing if m[1] == "frontend-design"]
+
+
 def test_plan_save_requires_surface_impact_section(repo, tmp_path):
     sign_off(repo)
     intake(repo)

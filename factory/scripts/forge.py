@@ -13,6 +13,7 @@ import argparse
 from forge_cli import adopt as adopt_mod
 from forge_cli import audit as audit_mod
 from forge_cli import board as board_mod
+from forge_cli import codex_status
 from forge_cli import assumptions as assumptions_mod
 from forge_cli import context as ctx
 from forge_cli import deferrals as deferrals_mod
@@ -261,6 +262,15 @@ def main() -> None:
                            "and the gap lands in the timeline")
     p_sd.add_argument("--repo")
     p_sd.set_defaults(func=stages_mod.cmd_done)
+    p_cx = sub.add_parser("codex", help="delegated Codex runs (diagnostics)")
+    cx_sub = p_cx.add_subparsers(dest="codex_command", required=True)
+    p_cxs = cx_sub.add_parser("status", help="is the delegated run still moving?")
+    p_cxs.add_argument("--stale-minutes", type=int, default=codex_status.STALL_MINUTES,
+                       help="flag a running job older than this (default: 20)")
+    p_cxs.add_argument("--state-root", help="plugin job registry (testing)")
+    p_cxs.add_argument("--repo")
+    p_cxs.set_defaults(func=codex_status.cmd_status)
+
     p_del = sub.add_parser("delegate", help="compose the brief + invocation for one task")
     p_del.add_argument("id", help="task id from the recorded decomposition")
     p_del.add_argument("--read-only", action="store_true",

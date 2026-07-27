@@ -40,7 +40,11 @@
     {
       "id": "DELEG-5",
       "title": "a stalled run and a missing skill become visible",
-      "status": "pending"
+      "status": "done",
+      "started_at": "2026-07-27T12:37:37+00:00",
+      "base_sha": "0993d24a80e74059b46f095fae3510ac38ddc5b6",
+      "dirty_at_start": [],
+      "completed_at": "2026-07-27T12:39:44+00:00"
     },
     {
       "id": "DELEG-6",

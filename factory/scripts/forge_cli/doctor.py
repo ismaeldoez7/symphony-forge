@@ -50,6 +50,29 @@ def unrunnable_reason(command: str) -> str | None:
     return f"starts with {program!r}, which is not on PATH and is not a shell builtin"
 
 
+# The runtimes that have to ATTEST skills_used, and where each loads skills
+# from. Claude coordinates and reviews; Codex implements — and the implementer
+# is the one the recorder makes attest the design skills.
+SKILL_HOMES = {"claude": Path(".claude") / "skills", "codex": Path(".codex") / "skills"}
+
+
+def skills_missing_per_runtime(base: Path, home: Path | None = None) -> list[tuple[str, str]]:
+    """(runtime, skill) pairs a runtime cannot load but is required to attest.
+
+    The harness refuses a user-facing artifact whose skills_used omits
+    emil-design-eng while the runtime being asked to attest it has no way to
+    load it. Every such attestation is false by construction."""
+    from .delegate import required_skills
+
+    home = home or Path.home()
+    missing = []
+    for skill in required_skills(base):
+        for runtime, rel in SKILL_HOMES.items():
+            if not (home / rel / skill).is_dir():
+                missing.append((runtime, skill))
+    return missing
+
+
 def prose_verify_commands(base: Path) -> list[str]:
     """Migration report: active decompositions still carrying entries that
     cannot run. Shipped history is deliberately not scanned — it is evidence
@@ -617,6 +640,25 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         repo = Path(getattr(args, "repo", None) or repo_root())
     except (subprocess.CalledProcessError, FileNotFoundError):
         repo = None
+    # Required skills must be loadable by every runtime asked to attest them.
+    # --fix mirrors an already-installed copy across, which is the whole gap:
+    # `skills add` installs for Claude, and Codex reads a different directory.
+    for runtime, skill in (skills_missing_per_runtime(repo) if repo else []):
+        target = home / SKILL_HOMES[runtime] / skill
+        source = next((home / rel / skill for rel in SKILL_HOMES.values()
+                       if (home / rel / skill).is_dir()), None)
+        if args.fix and source:
+            print(f"[fix ] mirroring {skill} -> {target} ...")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(source, target, dirs_exist_ok=True)
+        if not target.is_dir():
+            print(f"[MISS] skill/{runtime:<7} {skill} not loadable by {runtime} "
+                  f"({target})")
+            print(f"       fix: harness.yaml requires {skill} for user-facing work "
+                  f"and the recorder refuses an artifact that does not attest it — "
+                  f"install it, then rerun with --fix to mirror it across runtimes.")
+            failures += 1
+
     prose = prose_verify_commands(repo) if repo else []
     for entry in prose:
         print(f"[MISS] verify_commands  {entry}")
