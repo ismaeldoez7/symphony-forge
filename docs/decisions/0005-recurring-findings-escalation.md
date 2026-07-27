@@ -2,6 +2,7 @@
 status: accepted
 confirmed_by: "Ravi"
 date: 2026-07-21
+stories: []
 ---
 
 # Recurring review findings escalate to refactors, never a fourth patch

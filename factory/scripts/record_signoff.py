@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from factory_lib import dump_json, load_json, now_iso, repo_root, require_grill, run_state_path
+from forge_cli.events import append_event
 from forge_cli.specs import spec_records
 
 FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.DOTALL)
@@ -100,6 +101,8 @@ def main() -> int:
     state["client_signoff_record"] = record.relative_to(root).as_posix()
     state["client_signoff_at"] = now_iso()
     dump_json(run_state_path(root), state)
+    append_event(root, "client-signoff", actor="orchestrator",
+                 detail=record.relative_to(root).as_posix())
     print(f"client_signoff recorded from {record.relative_to(root)}")
     return 0
 

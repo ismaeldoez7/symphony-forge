@@ -71,14 +71,20 @@ learns more. Per-task decompositions never rewrite the roadmap — but the
 per-task PLAN must satisfy the roadmap item's `acceptance_criteria` when
 present, not re-derive them.
 
-Each task should include:
+Each task MUST include (the recorder refuses the decomposition otherwise):
 - `id`
 - `title`
+- `objective` — one or two sentences of WHAT this task changes and WHY, in the
+  language a reader uses six weeks later. Capped at 500 characters: it is the
+  summary a human reads on the board, not the implementation transcript. Put
+  the how in the plan.
+- `acceptance_criteria` — non-empty; a task nobody can check is done cannot be
+  reviewed
+
+Each task should also include:
 - `epic_id`
-- `objective`
 - `write_scope`
 - `dependencies`
-- `acceptance_criteria`
 - `verify_commands`
 - `required_tests`
 - `reviewer_focus`

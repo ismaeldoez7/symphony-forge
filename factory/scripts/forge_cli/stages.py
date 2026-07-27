@@ -16,6 +16,7 @@ from pathlib import Path
 from factory_lib import dump_json, load_json, now_iso, repo_root
 
 from .common import fail
+from .events import append_event
 
 
 def stages_path(base: Path) -> Path:
@@ -23,11 +24,22 @@ def stages_path(base: Path) -> Path:
 
 
 def write_skeleton(base: Path, issue: str, tasks: list[dict]) -> None:
-    dump_json(stages_path(base), {
-        "issue": issue,
-        "stages": [{"id": t["id"], "title": t["title"], "status": "pending"}
-                   for t in tasks],
-    })
+    """Re-recording a decomposition after a mid-story scope change must not
+    erase what is already built: surviving task ids keep their status and
+    timestamps, new ids arrive pending, removed ids drop out."""
+    existing = load_stages(base)
+    previous = ({s.get("id"): s for s in existing.get("stages", [])}
+                if existing.get("issue") == issue else {})
+    stages = []
+    for task in tasks:
+        stage = {"id": task["id"], "title": task["title"], "status": "pending"}
+        old = previous.get(task["id"])
+        if old:
+            stage.update({k: v for k, v in old.items()
+                          if k in ("status", "started_at", "completed_at")})
+            stage["title"] = task["title"]
+        stages.append(stage)
+    dump_json(stages_path(base), {"issue": issue, "stages": stages})
 
 
 def load_stages(base: Path) -> dict:
@@ -70,6 +82,8 @@ def cmd_start(args: argparse.Namespace) -> None:
                  "(WORKFLOW.md Concurrency).")
     stage["status"] = "active"
     stage["started_at"] = now_iso()
+    append_event(base, "stage-start", actor="implementer", story=data.get("issue", ""),
+                 detail=f"{args.id} {stage.get('title', '')}")
     if args.parallel:
         stage["parallel"] = True
     dump_json(stages_path(base), data)
@@ -90,6 +104,8 @@ def cmd_done(args: argparse.Namespace) -> None:
              "`forge stage start` it first; done attests a stage that actually ran.")
     stage["status"] = "done"
     stage["completed_at"] = now_iso()
+    append_event(base, "stage-done", actor="implementer", story=data.get("issue", ""),
+                 detail=f"{args.id} {stage.get('title', '')}")
     dump_json(stages_path(base), data)
     remaining = [s for s in data["stages"] if s.get("status") != "done"]
     if remaining:

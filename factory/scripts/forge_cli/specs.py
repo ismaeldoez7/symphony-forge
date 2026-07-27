@@ -8,6 +8,7 @@ from pathlib import Path
 from factory_lib import now_iso, repo_root, require_grill
 
 from .common import fail
+from .events import append_event
 
 FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.DOTALL)
 SAFE_SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
@@ -78,6 +79,7 @@ def cmd_save(args: argparse.Namespace) -> None:
     destination = base / "docs" / "specs" / f"{slug}.md"
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(header + body)
+    append_event(base, "spec-draft", actor="orchestrator", detail=f"{slug}: {title}")
     print(f"Spec saved as draft: {destination.relative_to(base)}")
 
 
@@ -115,4 +117,5 @@ def cmd_confirm(args: argparse.Namespace) -> None:
         fail(f"could not rewrite the status line in {path.relative_to(base)} — "
              "set `status: draft` on its own frontmatter line and retry")
     path.write_text(updated)
+    append_event(base, "spec-confirmed", actor="orchestrator", detail=slug)
     print(f"Spec confirmed: {path.relative_to(base)}")

@@ -12,6 +12,7 @@ from factory_lib import (
 )
 
 from .common import fail
+from .events import append_event
 from .context import pending_context
 from .decisions import active_decision_ids, decision_records
 from .signal import open_signals
@@ -89,8 +90,18 @@ def cmd_save(args: argparse.Namespace) -> None:
         fail(f"plan source {source} not found — pass the approved plan file via --from")
     story = args.story or issue
     roadmap_items = load_json(base / "plans" / "roadmap.json", default={}).get("items", [])
-    if not any(item.get("key") == story for item in roadmap_items):
+    item = next((i for i in roadmap_items if i.get("key") == story), None)
+    if item is None:
         fail(f"--story {story!r} is not in plans/roadmap.json")
+    # Capture is not build authorization: `roadmap add --no-spec` exists so an
+    # ad-hoc ask is visible rather than smuggled in, and this is where that debt
+    # comes due — decision 0014 still governs what may be BUILT. Stories from
+    # the PM handoff (`roadmap import`) are unaffected; only the escape hatch is.
+    elif item.get("spec_debt_reason") and not item.get("spec"):
+        fail(f"{story} was captured without a spec ({item['spec_debt_reason']}) — "
+             "capture is not authorization (decision 0014). Draft and confirm the "
+             f"capability spec, then: ./forge roadmap link-spec {story} "
+             "--spec docs/specs/<slug>.md")
     # Approval requires the plan to have been GRILLED (grill-me / griller.md
     # --gate plan): fresh, passing, for THIS task, and bound by digest to
     # THIS draft — grilling one version never approves an edited one.
@@ -165,6 +176,8 @@ def cmd_save(args: argparse.Namespace) -> None:
         state["story"] = story
         state["updated_at"] = now_iso()
         dump_json(run_state_path(base), state)
+    append_event(base, "plan-approved", actor="planner-high", story=story,
+                 detail=dest.relative_to(base).as_posix())
     print(f"Plan saved to {dest.relative_to(base)} (plan_status: approved)")
     print(
         "Decisions made while planning must exist as docs/decisions/ records "

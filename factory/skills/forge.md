@@ -60,7 +60,8 @@ or route:
 | grill me on this plan | `/grill-me` against the draft plan (satisfies the plan-gate contract), then record `--gate plan` — mandatory before `plan save` |
 | capture a capability spec | `./forge spec save <slug> --from <draft.md>`; confirmation requires a digest-bound spec grill, then `./forge spec confirm <slug>` |
 | here's the derived project backlog | `./forge roadmap derive --input <json>` (pre-sign-off, every story links a confirmed spec) |
-| add a story to the roadmap | `./forge roadmap add <KEY> "<title>" --spec docs/specs/<slug>.md --epic <epic> --skill frontend\|backend\|fullstack` |
+| add a story to the roadmap | `./forge roadmap add <KEY> "<title>" --story "As a <user>, I ... so that ..." --ac "<criterion>" --spec docs/specs/<slug>.md --epic <epic> --skill frontend\|backend\|fullstack [--depends-on <KEY>]` — story and at least one criterion are required |
+| an ad-hoc ask arrives mid-project with no spec | same command with `--no-spec --reason "<why>"` — it lands in **Needs spec** as visible debt; `plan save` refuses to build it until `./forge roadmap link-spec <KEY> --spec docs/specs/<slug>.md`. Capture is not authorization (0014) |
 | define the team / who's on this project | `./forge team set <handle> --role dev --skills frontend,backend` (optional roster; `./forge team list`) |
 | assign a story / distribute work (EM) | `./forge roadmap assign <KEY> --to <dev>` — checked against the roster; match story skill to dev skills |
 | who does what / role handoffs | `docs/ROLES.md` — forge next tags every step [PM]/[EM]/[dev] |
@@ -71,7 +72,8 @@ or route:
 | I need a small fix without a plan | `./forge quickfix start "<reason>"` — a bounded, ledgered window (5 product files) that the hook tracks; close it with `./forge quickfix done`. Exceeding the budget forces plan mode, and pr_ready refuses to ship with a window open |
 | why is my edit blocked | the planning lock is ALWAYS armed (decision 0013): product writes need an approved plan or an open quickfix. `.factory/` is never hand-written; recorded state comes from the record_* scripts |
 | record the decomposition | `python3 factory/scripts/record_decomposition_from_json.py --input <json>`, then `update_run.py --phase implementing --decomposition-status recorded` |
-| record a decision | `./forge decision new <slug>` — draft only |
+| record a decision | `./forge decision new <slug>` — draft only; it is stamped with the active story so the board can show which decisions came out of this work |
+| this decision also governs another story | `./forge decision link <slug> --story <KEY>` |
 | this decision replaces an old one | `./forge decision new <slug> --supersedes <old-slug>` — never edit/delete the old record by hand |
 | what decisions are in force | `./forge decision list --active` — the live corpus (superseded records are history) |
 | compact the assumptions ledger | `./forge assumptions archive` — resolved rows from finished tasks move to the archive |
@@ -94,7 +96,9 @@ or route:
 | client signed off | `python3 factory/scripts/record_signoff.py` |
 | harvest context / process the dump | follow `factory/prompts/harvester.md`, then `forge.py context mark ...` |
 | harness status | read `.factory/run.json`; `forge.py context list --pending`; `ls factory/skills/proposed/` |
-| is this PR ready | `python3 factory/scripts/pr_ready.py` (never bypass with ad hoc checks) |
+| record what the story delivered | `./forge outcome set "<what changed and what someone can now do>"` — one paragraph in a reader's language, required before PR-ready; it lands on the roadmap item and in the ship archive |
+| is this PR ready | `python3 factory/scripts/pr_ready.py` (never bypass with ad hoc checks) — a bare run lists what is missing, including the outcome |
+| what did we ship last month | open the board's **Ship log** (`./forge board`) — PR-ready date, story, outcome and the decisions it created, newest first |
 | mine for skills / retro | follow `factory/prompts/skill-miner.md` |
 | improve the animations / motion audit | run the `improve-animations` skill (read-only audit → prioritized plans); land its items via `./forge roadmap add` or a task intake — never apply fixes straight from the audit |
 | update a client repo to the latest harness | from the HARNESS clone: `./forge upgrade --target <client-repo>` (clean tree required; review the diff, run the linter + gate tests, commit) |

@@ -10,6 +10,7 @@ from factory_lib import (
     dump_json, gate, head_sha, load_json, now_iso, repo_root, require_skills,
     run_state_path, tests_state_path, validate_payload,
 )
+from forge_cli.events import append_event
 
 
 def ensure_list(value):
@@ -64,4 +65,6 @@ if state:
     state["tests_status"] = "recorded"
     state["updated_at"] = now_iso()
     dump_json(run_state_path(root), state)
+    append_event(root, f"tests-{args.kind}", actor=payload.get("generated_by", "implementer"),
+                 story=state.get("issue_key", ""), detail=payload.get("status", ""))
 print(f"Recorded {args.kind} testing artifact")

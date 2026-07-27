@@ -2,6 +2,7 @@
 status: accepted
 confirmed_by: "vrknetha"
 date: 2026-07-24
+stories: []
 ---
 
 # Plan save refuses unresolved contradictions with active decisions

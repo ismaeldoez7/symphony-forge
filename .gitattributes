@@ -4,3 +4,10 @@
 .gstack/**/*.jsonl merge=jsonl-append
 plans/lessons.jsonl merge=jsonl-append
 plans/quickfixes.jsonl merge=jsonl-append
+# Story timelines and worker signals: parallel story branches each append
+# their own lines, and a merge that conflicted here would lose the record of
+# what happened for the sake of line order. `union` is git's BUILT-IN driver,
+# deliberately not jsonl-append: these files must never conflict, and a custom
+# driver is registered per clone by a hook that may not have run.
+.factory/*.jsonl merge=union
+.factory/history/**/*.jsonl merge=union

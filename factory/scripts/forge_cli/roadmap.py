@@ -21,10 +21,12 @@ from factory_lib import (
 )
 
 from .common import fail
+from .events import append_event
 
 # Set by the lifecycle scripts or grooming, never by import — re-importing a
-# refined roadmap must not resurrect items, un-finish them, or unassign devs.
-LIFECYCLE_FIELDS = {"status", "completed_at", "history", "assignee"}
+# refined roadmap must not resurrect items, un-finish them, unassign devs, or
+# overwrite what a shipped story recorded it delivered.
+LIFECYCLE_FIELDS = {"status", "completed_at", "history", "assignee", "outcome"}
 ITEM_SKILLS = {"frontend", "backend", "fullstack"}
 ITEM_KINDS = {"feature", "refactor"}
 
@@ -236,6 +238,8 @@ def cmd_derive(args: argparse.Namespace) -> None:
         epics=epics,
         generated_by=payload["generated_by"],
     )
+    append_event(base, "roadmap-derived", actor="docs-decomposer",
+                 detail=f"{len(normalized)} story(ies) from confirmed specs")
     print(f"Derived roadmap: {len(normalized)} stor"
           f"{'y' if len(normalized) == 1 else 'ies'} from confirmed specs -> "
           f"{roadmap_path(base).relative_to(base)}")
@@ -318,6 +322,8 @@ def cmd_import(args: argparse.Namespace) -> None:
         current_epics[epic["id"]] = {**current_epics.get(epic["id"], {}), **epic}
     save_roadmap(base, merged, epics=list(current_epics.values()),
                  generated_by=payload["generated_by"])
+    append_event(base, "roadmap-import", actor="docs-decomposer",
+                 detail=f"{added} added, {updated} updated")
     summary = f"Roadmap: {added} added, {updated} updated"
     if kept:
         summary += f", {len(kept)} existing item(s) kept"
@@ -333,7 +339,15 @@ def cmd_add(args: argparse.Namespace) -> None:
     if any(item.get("key") == args.key for item in items):
         fail(f"{args.key} is already on the roadmap")
     order = max((item.get("order", 0) for item in items), default=0) + 1
-    item = {"key": args.key, "title": args.title, "order": order, "status": "pending"}
+    story = (getattr(args, "story", "") or "").strip()
+    criteria = [c.strip() for c in (getattr(args, "ac", None) or []) if c.strip()]
+    if not story:
+        fail("--story is required: the narrative a reader needs six weeks later")
+    if not criteria:
+        fail("--ac is required (repeat it): a story with no acceptance criteria "
+             "cannot be verified or reviewed")
+    item = {"key": args.key, "title": args.title, "story": story,
+            "acceptance_criteria": criteria, "order": order, "status": "pending"}
     if args.epic:
         item["epic"] = args.epic
     if args.skill:
@@ -342,15 +356,59 @@ def cmd_add(args: argparse.Namespace) -> None:
         item["skill"] = args.skill
     if getattr(args, "kind", None):
         item["kind"] = args.kind
+    deps = [d.strip() for d in (getattr(args, "depends_on", None) or []) if d.strip()]
+    if deps:
+        keys = {i.get("key") for i in items}
+        missing = [d for d in deps if d not in keys]
+        if missing:
+            # Self-reference lands here too: the new key is not on the roadmap yet.
+            fail(f"--depends-on references unknown stor{'ies' if len(missing) > 1 else 'y'}: "
+                 f"{', '.join(missing)}")
+        item["depends_on"] = deps
     check_item(item, order)
-    if not args.spec:
-        fail("--spec docs/specs/<slug>.md is required for every new roadmap story")
+    if args.spec:
+        from .specs import resolve_spec_reference
+        item["spec"] = resolve_spec_reference(
+            base, args.spec, confirmed=True).relative_to(base).as_posix()
+    elif getattr(args, "no_spec", False):
+        # An ad-hoc ask mid-project is real; pretending it came from a confirmed
+        # spec is not. It is captured as visible debt instead, and `plan save`
+        # still refuses to build it until a spec is confirmed and linked.
+        if not (getattr(args, "reason", "") or "").strip():
+            fail("--no-spec requires --reason \"<why this is captured without a spec>\"")
+        item["origin"] = "adhoc"
+        item["spec_debt_reason"] = args.reason.strip()
+    else:
+        fail("--spec docs/specs/<slug>.md is required for every new roadmap story "
+             "(or --no-spec --reason \"<why>\" to capture it as spec debt)")
+    items.append(item)
+    check_dag(items)
+    save_roadmap(base, items)
+    append_event(base, "roadmap-add", actor="orchestrator", story=args.key,
+                 detail=item.get("spec") or "no spec (adhoc)")
+    print(f"Added {args.key} to the roadmap (order {order})")
+    if item.get("origin") == "adhoc":
+        print("Captured as spec debt — it sits in 'Needs spec' and cannot be planned "
+              f"until: ./forge spec confirm <slug> && ./forge roadmap link-spec {args.key} "
+              "--spec docs/specs/<slug>.md")
+
+
+def cmd_link_spec(args: argparse.Namespace) -> None:
+    """Clear a story's spec debt once the capability spec is confirmed."""
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    items = load_items(base)
+    item = next((i for i in items if i.get("key") == args.key), None)
+    if item is None:
+        fail(f"{args.key} is not on the roadmap")
+        return
     from .specs import resolve_spec_reference
     item["spec"] = resolve_spec_reference(
         base, args.spec, confirmed=True).relative_to(base).as_posix()
-    items.append(item)
+    item.pop("spec_debt_reason", None)
     save_roadmap(base, items)
-    print(f"Added {args.key} to the roadmap (order {order})")
+    append_event(base, "roadmap-link-spec", actor="orchestrator", story=args.key,
+                 detail=item["spec"])
+    print(f"{args.key} -> {item['spec']} (spec debt cleared)")
 
 
 def cmd_assign(args: argparse.Namespace) -> None:
@@ -445,6 +503,9 @@ def cmd_heal(args: argparse.Namespace) -> None:
         epics_by_id = {e["id"]: e for s in stages for e in s.get("epics", [])}
         epics = list(epics_by_id.values())
     healed, removed = heal_items(items)
+    # A union of two branches' dependency edges can close a cycle neither
+    # branch had; healing into a deadlocked frontier is worse than refusing.
+    check_dag(healed)
     save_roadmap(base, healed, epics=epics)
     done = sum(1 for i in healed if i.get("status") == "done")
     print(f"Healed plans/roadmap.json: {len(healed)} item(s), "

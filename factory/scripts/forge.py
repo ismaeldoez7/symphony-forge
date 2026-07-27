@@ -18,6 +18,7 @@ from forge_cli import context as ctx
 from forge_cli import deferrals as deferrals_mod
 from forge_cli import findings as findings_mod
 from forge_cli import lessons as lessons_mod
+from forge_cli import outcome as outcome_mod
 from forge_cli import quickfix as quickfix_mod
 from forge_cli import scratchpad as scratchpad_mod
 from forge_cli import stages as stages_mod
@@ -133,12 +134,27 @@ def main() -> None:
     p_ra = rm_sub.add_parser("add", help="append one item to the roadmap")
     p_ra.add_argument("key")
     p_ra.add_argument("title")
+    p_ra.add_argument("--story", required=True,
+                      help='the user-facing narrative: "As a <user>, I ... so that ..."')
+    p_ra.add_argument("--ac", action="append", required=True, metavar="CRITERION",
+                      help="acceptance criterion (repeat for each)")
     p_ra.add_argument("--epic")
     p_ra.add_argument("--skill", help="frontend | backend | fullstack")
     p_ra.add_argument("--kind", help="feature | refactor (refactor => source-delta ratchet at pr_ready)")
     p_ra.add_argument("--spec", help="confirmed docs/specs/<slug>.md source (required)")
+    p_ra.add_argument("--depends-on", action="append", metavar="KEY",
+                      help="story key this one consumes (repeat); validated against the DAG")
+    p_ra.add_argument("--no-spec", action="store_true",
+                      help="capture an ad-hoc ask with no confirmed spec yet (needs --reason); "
+                           "the story lands as spec debt and cannot be planned until linked")
+    p_ra.add_argument("--reason", help="why this story is captured without a spec")
     p_ra.add_argument("--repo")
     p_ra.set_defaults(func=roadmap.cmd_add)
+    p_rls = rm_sub.add_parser("link-spec", help="attach a confirmed spec to a story (clears spec debt)")
+    p_rls.add_argument("key")
+    p_rls.add_argument("--spec", required=True, help="confirmed docs/specs/<slug>.md")
+    p_rls.add_argument("--repo")
+    p_rls.set_defaults(func=roadmap.cmd_link_spec)
     p_rh = rm_sub.add_parser("heal",
                              help="post-merge convergence: union duplicate items (done-wins), rebuild from merge stages if unparseable")
     p_rh.add_argument("--repo")
@@ -323,6 +339,24 @@ def main() -> None:
     p_acc.add_argument("--by", required=True, help="the human confirming (not an agent)")
     p_acc.add_argument("--repo")
     p_acc.set_defaults(func=decisions.cmd_accept)
+    p_dlk = dec_sub.add_parser("link", help="record that a decision governs another story")
+    p_dlk.add_argument("slug")
+    p_dlk.add_argument("--story", required=True, help="roadmap story key this decision governs")
+    p_dlk.add_argument("--repo")
+    p_dlk.set_defaults(func=decisions.cmd_link)
+
+    p_out = sub.add_parser("outcome", help="what the story actually delivered (required to ship)")
+    out_sub = p_out.add_subparsers(dest="outcome_command", required=True)
+    p_os = out_sub.add_parser("set", help="record the outcome paragraph")
+    p_os.add_argument("text", nargs="?",
+                      help="what changed and what someone can now do, in a reader's language")
+    p_os.add_argument("--from", dest="from_file", help="read the paragraph from a file")
+    p_os.add_argument("--by", default="implementer", help="recording agent role")
+    p_os.add_argument("--repo")
+    p_os.set_defaults(func=outcome_mod.cmd_set)
+    p_osh = out_sub.add_parser("show", help="print the recorded outcome")
+    p_osh.add_argument("--repo")
+    p_osh.set_defaults(func=outcome_mod.cmd_show)
 
     args = parser.parse_args()
     args.func(args)

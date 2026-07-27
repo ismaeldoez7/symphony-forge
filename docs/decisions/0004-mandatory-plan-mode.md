@@ -2,6 +2,7 @@
 status: superseded
 confirmed_by: "Ravi"
 date: 2026-07-15
+stories: []
 superseded_by: 0013-always-armed-planning-lock
 ---
 

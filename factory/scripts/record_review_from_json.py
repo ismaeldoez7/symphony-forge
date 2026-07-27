@@ -10,6 +10,7 @@ from factory_lib import (
     dump_json, gate, head_sha, load_json, now_iso, repo_root, require_skills,
     review_dir, run_state_path, validate_payload,
 )
+from forge_cli.events import append_event
 
 
 def ensure_list(value):
@@ -78,4 +79,6 @@ if state:
     state["review_status"] = "in-progress"
     state["updated_at"] = now_iso()
     dump_json(run_state_path(root), state)
+    append_event(root, f"review-{args.aspect}", actor=review.get("generated_by", "autoreview"),
+                 story=state.get("issue_key", ""), detail=review.get("status", ""))
 print(f"Recorded {args.aspect} review from structured JSON")

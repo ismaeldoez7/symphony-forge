@@ -5,6 +5,7 @@ import argparse
 import os
 import subprocess
 from factory_lib import head_sha, gate, dump_json, now_iso, repo_root, run_cmd, run_state_path, verify_state_path, load_json
+from forge_cli.events import append_event
 
 parser = argparse.ArgumentParser(description="Run deterministic validation sequence")
 parser.add_argument("--print-only", action="store_true", help="Only print the commands that would run")
@@ -46,6 +47,8 @@ if state:
     state["verify_status"] = "passed" if all_ok else "failed"
     state["updated_at"] = now_iso()
     dump_json(run_state_path(root), state)
+    append_event(root, "verify-passed" if all_ok else "verify-failed", actor="orchestrator",
+                 story=state.get("issue_key", ""))
 
 if not all_ok:
     failed = next((item for item in results if item["exit_code"] != 0), None)

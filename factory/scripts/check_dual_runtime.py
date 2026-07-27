@@ -198,6 +198,25 @@ def check_decision_records(root: Path) -> None:
                 f"{record.relative_to(root)} is superseded but names no superseded_by — "
                 "history must point at the decision that replaced it."
             )
+        if "stories" not in fields:
+            violation(
+                f"{record.relative_to(root)} has no `stories:` field — every record "
+                "names the stories it governs (empty list for project-level ones), "
+                "or the board cannot answer 'which decisions came out of this work'. "
+                "Add `stories: []` to its frontmatter."
+            )
+        # A live replacement whose predecessor still reads accepted means two
+        # records govern the same question; the accept step retires the old one.
+        predecessor = fields.get("supersedes")
+        if status == "accepted" and predecessor and predecessor in stems:
+            old_match = FRONTMATTER.match(
+                (root / "docs" / "decisions" / f"{predecessor}.md").read_text())
+            if old_match and "status: superseded" not in old_match.group(1):
+                violation(
+                    f"{record.relative_to(root)} is accepted and supersedes {predecessor}, "
+                    f"but {predecessor} is not marked superseded — two records govern the "
+                    "same question. Re-run `forge.py decision accept` to flip both."
+                )
         text = record.read_text(errors="replace")
         if status == "accepted":
             for heading in ("Context", "Decision", "Consequences"):

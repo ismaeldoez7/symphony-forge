@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 
@@ -16,7 +17,10 @@ from factory_lib import (
     tests_state_path,
     verify_state_path,
 )
-from forge_cli.assumptions import blocking_for_issue
+from forge_cli.assumptions import blocking_for_issue, load_rows as load_assumptions
+from forge_cli.decisions import decision_records
+from forge_cli.events import append_event, events_path, load_events
+from forge_cli.outcome import load_outcome, outcome_path
 from forge_cli.roadmap import load_items, mark_status
 from forge_cli.quickfix import load_active
 from forge_cli.signal import open_signals, signals_path
@@ -168,6 +172,16 @@ if open_quickfix:
 
 # Assumptions are guided before shipping: the orchestrator confirms, demands
 # a fix, or promotes each one — an unguided assumption is an unreviewed call.
+# The only artifact written after the work: without it the record can say a
+# story shipped but never what it delivered, which is the question a reader
+# asks six weeks later. Recorded via `forge outcome set`, never hand-written.
+outcome_record = load_outcome(root)
+if not (outcome_record or {}).get("outcome"):
+    missing.append(
+        "the shipped outcome — `forge.py outcome set \"<what changed and what "
+        "someone can now do>\"` (one paragraph, in a reader's language)"
+    )
+
 unguided = blocking_for_issue(root, issue_key) if issue_key else []
 if unguided:
     ids = ", ".join(f"{r['id']} ({r['status']})" for r in unguided)
@@ -270,6 +284,37 @@ if signals_path(root).exists():
 stages_file = root / ".factory" / "stages.json"
 if stages_file.exists():
     shutil.copy2(stages_file, history / "stages.json")
+# The interrogation record of this story: what contradictions the plan grill
+# surfaced and how they were answered. Only plan.json is task-scoped — the
+# epics and signoff grills are project-level and stay put.
+plan_grill = root / ".factory" / "grills" / "plan.json"
+if plan_grill.exists():
+    (history / "grills").mkdir(exist_ok=True)
+    shutil.copy2(plan_grill, history / "grills" / "plan.json")
+# The ship itself is the last line of the story's timeline, so it is recorded
+# before the timeline is archived — not after, or it would be left behind.
+append_event(root, "shipped", actor="orchestrator", story=issue_key,
+             detail=(outcome_record or {}).get("outcome", "")[:200])
+# The story's timeline moves with it; discovery and other stories' lines stay
+# in the live ledger.
+story_events = load_events(root, story=issue_key)
+if story_events:
+    (history / "events.jsonl").write_text(
+        "".join(json.dumps(e) + "\n" for e in story_events))
+    remaining = [e for e in load_events(root) if e.get("story") != issue_key]
+    if remaining:
+        events_path(root).write_text(
+            "".join(json.dumps(e) + "\n" for e in remaining))
+    elif events_path(root).exists():
+        events_path(root).unlink()
+# The assumptions made while building this story explain behaviour that later
+# reads as a bug; they live in a cross-project table that gets archived on its
+# own cadence, so the story keeps its own copy.
+story_assumptions = [r for r in load_assumptions(root) if r.get("issue") == issue_key]
+if story_assumptions:
+    dump_json(history / "assumptions.json", story_assumptions)
+if outcome_path(root).exists():
+    shutil.copy2(outcome_path(root), history / "outcome.json")
 # The compaction scratchpad is session noise, never evidence — a shipped
 # task starts the next one with a clean pad.
 scratchpad_file = root / ".factory" / "scratchpad.md"
@@ -277,7 +322,7 @@ if scratchpad_file.exists():
     scratchpad_file.unlink()
 for artifact in (decomposition_state_path(root), verify_state_path(root),
                  tests_state_path(root), root / ".factory" / "grills" / "plan.json",
-                 signals_path(root), stages_file):
+                 signals_path(root), stages_file, outcome_path(root)):
     if artifact.exists():
         artifact.unlink()
 if review_dir(root).is_dir():
@@ -292,9 +337,20 @@ project_state = {
 project_state["phase"] = "shipped"
 dump_json(run_state_path(root), project_state)
 
-if mark_status(root, issue_key, "done",
-               completed_at=now_iso(), history=f".factory/history/{issue_key}/"):
+if mark_status(root, issue_key, "done", completed_at=now_iso(),
+               history=f".factory/history/{issue_key}/",
+               outcome=(outcome_record or {}).get("outcome", "")):
     print(f"Roadmap: {issue_key} marked done")
+# Advisory: a decision this story created that no human ever confirmed still
+# governs the code that shipped. Blocking would freeze legacy corpora, so this
+# names them instead — an unaccepted record is a question left open.
+unaccepted = [r["id"] for r in decision_records(root)
+              if issue_key in r.get("stories", []) and r["status"] != "accepted"]
+if unaccepted:
+    print(f"WARNING: {len(unaccepted)} decision(s) from this story are not accepted: "
+          f"{', '.join(unaccepted)} — confirm with the human who decided them "
+          "(./forge decision accept <slug> --by \"<name>\"), or they read as "
+          "unratified six weeks from now.")
 # Advisory, never blocking: a recurring class is usually OLDER than this task,
 # so it routes to a refactor story, not into holding this ship hostage.
 from forge_cli.findings import recurring  # noqa: E402

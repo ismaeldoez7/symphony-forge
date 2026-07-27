@@ -6,7 +6,7 @@ import datetime
 import re
 from pathlib import Path
 
-from factory_lib import repo_root
+from factory_lib import load_json, repo_root, run_state_path
 
 from .common import fail
 
@@ -14,6 +14,7 @@ DECISION_TEMPLATE = """---
 status: proposed
 confirmed_by: ""
 date: {date}
+stories: [{stories}]
 ---
 
 # {title}
@@ -30,17 +31,32 @@ date: {date}
 FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.DOTALL)
 
 
-def decision_records(base: Path) -> list[dict[str, str | Path]]:
+def parse_stories(raw: str) -> list[str]:
+    """`stories: [AGS-1, AGS-7]` — a flow list on one line, so the scalar
+    frontmatter parser stays a two-line split and merges cleanly."""
+    inner = raw.strip().strip("[]")
+    return [part.strip().strip("\"'") for part in inner.split(",") if part.strip()]
+
+
+def decision_records(base: Path) -> list[dict]:
     records = []
     for path in sorted((base / "docs" / "decisions").glob("[0-9][0-9][0-9][0-9]-*.md")):
-        match = FRONTMATTER.match(path.read_text())
+        text = path.read_text()
+        match = FRONTMATTER.match(text)
         fields: dict[str, str] = {}
         if match:
             for line in match.group(1).splitlines():
                 if ":" in line:
                     key, _, value = line.partition(":")
                     fields[key.strip()] = value.strip().strip("\"'")
+        title_match = re.search(r"^# (.+)$", text, re.MULTILINE)
         records.append({"id": path.stem, "status": fields.get("status", "proposed"),
+                        "title": title_match.group(1) if title_match else path.stem,
+                        "stories": parse_stories(fields.get("stories", "")),
+                        "supersedes": fields.get("supersedes", ""),
+                        "superseded_by": fields.get("superseded_by", ""),
+                        "confirmed_by": fields.get("confirmed_by", ""),
+                        "date": fields.get("date", ""),
                         "path": path})
     return records
 
@@ -70,24 +86,53 @@ def cmd_new(args: argparse.Namespace) -> None:
     slug = args.slug.strip().lower().replace(" ", "-")
     path = decisions / f"{number:04d}-{slug}.md"
     title = args.title or slug.replace("-", " ").title()
-    text = DECISION_TEMPLATE.format(date=datetime.date.today().isoformat(), title=title)
+    story = load_json(run_state_path(base), default={}).get("issue_key", "")
+    text = DECISION_TEMPLATE.format(date=datetime.date.today().isoformat(), title=title,
+                                    stories=story)
     if old_record is not None:
         text = text.replace("---\n\n#", f"supersedes: {old_record.stem}\n---\n\n#", 1)
     path.write_text(text)
-    print(f"Created {path}")
+    print(f"Created {path}" + (f" (governs {story})" if story else ""))
     if old_record is not None:
-        # A decision is never silently replaced: the old record points forward,
-        # keeps its history, and stops counting as active guidance.
-        old_text = old_record.read_text()
-        old_text = re.sub(r"status: (accepted|proposed)", "status: superseded", old_text, count=1)
-        if "superseded_by:" not in old_text:
-            old_text = old_text.replace("---\n\n#", f"superseded_by: {path.stem}\n---\n\n#", 1)
-        old_record.write_text(old_text)
-        print(f"Superseded: {old_record.relative_to(base)} -> {path.stem}")
+        # The predecessor stays ACTIVE until this record is accepted: marking it
+        # superseded now would leave a window where neither version governs, and
+        # plan attestation would require neither. cmd_accept performs the flip.
+        print(f"Supersedes {old_record.stem} — it stays active until "
+              f"`forge decision accept {slug} --by \"<human>\"` flips both.")
     print(
         "Reminder: status: accepted requires a non-empty confirmed_by (a human), "
         "and the commit adding it should carry a `Confirmed-by:` trailer."
     )
+
+
+def cmd_link(args: argparse.Namespace) -> None:
+    """One decision often governs several stories (a shared invariant found
+    while building three of them); the backlink is a list, appended here."""
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    slug = args.slug.strip().lower().replace(" ", "-")
+    matches = sorted((base / "docs" / "decisions").glob(f"[0-9][0-9][0-9][0-9]-{slug}.md"))
+    if not matches:
+        fail(f"no decision record matching docs/decisions/NNNN-{slug}.md")
+    record = matches[-1]
+    text = record.read_text()
+    match = FRONTMATTER.match(text)
+    if match is None:
+        fail(f"{record.name} has no frontmatter to link into")
+        return
+    current = ""
+    for line in match.group(1).splitlines():
+        if line.startswith("stories:"):
+            current = line.partition(":")[2]
+    stories = parse_stories(current)
+    if args.story in stories:
+        print(f"{record.stem} already governs {args.story}.")
+        return
+    stories.append(args.story)
+    joined = f"stories: [{', '.join(stories)}]"
+    text = (re.sub(r"^stories: .*$", joined, text, count=1, flags=re.MULTILINE)
+            if current else text.replace("---\n\n#", f"{joined}\n---\n\n#", 1))
+    record.write_text(text)
+    print(f"{record.stem} now governs {', '.join(stories)}")
 
 
 def cmd_list(args: argparse.Namespace) -> None:
@@ -103,18 +148,12 @@ def cmd_list(args: argparse.Namespace) -> None:
         print("No decision records yet (./forge decision new <slug>).")
         return
     for record in records:
-        path = record["path"]
-        text = path.read_text()
         status = str(record["status"])
         if args.active and status != "accepted":
             continue
-        title_match = re.search(r"^# (.+)$", text, re.MULTILINE)
-        title = title_match.group(1) if title_match else path.stem
-        superseded = ""
-        by = re.search(r"superseded_by:\s*(\S+)", text)
-        if by:
-            superseded = f" -> {by.group(1)}"
-        print(f"[{status:<10}] {path.stem}: {title}{superseded}")
+        superseded = f" -> {record['superseded_by']}" if record["superseded_by"] else ""
+        governs = f" [{', '.join(record['stories'])}]" if record["stories"] else ""
+        print(f"[{status:<10}] {record['id']}: {record['title']}{superseded}{governs}")
 
 
 def cmd_accept(args: argparse.Namespace) -> None:
@@ -137,6 +176,20 @@ def cmd_accept(args: argparse.Namespace) -> None:
     record.write_text(text)
     rel = record.relative_to(base)
     print(f"Accepted: {rel} (confirmed_by: {args.by})")
+    # The replacement is live now, so retire the predecessor in the same step:
+    # between `decision new --supersedes` and here, the old record kept governing.
+    supersedes = re.search(r"^supersedes:\s*(\S+)", text, re.MULTILINE)
+    if supersedes:
+        old = decisions / f"{supersedes.group(1)}.md"
+        if old.is_file():
+            old_text = old.read_text()
+            old_text = re.sub(r"status: (accepted|proposed)", "status: superseded",
+                              old_text, count=1)
+            if "superseded_by:" not in old_text:
+                old_text = old_text.replace("---\n\n#",
+                                            f"superseded_by: {record.stem}\n---\n\n#", 1)
+            old.write_text(old_text)
+            print(f"Superseded: {old.relative_to(base)} -> {record.stem}")
     print("Commit it with the audit trailer:")
     print(f'  git add {rel} && git commit -m "docs(decisions): accept {slug}" '
           f'--trailer "Confirmed-by: {args.by}"')

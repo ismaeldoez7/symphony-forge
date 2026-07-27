@@ -2,6 +2,7 @@
 status: accepted
 confirmed_by: "Ravi"
 date: 2026-07-21
+stories: []
 ---
 
 # Decomposition tasks execute as stages; local autoreview gates every commit

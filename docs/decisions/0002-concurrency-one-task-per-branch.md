@@ -2,6 +2,7 @@
 status: accepted
 confirmed_by: "Ravi"
 date: 2026-07-14
+stories: []
 ---
 
 # Concurrency: one task per branch

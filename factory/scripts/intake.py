@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from factory_lib import dump_json, ensure_issue_key, load_json, now_iso, repo_root, run_state_path, slugify
+from forge_cli.events import append_event
 from forge_cli.roadmap import activation_state, mark_status
 
 parser = argparse.ArgumentParser(description="Initialize factory run state")
@@ -78,6 +79,7 @@ if stale_files or active_plans:
             plan.rename(debt / plan.name)
             print(f"Abandoned plan moved to plans/debt/{plan.name}")
 dump_json(run_state_path(root), state)
+append_event(root, "intake", actor="orchestrator", story=issue_key, detail=args.title)
 print(f"Initialized factory state for {issue_key} -> {branch}")
 if outcome == "done":
     print(f"Roadmap: {issue_key} is already done — status left unchanged; "

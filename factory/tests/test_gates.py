@@ -35,7 +35,9 @@ GIT_ID = ["-c", "user.email=test@knacklabs.dev", "-c", "user.name=Gate Tests"]
 # Minimal payload satisfying factory/schemas/decomposition.json
 DECOMP = {"status": "recorded", "generated_by": "docs-decomposer",
           "user_facing": True,
-          "tasks": [{"id": "T1", "title": "core slice", "write_scope": ["src/"]}]}
+          "tasks": [{"id": "T1", "title": "core slice", "write_scope": ["src/"],
+                     "objective": "Build the core slice so the feature works end to end.",
+                     "acceptance_criteria": ["the slice runs green"]}]}
 
 # Minimal plan body passing `plan save` content gates (Decisions + Surface Impact).
 PLAN_BODY = ("## Decisions\nNo new decisions\n\n"
@@ -203,6 +205,10 @@ def write_passing_artifacts(repo: Path, commit: str | None = None) -> None:
                         "generated_by": "autoreview",
                         "skills_used": ["review-animations"], "commit": sha})
         )
+    (f / "outcome.json").write_text(json.dumps({
+        "generated_by": "implementer", "commit": sha,
+        "outcome": "The invoice list now loads for every account and can be filtered "
+                   "by date, which previously required a support request."}))
 
 
 def run_state(repo: Path) -> dict:
@@ -912,12 +918,36 @@ def test_roadmap_import_and_add_validation(repo, tmp_path):
         {"key": "A", "title": "x"}, {"key": "A", "title": "y"},
     ]})
     assert code != 0 and "duplicate" in out
+    story_flags = ("--story", "As a finance lead, I see monthly reports.",
+                   "--ac", "the report lists every invoice")
     code, out = run(repo, "forge.py", "roadmap", "add", "ENG-9", "Reports",
-                    "--spec", "docs/specs/base.md")
+                    *story_flags, "--spec", "docs/specs/base.md")
     assert code == 0, out
+    assert roadmap_items(repo)["ENG-9"]["acceptance_criteria"] == [
+        "the report lists every invoice"]
     code, out = run(repo, "forge.py", "roadmap", "add", "ENG-9", "Reports",
-                    "--spec", "docs/specs/base.md")
+                    *story_flags, "--spec", "docs/specs/base.md")
     assert code != 0 and "already" in out
+    # a story is not capturable without the narrative a reader needs later
+    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-10", "Exports",
+                    "--spec", "docs/specs/base.md")
+    assert code != 0 and "--story" in out
+    # the ad-hoc hatch records WHY it has no spec, and refuses to stay silent
+    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-11", "Hotfix ask",
+                    *story_flags, "--no-spec")
+    assert code != 0 and "--reason" in out
+    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-11", "Hotfix ask",
+                    *story_flags, "--no-spec", "--reason", "client asked mid-sprint")
+    assert code == 0 and roadmap_items(repo)["ENG-11"]["origin"] == "adhoc"
+    # dependencies are validated as a graph, not accepted as free text
+    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-12", "Dash",
+                    *story_flags, "--spec", "docs/specs/base.md",
+                    "--depends-on", "GHOST-1")
+    assert code != 0 and "GHOST-1" in out
+    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-12", "Dash",
+                    *story_flags, "--spec", "docs/specs/base.md",
+                    "--depends-on", "ENG-12")
+    assert code != 0 and "unknown story" in out  # self-reference: not on the roadmap yet
 
 
 # ------------------------------------------------- determinism contract (schemas)
@@ -1426,11 +1456,19 @@ def test_decision_supersede_lifecycle(repo):
     run(repo, "forge.py", "decision", "accept", "event-bus", "--by", "PM")
     code, out = run(repo, "forge.py", "decision", "new", "event-bus-v2",
                     "--supersedes", "event-bus", "--repo", str(repo))
+    assert code == 0 and "stays active until" in out, out
+    # The predecessor governs until the replacement is CONFIRMED: retiring it at
+    # draft time would leave a window where neither record is active and plan
+    # attestation would require neither.
+    old = next((repo / "docs" / "decisions").glob("*-event-bus.md")).read_text()
+    assert "status: accepted" in old, old
+    code, out = run(repo, "check_dual_runtime.py", str(repo))
+    assert code == 0, out
+    substantiate("event-bus-v2")
+    code, out = run(repo, "forge.py", "decision", "accept", "event-bus-v2", "--by", "PM")
     assert code == 0 and "Superseded" in out, out
     old = next((repo / "docs" / "decisions").glob("*-event-bus.md")).read_text()
     assert "status: superseded" in old and "superseded_by:" in old
-    substantiate("event-bus-v2")
-    run(repo, "forge.py", "decision", "accept", "event-bus-v2", "--by", "PM")
     code, out = run(repo, "check_dual_runtime.py", str(repo))
     assert code == 0, out
     # the active corpus hides the superseded record
@@ -1545,8 +1583,14 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
                             "tool_input": {"command":
                                            "FACTORY_DEGRADED=1 codex exec -s read-only 'map it'"}})
     assert "deny" in out and "codex:rescue" in out
-    # approved plan lifts the lock entirely
+    # an approved plan is not yet an implementation licence: work is bounded by
+    # tasks, so a product write before the decomposition belongs to no task
     save_plan(repo, tmp_path)
+    code, out = hook(repo, {"tool_name": "Edit", "permission_mode": "default",
+                            "tool_input": {"file_path": str(repo / "src" / "app.ts")}})
+    assert "deny" in out and "no decomposition" in out
+    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    # plan + decomposition lifts the lock entirely
     code, out = hook(repo, {"tool_name": "Edit", "permission_mode": "default",
                             "tool_input": {"file_path": str(repo / "src" / "app.ts")}})
     assert "deny" not in out
@@ -1880,6 +1924,171 @@ def test_roadmap_heal_unions_duplicates_done_wins(repo, tmp_path):
     assert code != 0 and "restore" in out
 
 
+# ------------------------------------------------- the record of what shipped
+
+def test_outcome_is_required_to_ship_and_survives_in_the_record(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    write_passing_artifacts(repo)
+    (repo / ".factory" / "outcome.json").unlink()
+    run(repo, "update_run.py", "--decomposition-status", "recorded")
+    # a bare pr_ready stays a readiness CHECK: it names the gap, it does not
+    # demand an argument before it will answer
+    code, out = run(repo, "pr_ready.py")
+    assert code != 0 and "outcome" in out
+    # the paragraph must read like one: a command line or an essay is not it
+    code, out = run(repo, "forge.py", "outcome", "set", "fixed it")
+    assert code != 0 and "at least" in out
+    code, out = run(repo, "forge.py", "outcome", "set", "word " * 300)
+    assert code != 0 and "max" in out
+    text = ("Invoices now load for every account and can be filtered by date, "
+            "so support no longer has to run the export by hand.")
+    code, out = run(repo, "forge.py", "outcome", "set", text)
+    assert code == 0, out
+    code, out = run(repo, "pr_ready.py")
+    assert code == 0 and "PR_READY" in out, out
+    # what shipped is answerable from the durable record, not from a session
+    assert roadmap_items(repo)["ENG-1"]["outcome"] == text
+    history = repo / ".factory" / "history" / "ENG-1"
+    assert json.loads((history / "outcome.json").read_text())["outcome"] == text
+    assert not (repo / ".factory" / "outcome.json").exists()
+    # the shipped stub stays byte-stable for parallel merges
+    assert "outcome" not in json.loads(
+        (repo / ".factory" / "run.json").read_text())
+
+
+def test_story_timeline_is_recorded_and_archived_with_its_story(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    events = [json.loads(line) for line in
+              (repo / ".factory" / "events.jsonl").read_text().splitlines()]
+    kinds = [e["event"] for e in events]
+    assert "intake" in kinds and "plan-approved" in kinds and "decomposed" in kinds
+    # every line says WHO: a timeline in an agent-built repo that cannot
+    # attribute a transition answers nothing six weeks later
+    assert all(e.get("generated_by") for e in events), events
+    assert all(e["story"] == "ENG-1" for e in events if "story" in e)
+    write_passing_artifacts(repo)
+    run(repo, "update_run.py", "--decomposition-status", "recorded")
+    code, out = run(repo, "pr_ready.py")
+    assert code == 0, out
+    archived = [json.loads(line) for line in
+                (repo / ".factory" / "history" / "ENG-1" / "events.jsonl")
+                .read_text().splitlines()]
+    assert "shipped" in [e["event"] for e in archived]
+    # the story's lines LEAVE with it — residue is what conflicts when parallel
+    # branches merge — while project-level discovery lines stay behind
+    live = [json.loads(line) for line in
+            (repo / ".factory" / "events.jsonl").read_text().splitlines()]
+    assert not [e for e in live if e.get("story") == "ENG-1"], live
+    assert "client-signoff" in [e["event"] for e in live]
+
+
+def test_ship_archives_the_plan_grill_not_the_project_grills(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    write_passing_artifacts(repo)
+    run(repo, "update_run.py", "--decomposition-status", "recorded")
+    assert (repo / ".factory" / "grills" / "plan.json").exists()
+    code, out = run(repo, "pr_ready.py")
+    assert code == 0, out
+    history = repo / ".factory" / "history" / "ENG-1"
+    # the interrogation record of THIS story survives the ship
+    assert json.loads((history / "grills" / "plan.json").read_text())["issue"] == "ENG-1"
+    # project-level grills are not this story's evidence
+    assert not (history / "grills" / "signoff.json").exists()
+
+
+def test_adhoc_capture_is_visible_debt_not_a_build_bypass(repo, tmp_path):
+    """The client emails a new ask mid-sprint. It must be capturable — an
+    ask that cannot be recorded gets built off the books — without becoming a
+    way around decision 0014."""
+    sign_off(repo)
+    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-7", "Urgent export",
+                    "--story", "As a finance lead, I export invoices to CSV.",
+                    "--ac", "the export downloads", "--no-spec",
+                    "--reason", "client asked mid-sprint, spec to follow")
+    assert code == 0, out
+    item = roadmap_items(repo)["ENG-7"]
+    assert item["origin"] == "adhoc" and "spec" not in item
+    intake(repo, "ENG-7", "Urgent export")
+    # building it is refused while the debt stands, and the refusal says how
+    code, out = save_plan(repo, tmp_path)
+    assert code != 0 and "link-spec" in out and "0014" in out, out
+    spec = tmp_path / "export.md"
+    spec.write_text("# Export\n\nCSV export of invoices.\n")
+    run(repo, "forge.py", "spec", "save", "export", "--from", str(spec))
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "docs: export spec draft")
+    record_grill(repo, "spec", digest_of=repo / "docs" / "specs" / "export.md")
+    code, out = run(repo, "forge.py", "spec", "confirm", "export")
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "roadmap", "link-spec", "ENG-7",
+                    "--spec", "docs/specs/export.md")
+    assert code == 0 and "debt cleared" in out, out
+    assert "spec_debt_reason" not in roadmap_items(repo)["ENG-7"]
+    code, out = save_plan(repo, tmp_path)
+    assert code == 0, out
+
+
+def test_event_ledger_merges_instead_of_conflicting(repo):
+    """Two stories shipping from parallel worktrees both append here. Without
+    the union driver the timeline is exactly the file that conflicts."""
+    attrs = (repo / ".gitattributes").read_text()
+    # built-in union: a custom driver is registered per clone by a hook that
+    # may not have run, and this file must never conflict
+    assert ".factory/*.jsonl merge=union" in attrs
+    ledger = repo / ".factory" / "events.jsonl"
+    ledger.parent.mkdir(exist_ok=True)
+    ledger.write_text('{"event": "intake", "generated_by": "orchestrator"}\n')
+    git(repo, "add", "-f", ".factory/events.jsonl", ".gitattributes")
+    git(repo, "commit", "-q", "-m", "base ledger")
+    base = head(repo)
+    git(repo, "checkout", "-q", "-b", "story-a")
+    ledger.write_text(ledger.read_text() + '{"event": "stage-done", "story": "A"}\n')
+    git(repo, "add", "-f", ".factory/events.jsonl")
+    git(repo, "commit", "-q", "-m", "story A")
+    git(repo, "checkout", "-q", base)
+    git(repo, "checkout", "-q", "-b", "story-b")
+    ledger.write_text('{"event": "intake", "generated_by": "orchestrator"}\n'
+                      '{"event": "stage-done", "story": "B"}\n')
+    git(repo, "add", "-f", ".factory/events.jsonl")
+    git(repo, "commit", "-q", "-m", "story B")
+    git(repo, "merge", "--no-edit", "story-a")  # asserts a clean merge
+    merged = ledger.read_text()
+    assert '"story": "A"' in merged and '"story": "B"' in merged, merged
+    assert "<<<<<<<" not in merged
+
+
+def test_decisions_name_the_stories_they_govern(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    run(repo, "forge.py", "decision", "new", "queue-choice", "--repo", str(repo))
+    record = next((repo / "docs" / "decisions").glob("*-queue-choice.md"))
+    assert "stories: [ENG-1]" in record.read_text()
+    # one decision commonly governs several stories — the link is a list
+    code, out = run(repo, "forge.py", "decision", "link", "queue-choice",
+                    "--story", "ENG-2")
+    assert code == 0 and "ENG-1, ENG-2" in out
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.decisions import decision_records
+    governed = next(r for r in decision_records(repo) if "queue-choice" in r["id"])
+    assert governed["stories"] == ["ENG-1", "ENG-2"]
+    assert governed["title"]  # the board renders this; it was empty before
+    # every record carries the field, so the corpus cannot silently lose it
+    hand_written = repo / "docs" / "decisions" / "0099-hand-rolled.md"
+    hand_written.write_text('---\nstatus: proposed\nconfirmed_by: ""\n'
+                            "date: 2026-07-27\n---\n\n# Hand rolled\n")
+    code, out = run(repo, "check_dual_runtime.py", str(repo))
+    assert code != 0 and "stories" in out
+
+
 # ------------------------------------------------------- signal event channel
 
 def test_signal_events_block_ship_until_resolved(repo, tmp_path):
@@ -2141,8 +2350,10 @@ def test_stage_loop_orders_execution_and_gates_pr_ready(repo, tmp_path):
     intake(repo)
     save_plan(repo, tmp_path)
     decomp = {**DECOMP, "tasks": [
-        {"id": "T1", "title": "api", "write_scope": ["src/api/"]},
-        {"id": "T2", "title": "ui", "write_scope": ["src/ui/"]},
+        {"id": "T1", "title": "api", "write_scope": ["src/api/"],
+         "objective": "Serve invoices over the api.", "acceptance_criteria": ["200 ok"]},
+        {"id": "T2", "title": "ui", "write_scope": ["src/ui/"],
+         "objective": "Render the invoice list.", "acceptance_criteria": ["rows show"]},
     ]}
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(decomp))
     assert code == 0 and "stages.json" in out
@@ -2193,7 +2404,8 @@ def test_refactor_ratchet_blocks_growing_refactors(repo, tmp_path):
         {"key": "REF-1", "title": "Shrink the api layer", "kind": "refactor"},
     ]})
     # invalid kind refused at grooming time
-    code, out = run(repo, "forge.py", "roadmap", "add", "X-1", "t", "--kind", "cleanup")
+    code, out = run(repo, "forge.py", "roadmap", "add", "X-1", "t", "--kind", "cleanup",
+                    "--story", "As a dev, I keep the api small.", "--ac", "smaller")
     assert code != 0 and "kind" in out
     git(repo, "checkout", "-q", "-b", "feat/REF-1-shrink")
     intake(repo, "REF-1", "Shrink the api layer")

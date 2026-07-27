@@ -220,8 +220,22 @@ def guard_product_writes(targets: list[str], state: dict, root: Path) -> None:
     product = list(dict.fromkeys(
         rel for raw in targets if (rel := product_path(raw, root)) is not None
     ))
-    if not product or state.get("plan_status") == "approved":
+    if not product:
         return
+    if state.get("plan_status") == "approved":
+        # An approved plan is not yet an implementation licence: the bounded
+        # tasks are what implementation is measured against, and a write before
+        # the decomposition exists belongs to no task (AGENTS.md phase 4).
+        if state.get("decomposition_status") == "recorded":
+            return
+        if not load_active(root):
+            deny(
+                "Plan approved, but no decomposition is recorded — implementation "
+                "is bounded by tasks, so a product write now belongs to no task. "
+                "Record it: python3 factory/scripts/record_decomposition_from_json.py "
+                "--input /tmp/decomposition.json (or open a bounded window: "
+                "./forge quickfix start \"<reason>\")."
+            )
     # An open window does not skip this: each product file it touches must be
     # claimed against the budget, which is what bounds the escape hatch.
     quickfix = load_active(root)

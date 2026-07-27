@@ -19,6 +19,7 @@ from pathlib import Path
 from factory_lib import load_json, now_iso, repo_root, run_state_path, validate_payload
 
 from .common import fail
+from .events import append_event
 
 KINDS = {"contradiction", "confusion", "blocked", "scope-change"}
 
@@ -70,6 +71,8 @@ def cmd_raise(args: argparse.Namespace) -> None:
     if args.refs:
         event["refs"] = args.refs
     _append(base, event)
+    append_event(base, f"signal-{args.kind}", actor=args.by, story=issue,
+                 detail=payload["message"][:200])
     print(f"Signal {event['id']} raised ({args.kind}) for task {issue or '?'} — "
           "PAUSE this thread; the orchestrator resolves and resumes you.")
 
@@ -82,6 +85,9 @@ def cmd_resolve(args: argparse.Namespace) -> None:
         fail(f"{args.id} is not an open signal (./forge signal list --open)")
     _append(base, {"event": "resolved", "id": args.id, "at": now_iso(),
                    "notes": args.notes.strip()})
+    issue = load_json(run_state_path(base), default={}).get("issue_key", "")
+    append_event(base, "signal-resolved", actor="orchestrator", story=issue,
+                 detail=f"{args.id}: {args.notes.strip()[:200]}")
     print(f"{args.id} resolved — resume the worker with this answer "
           "(/codex:rescue --resume \"<the resolution>\").")
 
