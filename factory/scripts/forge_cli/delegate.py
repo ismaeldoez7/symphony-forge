@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 from pathlib import Path
 
 from factory_lib import (
@@ -237,10 +238,14 @@ def cmd_delegate(args: argparse.Namespace) -> None:
     append_event(base, "delegated", actor="orchestrator", story=story,
                  detail=f"{args.id} ({'write' if write else 'read-only'})")
     rel = path.relative_to(base).as_posix()
+    # The title comes from recorded data, not from a shell-safe source: a quote
+    # or newline in it would otherwise close the argument and append flags to a
+    # command a human is about to paste.
+    headline = shlex.quote("{}: {}".format(args.id, task.get("title", "")))
     invocation = (
         f"/codex:rescue{' --background' if args.background else ''}"
         f"{' --write' if write else ''} --model {model} --effort {effort} "
-        f"--prompt-file {rel} \"{task['id']}: {task.get('title', '')}\""
+        f"--prompt-file {shlex.quote(rel)} {headline}"
     )
     print(f"Brief written to {rel} ({len(text.splitlines())} lines)")
     print(f"Write access: {'YES (stage is active with a write scope)' if write else 'NO'}")

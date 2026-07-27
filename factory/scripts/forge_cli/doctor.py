@@ -22,6 +22,9 @@ DIRENV_VERSION = "2.37.1"
 SHELL_BUILTINS = {".", ":", "[", "cd", "echo", "eval", "exec", "exit", "export",
                   "false", "printf", "pwd", "set", "source", "test", "true",
                   "unset"}
+# Openers of compound commands: the program is not token zero, and `bash -n`
+# has already proved the whole thing parses.
+SHELL_KEYWORDS = {"!", "(", "{", "case", "for", "if", "until", "while"}
 
 
 def unrunnable_reason(command: str) -> str | None:
@@ -35,6 +38,12 @@ def unrunnable_reason(command: str) -> str | None:
     text = (command or "").strip()
     if not text:
         return "empty"
+    # Syntax first: `git status |` resolves `git` and would otherwise pass here
+    # only to fail forever at stage close with a shell parse error.
+    syntax = subprocess.run(["bash", "-n", "-c", text],
+                            capture_output=True, text=True)
+    if syntax.returncode != 0:
+        return f"is not valid shell ({syntax.stderr.strip().splitlines()[-1:] or ['parse error']})"
     try:
         tokens = shlex.split(text)
     except ValueError as exc:                    # unbalanced quotes
@@ -45,7 +54,10 @@ def unrunnable_reason(command: str) -> str | None:
     if not tokens:
         return "is only environment assignments, with no command to run"
     program = tokens[0]
-    if program in SHELL_BUILTINS or shutil.which(program):
+    # Compound shell (`if ...; then pytest; fi`, `! pytest`, subshells) is valid
+    # and its program is not token zero. bash -n already proved it parses; a
+    # keyword opener means the runnability question is answered.
+    if program in SHELL_KEYWORDS or program in SHELL_BUILTINS or shutil.which(program):
         return None
     return f"starts with {program!r}, which is not on PATH and is not a shell builtin"
 
@@ -68,7 +80,10 @@ def skills_missing_per_runtime(base: Path, home: Path | None = None) -> list[tup
     missing = []
     for skill in required_skills(base):
         for runtime, rel in SKILL_HOMES.items():
-            if not (home / rel / skill).is_dir():
+            # A directory is not a skill: what a runtime LOADS is SKILL.md, and
+            # a half-installed directory reports ready here while delegation
+            # later finds nothing to inline.
+            if not (home / rel / skill / "SKILL.md").is_file():
                 missing.append((runtime, skill))
     return missing
 
@@ -646,12 +661,12 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     for runtime, skill in (skills_missing_per_runtime(repo) if repo else []):
         target = home / SKILL_HOMES[runtime] / skill
         source = next((home / rel / skill for rel in SKILL_HOMES.values()
-                       if (home / rel / skill).is_dir()), None)
+                       if (home / rel / skill / "SKILL.md").is_file()), None)
         if args.fix and source:
             print(f"[fix ] mirroring {skill} -> {target} ...")
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(source, target, dirs_exist_ok=True)
-        if not target.is_dir():
+        if not (target / "SKILL.md").is_file():
             print(f"[MISS] skill/{runtime:<7} {skill} not loadable by {runtime} "
                   f"({target})")
             print(f"       fix: harness.yaml requires {skill} for user-facing work "

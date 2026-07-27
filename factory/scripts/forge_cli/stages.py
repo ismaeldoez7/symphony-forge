@@ -11,6 +11,8 @@ scoped: archived to .factory/history/<issue>/ and cleaned at ship.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import subprocess
 from pathlib import Path
 
@@ -49,8 +51,8 @@ def write_skeleton(base: Path, issue: str, tasks: list[dict]) -> None:
         if old:
             stage.update({k: v for k, v in old.items()
                           if k in ("status", "started_at", "completed_at",
-                                   "base_sha", "dirty_at_start", "incomplete",
-                                   "parallel")})
+                                   "base_sha", "dirty_at_start", "task_sha256",
+                                   "incomplete", "parallel")})
             stage["title"] = task["title"]
         stages.append(stage)
     dump_json(stages_path(base), {"issue": issue, "stages": stages})
@@ -79,12 +81,28 @@ def dirty_paths(base: Path) -> list[str]:
     return sorted(paths)
 
 
-def changed_paths(base: Path, base_sha: str, already_dirty: list[str]) -> list[str]:
+def _digest(base: Path, rel: str) -> str:
+    path = base / rel
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return ""                                     # absent or unreadable
+
+
+def dirty_digests(base: Path) -> dict[str, str]:
+    """Content of every already-dirty path when the stage starts.
+
+    Names alone are not enough: subtracting a NAME would hide every later edit
+    to that file, so a worker could keep changing an out-of-scope dirty file
+    invisibly, and legitimate work confined to an in-scope dirty file would
+    read as an empty diff. Digests distinguish "still exactly as I found it"
+    from "this stage changed it too"."""
+    return {rel: _digest(base, rel) for rel in dirty_paths(base)}
+
+
+def changed_paths(base: Path, base_sha: str, already_dirty) -> list[str]:
     """Everything this stage moved: commits since base_sha plus the working
-    tree. A stage closed before its work is committed is normal, so both
-    halves count — but a file that was ALREADY dirty when the stage started
-    is not this stage's doing, and blaming it for one is how an honest run
-    gets refused for someone else's unrelated edit."""
+    tree, minus paths that are byte-for-byte as the stage found them."""
     paths = set()
     head = head_sha(base)
     if base_sha and head and base_sha != head:
@@ -94,7 +112,22 @@ def changed_paths(base: Path, base_sha: str, already_dirty: list[str]) -> list[s
             if line.strip()
         )
     paths.update(dirty_paths(base))
-    return sorted(paths - set(already_dirty or []))
+    if isinstance(already_dirty, dict):
+        paths = {p for p in paths if _digest(base, p) != already_dirty.get(p, "\0")}
+    return sorted(paths)
+
+
+def task_digest(task: dict) -> str:
+    """The task contract a stage was started under.
+
+    The decomposition can be re-recorded while a stage is active — that is the
+    sanctioned repair when a scope turns out to be wrong — but it must not be
+    a way to widen `write_scope` or drop `required_tests` moments before
+    closing over them."""
+    payload = json.dumps({k: task.get(k) for k in
+                          ("write_scope", "required_tests", "verify_commands",
+                           "acceptance_criteria")}, sort_keys=True)
+    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def _covered(path: str, scope: list[str]) -> bool:
@@ -105,9 +138,20 @@ def _covered(path: str, scope: list[str]) -> bool:
     return False
 
 
-def out_of_scope(paths: list[str], scope: list[str]) -> list[str]:
+def out_of_scope(paths: list[str], scope: list[str],
+                 sibling_scope: list[str] | None = None) -> list[str]:
+    """Product paths this stage touched that it never declared.
+
+    `sibling_scope` is the write_scope of stages that ran ALONGSIDE this one.
+    Parallel stages share a worktree and a HEAD (WORKFLOW.md Concurrency:
+    fan-out happens across leaf tasks, in the task worktree), so a sibling's
+    commit lands inside this stage's window. Disjointness is verified at
+    `stage start`, so a path in a sibling's scope cannot be in mine — it is
+    that sibling's to answer for, and its own `stage done` measures it."""
     return [p for p in paths
-            if not p.startswith(WORKFLOW_PATHS) and not _covered(p, scope)]
+            if not p.startswith(WORKFLOW_PATHS)
+            and not _covered(p, scope)
+            and not _covered(p, sibling_scope or [])]
 
 
 def task_for(base: Path, stage_id: str) -> dict:
@@ -190,7 +234,8 @@ def cmd_start(args: argparse.Namespace) -> None:
     # `stage done` measures the diff, and a measurement needs a fixed point —
     # plus the dirt that was already there, which is not this stage's work.
     stage["base_sha"] = head_sha(base) or ""
-    stage["dirty_at_start"] = dirty_paths(base)
+    stage["dirty_at_start"] = dirty_digests(base)
+    stage["task_sha256"] = task_digest(task_for(base, args.id))
     append_event(base, "stage-start", actor="implementer", story=data.get("issue", ""),
                  detail=f"{args.id} {stage.get('title', '')}")
     if args.parallel:
@@ -202,7 +247,8 @@ def cmd_start(args: argparse.Namespace) -> None:
           f"{args.id}")
 
 
-def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> None:
+def _measure(base: Path, stage_id: str, stage: dict, task: dict,
+             siblings: list[dict]) -> None:
     """Closing a stage is a measurement, not an assertion.
 
     Every other diff-based check in this repo fires when TOO MUCH changed.
@@ -213,6 +259,25 @@ def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> None:
         fail(f"{stage_id} was started before its base commit was recorded, so "
              "there is nothing to measure against. Re-run "
              f"`forge stage start {stage_id}` (it is still active) and close it again.")
+    if not task:
+        fail(f"{stage_id} has no task in the recorded decomposition, so there is "
+             "no contract to measure it against — a stage with no boundary is "
+             "not something that can be attested. Re-record the decomposition "
+             "with this task, then re-start the stage.")
+    if not (task.get("write_scope") or []):
+        fail(f"{stage_id} declares no write_scope, so nothing bounds what it may "
+             "change. Re-record the decomposition with the paths this task owns, "
+             f"then `forge stage start {stage_id}` again.")
+    recorded = stage.get("task_sha256")
+    if recorded and recorded != task_digest(task):
+        # Re-recording mid-stage is the sanctioned repair for a wrong scope —
+        # but it must not be a way to widen the contract moments before closing
+        # over it. Re-starting re-baselines deliberately and on the record.
+        fail(f"{stage_id}'s task contract changed after the stage started "
+             "(write_scope, required_tests, verify_commands or acceptance "
+             "criteria). Closing over a contract you just rewrote proves "
+             f"nothing — run `forge stage start {stage_id}` to re-baseline "
+             "against the current decomposition, then close it.")
     # Emptiness is judged on PRODUCT paths only. A stalled run still churns
     # .factory/ — the stage tracker and the events ledger move on every
     # command — so counting workflow paths would make this check pass for
@@ -227,7 +292,9 @@ def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> None:
              "is missing>\".")
     scope = task.get("write_scope") or []
     if scope:
-        strays = out_of_scope(product, scope)
+        sibling_scope = [p for s in siblings
+                         for p in (task_for(base, s["id"]).get("write_scope") or [])]
+        strays = out_of_scope(product, scope, sibling_scope)
         if strays:
             fail(f"{stage_id} changed {len(strays)} path(s) outside its declared "
                  f"write_scope: {', '.join(strays[:10])}"
@@ -274,7 +341,13 @@ def cmd_done(args: argparse.Namespace) -> None:
         print("Nothing downstream treats it as delivered. Finish the gap, then "
               f"forge stage done {args.id}.")
         return
-    _measure(base, args.id, stage, task)
+    # Stages that ran alongside this one: their commits land inside this
+    # stage's window because parallel fan-out shares the task worktree.
+    siblings = [s for s in data.get("stages", [])
+                if s is not stage
+                and (s.get("status") == "active"
+                     or (s.get("completed_at") or "") >= (stage.get("started_at") or "~"))]
+    _measure(base, args.id, stage, task, siblings)
     stage.pop("incomplete", None)
     stage["status"] = "done"
     stage["completed_at"] = now_iso()

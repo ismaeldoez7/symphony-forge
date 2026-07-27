@@ -319,14 +319,39 @@ for candidate in write_targets:
 # redirect, and writing product code while planning is the thing being stopped.
 if permission_mode != "plan" or tool_name == "Bash":
     guard_product_writes(write_targets, run_state, root)
-# A write-capable delegation is checked in EVERY mode. Plan mode used to skip
-# this entirely, which made "enter plan mode" a way around it.
-if tool_name == "Bash" and "codex-companion.mjs" in command \
-        and " task" in command and "--write" in command:
+def companion_tokens(raw: str) -> list[str] | None:
+    """The command's real argv, or None if it cannot be read as one.
+
+    Substring matching is not a security boundary: the shell normalises
+    `--wri''te` and `t''ask` before the companion ever sees them, so a raw
+    `in` test reads the delegation as read-only and skips every check.
+    shlex applies the same normalisation, and a command it cannot parse is
+    treated as unreadable — which denies rather than allows."""
+    if "codex-companion" not in raw:
+        return []
+    try:
+        return shlex.split(raw)
+    except ValueError:
+        return None
+
+
+def delegation_gate() -> None:
+    """A write-capable delegation is checked in EVERY mode — plan mode used to
+    skip this entirely, which made entering plan mode the way around it."""
+    tokens = companion_tokens(command)
+    if tokens is None:
+        deny(
+            "This command mentions the Codex companion but cannot be parsed as a "
+            "shell command, so whether it delegates a WRITE run is unknowable. "
+            "A delegation gate that guesses is not a gate — rewrite the command "
+            "plainly, or use the invocation `./forge delegate <task-id>` prints."
+        )
+    if not tokens or "task" not in tokens or "--write" not in tokens:
+        return
     if run_state.get("plan_status") != "approved":
         # Opaque delegation cannot prove that a quickfix stayed inside its budget.
         deny(OPAQUE_WRITE_MSG)
-    active = [s.get("id", "?") for s in load_stages(root).get("stages", [])
+    active = [str(s.get("id", "")) for s in load_stages(root).get("stages", [])
               if s.get("status") == "active"]
     if not active:
         deny(
@@ -335,21 +360,48 @@ if tool_name == "Bash" and "codex-companion.mjs" in command \
             "`./forge delegate <task-id>`, which composes the brief and prints the "
             "exact invocation."
         )
-    def briefed(stage_id: str) -> bool:
-        try:
-            entry = current_delegation(root, stage_id)
-        except SystemExit:                       # unusable stage id in the tracker
-            return False
-        return bool(entry and entry.get("write"))
-
-    if not any(briefed(stage_id) for stage_id in active):
+    prompt_file = ""
+    for index, token in enumerate(tokens):
+        if token == "--prompt-file" and index + 1 < len(tokens):
+            prompt_file = tokens[index + 1]
+        elif token.startswith("--prompt-file="):
+            prompt_file = token.split("=", 1)[1]
+    # The brief must be the one THIS command carries. Otherwise one briefed
+    # stage authorizes every write run in the session, including a hand-written
+    # "rewrite auth" with no prompt file at all.
+    carried = Path(prompt_file).expanduser() if prompt_file else None
+    if carried is not None and not carried.is_absolute():
+        carried = root / carried                 # invocations are repo-relative
+    briefed = [
+        stage_id for stage_id in active
+        if carried is not None
+        and carried.resolve() == (root / ".factory" / "briefs" / f"{stage_id}.md").resolve()
+        and (entry := current_delegation(root, stage_id)) and entry.get("write")
+    ]
+    if not briefed:
         deny(
-            "This delegation has no recorded brief, so the run would start with "
-            "no acceptance criteria, no write scope, no active decisions and no "
-            "lessons — which is how a run ignores rules that are already written "
-            "down. Run `./forge delegate " + active[0] + "` and use the invocation "
-            "it prints. (If you already did, the brief on disk no longer matches "
-            "what was recorded — re-run delegate.)"
+            "This delegation does not carry the recorded brief for an active "
+            f"stage ({', '.join(active)}), so the run would start with no "
+            "acceptance criteria, no write scope, no active decisions and no "
+            "lessons — which is how a run ignores rules already written down. "
+            f"Run `./forge delegate {active[0]}` and use the invocation it "
+            "prints verbatim. (If you already did, the brief on disk no longer "
+            "matches what was recorded — re-run delegate.)"
+        )
+
+
+if tool_name == "Bash" and "codex-companion" in command:
+    try:
+        delegation_gate()
+    except SystemExit:
+        raise
+    except Exception as exc:                     # unreadable brief, ledger, digest
+        # The hook's only safe failure is a REFUSAL. An ordinary traceback is
+        # not a denial to the runtime, so it would read as permission.
+        deny(
+            "The delegation gate could not be evaluated "
+            f"({type(exc).__name__}: {exc}), so this write-capable run cannot be "
+            "authorized. Re-run `./forge delegate <task-id>` and retry."
         )
 
 if run_state and not run_state.get("client_signoff"):

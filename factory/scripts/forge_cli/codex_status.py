@@ -44,7 +44,9 @@ def load_jobs(base: Path, state_root: Path | None = None) -> list[dict]:
     for path in sorted(root.glob("*/jobs/*.json")):
         try:
             job = json.loads(path.read_text())
-        except (OSError, json.JSONDecodeError):
+        except Exception:
+            # Third-party bytes: a partially written or non-UTF-8 record is an
+            # unusable job, never a reason for a diagnostic to exit non-zero.
             continue
         if not isinstance(job, dict):
             continue

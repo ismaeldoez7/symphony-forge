@@ -56,12 +56,18 @@ def head(repo: Path) -> str:
     return git(repo, "rev-parse", "HEAD")
 
 
-def dirty_paths(repo: Path) -> list[str]:
-    return sorted(
-        line[3:].split(" -> ")[-1].strip().strip('"')
-        for line in git(repo, "status", "--porcelain", "-uall").splitlines()
-        if line[3:].strip()
-    )
+def dirty_digests(repo: Path) -> dict[str, str]:
+    """What `stage start` records: the content of every already-dirty path, so
+    a later edit to one of them is still attributable to the stage."""
+    out = {}
+    for line in git(repo, "status", "--porcelain", "-uall").splitlines():
+        rel = line[3:].split(" -> ")[-1].strip().strip('"')
+        if not rel:
+            continue
+        path = repo / rel
+        out[rel] = (hashlib.sha256(path.read_bytes()).hexdigest()
+                    if path.is_file() else "")
+    return out
 
 
 @pytest.fixture()
@@ -1569,8 +1575,9 @@ def hook(repo: Path, payload: dict) -> tuple[int, str]:
     return run(repo, "pre_tool_use.py", stdin=json.dumps(payload))
 
 
-COMPANION_WRITE = ("node /x/codex-companion.mjs task --model gpt-5.6-sol "
-                   "--write 'build the slice'")
+COMPANION = "node /x/codex-companion.mjs task --model gpt-5.6-sol"
+COMPANION_WRITE = (COMPANION + " --write --prompt-file .factory/briefs/T1.md "
+                   "'build the slice'")
 
 
 def test_hook_denies_unbriefed_write_delegation(repo, tmp_path):
@@ -1584,9 +1591,24 @@ def test_hook_denies_unbriefed_write_delegation(repo, tmp_path):
         assert "deny" in out and "forge delegate T1" in out, mode
     # read-only exploration is untouched
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
-                            "tool_input": {"command": COMPANION_WRITE.replace(
-                                " --write", "")}})
+                            "tool_input": {"command": COMPANION + " 'map it'"}})
     assert "deny" not in out
+
+
+def test_hook_denies_write_delegation_hidden_by_quoting(repo, tmp_path):
+    """Substring matching is not a boundary: the shell normalises `--wri''te`
+    before the companion sees it, so a raw `in` test would read this as a
+    read-only run and skip every check."""
+    start_stage(repo, tmp_path, DELEGATE_TASK)
+    sneaky = (COMPANION.replace("task", "t''ask") +
+              " --wri''te --prompt-file .factory/briefs/T1.md 'go'")
+    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                            "tool_input": {"command": sneaky}})
+    assert "deny" in out and "forge delegate T1" in out
+    # and a command that cannot be parsed at all is denied, not waved through
+    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                            "tool_input": {"command": COMPANION + " --write 'unbalanced"}})
+    assert "deny" in out and "cannot be parsed" in out
 
 
 def test_hook_allows_briefed_write_delegation(repo, tmp_path):
@@ -1601,6 +1623,18 @@ def test_hook_allows_briefed_write_delegation(repo, tmp_path):
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": COMPANION_WRITE}})
     assert "deny" in out
+
+
+def test_hook_requires_the_invocation_to_carry_the_brief(repo, tmp_path):
+    """One briefed stage must not authorize every write run in the session."""
+    start_stage(repo, tmp_path, DELEGATE_TASK)
+    code, out = run(repo, "forge.py", "delegate", "T1")
+    assert code == 0, out
+    for command in (COMPANION + " --write 'rewrite auth'",
+                    COMPANION + " --write --prompt-file /tmp/mine.md 'rewrite auth'"):
+        code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                                "tool_input": {"command": command}})
+        assert "deny" in out and "does not carry the recorded brief" in out, command
 
 
 def test_hook_denies_when_brief_edited(repo, tmp_path):
@@ -1673,7 +1707,8 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
     run(repo, "forge.py", "stage", "start", "T1")
     run(repo, "forge.py", "delegate", "T1")
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
-                            "tool_input": {"command": companion + " --write"}})
+                            "tool_input": {"command": companion + " --write "
+                                           "--prompt-file .factory/briefs/T1.md"}})
     assert "deny" not in out
     # ...but raw codex exec stays off-contract even after approval
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
@@ -2608,11 +2643,16 @@ def test_stage_loop_orders_execution_and_gates_pr_ready(repo, tmp_path):
     assert code == 0, out
     # pr_ready refuses while a stage is open
     write_passing_artifacts(repo)
+    # write_passing_artifacts stamps the single-task DECOMP; T2's contract has
+    # to survive, or stage done has nothing to measure it against
+    (repo / ".factory" / "decomposition.json").write_text(
+        json.dumps({**decomp, "commit": head(repo)}))
     (repo / ".factory" / "stages.json").write_text(json.dumps({
         "issue": "ENG-1", "stages": [
             {"id": "T1", "title": "api", "status": "done"},
             {"id": "T2", "title": "ui", "status": "active",
-             "base_sha": head(repo), "dirty_at_start": dirty_paths(repo)}]}))
+             "base_sha": head(repo),
+             "dirty_at_start": dirty_digests(repo)}]}))
     run(repo, "update_run.py", "--decomposition-status", "recorded")
     code, out = run(repo, "pr_ready.py")
     assert code != 0 and "stage completion" in out and "T2" in out
@@ -2711,6 +2751,77 @@ def test_stage_start_parallel_requires_disjoint_scope(repo, tmp_path):
     assert code == 0, out
     code, out = run(repo, "forge.py", "stage", "start", "T2", "--parallel")
     assert code != 0 and "overlap" in out and "src/api/" in out
+
+
+def test_parallel_stages_can_both_close(repo, tmp_path):
+    """Parallel fan-out shares the task worktree (WORKFLOW.md Concurrency), so
+    a sibling's commit lands inside this stage's window. Disjointness is
+    checked at start, so a path in a sibling's scope is that sibling's to
+    answer for — otherwise the parallel workflow could never complete."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    decomp = {**DECOMP, "tasks": [
+        {"id": "T1", "title": "api", "write_scope": ["src/api/"],
+         "objective": "Serve invoices.", "acceptance_criteria": ["200 ok"]},
+        {"id": "T2", "title": "ui", "write_scope": ["src/ui/"],
+         "objective": "Render invoices.", "acceptance_criteria": ["rows show"]},
+    ]}
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(decomp))
+    assert code == 0, out
+    run(repo, "forge.py", "stage", "start", "T1")
+    run(repo, "forge.py", "stage", "start", "T2", "--parallel")
+    write_in_scope(repo, "src/api/invoices.py")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "T1 work")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+    # T2's window now contains T1's commit — it must not be charged for it
+    write_in_scope(repo, "src/ui/list.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T2")
+    assert code == 0, out
+
+
+def test_stage_done_refuses_a_contract_rewritten_mid_stage(repo, tmp_path):
+    """Re-recording is the sanctioned repair for a wrong scope, but it must not
+    be a way to widen write_scope moments before closing over it."""
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "billing/ledger.py")
+    widened = {**DECOMP, "tasks": [{**STAGE_TASK, "write_scope": ["src/", "billing/"]}]}
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(widened))
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "task contract changed" in out
+    # re-baselining is deliberate and on the record
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code == 0, out
+    write_in_scope(repo, "billing/ledger.py", "changed = True\n")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+
+
+def test_stage_done_refuses_a_task_with_no_boundary(repo, tmp_path):
+    start_stage(repo, tmp_path, {k: v for k, v in STAGE_TASK.items()
+                                 if k != "write_scope"})
+    write_in_scope(repo, "anywhere.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "no write_scope" in out
+
+
+def test_stage_done_sees_later_edits_to_an_initially_dirty_file(repo, tmp_path):
+    """Subtracting a NAME would hide every later edit to that file, so a worker
+    could keep changing an out-of-scope dirty file invisibly. The stage records
+    CONTENT: "still as I found it" differs from "I changed it too"."""
+    write_in_scope(repo, "billing/ledger.py", "before = 1\n")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "src/core.py")
+    write_in_scope(repo, "billing/ledger.py", "after = 2\n")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "billing/ledger.py" in out
+    # left exactly as the stage found it, it is not this stage's work
+    write_in_scope(repo, "billing/ledger.py", "before = 1\n")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
 
 
 def test_stage_done_incomplete_leaves_stage_open(repo, tmp_path):
@@ -2862,9 +2973,12 @@ def test_doctor_flags_skill_missing_for_codex_runtime(repo, tmp_path):
     finally:
         sys.path.pop(0)
     home = tmp_path / "home"
-    (home / ".claude" / "skills" / "emil-design-eng").mkdir(parents=True)
-    (home / ".claude" / "skills" / "frontend-design").mkdir(parents=True)
-    (home / ".codex" / "skills" / "frontend-design").mkdir(parents=True)
+    for rel in (".claude/skills/emil-design-eng", ".claude/skills/frontend-design",
+                ".codex/skills/frontend-design"):
+        (home / rel).mkdir(parents=True)
+        (home / rel / "SKILL.md").write_text("rules\n")
+    # a directory with no SKILL.md is not a loadable skill
+    (home / ".codex" / "skills" / "emil-design-eng").mkdir(parents=True)
     missing = skills_missing_per_runtime(repo, home=home)
     assert ("codex", "emil-design-eng") in missing
     assert ("claude", "emil-design-eng") not in missing

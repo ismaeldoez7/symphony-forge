@@ -63,9 +63,19 @@ that it could not. Two costs are accepted:
   exempts all of `factory/` and `docs/` — in the harness's own repo that is the
   product, and reusing it would make the scope check vacuous exactly where it
   is dogfooded.
-- A path already dirty when the stage started is not attributed to the stage.
-  A stage that then commits that same path gets no credit for it and is
-  refused; the failure direction is closed, not open.
+- A path already dirty when the stage started is not attributed to the stage,
+  compared by CONTENT rather than name — otherwise a worker could keep editing
+  an out-of-scope dirty file invisibly, and work confined to an in-scope dirty
+  file would read as an empty diff.
+- The decomposition may still be re-recorded mid-stage (the sanctioned repair
+  for a scope that turns out to be wrong), but closing over a contract rewritten
+  after the stage started is refused: `stage start` again to re-baseline, on the
+  record. Re-baselining discards credit for work already in the tree, so it is
+  the first move after a scope correction, not the last.
+- Parallel stages share a worktree and a HEAD, so a sibling's commit falls
+  inside this stage's window. Disjointness is verified at `stage start`, so a
+  path in a sibling's `write_scope` is that sibling's to answer for. Without
+  this, the parallel workflow the harness advertises could never complete.
 
 Existing shipped history is untouched: the `verify_commands` refusal applies at
 record time only, and `forge doctor` reports an active decomposition still

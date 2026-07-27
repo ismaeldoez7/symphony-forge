@@ -26,3 +26,5 @@
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-07-27T12:41:33+00:00", "story": "FORGE-DELEG-1", "detail": "6 task(s)"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-07-27T12:48:27+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-6 (write)"}
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-07-27T12:49:00+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-6 the delegation step is named where people look"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-07-27T12:54:15+00:00", "story": "FORGE-DELEG-1"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-07-27T12:54:43+00:00", "story": "FORGE-DELEG-1", "detail": "passed"}
