@@ -38,7 +38,7 @@ or route:
 | roadmap missing | confirm captured specs, run the project-level decomposition (`factory/prompts/decomposer.md`), then `./forge roadmap derive --input <json>` |
 | planning | plan per `factory/prompts/planner.md` (Claude plan mode default, `planner-high` Codex agent alternate); exploration ONLY via `/codex:rescue --model gpt-5.6-terra --effort high` (read-only by default) — never Claude Code itself, never raw codex exec |
 | decomposing | run docs-decomposer per task, record with `record_decomposition_from_json.py` (schema incl. `user_facing`) |
-| implementing | delegate the leaf task (Claude: `/codex:rescue --background`; Codex: `factory/prompts/implementer.md`) — the implementer writes and records the tests; user-facing tasks MUST load + attest emil-design-eng + frontend-design in `skills_used` (recorder-enforced; harness.yaml `required_skills`) |
+| implementing | `./forge delegate <task-id>` composes the brief and prints the invocation (a `--write` run without it is hook-denied) — the implementer writes and records the tests; user-facing tasks MUST load + attest emil-design-eng + frontend-design in `skills_used` (recorder-enforced; harness.yaml `required_skills`) |
 | verifying | `python3 factory/scripts/verify.py` |
 | reviewing | ONE autoreview run in Codex, three lenses (`factory/prompts/reviewer.md`) |
 | functional-check | only shown when the task is user-facing; run `functional-checker` |
@@ -83,7 +83,10 @@ or route:
 | worker hit a contradiction / is confused / blocked / scope shifted | `./forge signal raise --kind <k> --by <agent> -m "..."` then PAUSE — the orchestrator monitors `.factory/signals.jsonl`, resolves, resumes |
 | a worker signal is open (orchestrator) | `./forge signal list --open` → `./forge signal resolve <id> --notes "<answer>"` → resume the rescue. Open signals block pr_ready |
 | review / guide the assumptions (orchestrator) | `./forge assumptions list --open`, then `./forge assumptions resolve <id> --status confirmed\|fix-needed\|promoted --notes "..."` — pr_ready refuses unguided rows |
-| work the next stage / where am I in the task | `./forge stage list` → `./forge stage start <id>` → implement → LOCAL autoreview until clean → commit → `./forge stage done <id>` (WORKFLOW.md Stage Loop) |
+| work the next stage / where am I in the task | `./forge stage list` → `./forge stage start <id>` → `./forge delegate <id>` → implement → LOCAL autoreview until clean → commit → `./forge stage done <id>`, which MEASURES the diff and can refuse (WORKFLOW.md Stage Loop) |
+| delegate this task / hand it to Codex | `./forge delegate <task-id>` — builds `.factory/briefs/<id>.md` from the task contract, the implementer prompt, the active decisions, the lessons for those paths and what already exists in the write scope; derives the write flag from stage state and prints the exact invocation |
+| is Codex stuck? / did it actually do anything | `./forge codex status` — status, phase, write flag and age per job; flags a run that has not moved and a read-only run launched while a stage is active. Advisory, never a gate |
+| it only did part of the job | `./forge stage done <id> --incomplete "<what is missing>"` — the stage stays active and the gap enters the timeline |
 | are we fixing the same thing again | `./forge findings patterns` — a class at 3+ hits gets a refactor story + decision, never a fourth patch |
 | what did we learn about these files | `./forge lesson relevant --files <paths>` — run BEFORE planning/implementing |
 | that mistake keeps happening, remember it | `./forge lesson add --topic <slug> --lesson "..." --source <sha/review> --applies-to <globs> --severity low\|medium\|high --by <agent>` |

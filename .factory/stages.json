@@ -49,7 +49,11 @@
     {
       "id": "DELEG-6",
       "title": "the delegation step is named where people look",
-      "status": "pending"
+      "status": "done",
+      "started_at": "2026-07-27T12:39:53+00:00",
+      "base_sha": "3223e68eabf44c54e740ea0c340b772a8cb48b06",
+      "dirty_at_start": [],
+      "completed_at": "2026-07-27T12:49:00+00:00"
     }
   ]
 }

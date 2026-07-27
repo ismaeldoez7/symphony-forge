@@ -38,7 +38,8 @@ Codex executes exploration, implementation, testing, and review. The `.factory` 
 1. record client sign-off (the spec/roadmap gate is checked now)
 2. plan one roadmap story and generate its decomposition
 3. wait for approval
-4. implement one bounded task (the implementer writes and records the tests)
+4. implement one bounded task — `./forge delegate <task-id>` briefs it, `stage
+   done` measures it (the implementer writes and records the tests)
 5. run deterministic verify
 6. run one autoreview pass (three lenses: quality, performance, security)
 7. run the functional check when the decomposition says `user_facing: true`

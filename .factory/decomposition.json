@@ -198,6 +198,7 @@
         "factory/scripts/forge_cli/phase.py",
         "factory/skills/forge.md",
         "AGENTS.md",
+        ".claude/CLAUDE.md",
         "factory/tests/test_gates.py"
       ],
       "acceptance_criteria": [
@@ -215,5 +216,5 @@
       "reviewer_focus": "the AGENTS.md line count gate must actually be run, not assumed; no policy block may land in AGENTS.md"
     }
   ],
-  "commit": "d1423b64ce3b1ec823fc0f7bf6d8dbfdbfa3f173"
+  "commit": "3223e68eabf44c54e740ea0c340b772a8cb48b06"
 }

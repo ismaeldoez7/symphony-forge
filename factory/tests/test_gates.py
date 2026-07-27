@@ -2871,6 +2871,19 @@ def test_doctor_flags_skill_missing_for_codex_runtime(repo, tmp_path):
     assert not [m for m in missing if m[1] == "frontend-design"]
 
 
+def test_next_names_delegation_step(repo, tmp_path):
+    """Part of why the harness got skipped is that the delegation step was
+    never printed anywhere — so "what should I have done" had no answer to
+    point at."""
+    start_stage(repo, tmp_path, STAGE_TASK)
+    code, out = run(repo, "forge.py", "next")
+    assert code == 0, out
+    assert "forge delegate T1" in out and "forge codex status" in out
+    run(repo, "forge.py", "stage", "done", "T1", "--incomplete", "retry path missing")
+    code, out = run(repo, "forge.py", "next")
+    assert "INCOMPLETE" in out and "retry path missing" in out
+
+
 def test_plan_save_requires_surface_impact_section(repo, tmp_path):
     sign_off(repo)
     intake(repo)

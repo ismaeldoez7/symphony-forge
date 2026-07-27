@@ -166,13 +166,22 @@ def cmd_next(args: argparse.Namespace) -> None:
                     action = (f"start {current['id']} ({current.get('title')}): "
                               f"forge stage start {current['id']}")
                 steps.append(f"[dev] Stage progress: {done_n}/{len(stages)} done — {action}")
-                steps.append("[dev] Stage Loop (WORKFLOW.md): /codex:rescue implements → "
-                             "inspect diff → validate assumptions → smallest checks → "
-                             "LOCAL autoreview until clean → commit → forge stage done — "
-                             "then start the next stage WITHOUT asking; gates are the "
-                             "permission (conduct §7)")
-            steps.append("[dev] Implement the next bounded leaf task via /codex:rescue --background "
-                         "(factory/prompts/implementer.md)")
+                if current.get("incomplete"):
+                    steps.append(f"[dev] {current['id']} was reported INCOMPLETE: "
+                                 f"{current['incomplete']} — finish that gap first")
+                steps.append(f"[dev] Delegate it: ./forge delegate {current['id']} "
+                             "— composes the brief (criteria, write scope, what already "
+                             "exists there, decisions, lessons) and prints the exact "
+                             "invocation. A --write run without it is denied by the hook.")
+                steps.append("[dev] Then WATCH: ./forge codex status shows whether the "
+                             "run is still moving; Monitor .factory/signals.jsonl for "
+                             "raised signals")
+                steps.append("[dev] Stage Loop (WORKFLOW.md): delegate → /codex:rescue "
+                             "implements → inspect diff → validate assumptions → smallest "
+                             "checks → LOCAL autoreview until clean → commit → forge stage "
+                             "done (which MEASURES the diff and can refuse) — then start "
+                             "the next stage WITHOUT asking; gates are the permission "
+                             "(conduct §7)")
             if user_facing:
                 steps.append("User-facing task: emil-design-eng + frontend-design are "
                              "MANDATORY (recorder refuses the artifact without them in "
