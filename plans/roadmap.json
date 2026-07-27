@@ -1,0 +1,26 @@
+{
+  "items": [
+    {
+      "key": "FORGE-DELEG-1",
+      "title": "Briefed, bounded, measured delegation boundary",
+      "story": "As a developer running Claude and Codex together, I want the handoff to be briefed, bounded and measured so that a run cannot stall silently, finish half the job, or ignore the rules I already wrote down.",
+      "acceptance_criteria": [
+        "stage done refuses an empty diff, an out-of-scope change, a missing required test, or a failing per-task verify command",
+        "--parallel is checked: two stages claiming parallelism must have disjoint write_scope",
+        "a decomposition recording prose where a runnable command belongs is refused",
+        "a --write delegation with no fresh recorded brief is denied by the hook, and the refusal names the command that fixes it",
+        "the generated brief carries the acceptance criteria, the write scope with its existing modules, and inlined design rules for user-facing work",
+        "forge codex status reports the write flag per job and flags a stalled one",
+        "forge doctor reports a required skill a runtime cannot load",
+        "forge next names the delegation step"
+      ],
+      "order": 1,
+      "status": "active",
+      "skill": "backend",
+      "kind": "feature",
+      "spec": "docs/specs/delegation-boundary.md"
+    }
+  ],
+  "generated_by": "human",
+  "updated_at": "2026-07-27T12:09:46+00:00"
+}

@@ -60,3 +60,4 @@ pino-*.log
 
 # transitional: machinery moved to factory/; on-disk copy only serves already-running sessions' hooks
 .agents/
+.gstack/

@@ -1,0 +1,35 @@
+{
+  "issue": "FORGE-DELEG-1",
+  "stages": [
+    {
+      "id": "DELEG-1",
+      "title": "stage done becomes a measurement",
+      "status": "pending"
+    },
+    {
+      "id": "DELEG-2",
+      "title": "verify_commands must be runnable, not prose",
+      "status": "pending"
+    },
+    {
+      "id": "DELEG-3",
+      "title": "forge delegate composes the brief and the invocation",
+      "status": "pending"
+    },
+    {
+      "id": "DELEG-4",
+      "title": "the brief becomes non-skippable",
+      "status": "pending"
+    },
+    {
+      "id": "DELEG-5",
+      "title": "a stalled run and a missing skill become visible",
+      "status": "pending"
+    },
+    {
+      "id": "DELEG-6",
+      "title": "the delegation step is named where people look",
+      "status": "pending"
+    }
+  ]
+}

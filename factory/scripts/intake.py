@@ -62,7 +62,10 @@ stale_files = [
     if p.exists()
 ] + list((factory / "reviews").glob("*.json"))
 if stale_files or active_plans:
-    prev_archived = previous.get("phase") in {"pr-ready", "done"}
+    # "shipped" is what pr_ready.py writes after it archives (pr_ready.py:327);
+    # omitting it made every post-ship intake claim unarchived work and demand
+    # --discard-active, which deletes the evidence pr_ready just preserved.
+    prev_archived = previous.get("phase") in {"pr-ready", "shipped", "done"}
     if not prev_archived and not args.discard_active:
         raise SystemExit(
             f"Task {prev_issue or '?'} has unarchived work "

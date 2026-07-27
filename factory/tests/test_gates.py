@@ -570,6 +570,22 @@ def test_intake_preserves_signoff_and_refuses_to_clobber_evidence(repo, tmp_path
     assert not (repo / ".factory" / "decomposition.json").exists()
 
 
+def test_intake_after_ship_needs_no_discard(repo, tmp_path):
+    """pr_ready writes phase 'shipped' after archiving; intake must read that
+    as archived. Otherwise the next intake demands --discard-active, which
+    deletes the very evidence pr_ready preserved."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    code, _ = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    assert code == 0
+    state = run_state(repo)
+    state["phase"] = "shipped"
+    (repo / ".factory" / "run.json").write_text(json.dumps(state))
+    code, out = intake(repo, "ENG-2", "Refunds")
+    assert code == 0, out
+
+
 def test_intake_guards_orphaned_approved_plan(repo, tmp_path):
     sign_off(repo)
     intake(repo)

@@ -1,0 +1,33 @@
+{
+  "generated_by": "griller",
+  "gate": "plan",
+  "issue": "FORGE-DELEG-1",
+  "verdict": "pass",
+  "questions_asked": 5,
+  "summary": "Five design decisions put to the human one at a time, each led by a recommendation; all five confirmed as recommended. Facts (file:line for the write-permission conflict, the completion predicate, the missing prompt wiring, and the installed Codex skills) were looked up in two read-only audits and verified directly, not asked.",
+  "gaps": [
+    "The plan initially had no answer for a worker that genuinely finishes part of a task: every signal kind presumes it wants to continue.",
+    "Enforcing runnable verify_commands would break real projects whose active decompositions already carry prose (agentstats: 'package test script').",
+    "stage done measuring the diff needed a base to measure from; stages carried no base commit.",
+    "A brief recorded once could drift from the file actually handed to the executor."
+  ],
+  "contradictions": [
+    "The plan's own gate (a hook denial on unbriefed --write) contradicts decision 0011's separation only in appearance: 0011 governs review ownership, not delegation, and no reviewer is being nested. Checked against every active decision; no other conflict found.",
+    "forge codex status reads a third-party plugin path, which conflicts with decision 0001's determinism contract if it could gate a ship."
+  ],
+  "resolutions": [
+    "Added stage done --incomplete '<what is missing>': the stage stays open, the gap lands in the events ledger, and forge next surfaces it.",
+    "Migration is explicit: the recorder refuses prose only for NEW decompositions; shipped history is untouched and forge doctor reports any active decomposition still carrying prose.",
+    "stage start records the base commit on the stage, so stage done measures against a fixed point rather than a guess.",
+    "The delegation record stores brief_sha256; the hook re-digests the file on disk, so an edited brief invalidates the delegation.",
+    "forge codex status is declared advisory in the enforcement matrix \u2014 a diagnostic reading a third-party path must never be able to block a ship.",
+    "Every rule in the plan is listed in an enforcement matrix naming the script that refuses; nothing in it relies on an agent following an instruction."
+  ],
+  "open_items": [
+    "Rendering delegation state on the board is deferred to the display-layer work still outstanding from PR #24. Non-blocking: the CLI surfaces it this round.",
+    "docs/decisions/0018-delegation-gates.md is recorded as proposed. Acceptance is human chat confirmation, not an implementation step."
+  ],
+  "input_sha256": "2d9e098f59d481b4e9ad0838058fd9bbcef20c919361a0dbcf0bf4f6b2d341b4",
+  "recorded_at": "2026-07-27T12:10:13+00:00",
+  "commit": "74e2ceb84464fe69fd5671dffa299ce42b937ad1"
+}
