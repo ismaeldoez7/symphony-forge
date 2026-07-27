@@ -2677,6 +2677,44 @@ def test_stage_done_incomplete_leaves_stage_open(repo, tmp_path):
     assert stages[0]["status"] == "done" and "incomplete" not in stages[0]
 
 
+def test_decomposition_refuses_prose_verify_commands(repo, tmp_path):
+    """`stage done` executes these, so an entry that cannot run is a gate that
+    can never pass — which is what "package test script" always was."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    prose = {**DECOMP, "tasks": [{**STAGE_TASK,
+                                  "verify_commands": ["package test script"]}]}
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(prose))
+    assert code != 0 and "T1" in out and "package test script" in out
+    runnable = {**DECOMP, "tasks": [{**STAGE_TASK, "verify_commands": ["true"]}]}
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(runnable))
+    assert code == 0, out
+    # legitimate shell is not prose: env prefixes, flags, pipes, builtins
+    for command in ["FOO=1 git status", "git log --oneline | head -1", "test -d src"]:
+        payload = {**DECOMP, "tasks": [{**STAGE_TASK, "verify_commands": [command]}]}
+        code, out = run(repo, "record_decomposition_from_json.py",
+                        stdin=json.dumps(payload))
+        assert code == 0, f"{command}: {out}"
+
+
+def test_doctor_reports_prose_verify_commands(repo, tmp_path):
+    """Prose predates the record-time refusal, so an already-recorded
+    decomposition can still carry one. Report it before it becomes a stage
+    that cannot close."""
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.doctor import prose_verify_commands, unrunnable_reason
+    finally:
+        sys.path.pop(0)
+    assert unrunnable_reason("package test script")
+    assert unrunnable_reason("python3 -m pytest") is None
+    (repo / ".factory" / "decomposition.json").write_text(json.dumps(
+        {**DECOMP, "tasks": [{**STAGE_TASK, "verify_commands": ["package test script"]}]}))
+    found = prose_verify_commands(repo)
+    assert len(found) == 1 and "package test script" in found[0] and "T1" in found[0]
+
+
 def test_plan_save_requires_surface_impact_section(repo, tmp_path):
     sign_off(repo)
     intake(repo)

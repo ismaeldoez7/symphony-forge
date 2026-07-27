@@ -13,3 +13,5 @@
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-07-27T12:27:48+00:00", "story": "FORGE-DELEG-1", "detail": "6 task(s)"}
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-07-27T12:28:01+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-1 stage done becomes a measurement"}
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-07-27T12:28:23+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-1 stage done becomes a measurement"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-07-27T12:28:59+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-2 verify_commands must be runnable, not prose"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-07-27T12:31:22+00:00", "story": "FORGE-DELEG-1", "detail": "DELEG-2 verify_commands must be runnable, not prose"}

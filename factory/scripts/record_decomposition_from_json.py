@@ -10,6 +10,7 @@ from factory_lib import (
     decomposition_state_path, dump_json, gate, head_sha, now_iso, repo_root,
     run_state_path, validate_payload,
 )
+from forge_cli.doctor import unrunnable_reason
 
 parser = argparse.ArgumentParser(description="Record decomposition from structured JSON")
 parser.add_argument("--input", help="Path to decomposition JSON. If omitted, read from stdin.")
@@ -54,6 +55,17 @@ for pos, task in enumerate(tasks, 1):
             f"(max {OBJECTIVE_MAX}) — it is the summary a human reads, not the "
             "implementation transcript; put the detail in the plan."
         )
+    # `stage done` runs these. An entry that cannot execute is not a check, and
+    # in practice it was prose ("package test script") nobody ever ran.
+    for command in task.get("verify_commands") or []:
+        reason = unrunnable_reason(str(command))
+        if reason:
+            raise SystemExit(
+                f"decomposition task {task['id']}: verify_commands entry "
+                f"{str(command)!r} {reason}. `forge stage done` executes every "
+                "entry, so an unrunnable one is a gate that can never pass — "
+                "write the command that proves this task, not a description of it."
+            )
     criteria = task.get("acceptance_criteria")
     if not isinstance(criteria, list) or not criteria or not all(
         isinstance(c, str) and c.strip() for c in criteria

@@ -13,7 +13,11 @@
     {
       "id": "DELEG-2",
       "title": "verify_commands must be runnable, not prose",
-      "status": "pending"
+      "status": "done",
+      "started_at": "2026-07-27T12:28:59+00:00",
+      "base_sha": "14e1990b4d88ac270a25a1197f8e06a84f9dd474",
+      "dirty_at_start": [],
+      "completed_at": "2026-07-27T12:31:22+00:00"
     },
     {
       "id": "DELEG-3",

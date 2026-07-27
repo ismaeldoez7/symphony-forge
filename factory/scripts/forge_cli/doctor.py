@@ -4,15 +4,64 @@ from __future__ import annotations
 import argparse
 import os
 import platform
+import shlex
 import shutil
 import stat
+import subprocess
 import tempfile
 import urllib.request
 from pathlib import Path
 
+from factory_lib import decomposition_state_path, load_json, repo_root
+
 from .common import run_quiet
 
 DIRENV_VERSION = "2.37.1"
+
+# Shell words that are not programs on PATH but are perfectly runnable.
+SHELL_BUILTINS = {".", ":", "[", "cd", "echo", "eval", "exec", "exit", "export",
+                  "false", "printf", "pwd", "set", "source", "test", "true",
+                  "unset"}
+
+
+def unrunnable_reason(command: str) -> str | None:
+    """Why this verify_commands entry cannot execute, or None if it can.
+
+    `stage done` RUNS these, so an entry whose program is not resolvable can
+    never close its stage. Recording it is recording a gate that will always
+    fail — which in practice meant it was prose ("package test script") that
+    nobody ever tried to run. Checking at record time is the same standard,
+    applied early enough to fix."""
+    text = (command or "").strip()
+    if not text:
+        return "empty"
+    try:
+        tokens = shlex.split(text)
+    except ValueError as exc:                    # unbalanced quotes
+        return f"is not parseable as a shell command ({exc})"
+    # Skip leading VAR=value assignments: `FACTORY_TEST_CMD=x pytest` is fine.
+    while tokens and "=" in tokens[0] and not tokens[0].startswith("="):
+        tokens = tokens[1:]
+    if not tokens:
+        return "is only environment assignments, with no command to run"
+    program = tokens[0]
+    if program in SHELL_BUILTINS or shutil.which(program):
+        return None
+    return f"starts with {program!r}, which is not on PATH and is not a shell builtin"
+
+
+def prose_verify_commands(base: Path) -> list[str]:
+    """Migration report: active decompositions still carrying entries that
+    cannot run. Shipped history is deliberately not scanned — it is evidence
+    of what happened, not a gate that will fire again."""
+    tasks = load_json(decomposition_state_path(base), default={}).get("tasks", [])
+    found = []
+    for task in tasks:
+        for command in task.get("verify_commands") or []:
+            reason = unrunnable_reason(str(command))
+            if reason:
+                found.append(f"{task.get('id', '?')}: {command!r} {reason}")
+    return found
 
 
 def _check(name: str, ok: bool, detail: str, fix: str, required: bool = True) -> dict:
@@ -559,8 +608,26 @@ def cmd_doctor(args: argparse.Namespace) -> None:
             if check["required"]:
                 failures += 1
 
+    # Repo-level migration report. Prose verify_commands predate the record-time
+    # refusal, so an ALREADY-recorded decomposition can still carry one — and it
+    # would surface as a stage that cannot close. Report it before that happens.
+    # doctor also runs outside a repo (fresh machine), where there is nothing
+    # to migrate.
+    try:
+        repo = Path(getattr(args, "repo", None) or repo_root())
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        repo = None
+    prose = prose_verify_commands(repo) if repo else []
+    for entry in prose:
+        print(f"[MISS] verify_commands  {entry}")
+    if prose:
+        print("       fix: re-record the decomposition with the command that "
+              "proves the task — `forge stage done` executes every entry, so "
+              "these can never pass.")
+        failures += len(prose)
+
     if failures:
-        print(f"\nforge doctor: {failures} required tool(s) missing.")
+        print(f"\nforge doctor: {failures} required item(s) missing.")
         raise SystemExit(1)
 
     print("\nforge doctor: ready. Next: forge.py init --name <project> --target <dir>")
