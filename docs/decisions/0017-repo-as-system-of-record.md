@@ -43,9 +43,13 @@ rather than in a new store:
 - **A story timeline.** `.factory/events.jsonl` appends one line per
   transition, written by the scripts that change state, with an
   allowlist-pinned `generated_by`. Discovery is instrumented too (spec save,
-  spec confirm, roadmap derive/import/add). Story lines archive with their
-  story; project lines stay. `.gitattributes` marks it `merge=union` — git's
-  built-in driver, so parallel worktrees can never conflict on it.
+  spec confirm, roadmap derive/import/add). `.gitattributes` marks it
+  `merge=union` — git's built-in driver, so parallel worktrees can never
+  conflict on it. **Append-only means append-only**: a story's lines are
+  COPIED into its ship archive and never removed from the live ledger. A
+  removal does not survive a parallel branch that still holds those lines —
+  the union merge brings them back — so a ledger that both unions and deletes
+  is telling two different stories about the same file.
 - **Decision provenance.** Records carry `stories: [...]`; `decision new`
   seeds it and `decision link` appends, because one decision often governs
   several stories. Supersession is atomic at `decision accept`.
@@ -72,7 +76,14 @@ them.
   still `proposed`. Blocking would freeze existing projects, where most
   records were never formally accepted; the warning plus the board's
   "proposed — unconfirmed" label is the repair pressure.
-- Existing decision records needed a one-line `stories: []` migration.
+- The structural gate does NOT fail a record that predates `stories:` — only
+  a malformed one. Failing an existing corpus for a field it could not have
+  had would make `check_dual_runtime` red for reasons unrelated to the work in
+  hand, which is how a gate gets ignored. New records always carry it, because
+  `decision new` writes it.
+- The live event ledger grows for the life of the project. That is the cost of
+  an honestly append-only file, and it is small: a story contributes roughly a
+  dozen lines.
 - Deployment is still outside the harness: "shipped" here means PR-ready, and
   the board labels those dates accordingly rather than implying a release.
 - Events are best-effort: a failed ledger write never fails the gate that was

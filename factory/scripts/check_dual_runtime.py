@@ -198,12 +198,19 @@ def check_decision_records(root: Path) -> None:
                 f"{record.relative_to(root)} is superseded but names no superseded_by — "
                 "history must point at the decision that replaced it."
             )
-        if "stories" not in fields:
+        # `stories` is written by `decision new`; records that predate it are
+        # NOT violations — failing an existing corpus for a field it could not
+        # have had trains people to ignore this gate. A malformed one is a
+        # violation, because that is a record actively lying about its scope.
+        stories = fields.get("stories")
+        if stories is not None and not (
+            stories.startswith("[") and stories.endswith("]")
+        ):
             violation(
-                f"{record.relative_to(root)} has no `stories:` field — every record "
-                "names the stories it governs (empty list for project-level ones), "
-                "or the board cannot answer 'which decisions came out of this work'. "
-                "Add `stories: []` to its frontmatter."
+                f"{record.relative_to(root)}: `stories:` must be a flow list of the "
+                f"story keys this decision governs (got {stories!r}). Use "
+                "`stories: []` for project-level decisions, or "
+                "`./forge decision link <slug> --story <KEY>`."
             )
         # A live replacement whose predecessor still reads accepted means two
         # records govern the same question; the accept step retires the old one.

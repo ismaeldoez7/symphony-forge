@@ -19,7 +19,7 @@ from factory_lib import (
 )
 from forge_cli.assumptions import blocking_for_issue, load_rows as load_assumptions
 from forge_cli.decisions import decision_records
-from forge_cli.events import append_event, events_path, load_events
+from forge_cli.events import append_event, load_events
 from forge_cli.outcome import load_outcome, outcome_path
 from forge_cli.roadmap import load_items, mark_status
 from forge_cli.quickfix import load_active
@@ -291,6 +291,12 @@ plan_grill = root / ".factory" / "grills" / "plan.json"
 if plan_grill.exists():
     (history / "grills").mkdir(exist_ok=True)
     shutil.copy2(plan_grill, history / "grills" / "plan.json")
+# The story's timeline is COPIED to its archive, never removed from the live
+# ledger. Removing lines from a union-merged file does not survive the very
+# concurrency the union driver exists for: a parallel branch that still holds
+# those lines resurrects them on merge, so the removal is a lie that grows
+# back. Append-only means append-only; the file is the project's timeline and
+# the board filters it by story.
 # The ship itself is the last line of the story's timeline, so it is recorded
 # before the timeline is archived — not after, or it would be left behind.
 append_event(root, "shipped", actor="orchestrator", story=issue_key,
@@ -301,12 +307,6 @@ story_events = load_events(root, story=issue_key)
 if story_events:
     (history / "events.jsonl").write_text(
         "".join(json.dumps(e) + "\n" for e in story_events))
-    remaining = [e for e in load_events(root) if e.get("story") != issue_key]
-    if remaining:
-        events_path(root).write_text(
-            "".join(json.dumps(e) + "\n" for e in remaining))
-    elif events_path(root).exists():
-        events_path(root).unlink()
 # The assumptions made while building this story explain behaviour that later
 # reads as a bug; they live in a cross-project table that gets archived on its
 # own cadence, so the story keeps its own copy.

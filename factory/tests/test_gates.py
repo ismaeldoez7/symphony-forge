@@ -1980,11 +1980,13 @@ def test_story_timeline_is_recorded_and_archived_with_its_story(repo, tmp_path):
                 (repo / ".factory" / "history" / "ENG-1" / "events.jsonl")
                 .read_text().splitlines()]
     assert "shipped" in [e["event"] for e in archived]
-    # the story's lines LEAVE with it — residue is what conflicts when parallel
-    # branches merge — while project-level discovery lines stay behind
+    # The archive is a COPY: the live ledger is append-only and keeps every
+    # line. Removing lines from a union-merged file does not survive a parallel
+    # branch that still holds them — the removal grows back on merge, so it was
+    # never a removal at all.
     live = [json.loads(line) for line in
             (repo / ".factory" / "events.jsonl").read_text().splitlines()]
-    assert not [e for e in live if e.get("story") == "ENG-1"], live
+    assert [e for e in live if e.get("story") == "ENG-1"], live
     assert "client-signoff" in [e["event"] for e in live]
 
 
@@ -2141,6 +2143,27 @@ def test_event_ledger_merges_instead_of_conflicting(repo):
     assert '"story": "A"' in merged and '"story": "B"' in merged, merged
     assert "<<<<<<<" not in merged
 
+    # …and a union-merged file cannot also be PRUNED: whatever one branch
+    # removes, a parallel branch that still holds those lines restores on
+    # merge. That is why ship copies a story's timeline into its archive
+    # rather than moving it out of the live ledger.
+    shared = head(repo)                      # both branches below have A and B
+    git(repo, "checkout", "-q", "-b", "pruner")
+    ledger.write_text('{"event": "intake", "generated_by": "orchestrator"}\n')
+    git(repo, "add", "-f", ".factory/events.jsonl")
+    git(repo, "commit", "-q", "-m", "prune the shipped story's lines")
+    assert '"story": "A"' not in ledger.read_text()
+    git(repo, "checkout", "-q", shared)
+    git(repo, "checkout", "-q", "-b", "keeper")
+    ledger.write_text(ledger.read_text() + '{"event": "stage-done", "story": "C"}\n')
+    git(repo, "add", "-f", ".factory/events.jsonl")
+    git(repo, "commit", "-q", "-m", "story C appends")
+    git(repo, "checkout", "-q", "pruner")
+    git(repo, "merge", "--no-edit", "keeper")
+    assert '"story": "A"' in ledger.read_text(), (
+        "the pruned lines did NOT come back — if this ever fails, pruning has "
+        "become safe and pr_ready could move rather than copy the timeline")
+
 
 def test_decisions_name_the_stories_they_govern(repo, tmp_path):
     sign_off(repo)
@@ -2157,12 +2180,18 @@ def test_decisions_name_the_stories_they_govern(repo, tmp_path):
     governed = next(r for r in decision_records(repo) if "queue-choice" in r["id"])
     assert governed["stories"] == ["ENG-1", "ENG-2"]
     assert governed["title"]  # the board renders this; it was empty before
-    # every record carries the field, so the corpus cannot silently lose it
-    hand_written = repo / "docs" / "decisions" / "0099-hand-rolled.md"
-    hand_written.write_text('---\nstatus: proposed\nconfirmed_by: ""\n'
-                            "date: 2026-07-27\n---\n\n# Hand rolled\n")
+    # A record that predates the field is NOT a violation — failing an existing
+    # corpus for a field it could not have had is how a gate gets ignored.
+    legacy = repo / "docs" / "decisions" / "0099-predates-the-field.md"
+    legacy.write_text('---\nstatus: proposed\nconfirmed_by: ""\n'
+                      "date: 2026-07-27\n---\n\n# Predates the field\n")
     code, out = run(repo, "check_dual_runtime.py", str(repo))
-    assert code != 0 and "stories" in out
+    assert "stories" not in out, out
+    # A malformed one IS: that record is lying about what it governs.
+    legacy.write_text('---\nstatus: proposed\nconfirmed_by: ""\n'
+                      "date: 2026-07-27\nstories: ENG-1\n---\n\n# Malformed\n")
+    code, out = run(repo, "check_dual_runtime.py", str(repo))
+    assert code != 0 and "stories" in out and "flow list" in out
 
 
 # ------------------------------------------------------- signal event channel
