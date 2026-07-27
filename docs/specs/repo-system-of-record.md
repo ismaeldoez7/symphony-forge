@@ -1,7 +1,7 @@
 ---
 slug: repo-system-of-record
 title: Repository system of record and lifecycle reading layer
-status: confirmed
+status: draft
 saved: 2026-07-27T08:28:49+00:00
 ---
 
@@ -187,19 +187,27 @@ rendering.
 ## Part 2 — Display (`factory/board/index.html` + `board.py`)
 
 Server:
-- Stop stripping task fields at `board.py:67-71` (`objective`,
-  `acceptance_criteria`, `reviewer_focus` pass through).
+- `_plan_evidence()` joins the immutable task contract from
+  `decomposition.json` (`objective`, `acceptance_criteria`,
+  `reviewer_focus`) to mutable stage status/timestamps by task id. The stage
+  skeleton remains execution state, not a duplicate task store.
 - **Evidence binding fix (real bug)**: `story_detail` uses live `.factory/`
   only when `run.json`'s `issue_key` matches the requested story; otherwise
   history or nothing — today clicking any unplanned story shows the active
   task's evidence as its own.
-- **Gate truth**: lifecycle booleans reuse the `pr_ready` predicates
-  (status/score/blocking findings), not file existence.
+- **Gate truth**: extract pure readiness predicates into
+  `forge_cli/readiness.py`; both `pr_ready.py` and the board reuse them
+  (status/score/blocking findings), never file existence or duplicated
+  conditionals.
 - `plan_by_story` gets the `story or issue` fallback `story_detail` already
   has — without it every legacy project renders unplanned and task numerals
   stay blank.
 - `story_detail()` ships `events` + archived assumptions; decisions payload
-  per 1c (all statuses + titles + stories).
+  per 1c (all statuses + titles + stories). Activity uses event-ledger
+  entries when present; raw signal/stage timestamps are the legacy fallback,
+  never a second source rendered beside the same transitions. Decisions
+  without `stories` render once as project-level legacy context rather than
+  being repeated as story-specific decisions.
 
 Header: extend the existing `progress-line` (counts already render — no new
 strip): append a project task rollup (`14/23 tasks`) and, when nonzero, an
@@ -286,7 +294,7 @@ repair pressure.
 - capture: `pr_ready.py`, `intake.py`, `update_run.py`,
   `record_{decomposition,test,review}_from_json.py`, `verify.py`,
   `record_signoff.py`, `pre_tool_use.py`,
-  `forge_cli/{decisions,roadmap,plans,specs,context,stages,signal,deferrals}.py`,
+  `forge_cli/{decisions,roadmap,plans,specs,context,stages,signal,deferrals,readiness}.py`,
   `forge.py` (wire `outcome set`, `decision link`, `roadmap link-spec`,
   extended `add`), `.gitattributes`
 - display: `factory/board/index.html`, `forge_cli/board.py`
@@ -303,8 +311,10 @@ repair pressure.
   (missing story/AC, `--no-spec` sans `--reason`, dup key, bad dep, cycle,
   DAG-validated); plan save refuses unspecced story; `link-spec` clears;
   heal revalidates; evidence-binding (unplanned story ≠ active run's
-  proof); gate-truth predicates; legacy `issue` fallback; board anchors
-  (task rollup, unassigned, ship log). Existing fixtures gain
+  proof); shared gate-truth predicates including failed/low-score/blocking
+  evidence; decomposition-task/stage join; event timeline de-duplication;
+  all decision statuses/titles; archived forensics; legacy `issue` fallback;
+  board anchors (task rollup, unassigned, ship log). Existing fixtures gain
   outcome + objective/AC (`test_gates.py:35-38`, `:2143-2146`).
 
 ## Build
@@ -336,6 +346,9 @@ Commit the design spec to
 6. Parallel-merge: two branches appending `.factory/events.jsonl` merge
    cleanly under the union driver (automated test + manual check).
 7. Screenshots light/dark/760px: enriched progress-line, @assignee on
-   ready marks, drawer order, Ship log ("PR-ready" labels). No horizontal
-   scroll; hidden scrollbars preserved.
-8. Read-only invariant: GET-only server; `grep -nE "https?://"` clean.
+   ready marks, drawer order, task disclosures, proposed/superseded decision
+   styling, Ship log ("PR-ready" labels), keyboard focus/close, and polling
+   without duplicate cards/timeline rows. No horizontal scroll; hidden
+   scrollbars preserved.
+8. Read-only invariant: GET-only server; POST unavailable; a before/after
+   filesystem digest is unchanged; `grep -nE "https?://"` clean.
