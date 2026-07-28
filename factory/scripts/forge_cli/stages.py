@@ -47,6 +47,7 @@ def termination_signal_guard():
     """Turn wrapper termination into normal cleanup paths for proof children."""
     handled = [
         candidate for candidate in (
+            signal.SIGINT,
             signal.SIGTERM,
             getattr(signal, "SIGHUP", None),
             getattr(signal, "SIGQUIT", None),
@@ -169,31 +170,61 @@ def committed_paths(base: Path, base_sha: str, head: str) -> set[str]:
     return paths
 
 
-def _gitlink_identity(base: Path, rel: str) -> str | None:
-    entry = _git(base, "ls-files", "--stage", "--", rel).strip()
-    fields = entry.split(maxsplit=3)
-    if len(fields) < 4 or fields[0] != "160000" or fields[3] != rel:
-        return None
-    checkout = base / rel
-    head = _git(base, "-C", str(checkout), "rev-parse", "HEAD")
-    status = _git(
-        base, "-C", str(checkout), "status", "--porcelain=v2", "-z", "-uall")
-    digest = hashlib.sha256()
-    digest.update("\0".join((entry, head, status)).encode())
-    return digest.hexdigest()
+def _gitlink_entries(index_stage: str) -> dict[str, str]:
+    """Gitlink metadata keyed by exact, unquoted path bytes decoded by Git."""
+    result: dict[str, str] = {}
+    for entry in index_stage.split("\0"):
+        if "\t" not in entry:
+            continue
+        metadata, rel = entry.split("\t", 1)
+        fields = metadata.split()
+        if fields and fields[0] == "160000":
+            result[rel] = metadata
+    return result
 
 
-def _digest(base: Path, rel: str) -> str | None:
-    gitlink = _gitlink_identity(base, rel)
-    if gitlink is not None:
-        return gitlink
+def _gitlink_identities(base: Path, index_stage: str | None = None,
+                        wanted: set[str] | None = None) -> dict[str, str]:
+    entries = _gitlink_entries(
+        index_stage
+        if index_stage is not None
+        else _git(base, "ls-files", "--stage", "-z")
+    )
+    result: dict[str, str] = {}
+    for rel, metadata in entries.items():
+        if wanted is not None and rel not in wanted:
+            continue
+        checkout = base / rel
+        head = _git(base, "-C", str(checkout), "rev-parse", "HEAD")
+        status = _git(
+            base, "-C", str(checkout),
+            "status", "--porcelain=v2", "-z", "-uall")
+        digest = hashlib.sha256()
+        digest.update("\0".join((metadata, head, status)).encode())
+        result[rel] = digest.hexdigest()
+    return result
+
+
+def _digest(base: Path, rel: str,
+            gitlinks: dict[str, str] | None = None) -> str | None:
+    if gitlinks is None:
+        gitlinks = _gitlink_identities(base, wanted={rel})
+    if rel in gitlinks:
+        return gitlinks[rel]
     path = base / rel
     try:
         digest = hashlib.sha256()
-        digest.update(str(path.lstat().st_mode).encode())
+        mode = path.lstat().st_mode
         if path.is_symlink():
+            digest.update(str(mode).encode())
             digest.update(os.readlink(path).encode())
+        elif path.is_dir():
+            # Git does not record directory modes. Replacement descendants are
+            # measured separately, so chmod on their container is not product
+            # work and must not satisfy the contribution gate.
+            digest.update(b"directory")
         else:
+            digest.update(str(mode).encode())
             digest.update(path.read_bytes())
         return digest.hexdigest()
     except FileNotFoundError:
@@ -218,8 +249,10 @@ def dirty_digests(base: Path) -> dict[str, dict[str, str]]:
     distinguish "still exactly as I found it" from "this stage changed it
     too", even when bytes stay equal."""
     result: dict[str, dict[str, str]] = {}
-    for rel in dirty_paths(base):
-        digest = _digest(base, rel)
+    paths = dirty_paths(base)
+    gitlinks = _gitlink_identities(base, wanted=set(paths))
+    for rel in paths:
+        digest = _digest(base, rel, gitlinks)
         if digest is None:
             fail(f"cannot read dirty path {rel!r}; stage measurement refuses "
                  "to treat unreadable content as absent")
@@ -242,8 +275,10 @@ def product_tree_snapshot(base: Path) -> dict:
         if not rel.startswith(WORKFLOW_PATHS)
     ]
     digests: dict[str, str] = {}
+    gitlinks = _gitlink_identities(
+        base, index_stage=index_stage, wanted=set(tracked) | set(dirty))
     for rel in sorted(set(tracked) | set(dirty)):
-        digest = _digest(base, rel)
+        digest = _digest(base, rel, gitlinks)
         if digest is None:
             fail(f"cannot read product path {rel!r}; proof cannot attest an "
                  "unreadable final tree")
@@ -269,9 +304,14 @@ def changed_paths(base: Path, base_sha: str, already_dirty) -> list[str]:
     if base_sha and head and base_sha != head:
         committed.update(committed_paths(base, base_sha, head))
     working = set(dirty_paths(base))
+    measured_paths = (
+        working
+        | (set(already_dirty) if isinstance(already_dirty, dict) else set())
+    )
+    gitlinks = _gitlink_identities(base, wanted=measured_paths)
     current_digests: dict[str, str] = {}
-    for path in working | (set(already_dirty) if isinstance(already_dirty, dict) else set()):
-        digest = _digest(base, path)
+    for path in measured_paths:
+        digest = _digest(base, path, gitlinks)
         if digest is None:
             fail(f"cannot read changed path {path!r}; stage measurement refuses "
                  "to treat unreadable content as absent")
@@ -317,6 +357,7 @@ def contribution_paths(base: Path, paths: list[str], already_dirty,
     """
     if not isinstance(already_dirty, dict):
         already_dirty = {}
+    gitlinks = _gitlink_identities(base, wanted=set(paths))
     worktree_changed = {
         rel for rel in _git(
             base, "diff", "--name-only", "-z", base_sha, "--").split("\0")
@@ -332,7 +373,7 @@ def contribution_paths(base: Path, paths: list[str], already_dirty,
     for path in paths:
         baseline = already_dirty.get(path)
         if baseline is None:
-            current = _digest(base, path)
+            current = _digest(base, path, gitlinks)
             if current is None:
                 fail(f"cannot read changed path {path!r}; stage measurement "
                      "refuses to treat unreadable content as absent")
@@ -341,7 +382,7 @@ def contribution_paths(base: Path, paths: list[str], already_dirty,
                 result.append(path)
             continue
         before = baseline.get("digest") if isinstance(baseline, dict) else baseline
-        current = _digest(base, path)
+        current = _digest(base, path, gitlinks)
         if current is None:
             fail(f"cannot read changed path {path!r}; stage measurement refuses "
                  "to treat unreadable content as absent")
@@ -352,6 +393,20 @@ def contribution_paths(base: Path, paths: list[str], already_dirty,
 
 def split_index_paths(base: Path) -> list[str]:
     """Paths with staged content different from the tested worktree content."""
+    def exact_path_exists(rel: str) -> bool:
+        current = base
+        for part in Path(rel).parts:
+            try:
+                entries = os.listdir(current)
+            except FileNotFoundError:
+                return False
+            except OSError:
+                return True
+            if part not in entries:
+                return False
+            current /= part
+        return os.path.lexists(current)
+
     staged = {
         rel for rel in _git(
             base, "diff", "--cached", "--name-only", "-z").split("\0")
@@ -367,7 +422,86 @@ def split_index_paths(base: Path) -> list[str]:
             base, "ls-files", "--others", "--exclude-standard", "-z").split("\0")
         if rel
     )
-    return sorted(staged & unstaged)
+    staged_deletions = {
+        rel for rel in _git(
+            base, "diff", "--cached", "--no-renames", "--diff-filter=D",
+            "--name-only", "-z").split("\0")
+        if rel
+    }
+    index_paths = {
+        rel for rel in _git(
+            base, "ls-files", "--cached", "-z").split("\0")
+        if rel
+    }
+    gitlink_paths = set(_gitlink_entries(
+        _git(base, "ls-files", "--stage", "-z")
+    ))
+
+    def directory_matches_index(rel: str) -> bool:
+        root = base / rel
+        if not root.is_dir() or root.is_symlink():
+            return False
+        prefix = f"{rel.rstrip('/')}/"
+        indexed = {
+            path for path in index_paths if path.startswith(prefix)
+        }
+        if not indexed:
+            return False
+        actual: set[str] = set()
+        actual_directories: set[str] = set()
+        expected_directories: set[str] = set()
+        for indexed_path in indexed:
+            parent = Path(indexed_path).parent.as_posix()
+            while parent != rel and parent.startswith(prefix):
+                expected_directories.add(parent)
+                parent = Path(parent).parent.as_posix()
+        walk_errors: list[OSError] = []
+        for current, directories, files in os.walk(
+                root, followlinks=False, onerror=walk_errors.append):
+            current_path = Path(current)
+            gitlink_directories = [
+                name for name in directories
+                if (current_path / name).relative_to(base).as_posix()
+                in gitlink_paths
+            ]
+            actual.update(
+                (current_path / name).relative_to(base).as_posix()
+                for name in gitlink_directories
+            )
+            symlink_directories = [
+                name for name in directories
+                if (current_path / name).is_symlink()
+            ]
+            ordinary_directories = [
+                name for name in directories
+                if (
+                    name not in symlink_directories
+                    and name not in gitlink_directories
+                )
+            ]
+            actual_directories.update(
+                (current_path / name).relative_to(base).as_posix()
+                for name in ordinary_directories
+            )
+            directories[:] = ordinary_directories
+            for name in [*files, *symlink_directories]:
+                actual.add(
+                    (current_path / name).relative_to(base).as_posix()
+                )
+        return (
+            not walk_errors
+            and actual == indexed
+            and actual_directories == expected_directories
+        )
+
+    recreated = {
+        rel for rel in staged_deletions
+        if (
+            exact_path_exists(rel)
+            and not directory_matches_index(rel)
+        )
+    }
+    return sorted((staged & unstaged) | recreated)
 
 
 def protected_authority_snapshot(base: Path) -> dict[str, str]:
@@ -543,10 +677,6 @@ def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> None:
     # command — so counting workflow paths would make this check pass for
     # exactly the runs it exists to catch.
     baseline = stage.get("dirty_at_start", {})
-    product = [
-        path for path in changed_paths(base, base_sha, baseline)
-        if not path.startswith(WORKFLOW_PATHS)
-    ]
     split = [
         path for path in split_index_paths(base)
         if not path.startswith(WORKFLOW_PATHS)
@@ -555,6 +685,10 @@ def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> None:
         fail(f"{stage_id} has staged content that differs from the tested "
              f"worktree for: {', '.join(split[:10])}. Make the index and "
              "worktree agree before closing the stage.")
+    product = [
+        path for path in changed_paths(base, base_sha, baseline)
+        if not path.startswith(WORKFLOW_PATHS)
+    ]
     contributions = contribution_paths(base, product, baseline, base_sha)
     if not contributions:
         fail(f"{stage_id} closes on an EMPTY diff — no product path changed since "
@@ -603,7 +737,11 @@ def _require_successful_launch(base: Path, stage_id: str, stage: dict,
 
 
 def _run_required_tests(base: Path, stage_id: str, task: dict) -> None:
-    from .delegate import _terminate_and_reap, _wait_and_reap
+    from .delegate import (
+        blocked_termination_signals, _capture_spawn_identity, _process_table,
+        _terminate_observed_process_tree, _wait_and_reap,
+        unblock_termination_signals_in_child,
+    )
 
     for proof in task.get("required_tests") or []:
         if not isinstance(proof, dict) or not all(
@@ -627,24 +765,45 @@ def _run_required_tests(base: Path, stage_id: str, task: dict) -> None:
                 name, value = tokens.pop(0).split("=", 1)
                 env[name] = value
             proc: subprocess.Popen[str] | None = None
+            process_baseline: dict[int, tuple[int, str]] | None = None
+            process_identity = ""
             stdout = ""
             stderr = ""
             with tempfile.TemporaryFile(mode="w+t") as stdout_log, \
                     tempfile.TemporaryFile(mode="w+t") as stderr_log:
                 try:
-                    proc = subprocess.Popen(
-                        tokens, cwd=base, stdout=stdout_log,
-                        stderr=stderr_log, text=True, env=env,
-                        start_new_session=True,
-                    )
-                    if not _wait_and_reap(proc, process_token):
+                    with blocked_termination_signals():
+                        process_baseline = _process_table()
+                        proc = subprocess.Popen(
+                            tokens, cwd=base, stdout=stdout_log,
+                            stderr=stderr_log, text=True, env=env,
+                            start_new_session=True,
+                            preexec_fn=unblock_termination_signals_in_child,
+                        )
+                        process_identity = _capture_spawn_identity(proc)
+                    if not _wait_and_reap(
+                            proc, process_token, process_baseline,
+                            process_identity):
                         fail(f"{stage_id} required test {test_id!r} left a "
                              "process tree alive; proof must be terminal")
                 except OSError as exc:
-                    fail(f"{stage_id} required test {test_id!r} could not start: {exc}")
+                    if proc is not None:
+                        with blocked_termination_signals():
+                            _terminate_observed_process_tree(
+                                proc, process_token, process_baseline,
+                                process_identity)
+                    action = (
+                        "could not start" if proc is None
+                        else "could not be registered"
+                    )
+                    fail(f"{stage_id} required test {test_id!r} "
+                         f"{action}: {exc}")
                 except BaseException:
                     if proc is not None:
-                        _terminate_and_reap(proc)
+                        with blocked_termination_signals():
+                            _terminate_observed_process_tree(
+                                proc, process_token, process_baseline,
+                                process_identity)
                     raise
                 stdout_log.seek(0)
                 stderr_log.seek(0)
@@ -685,31 +844,55 @@ def _run_required_tests(base: Path, stage_id: str, task: dict) -> None:
 
 
 def _run_verify_commands(base: Path, stage_id: str, task: dict) -> None:
-    from .delegate import _terminate_and_reap, _wait_and_reap
+    from .delegate import (
+        blocked_termination_signals, _capture_spawn_identity, _process_table,
+        _terminate_observed_process_tree, _wait_and_reap,
+        unblock_termination_signals_in_child,
+    )
 
     for command in task.get("verify_commands") or []:
         if not str(command).strip():
             continue
         proc: subprocess.Popen[str] | None = None
+        process_baseline: dict[int, tuple[int, str]] | None = None
+        process_identity = ""
         process_token = f"verify-{uuid.uuid4().hex}"
         env = os.environ.copy()
         env["FORGE_PROCESS_TOKEN"] = process_token
         with tempfile.TemporaryFile(mode="w+t") as stdout_log, \
                 tempfile.TemporaryFile(mode="w+t") as stderr_log:
             try:
-                proc = subprocess.Popen(
-                    str(command), cwd=base, shell=True, stdout=stdout_log,
-                    stderr=stderr_log, text=True, start_new_session=True,
-                    env=env,
-                )
-                if not _wait_and_reap(proc, process_token):
+                with blocked_termination_signals():
+                    process_baseline = _process_table()
+                    proc = subprocess.Popen(
+                        str(command), cwd=base, shell=True, stdout=stdout_log,
+                        stderr=stderr_log, text=True, start_new_session=True,
+                        env=env,
+                        preexec_fn=unblock_termination_signals_in_child,
+                    )
+                    process_identity = _capture_spawn_identity(proc)
+                if not _wait_and_reap(
+                        proc, process_token, process_baseline,
+                        process_identity):
                     fail(f"{stage_id} verify command left a process tree alive; "
                          "verification must be terminal")
             except OSError as exc:
-                fail(f"{stage_id} verify command could not start: {exc}")
+                if proc is not None:
+                    with blocked_termination_signals():
+                        _terminate_observed_process_tree(
+                            proc, process_token, process_baseline,
+                            process_identity)
+                action = (
+                    "could not start" if proc is None
+                    else "could not be registered"
+                )
+                fail(f"{stage_id} verify command {action}: {exc}")
             except BaseException:
                 if proc is not None:
-                    _terminate_and_reap(proc)
+                    with blocked_termination_signals():
+                        _terminate_observed_process_tree(
+                            proc, process_token, process_baseline,
+                            process_identity)
                 raise
             stdout_log.seek(0)
             stderr_log.seek(0)

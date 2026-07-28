@@ -50,8 +50,40 @@ SAFE_TASK_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\Z")
 SKILL_INLINE_CHARS = 12000
 DEFAULT_MODEL = "gpt-5.6-sol"
 DEFAULT_EFFORT = "medium"
-PROCESS_QUIET_SECONDS = 0.2
+PROCESS_QUIET_SECONDS = 0.75
 PROCESS_POLL_SECONDS = 0.02
+TERMINATION_SIGNALS = tuple(
+    candidate for candidate in (
+        signal.SIGINT,
+        signal.SIGTERM,
+        getattr(signal, "SIGHUP", None),
+        getattr(signal, "SIGQUIT", None),
+    )
+    if candidate is not None
+)
+
+
+class ProcessDiscoveryError(RuntimeError):
+    """The process tree could not be inspected safely."""
+
+
+@contextlib.contextmanager
+def blocked_termination_signals():
+    """Make spawn registration and cleanup atomic with respect to termination."""
+    if not hasattr(signal, "pthread_sigmask"):
+        yield
+        return
+    previous = signal.pthread_sigmask(signal.SIG_BLOCK, TERMINATION_SIGNALS)
+    try:
+        yield
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous)
+
+
+def unblock_termination_signals_in_child() -> None:
+    """Do not leak the parent's atomic-spawn signal mask into the worker."""
+    if hasattr(signal, "pthread_sigmask"):
+        signal.pthread_sigmask(signal.SIG_UNBLOCK, TERMINATION_SIGNALS)
 
 
 def briefs_dir(base: Path) -> Path:
@@ -157,13 +189,21 @@ def _process_start_identity(pid: object) -> str | None:
     return identity if proc.returncode == 0 and identity else None
 
 
+def _process_is_zombie(pid: int) -> bool:
+    proc = subprocess.run(
+        ["ps", "-o", "stat=", "-p", str(pid)],
+        capture_output=True, text=True,
+    )
+    return proc.returncode == 0 and proc.stdout.strip().startswith("Z")
+
+
 def _process_table() -> dict[int, tuple[int, str]]:
     proc = subprocess.run(
-        ["ps", "-axo", "pid=,ppid=,lstart="],
+        ["ps", "-x", "-o", "pid=,ppid=,lstart="],
         capture_output=True, text=True,
     )
     if proc.returncode != 0:
-        return {}
+        raise ProcessDiscoveryError("could not read the process table")
     table: dict[int, tuple[int, str]] = {}
     for line in proc.stdout.splitlines():
         fields = line.split()
@@ -191,64 +231,205 @@ def _descendants(root_pid: int,
     return found
 
 
-def _tagged_processes(token: str) -> dict[int, str]:
+def _tagged_processes(
+        token: str,
+        baseline: dict[int, tuple[int, str]] | None = None,
+        current: dict[int, tuple[int, str]] | None = None) -> dict[int, str]:
     marker = f"FORGE_PROCESS_TOKEN={token}"
+    current = current if current is not None else _process_table()
+    candidates = set(current)
+    if baseline is not None:
+        candidates = {
+            pid for pid, details in current.items()
+            if baseline.get(pid) != details
+        }
     proc_root = Path("/proc")
     if proc_root.is_dir():
         found: dict[int, str] = {}
         marker_bytes = marker.encode()
-        for candidate in proc_root.iterdir():
+        entries = (proc_root / str(pid) for pid in candidates)
+        for candidate in entries:
             if not candidate.name.isdigit():
                 continue
             try:
                 environment = (candidate / "environ").read_bytes().split(b"\0")
-            except (FileNotFoundError, PermissionError, ProcessLookupError):
+            except (FileNotFoundError, ProcessLookupError):
                 continue
+            except (PermissionError, OSError) as exc:
+                raise ProcessDiscoveryError(
+                    f"could not inspect process {candidate.name}") from exc
             if marker_bytes not in environment:
                 continue
             pid = int(candidate.name)
             identity = _process_start_identity(pid)
             if identity:
                 found[pid] = identity
+            elif _pid_alive(pid):
+                raise ProcessDiscoveryError(
+                    f"could not identify tagged process {pid}")
         return found
-    proc = subprocess.run(
-        ["ps", "eww", "-axo", "pid=,lstart=,command="],
-        capture_output=True, text=True,
-    )
-    if proc.returncode != 0:
+    if not candidates:
         return {}
+    command = [
+        "ps", "eww",
+        "-p", ",".join(str(pid) for pid in sorted(candidates)),
+        "-o", "pid=,lstart=,command=",
+    ]
+    proc = subprocess.run(command, capture_output=True, text=True)
+    if proc.returncode != 0:
+        remaining = _process_table()
+        if not any(
+            remaining.get(pid) == current.get(pid)
+            for pid in candidates
+        ):
+            return {}
+        raise ProcessDiscoveryError("could not inspect tagged processes")
     found: dict[int, str] = {}
     for line in proc.stdout.splitlines():
         if marker not in line:
             continue
         fields = line.split()
         if len(fields) < 7:
-            continue
+            raise ProcessDiscoveryError("malformed tagged-process record")
         try:
             pid = int(fields[0])
-        except ValueError:
-            continue
+        except ValueError as exc:
+            raise ProcessDiscoveryError(
+                "malformed tagged-process PID") from exc
         found[pid] = " ".join(fields[1:6])
     return found
 
 
-def _terminate_identified_process(pid: int, identity: str) -> bool:
-    if _process_start_identity(pid) != identity:
-        return True
-    with contextlib.suppress(ProcessLookupError):
-        os.kill(pid, signal.SIGTERM)
-    deadline = time.monotonic() + 5
-    while (_process_start_identity(pid) == identity
-           and time.monotonic() < deadline):
-        time.sleep(0.05)
-    if _process_start_identity(pid) == identity:
-        with contextlib.suppress(ProcessLookupError):
-            os.kill(pid, signal.SIGKILL)
-        deadline = time.monotonic() + 5
-        while (_process_start_identity(pid) == identity
-               and time.monotonic() < deadline):
-            time.sleep(0.05)
-    return _process_start_identity(pid) != identity
+def _live_identified_processes(
+        processes: dict[int, str]) -> dict[int, str]:
+    live: dict[int, str] = {}
+    for pid, identity in processes.items():
+        current = _process_start_identity(pid)
+        if current is None:
+            if _pid_alive(pid):
+                raise ProcessDiscoveryError(
+                    f"could not identify observed process {pid}")
+            continue
+        if current == identity and not _process_is_zombie(pid):
+            live[pid] = identity
+    return live
+
+
+def _signal_identified_processes(
+        processes: dict[int, str],
+        signum: int = signal.SIGTERM) -> dict[int, str]:
+    signalled: dict[int, str] = {}
+    for pid, identity in processes.items():
+        # Keep the identity check adjacent to os.kill: a batch-wide snapshot
+        # leaves enough time for an early PID to exit and be reused.
+        if _process_is_zombie(pid):
+            continue
+        if _process_start_identity(pid) != identity:
+            continue
+        try:
+            os.kill(pid, signum)
+        except ProcessLookupError:
+            continue
+        signalled[pid] = identity
+    return signalled
+
+
+def _signal_verified_process_group(
+        pgid: int, leader_identity: str) -> bool:
+    """Signal a group only while its captured leader identity is still live."""
+    if _process_is_zombie(pgid):
+        return False
+    if _process_start_identity(pgid) != leader_identity:
+        return False
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _capture_spawn_identity(proc: subprocess.Popen[str]) -> str:
+    """Identify a new process or stop its owned group before registration."""
+    try:
+        identity = _process_start_identity(proc.pid)
+    except OSError as exc:
+        identity_error: OSError = exc
+    else:
+        if identity:
+            return identity
+        identity_error = OSError(
+            f"could not identify spawned process {proc.pid}")
+    if proc.poll() is not None:
+        return ""
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        if proc.poll() is None:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                f"unidentified process group {proc.pid} survived termination"
+            ) from exc
+    raise identity_error
+
+
+def _terminate_processes_until_quiet(
+        initial: dict[int, str], discover, reap=None) -> bool:
+    """Discover and terminate new descendants until the set stays empty."""
+    known = dict(initial)
+    term_sent: dict[tuple[int, str], float] = {}
+    kill_sent: dict[tuple[int, str], float] = {}
+    quiet_since: float | None = None
+    while True:
+        if reap is not None:
+            reap()
+        try:
+            known.update(discover())
+        except ProcessDiscoveryError:
+            return False
+        live = _live_identified_processes(known)
+        now = time.monotonic()
+        for pid, identity in live.items():
+            key = (pid, identity)
+            if key not in term_sent:
+                if _signal_identified_processes({pid: identity}):
+                    term_sent[key] = now
+                continue
+            if now - term_sent[key] >= 5 and key not in kill_sent:
+                if _signal_identified_processes(
+                        {pid: identity}, signal.SIGKILL):
+                    kill_sent[key] = now
+                continue
+            if key in kill_sent and now - kill_sent[key] >= 5:
+                return False
+        if live:
+            quiet_since = None
+        elif quiet_since is None:
+            quiet_since = now
+        elif now - quiet_since >= PROCESS_QUIET_SECONDS:
+            return True
+        time.sleep(PROCESS_POLL_SECONDS)
+
+
+def _terminate_tagged_processes(
+        token: str,
+        baseline: dict[int, tuple[int, str]] | None = None,
+        initial: dict[int, str] | None = None,
+        reap=None) -> bool:
+    return _terminate_processes_until_quiet(
+        initial or {},
+        lambda: _tagged_processes(token, baseline) if token else {},
+        reap=reap,
+    )
 
 
 def _acquire_delegation_lock(base: Path, lock_id: str, launch_id: str,
@@ -330,6 +511,18 @@ def delegation_exclusion(base: Path, task_id: str, *,
 
 
 def _reconcile_stale_launches(base: Path, task_id: str) -> None:
+    def reap_tagged(entry: dict) -> None:
+        launch_id = entry.get("launch_id")
+        marker_value = entry.get("process_token")
+        if not isinstance(marker_value, str) and isinstance(launch_id, str):
+            marker_value = f"delegation-{launch_id}"
+        if (
+            isinstance(marker_value, str)
+            and not _terminate_tagged_processes(marker_value)
+        ):
+            fail(f"{task_id} has a live process from an interrupted launch; "
+                 "Forge could not reap it, so a second writer will not start.")
+
     launches: dict[str, dict] = {}
     for index, entry in enumerate(load_delegations(base)):
         if entry.get("task") != task_id or entry.get("write") is not True:
@@ -342,6 +535,7 @@ def _reconcile_stale_launches(base: Path, task_id: str) -> None:
             continue
         pid = entry.get("pid")
         if status == "starting" and not _pid_alive(pid):
+            reap_tagged(entry)
             failed = {**entry, "at": now_iso(), "launch_status": "failed"}
             failed.pop("exit_code", None)
             append_delegation(base, failed)
@@ -354,10 +548,12 @@ def _reconcile_stale_launches(base: Path, task_id: str) -> None:
                      f"(pid {pid}); wait for it to finish.")
             # The PID has been recycled. It is not the recorded writer, and its
             # process group must not be signalled as if it were.
+            reap_tagged(entry)
             failed = {**entry, "at": now_iso(), "launch_status": "failed"}
             failed.pop("exit_code", None)
             append_delegation(base, failed)
             continue
+        reap_tagged(entry)
         pgid = entry.get("pgid", entry.get("pid"))
         if _process_group_alive(pgid):
             fail(f"{task_id} has a live process group {pgid}, but its recorded "
@@ -368,34 +564,52 @@ def _reconcile_stale_launches(base: Path, task_id: str) -> None:
         append_delegation(base, failed)
 
 
-def _terminate_process_group(pgid: int, reap=None) -> bool:
-    if _process_group_alive(pgid):
-        with contextlib.suppress(ProcessLookupError):
-            os.killpg(pgid, signal.SIGTERM)
-    deadline = time.monotonic() + 5
-    while _process_group_alive(pgid) and time.monotonic() < deadline:
-        if reap is not None:
-            reap()
-        time.sleep(0.05)
-    if _process_group_alive(pgid):
-        with contextlib.suppress(ProcessLookupError):
-            os.killpg(pgid, signal.SIGKILL)
-        deadline = time.monotonic() + 5
-        while _process_group_alive(pgid) and time.monotonic() < deadline:
-            if reap is not None:
-                reap()
-            time.sleep(0.05)
-    return not _process_group_alive(pgid)
+def _reap_observed_process_tree(
+        proc: subprocess.Popen[str], token: str,
+        descendants: dict[int, str],
+        baseline: dict[int, tuple[int, str]] | None,
+        *, foreground_identity: str = "") -> bool:
+    """Signal observed PIDs while the foreground process is being reaped."""
+    if foreground_identity and proc.poll() is None:
+        _signal_verified_process_group(proc.pid, foreground_identity)
+        descendants[proc.pid] = foreground_identity
+    children_stopped = _terminate_tagged_processes(
+        token, baseline, descendants, reap=proc.poll)
+    foreground_stopped = proc.poll() is not None
+    return foreground_stopped and children_stopped
 
 
-def _terminate_and_reap(proc: subprocess.Popen[str]) -> bool:
-    terminated = _terminate_process_group(proc.pid, reap=proc.poll)
-    if proc.poll() is None:
-        proc.wait()
-    return terminated
+def _terminate_observed_process_tree(
+        proc: subprocess.Popen[str], token: str,
+        baseline: dict[int, tuple[int, str]] | None = None,
+        foreground_identity: str = "") -> bool:
+    """Cancel a spawned command immediately, then reap every observed child."""
+    # The foreground process group is the one resource we already own and can
+    # identify without walking the process table. Signal it before fallible
+    # descendant discovery so an unavailable `ps` cannot leave the command
+    # running after Forge exits.
+    if foreground_identity and proc.poll() is None:
+        _signal_verified_process_group(proc.pid, foreground_identity)
+    try:
+        descendants = _descendants(proc.pid, _process_table())
+    except ProcessDiscoveryError:
+        descendants = {}
+    try:
+        if token:
+            descendants.update(_tagged_processes(token, baseline))
+    except ProcessDiscoveryError:
+        # `_reap_observed_process_tree` still waits on the owned foreground
+        # process and reports incomplete descendant cleanup.
+        pass
+    return _reap_observed_process_tree(
+        proc, token, descendants, baseline,
+        foreground_identity=foreground_identity)
 
 
-def _wait_and_reap(proc: subprocess.Popen[str], token: str = "") -> bool:
+def _wait_and_reap(
+        proc: subprocess.Popen[str], token: str = "",
+        baseline: dict[int, tuple[int, str]] | None = None,
+        foreground_identity: str = "") -> bool:
     """Wait for trusted work and reap its observed process tree.
 
     A child can create a new session and leave the leader's process group. PID
@@ -409,34 +623,23 @@ def _wait_and_reap(proc: subprocess.Popen[str], token: str = "") -> bool:
     descendants: dict[int, str] = {}
     try:
         while proc.poll() is None:
-            descendants.update(_descendants(proc.pid, _process_table()))
+            current = _process_table()
+            descendants.update(_descendants(proc.pid, current))
             if token:
-                descendants.update(_tagged_processes(token))
+                descendants.update(
+                    _tagged_processes(token, baseline, current))
             time.sleep(PROCESS_POLL_SECONDS)
-        descendants.update(_descendants(proc.pid, _process_table()))
+        current = _process_table()
+        descendants.update(_descendants(proc.pid, current))
         if token:
-            descendants.update(_tagged_processes(token))
+            descendants.update(_tagged_processes(token, baseline, current))
     except BaseException:
-        _terminate_and_reap(proc)
-        for pid, identity in descendants.items():
-            _terminate_identified_process(pid, identity)
+        _reap_observed_process_tree(
+            proc, token, descendants, baseline,
+            foreground_identity=foreground_identity)
         raise
-    group_stopped = _terminate_and_reap(proc)
-    children_stopped = True
-    deadline = time.monotonic() + PROCESS_QUIET_SECONDS
-    while True:
-        descendants.update(_descendants(proc.pid, _process_table()))
-        if token:
-            descendants.update(_tagged_processes(token))
-        for pid, identity in list(descendants.items()):
-            children_stopped = (
-                _terminate_identified_process(pid, identity)
-                and children_stopped
-            )
-        if time.monotonic() >= deadline:
-            break
-        time.sleep(PROCESS_POLL_SECONDS)
-    return group_stopped and children_stopped
+    return _reap_observed_process_tree(
+        proc, token, descendants, baseline)
 
 
 def current_delegation(base: Path, task_id: str, *,
@@ -699,6 +902,7 @@ def cmd_delegate(args: argparse.Namespace) -> None:
         print("Print-only: companion was not launched and no launch evidence was recorded.")
         return
 
+    process_token = f"delegation-{launch_id}"
     record = {
         "generated_by": "orchestrator",
         "at": now_iso(),
@@ -714,6 +918,7 @@ def cmd_delegate(args: argparse.Namespace) -> None:
             json.dumps(argv, separators=(",", ":")).encode()).hexdigest(),
         "launch_status": "starting",
     }
+    record["process_token"] = process_token
     if story:
         record["story"] = story
     if args.background:
@@ -722,18 +927,13 @@ def cmd_delegate(args: argparse.Namespace) -> None:
         record["stage_started_at"] = stage["started_at"]
     terminal_recorded = False
     proc: subprocess.Popen[str] | None = None
+    process_baseline: dict[int, tuple[int, str]] | None = None
+    process_identity = ""
     stdout = ""
     stderr = ""
     stdout_log = tempfile.TemporaryFile(mode="w+t")
     stderr_log = tempfile.TemporaryFile(mode="w+t")
-    handled_signals = [
-        candidate for candidate in (
-            signal.SIGTERM,
-            getattr(signal, "SIGHUP", None),
-            getattr(signal, "SIGQUIT", None),
-        )
-        if candidate is not None
-    ]
+    handled_signals = list(TERMINATION_SIGNALS)
     previous_handlers = {
         candidate: signal.getsignal(candidate) for candidate in handled_signals
     }
@@ -746,43 +946,46 @@ def cmd_delegate(args: argparse.Namespace) -> None:
     append_delegation(base, record)
     try:
         try:
-            process_token = f"delegation-{launch_id}"
             process_env = os.environ.copy()
             process_env["FORGE_PROCESS_TOKEN"] = process_token
-            proc = subprocess.Popen(
-                argv, cwd=base, stdout=stdout_log, stderr=stderr_log,
-                text=True, start_new_session=True, env=process_env,
-            )
+            with blocked_termination_signals():
+                process_baseline = _process_table()
+                proc = subprocess.Popen(
+                    argv, cwd=base, stdout=stdout_log, stderr=stderr_log,
+                    text=True, start_new_session=True, env=process_env,
+                    preexec_fn=unblock_termination_signals_in_child,
+                )
+                process_identity = _capture_spawn_identity(proc)
+                record.update({
+                    "at": now_iso(),
+                    "launch_status": "running",
+                    "pid": proc.pid,
+                    "pgid": proc.pid,
+                    "pid_started": process_identity,
+                })
+                if lock is not None:
+                    _update_delegation_lock(
+                        lock, record["launch_id"], proc.pid,
+                        owner_pgid=proc.pid)
+                append_delegation(base, record)
         except OSError as exc:
-            append_delegation(base, {
-                **record, "at": now_iso(), "launch_status": "failed",
-            })
-            terminal_recorded = True
-            fail(f"Codex companion could not start: {exc}")
-        record.update({
-            "at": now_iso(),
-            "launch_status": "running",
-            "pid": proc.pid,
-            "pgid": proc.pid,
-            "pid_started": _process_start_identity(proc.pid) or "",
-        })
-        if lock is not None:
-            _update_delegation_lock(
-                lock, record["launch_id"], proc.pid, owner_pgid=proc.pid)
-        append_delegation(base, record)
+            if proc is None:
+                append_delegation(base, {
+                    **record, "at": now_iso(), "launch_status": "failed",
+                })
+                terminal_recorded = True
+                fail(f"Codex companion could not start: {exc}")
+            # Popen succeeded; the outer handler must reap that process tree
+            # before any terminal launch row is recorded.
+            fail(f"Codex companion launch could not be registered: {exc}")
         try:
-            if not _wait_and_reap(proc, process_token):
+            if not _wait_and_reap(
+                    proc, process_token, process_baseline, process_identity):
                 raise RuntimeError("companion process tree survived termination")
         except BaseException:
-            append_delegation(base, {
-                **record, "at": now_iso(), "launch_status": "failed",
-                "exit_code": proc.returncode if proc.returncode is not None else 130,
-            })
-            terminal_recorded = True
+            # The outer handler retries cleanup and records a terminal failure
+            # only after the full observed process tree is verified dead.
             raise
-        if not _terminate_and_reap(proc):
-            fail("companion process tree remained alive after its leader exited; "
-                 "launch stays active and cannot satisfy stage close")
         stdout_log.seek(0)
         stderr_log.seek(0)
         stdout = stdout_log.read()
@@ -812,7 +1015,9 @@ def cmd_delegate(args: argparse.Namespace) -> None:
         terminal_recorded = True
     except BaseException:
         if proc is not None and not terminal_recorded:
-            terminated = _wait_and_reap(proc)
+            with blocked_termination_signals():
+                terminated = _terminate_observed_process_tree(
+                    proc, process_token, process_baseline, process_identity)
             if terminated:
                 append_delegation(base, {
                     **record, "at": now_iso(), "launch_status": "failed",

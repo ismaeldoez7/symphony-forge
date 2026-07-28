@@ -8,6 +8,7 @@ exercised through their real CLI surface.
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
@@ -2873,6 +2874,20 @@ def test_stage_done_does_not_credit_unchanged_initial_dirt(repo, tmp_path):
     assert code != 0 and "EMPTY diff" in out
 
 
+def test_stage_done_does_not_credit_replacement_directory_chmod(
+        repo, tmp_path):
+    write_in_scope(repo, "src/pkg", "old file\n")
+    git(repo, "add", "src/pkg")
+    git(repo, "commit", "-qm", "track package file")
+    git(repo, "rm", "src/pkg")
+    write_in_scope(repo, "src/pkg/module.py", "replacement module\n")
+    git(repo, "add", "src/pkg/module.py")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    os.chmod(repo / "src/pkg", 0o700)
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "EMPTY diff" in out
+
+
 def test_stage_done_refuses_split_index_and_worktree_content(repo, tmp_path):
     write_in_scope(repo, "src/core.py", "old\n")
     git(repo, "add", "src/core.py")
@@ -2898,6 +2913,166 @@ def test_stage_done_refuses_staged_delete_recreated_as_untracked(repo, tmp_path)
     assert "staged content that differs from the tested worktree" in out
 
 
+def test_stage_done_refuses_ignored_recreation_of_staged_delete(repo, tmp_path):
+    write_in_scope(repo, "src/core.py", "tracked\n")
+    git(repo, "add", "src/core.py")
+    git(repo, "commit", "-qm", "track core")
+    (repo / ".gitignore").write_text("src/core.py\n")
+    git(repo, "add", ".gitignore")
+    git(repo, "commit", "-qm", "ignore generated core")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    git(repo, "rm", "src/core.py")
+    write_in_scope(repo, "src/core.py", "ignored recreation\n")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0
+    assert "staged content that differs from the tested worktree" in out
+
+
+def test_stage_done_refuses_ignored_recreation_of_rename_source(
+        repo, tmp_path):
+    write_in_scope(repo, "src/source.py", "tracked\n")
+    git(repo, "add", "src/source.py")
+    git(repo, "commit", "-qm", "track source")
+    (repo / ".gitignore").write_text("src/source.py\n")
+    git(repo, "add", ".gitignore")
+    git(repo, "commit", "-qm", "ignore generated source")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    git(repo, "mv", "src/source.py", "src/renamed.py")
+    write_in_scope(repo, "src/source.py", "ignored recreation\n")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0
+    assert "staged content that differs from the tested worktree" in out
+
+
+def test_split_index_allows_case_only_rename(repo):
+    write_in_scope(repo, "src/lower.py", "tracked\n")
+    git(repo, "add", "src/lower.py")
+    git(repo, "commit", "-qm", "track lowercase path")
+    git(repo, "mv", "src/lower.py", "src/Lower.py")
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.stages import split_index_paths
+        split = split_index_paths(repo)
+    finally:
+        sys.path.pop(0)
+    assert split == []
+
+
+def test_stage_done_allows_staged_file_to_directory_replacement(repo, tmp_path):
+    write_in_scope(repo, "src/pkg", "old file\n")
+    git(repo, "add", "src/pkg")
+    git(repo, "commit", "-qm", "track package file")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    git(repo, "rm", "src/pkg")
+    write_in_scope(repo, "src/pkg/module.py", "replacement module\n")
+    git(repo, "add", "src/pkg/module.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+
+
+def test_stage_done_refuses_ignored_extra_in_file_to_directory_replacement(
+        repo, tmp_path):
+    write_in_scope(repo, "src/pkg", "old file\n")
+    git(repo, "add", "src/pkg")
+    git(repo, "commit", "-qm", "track package file")
+    (repo / ".gitignore").write_text("src/pkg/generated.py\n")
+    git(repo, "add", ".gitignore")
+    git(repo, "commit", "-qm", "ignore generated package file")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    git(repo, "rm", "src/pkg")
+    write_in_scope(repo, "src/pkg/module.py", "replacement module\n")
+    write_in_scope(repo, "src/pkg/generated.py", "ignored extra\n")
+    git(repo, "add", "src/pkg/module.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0
+    assert "staged content that differs from the tested worktree" in out
+
+
+def test_split_index_fails_closed_when_replacement_walk_errors(
+        repo, monkeypatch):
+    write_in_scope(repo, "src/pkg", "old file\n")
+    git(repo, "add", "src/pkg")
+    git(repo, "commit", "-qm", "track package file")
+    git(repo, "rm", "src/pkg")
+    write_in_scope(repo, "src/pkg/module.py", "replacement module\n")
+    git(repo, "add", "src/pkg/module.py")
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.stages as stages
+
+        def unreadable_walk(_root, *, followlinks, onerror):
+            assert followlinks is False
+            onerror(PermissionError("unreadable subtree"))
+            return iter(())
+
+        monkeypatch.setattr(stages.os, "walk", unreadable_walk)
+        split = stages.split_index_paths(repo)
+    finally:
+        sys.path.pop(0)
+    assert split == ["src/pkg"]
+
+
+def test_split_index_refuses_extra_empty_replacement_directory(repo):
+    write_in_scope(repo, "src/pkg", "old file\n")
+    git(repo, "add", "src/pkg")
+    git(repo, "commit", "-qm", "track package file")
+    git(repo, "rm", "src/pkg")
+    write_in_scope(repo, "src/pkg/module.py", "replacement module\n")
+    (repo / "src" / "pkg" / "empty-cache").mkdir()
+    git(repo, "add", "src/pkg/module.py")
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.stages import split_index_paths
+        split = split_index_paths(repo)
+    finally:
+        sys.path.pop(0)
+    assert split == ["src/pkg"]
+
+
+def test_stage_done_rechecks_replacement_directory_after_proof(
+        repo, tmp_path):
+    write_in_scope(repo, "src/pkg", "old file\n")
+    git(repo, "add", "src/pkg")
+    git(repo, "commit", "-qm", "track package file")
+    (repo / ".gitignore").write_text("src/pkg/generated.py\n")
+    git(repo, "add", ".gitignore")
+    git(repo, "commit", "-qm", "ignore generated package file")
+    command = (
+        "python3 -c \"from pathlib import Path; "
+        "Path('src/pkg/generated.py').write_text('ignored proof output')\""
+    )
+    task = {**STAGE_TASK, "verify_commands": [command]}
+    start_stage(repo, tmp_path, task)
+    git(repo, "rm", "src/pkg")
+    write_in_scope(repo, "src/pkg/module.py", "replacement module\n")
+    git(repo, "add", "src/pkg/module.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0
+    assert "staged content that differs from the tested worktree" in out
+
+
+def test_split_index_treats_checked_out_gitlink_as_directory_leaf(repo):
+    write_in_scope(repo, "src/pkg", "old file\n")
+    git(repo, "add", "src/pkg")
+    git(repo, "commit", "-qm", "track package file")
+    git(repo, "rm", "src/pkg")
+    git(
+        repo, "update-index", "--add", "--cacheinfo",
+        "160000", head(repo), "src/pkg/sub",
+    )
+    checkout = repo / "src" / "pkg" / "sub"
+    checkout.mkdir(parents=True)
+    (checkout / ".git").write_text("gitdir: elsewhere\n")
+    (checkout / "checked-out.txt").write_text("submodule content\n")
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.stages import split_index_paths
+        split = split_index_paths(repo)
+    finally:
+        sys.path.pop(0)
+    assert split == []
+
+
 def test_stage_measurement_refuses_an_unreadable_dirty_path(
         repo, monkeypatch, capsys):
     write_in_scope(repo, "src/unreadable.py")
@@ -2907,8 +3082,9 @@ def test_stage_measurement_refuses_an_unreadable_dirty_path(
         original = stages._digest
         monkeypatch.setattr(
             stages, "_digest",
-            lambda base, rel: None
-            if rel == "src/unreadable.py" else original(base, rel),
+            lambda base, rel, gitlinks=None: None
+            if rel == "src/unreadable.py"
+            else original(base, rel, gitlinks),
         )
         with pytest.raises(SystemExit):
             stages.dirty_digests(repo)
@@ -2959,6 +3135,41 @@ def test_stage_done_measures_a_changed_gitlink(repo, tmp_path):
     assert code != 0
     assert "vendor/dependency" in out and "write_scope" in out
     assert "unreadable" not in out
+
+
+def test_gitlink_index_parser_preserves_unusual_path_characters(repo):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.stages import _gitlink_entries
+        rel = "vendor/ leading\tand\ntrailing "
+        parsed = _gitlink_entries(f"160000 {'a' * 40} 0\t{rel}\0")
+    finally:
+        sys.path.pop(0)
+    assert parsed == {rel: f"160000 {'a' * 40} 0"}
+
+
+def test_product_snapshot_reads_gitlink_index_once(repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.stages as stages
+        original = stages._git
+        calls = []
+
+        def counted(base, *args):
+            calls.append(args)
+            return original(base, *args)
+
+        monkeypatch.setattr(stages, "_git", counted)
+        stages.product_tree_snapshot(repo)
+    finally:
+        sys.path.pop(0)
+    assert sum(
+        args[:3] == ("ls-files", "--stage", "-z") for args in calls
+    ) == 1
+    assert not any(
+        args[:2] == ("ls-files", "--stage") and "-z" not in args
+        for args in calls
+    )
 
 
 def test_stage_done_checks_both_sides_of_a_committed_rename(repo, tmp_path):
@@ -3161,7 +3372,7 @@ def test_stage_done_reaps_verify_command_descendants(repo, tmp_path):
     command = (
         "python3 -c \"import subprocess,sys; "
         "subprocess.Popen([sys.executable,'-c',"
-        "'import time; from pathlib import Path; time.sleep(0.5); "
+        "'import time; from pathlib import Path; time.sleep(5); "
         "Path(\\\"src/late-verify.py\\\").write_text(\\\"late\\\")'],"
         "stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,"
         "start_new_session=True)\""
@@ -3171,15 +3382,18 @@ def test_stage_done_reaps_verify_command_descendants(repo, tmp_path):
     write_in_scope(repo, "src/core.py")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
-    threading.Event().wait(0.7)
+    threading.Event().wait(0.2)
     assert not (repo / "src" / "late-verify.py").exists()
 
 
-def test_stage_done_termination_signal_reaps_active_proof(repo, tmp_path):
+@pytest.mark.parametrize("termination_signal", [signal.SIGTERM, signal.SIGINT])
+def test_stage_done_termination_signal_reaps_active_proof(
+        repo, tmp_path, termination_signal):
     command = (
         "python3 -c \"import os,signal,time; from pathlib import Path; "
         "Path('.factory/proof-child.pid').write_text(str(os.getpid())); "
-        "signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(30)\""
+        "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+        "signal.signal(signal.SIGINT, signal.SIG_IGN); time.sleep(30)\""
     )
     task = {**STAGE_TASK, "verify_commands": [command]}
     start_stage(repo, tmp_path, task)
@@ -3199,11 +3413,56 @@ def test_stage_done_termination_signal_reaps_active_proof(repo, tmp_path):
         threading.Event().wait(0.05)
     assert marker.is_file()
     child_pid = int(marker.read_text())
-    proc.send_signal(signal.SIGTERM)
+    proc.send_signal(termination_signal)
     proc.communicate(timeout=12)
     assert proc.returncode != 0
     with pytest.raises(ProcessLookupError):
         os.kill(child_pid, 0)
+
+
+def test_verify_reaps_spawn_when_process_identity_probe_fails(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        import forge_cli.stages as stages
+
+        class FakeProcess:
+            pid = 424242
+
+            def __init__(self):
+                self.returncode = None
+
+            def poll(self):
+                return self.returncode
+
+            def wait(self, timeout):
+                assert timeout == 5
+                self.returncode = -signal.SIGTERM
+                return self.returncode
+
+        fake_process = FakeProcess()
+        cleaned = []
+        signals = []
+        monkeypatch.setattr(stages.subprocess, "Popen",
+                            lambda *_args, **_kwargs: fake_process)
+        monkeypatch.setattr(delegate, "_process_table", lambda: {})
+        monkeypatch.setattr(
+            delegate, "_process_start_identity",
+            lambda _pid: (_ for _ in ()).throw(OSError("ps unavailable")))
+        monkeypatch.setattr(
+            delegate.os, "killpg",
+            lambda pgid, signum: signals.append((pgid, signum)))
+        monkeypatch.setattr(
+            delegate, "_terminate_observed_process_tree",
+            lambda proc, *_args: cleaned.append(proc.pid) or True)
+        with pytest.raises(SystemExit):
+            stages._run_verify_commands(
+                repo, "T1", {"verify_commands": ["true"]})
+    finally:
+        sys.path.pop(0)
+    assert cleaned == [fake_process.pid]
+    assert signals == [(fake_process.pid, signal.SIGTERM)]
 
 
 def test_stage_done_reloads_launch_after_proof_commands(repo, tmp_path):
@@ -3549,6 +3808,7 @@ def test_delegate_records_ledger_entry(repo, tmp_path):
     assert entry["launch_id"] == lines[0]["launch_id"] == lines[1]["launch_id"]
     assert "/1.0.0/scripts/codex-companion.mjs" in entry["companion_path"]
     assert entry["stage_started_at"] and entry["task_sha256"] and entry["argv_sha256"]
+    assert entry["process_token"] == f"delegation-{entry['launch_id']}"
     digest = hashlib.sha256(
         (repo / ".factory" / "briefs" / "T1.md").read_bytes()).hexdigest()
     assert entry["brief_sha256"] == digest
@@ -3830,6 +4090,400 @@ def test_delegate_retry_reconciles_interrupted_running_launch(repo, tmp_path):
     assert entries[-1]["launch_status"] == "succeeded"
 
 
+def test_starting_launch_reaps_tagged_process_before_retry(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        launch_id = "interrupted-start"
+        entry = {
+            "task": "T1",
+            "write": True,
+            "launch_id": launch_id,
+            "process_token": f"delegation-{launch_id}",
+            "launch_status": "starting",
+        }
+        recorded = []
+        stopped = []
+        monkeypatch.setattr(delegate, "load_delegations", lambda _base: [entry])
+        monkeypatch.setattr(
+            delegate, "_terminate_tagged_processes",
+            lambda marker_value: stopped.append(marker_value) or True)
+        monkeypatch.setattr(
+            delegate, "append_delegation",
+            lambda _base, record: recorded.append(record))
+        delegate._reconcile_stale_launches(repo, "T1")
+    finally:
+        sys.path.pop(0)
+    assert stopped == [entry["process_token"]]
+    assert recorded[-1]["launch_status"] == "failed"
+
+
+def test_running_launch_stays_nonterminal_when_tagged_process_survives(
+        repo, monkeypatch, capsys):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        launch_id = "cleanup-failed"
+        entry = {
+            "task": "T1",
+            "write": True,
+            "launch_id": launch_id,
+            "process_token": f"delegation-{launch_id}",
+            "launch_status": "running",
+            "pid": 123,
+            "pgid": 123,
+        }
+        recorded = []
+        monkeypatch.setattr(delegate, "load_delegations", lambda _base: [entry])
+        monkeypatch.setattr(delegate, "_pid_alive", lambda _pid: False)
+        monkeypatch.setattr(
+            delegate, "_terminate_tagged_processes",
+            lambda _marker_value: False)
+        monkeypatch.setattr(
+            delegate, "append_delegation",
+            lambda _base, record: recorded.append(record))
+        with pytest.raises(SystemExit):
+            delegate._reconcile_stale_launches(repo, "T1")
+    finally:
+        sys.path.pop(0)
+    assert recorded == []
+    assert "second writer will not start" in capsys.readouterr().out
+
+
+def test_process_signal_revalidates_each_pid_identity(repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        killed = []
+        monkeypatch.setattr(
+            delegate, "_process_start_identity",
+            lambda pid: "replacement" if pid == 101 else "live")
+        monkeypatch.setattr(delegate, "_process_is_zombie", lambda _pid: False)
+        monkeypatch.setattr(
+            delegate.os, "kill",
+            lambda pid, signum: killed.append((pid, signum)))
+        signalled = delegate._signal_identified_processes({
+            101: "original",
+            102: "live",
+        })
+    finally:
+        sys.path.pop(0)
+    assert signalled == {102: "live"}
+    assert killed == [(102, signal.SIGTERM)]
+
+
+def test_process_signal_revalidates_identity_after_zombie_probe(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        state = {"identity": "original"}
+        killed = []
+        monkeypatch.setattr(
+            delegate, "_process_start_identity",
+            lambda _pid: state["identity"])
+
+        def probe_zombie(_pid):
+            state["identity"] = "replacement"
+            return False
+
+        monkeypatch.setattr(delegate, "_process_is_zombie", probe_zombie)
+        monkeypatch.setattr(
+            delegate.os, "kill",
+            lambda pid, signum: killed.append((pid, signum)))
+        signalled = delegate._signal_identified_processes({
+            101: "original",
+        })
+    finally:
+        sys.path.pop(0)
+    assert signalled == {}
+    assert killed == []
+
+
+def test_process_group_signal_requires_live_leader_identity(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        signals = []
+        monkeypatch.setattr(delegate, "_process_is_zombie", lambda _pid: False)
+        monkeypatch.setattr(
+            delegate, "_process_start_identity",
+            lambda pid: "leader" if pid == 101 else None)
+        monkeypatch.setattr(
+            delegate.os, "killpg",
+            lambda pgid, signum: signals.append((pgid, signum)))
+        assert delegate._signal_verified_process_group(101, "leader") is True
+        assert delegate._signal_verified_process_group(102, "old") is False
+    finally:
+        sys.path.pop(0)
+    assert signals == [(101, signal.SIGTERM)]
+
+
+def test_process_table_failure_is_not_treated_as_an_empty_table(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+
+        class FailedPs:
+            returncode = 1
+            stdout = ""
+
+        monkeypatch.setattr(
+            delegate.subprocess, "run",
+            lambda *_args, **_kwargs: FailedPs())
+        with pytest.raises(delegate.ProcessDiscoveryError):
+            delegate._process_table()
+    finally:
+        sys.path.pop(0)
+
+
+def test_tagged_process_scan_is_limited_to_same_user_processes(
+        repo, tmp_path, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        real_path = Path
+        proc_root = tmp_path / "proc"
+        for pid in ("101", "202"):
+            (proc_root / pid).mkdir(parents=True)
+        (proc_root / "101" / "environ").write_bytes(b"OTHER=value\0")
+        (proc_root / "202" / "environ").write_bytes(
+            b"FORGE_PROCESS_TOKEN=owned\0")
+        monkeypatch.setattr(
+            delegate, "Path",
+            lambda value: proc_root if value == "/proc" else real_path(value))
+        monkeypatch.setattr(
+            delegate, "_process_table", lambda: {101: (1, "same-user")})
+        found = delegate._tagged_processes("owned")
+    finally:
+        sys.path.pop(0)
+    assert found == {}
+
+
+def test_live_process_identity_probe_failure_is_not_treated_as_exit(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        monkeypatch.setattr(
+            delegate, "_process_start_identity", lambda _pid: None)
+        monkeypatch.setattr(delegate, "_pid_alive", lambda _pid: True)
+        with pytest.raises(delegate.ProcessDiscoveryError):
+            delegate._live_identified_processes({101: "identity"})
+    finally:
+        sys.path.pop(0)
+
+
+def test_process_cleanup_fails_when_discovery_is_unavailable(
+        repo):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+
+        def unavailable():
+            raise delegate.ProcessDiscoveryError("ps unavailable")
+
+        stopped = delegate._terminate_processes_until_quiet(
+            {}, unavailable)
+    finally:
+        sys.path.pop(0)
+    assert stopped is False
+
+
+def test_immediate_cleanup_signals_owned_group_before_discovery(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        events = []
+
+        class FakeProcess:
+            pid = 101
+
+            def poll(self):
+                return None
+
+        def unavailable():
+            events.append("discover")
+            raise delegate.ProcessDiscoveryError("ps unavailable")
+
+        monkeypatch.setattr(delegate, "_process_table", unavailable)
+        monkeypatch.setattr(
+            delegate, "_signal_verified_process_group",
+            lambda _pid, _identity: events.append("signal") or True)
+        monkeypatch.setattr(
+            delegate, "_reap_observed_process_tree",
+            lambda *_args, **_kwargs: events.append("reap") or False)
+        stopped = delegate._terminate_observed_process_tree(
+            FakeProcess(), "", {}, "leader")
+    finally:
+        sys.path.pop(0)
+    assert stopped is False
+    assert events == ["signal", "discover", "reap"]
+
+
+def test_process_cleanup_discovers_children_spawned_during_termination(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        clock = {"now": 0.0}
+        live = {101: "parent"}
+        spawned = {"child": False}
+        signals = []
+
+        def discover():
+            if clock["now"] >= 1 and not spawned["child"]:
+                live.pop(101)
+                live[102] = "child"
+                spawned["child"] = True
+            return dict(live)
+
+        def identified(known):
+            return {
+                pid: identity for pid, identity in known.items()
+                if live.get(pid) == identity
+            }
+
+        def signal_processes(processes, signum=signal.SIGTERM):
+            signals.extend(
+                (pid, identity, signum)
+                for pid, identity in processes.items()
+            )
+            for pid in processes:
+                if pid == 102 or signum == signal.SIGKILL:
+                    live.pop(pid, None)
+            return dict(processes)
+
+        monkeypatch.setattr(delegate, "_live_identified_processes", identified)
+        monkeypatch.setattr(
+            delegate, "_signal_identified_processes", signal_processes)
+        monkeypatch.setattr(
+            delegate.time, "monotonic", lambda: clock["now"])
+        monkeypatch.setattr(
+            delegate.time, "sleep",
+            lambda _seconds: clock.__setitem__("now", clock["now"] + 1))
+        stopped = delegate._terminate_processes_until_quiet(
+            {}, discover)
+    finally:
+        sys.path.pop(0)
+    assert stopped is True
+    assert spawned["child"] is True
+    assert (101, "parent", signal.SIGTERM) in signals
+    assert (102, "child", signal.SIGTERM) in signals
+
+
+def test_wait_reuses_process_table_snapshot_for_tag_discovery(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+
+        class FakeProcess:
+            pid = 123
+
+            def __init__(self):
+                self.polls = 0
+
+            def poll(self):
+                self.polls += 1
+                return None if self.polls == 1 else 0
+
+        snapshots = [
+            {123: (1, "leader")},
+            {},
+        ]
+        seen = []
+
+        def process_table():
+            return snapshots.pop(0)
+
+        def tagged(_marker_value, _baseline, current):
+            seen.append(current)
+            return {}
+
+        monkeypatch.setattr(delegate, "_process_table", process_table)
+        monkeypatch.setattr(delegate, "_tagged_processes", tagged)
+        monkeypatch.setattr(
+            delegate, "_terminate_tagged_processes",
+            lambda *_args, **_kwargs: True)
+        stopped = delegate._wait_and_reap(
+            FakeProcess(), "marker", {}, "leader")
+    finally:
+        sys.path.pop(0)
+    assert stopped is True
+    assert seen == [
+        {123: (1, "leader")},
+        {},
+    ]
+    assert snapshots == []
+
+
+def test_delegate_reaps_spawn_when_running_registration_fails(
+        repo, tmp_path, monkeypatch):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+
+        class FakeProcess:
+            pid = 424242
+            returncode = None
+
+        fake_process = FakeProcess()
+        lifecycle = []
+        real_popen = subprocess.Popen
+
+        def append(_base, record):
+            status = record["launch_status"]
+            lifecycle.append(f"append:{status}")
+            if status == "running":
+                raise OSError("protected ledger unavailable")
+
+        def reap(proc, _marker_value, _baseline, _foreground_identity):
+            lifecycle.append("reap")
+            proc.returncode = 130
+            return True
+
+        monkeypatch.setattr(delegate, "append_delegation", append)
+        monkeypatch.setattr(
+            delegate, "companion_script", lambda: tmp_path / "companion.mjs")
+        monkeypatch.setattr(delegate.shutil, "which", lambda _name: "/usr/bin/true")
+        def spawn(args, *spawn_args, **spawn_kwargs):
+            if args and args[0] == "/usr/bin/true":
+                return fake_process
+            return real_popen(args, *spawn_args, **spawn_kwargs)
+
+        monkeypatch.setattr(delegate.subprocess, "Popen", spawn)
+        monkeypatch.setattr(delegate, "_process_table", lambda: {})
+        monkeypatch.setattr(
+            delegate, "_process_start_identity", lambda _pid: "identity")
+        monkeypatch.setattr(
+            delegate, "_terminate_observed_process_tree", reap)
+        monkeypatch.setattr(
+            delegate, "_process_group_alive", lambda _pgid: False)
+        args = argparse.Namespace(
+            repo=str(repo),
+            id="T1",
+            read_only=False,
+            background=False,
+            print_only=False,
+        )
+        with pytest.raises(SystemExit):
+            delegate.cmd_delegate(args)
+    finally:
+        sys.path.pop(0)
+    assert lifecycle == [
+        "append:starting",
+        "append:running",
+        "reap",
+        "append:failed",
+    ]
+
+
 def test_stale_launch_reconciliation_refuses_unverified_process_group(
         repo, monkeypatch, capsys):
     sys.path.insert(0, str(repo / "factory" / "scripts"))
@@ -3842,9 +4496,6 @@ def test_stale_launch_reconciliation_refuses_unverified_process_group(
         monkeypatch.setattr(delegate, "load_delegations", lambda _base: [entry])
         monkeypatch.setattr(delegate, "_pid_alive", lambda _pid: False)
         monkeypatch.setattr(delegate, "_process_group_alive", lambda _pgid: True)
-        monkeypatch.setattr(
-            delegate, "_terminate_process_group",
-            lambda _pgid: pytest.fail("unverified process group was signalled"))
         with pytest.raises(SystemExit):
             delegate._reconcile_stale_launches(repo, "T1")
     finally:
@@ -3868,10 +4519,6 @@ def test_stale_launch_reconciliation_does_not_signal_a_reused_pid(
         monkeypatch.setattr(
             delegate, "_process_start_identity",
             lambda _pid: "Tue Jul 28 10:00:00 2026",
-        )
-        monkeypatch.setattr(
-            delegate, "_terminate_process_group",
-            lambda _pgid: pytest.fail("reused process group was signalled"),
         )
         monkeypatch.setattr(
             delegate, "append_delegation",
@@ -3919,43 +4566,8 @@ def test_protected_lock_path_rejects_unsafe_task_id(repo):
         sys.path.pop(0)
 
 
-def test_terminal_delegate_reaps_surviving_process_group(repo, monkeypatch):
-    sys.path.insert(0, str(repo / "factory" / "scripts"))
-    try:
-        from forge_cli.delegate import _terminate_and_reap
-    finally:
-        sys.path.pop(0)
-
-    class FakeProcess:
-        pid = 4242
-        returncode = 0
-
-        def poll(self):
-            return self.returncode
-
-        def wait(self):
-            return self.returncode
-
-    signals = []
-    alive = True
-
-    def killpg(pid, sig):
-        nonlocal alive
-        if sig == 0:
-            if not alive:
-                raise ProcessLookupError
-            return
-        signals.append((pid, sig))
-        alive = False
-
-    monkeypatch.setattr(os, "killpg", killpg)
-    proc = FakeProcess()
-    assert _terminate_and_reap(proc) is True
-    assert signals == [(4242, signal.SIGTERM)]
-    assert proc.returncode == 0
-
-
 @pytest.mark.parametrize("wrapper_signal", [
+    signal.SIGINT,
     signal.SIGTERM,
     signal.SIGHUP,
     signal.SIGQUIT,
