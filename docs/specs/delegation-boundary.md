@@ -38,8 +38,19 @@ acceptance criteria, `write_scope`, `required_tests`, `reviewer_focus`, the
 implementer prompt, the active decisions, the lessons matching the task's
 paths, and the modules already present in that scope — writes it to
 `.factory/briefs/<task-id>.md`, invokes the installed companion directly with
-a subprocess argument vector, and records a successful launch with the
-brief's digest. `--print-only` is diagnostic and never counts as a launch.
+a subprocess argument vector, and records running and terminal evidence with
+one launch id and the brief's digest. Stage close refuses while any matching
+launch remains active. An OS-backed single-writer lock in Git's
+protected control directory prevents canonical-brief rewrites and is held by
+stage close through its persisted done transition; a shared state lock
+serializes stage-state changes and revalidates stage identity. Retry reconciles
+a dead interruption, and every terminal path empties the observed worker
+process tree on TERM, HUP and QUIT. PID start identity prevents a recycled PID
+from being mistaken for the original worker; an unverified reused process group
+blocks retry and is never signalled. Authoritative launch evidence,
+decomposition, and stage state are protected with the locks; their `.factory/`
+copies are best-effort, non-authoritative mirrors. `--print-only` never counts
+as a launch.
 
 **Write permission is derived, not typed.** An active stage with a non-empty
 `write_scope` is a write run. `--read-only` is the explicit exception.
@@ -48,16 +59,34 @@ brief's digest. `--print-only` is diagnostic and never counts as a launch.
 boundary; direct companion Bash calls are off-contract and routed back to it.
 `stage done` refuses without a successful write launch bound to the active
 stage, current task contract, and current brief digest. The hook does not try
-to authorize arbitrary shell by reconstructing its final argv.
+to authorize arbitrary shell by reconstructing its final argv; every literal
+companion token is routed through `forge delegate`.
+Active write stages run in the foreground; background mode is read-only
+exploration because a queued worker cannot be included in the final measurement.
 
 **Completion is a measurement.** `forge stage done` refuses unless the diff
 since the stage's base commit is non-empty, every changed product path is
 covered by the task's `write_scope`, a successful write launch was recorded,
-every `required_tests` proof names an existing repo-relative path and its
-runner-owned command exits green, and every `verify_commands` entry runs
-green. Required tests use `{id, path, command}` objects; source-text inference
-is not test evidence. Test and verify commands must therefore be runnable —
-prose is refused at record time.
+every `required_tests` proof names an existing repo-relative path, its
+runner-owned command exits green, and its fresh JUnit report names the declared
+test; every `verify_commands` entry also runs green. Required tests use
+`{id, path, command}` objects whose command includes runner-native `{path}` and
+`{id}` plus fresh-report `{report}` placeholders. The fresh report must
+name the testcase exactly and carry a testcase `file` attribute equal to the
+declared path. Parameterized cases declare their exact emitted name. Every
+proof set is wrapped in one exact product-tree and protected-authority
+transaction. Neither required tests nor `verify_commands` may change tracked
+content, mode, symlink, index flag, status, or Forge authority; every observed
+process tree must also be empty. This avoids rehashing the repository after
+each required test while binding all proofs to one final snapshot. Source-text
+inference is not test evidence. Commands must invoke the runner directly —
+prose, shells, and `env` wrappers are refused at record time.
+
+**Tasks are sequential; stories may be parallel.** One story owns one isolated
+Git worktree. Its task stages run strictly in decomposition order, so two tasks
+never edit that worktree concurrently and task-level `--parallel` is refused.
+The roadmap's story dependency graph decides which stories are ready at the
+same time; independent ready stories may run in separate worktrees.
 
 **Partial delivery is sayable.** `forge stage done --incomplete "<what is
 missing>"` leaves the stage open and records the gap, so a worker that
@@ -76,13 +105,18 @@ expected to attest them, and `--fix` installs what is missing.
 
 - A stage cannot be closed on an empty diff, an out-of-scope change, a
   missing declared test, or a failing per-task verify command.
-- `--parallel` is checked: two stages claiming parallelism must have disjoint
-  `write_scope`.
+- A stage cannot close with different staged and worktree content for the same
+  path, or after proof code changes product or protected authority state.
+- Task-level `--parallel` is refused; task stages run in order inside one story
+  worktree.
 - A decomposition recording prose where a command belongs is refused.
 - A stage without a successful fresh write launch through `forge delegate`
   cannot close; direct literal companion Bash calls are routed to that command.
 - New decompositions reject opaque `required_tests` strings; each required
-  test is a runner-owned `{id, path, command}` proof executed at stage close.
+  test is a runner-owned `{id, path, command}` proof executed at stage close
+  and confirmed through fresh JUnit XML written at `{report}`. The testcase
+  name exactly matches the declared id and its `file` attribute exactly matches
+  the declared path.
 - The generated brief carries the acceptance criteria, the write scope with
   its existing modules, and — for user-facing work — the design rules inline.
 - `forge codex status` reports the write flag per job and flags a stalled one.

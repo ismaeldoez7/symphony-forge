@@ -5,28 +5,30 @@ date: 2026-07-14
 stories: []
 ---
 
-# Concurrency: one task per branch
+# Concurrency: one story per isolated worktree
 
 ## Context
 
-`.factory/run.json` holds ONE active task, so a team of devs working
-parallel stories needs a concurrency model. Options considered: one task
-per branch with committed `.factory/` state, or git worktrees with
-uncommitted state.
+`.factory/run.json` holds ONE active story, so a team working on parallel
+stories needs a concurrency model. Each story also contains bounded task
+stages, which must not race over the same checkout.
 
 ## Decision
 
-One task per branch. intake names the branch (`feat/<key>-<slug>`), the
-task's `.factory/` state is committed on that branch through the loop, and
-`pr_ready.py` archives evidence to `.factory/history/<issue>/` before merge.
-Parallel devs = parallel branches; the roadmap's status flips merge normally
-and `.gstack` JSONL stores union-merge via the jsonl-append driver.
+One story per isolated Git worktree and branch. Intake names the branch
+(`feat/<key>-<slug>`), the story's `.factory/` state is committed on that
+branch through the loop, and `pr_ready.py` archives evidence to
+`.factory/history/<issue>/` before merge. The roadmap dependency graph
+determines the ready story frontier; each ready story may run in its own
+worktree. Task stages inside one story execute sequentially in decomposition
+order with no parallel file edits. Roadmap status flips merge normally and
+`.gstack` JSONL stores union-merge via the jsonl-append driver.
 
 ## Consequences
 
 - Evidence is reviewable in the PR alongside the code it attests to.
-- main only accumulates archived history, never in-flight task state.
+- main only accumulates archived history, never in-flight story state.
 - Two branches merged in sequence may conflict on `.factory/run.json`;
-  resolution is trivial (the later task's state wins — both are archived).
-- Worktrees remain possible on top (a worktree is just a branch checkout);
-  the harness does not manage them.
+  resolution is trivial (the later story's state wins — both are archived).
+- `forge roadmap parallel` prints the exact worktree setup commands for the
+  currently dependency-ready stories.

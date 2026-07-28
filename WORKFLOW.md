@@ -258,13 +258,13 @@ and flags unassigned ones to the EM. Scope changes are PR edits to the
 file — future planning refines the roadmap, it does not silently regenerate
 it; the per-task plan must satisfy the item's `acceptance_criteria`.
 
-## Concurrency — one task per branch
+## Concurrency — one story per worktree
 
 Run state is branch-scoped by decision (docs/decisions): each story gets its
-own branch (intake names it `feat/<key>-<slug>`), carrying its own committed
+own isolated worktree and branch (intake names it `feat/<key>-<slug>`), carrying its own committed
 `.factory/` state through the loop; `pr_ready.py` archives to
 `.factory/history/<issue>/` before merge, so main only ever accumulates
-history. One active task per branch — parallel devs = parallel branches.
+history. One active story per worktree — parallel stories = parallel worktrees.
 Roadmap status flips (`active`/`done`) happen on the task branch and merge
 normally; the JSONL stores under `.gstack/` union-merge via the
 `jsonl-append` driver.
@@ -276,9 +276,9 @@ ordering); `./forge roadmap parallel` prints the ready frontier — pending
 stories whose dependencies are all done — with a `git worktree add` + intake
 command per story. Each worktree is a full checkout on its own branch with
 its own `.factory/` state, so every gate (plan mode lock, plan grill,
-recorders, ship gate) applies per story, concurrently. Implementations run
-as parallel background rescues. Within ONE task, fan out only across leaf
-tasks with disjoint `write_scope` in the recorded decomposition. Convergence
+recorders, ship gate) applies per story, concurrently. Implementations may run
+concurrently across those story worktrees. Inside one story, leaf tasks run
+strictly in decomposition order with no parallel file edits. Convergence
 is designed to be conflict-free: `pr_ready.py` DELETES the task-scoped
 `.factory/` state after archiving it (history keeps the record) and reduces
 `run.json` to project fields + `last_shipped`, so merging story branches
@@ -295,9 +295,9 @@ mutable execution twin of the immutable decomposition (decision 0007), one
 stage per leaf task in execution order. The dev works stages strictly
 through the loop:
 
-1. `forge stage start <id>` (order-enforced; `--parallel` only for disjoint
-   `write_scope` per the Concurrency contract)
-2. `/codex:rescue` implements the stage in the task worktree
+1. `forge stage start <id>` (strictly order-enforced; task-level `--parallel`
+   is refused)
+2. `/codex:rescue` implements the stage in the story worktree
 3. the orchestrator inspects the diff and rejects overbuilt code
 4. that stage's assumption rows are validated (`forge assumptions list --open`)
 5. smallest relevant checks run

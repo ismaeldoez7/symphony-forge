@@ -86,6 +86,13 @@ Each task should also include:
 - `write_scope`
 - `dependencies`
 - `verify_commands`
-- `required_tests`
+- `required_tests` — executable proof objects shaped exactly as
+  `{"id":"testcase name","path":"repo/relative/test file","command":"exact runner command"}`.
+  The command must be one shell-free runner invocation and include `{path}` and
+  `{id}` in the runner's native selector syntax plus `{report}` where it writes
+  JUnit XML. Configure the reporter to emit the testcase `file` attribute.
+  Never use a shell or `env` wrapper and never emit opaque strings. `stage done`
+  checks the path, runs the argv, and requires the fresh report to name the id
+  exactly with `file` equal to that path.
 - `reviewer_focus`
 - `linear_parent`

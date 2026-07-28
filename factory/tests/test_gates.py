@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -23,10 +26,12 @@ import pytest
 HARNESS = Path(__file__).resolve().parents[2]
 
 
-def run(repo: Path, script: str, *args: str, stdin: str | None = None):
+def run(repo: Path, script: str, *args: str, stdin: str | None = None,
+        env: dict[str, str] | None = None):
     proc = subprocess.run(
         [sys.executable, str(repo / "factory" / "scripts" / script), *args],
         cwd=repo, capture_output=True, text=True, input=stdin,
+        env={**os.environ, **(env or {})},
     )
     return proc.returncode, proc.stdout + proc.stderr
 
@@ -200,8 +205,16 @@ def save_plan_raw(repo: Path, tmp_path: Path) -> tuple[int, str]:
 def write_passing_artifacts(repo: Path, commit: str | None = None) -> None:
     sha = commit or head(repo)
     f = repo / ".factory"
-    (f / "decomposition.json").write_text(
-        json.dumps({**DECOMP, "commit": sha}))
+    control = Path(git(repo, "rev-parse", "--absolute-git-dir")) / "forge"
+    control.mkdir(parents=True, exist_ok=True)
+    protected_decomposition = control / "decomposition.json"
+    decomposition = (
+        json.loads(protected_decomposition.read_text())
+        if protected_decomposition.exists() else DECOMP
+    )
+    decomposition = {**decomposition, "commit": sha}
+    (f / "decomposition.json").write_text(json.dumps(decomposition))
+    protected_decomposition.write_text(json.dumps(decomposition))
     (f / "verify.json").write_text(json.dumps({"ok": True, "commit": sha}))
     (f / "tests.json").write_text(json.dumps({
         "automated": {"status": "passed", "generated_by": "implementer",
@@ -210,9 +223,15 @@ def write_passing_artifacts(repo: Path, commit: str | None = None) -> None:
                        "generated_by": "functional-checker"},
         "commit": sha,
     }))
-    (f / "stages.json").write_text(json.dumps({
-        "issue": "", "stages": [{"id": t["id"], "title": t["title"], "status": "done"}
-                                for t in DECOMP["tasks"]]}))
+    stages = {
+        "issue": run_state(repo).get("issue_key", ""),
+        "stages": [
+            {"id": task["id"], "title": task["title"], "status": "done"}
+            for task in decomposition["tasks"]
+        ],
+    }
+    (f / "stages.json").write_text(json.dumps(stages))
+    (control / "stages.json").write_text(json.dumps(stages))
     (f / "reviews").mkdir(exist_ok=True)
     for aspect in ("quality", "performance", "security"):
         (f / "reviews" / f"{aspect}.json").write_text(
@@ -1051,6 +1070,8 @@ def test_functional_check_conditional_on_user_facing(repo, tmp_path):
     decomp = json.loads((f / "decomposition.json").read_text())
     decomp["user_facing"] = False
     (f / "decomposition.json").write_text(json.dumps(decomp))
+    (delegation_ledger(repo).parent / "decomposition.json").write_text(
+        json.dumps(decomp))
     tests = json.loads((f / "tests.json").read_text())
     del tests["functional"]
     (f / "tests.json").write_text(json.dumps(tests))
@@ -1581,72 +1602,129 @@ COMPANION_WRITE = (COMPANION + " --write --prompt-file .factory/briefs/T1.md "
 
 
 def test_hook_denies_unbriefed_write_delegation(repo, tmp_path):
-    """An unbriefed write run starts with no acceptance criteria, no write
-    scope and no decisions — which is how a run ignores rules already written
-    down. Checked in plan mode too: entering plan mode was a way around it."""
-    start_stage(repo, tmp_path, DELEGATE_TASK)
+    """Every direct companion command is routed to the canonical executor."""
+    start_stage(repo, tmp_path, DELEGATE_TASK, launch=False)
     for mode in ("default", "plan"):
         code, out = hook(repo, {"tool_name": "Bash", "permission_mode": mode,
                                 "tool_input": {"command": COMPANION_WRITE}})
-        assert "deny" in out and "forge delegate T1" in out, mode
-    # read-only exploration is untouched
+        assert "deny" in out and "forge delegate <task-id>" in out, mode
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": COMPANION + " 'map it'"}})
-    assert "deny" not in out
+    assert "deny" in out and "forge delegate" in out
 
 
 def test_hook_denies_write_delegation_hidden_by_quoting(repo, tmp_path):
-    """Substring matching is not a boundary: the shell normalises `--wri''te`
-    before the companion sees it, so a raw `in` test would read this as a
-    read-only run and skip every check."""
-    start_stage(repo, tmp_path, DELEGATE_TASK)
+    start_stage(repo, tmp_path, DELEGATE_TASK, launch=False)
     sneaky = (COMPANION.replace("task", "t''ask") +
               " --wri''te --prompt-file .factory/briefs/T1.md 'go'")
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": sneaky}})
-    assert "deny" in out and "forge delegate T1" in out
-    # and a command that cannot be parsed at all is denied, not waved through
+    assert "deny" in out and "forge delegate <task-id>" in out
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": COMPANION + " --write 'unbalanced"}})
-    assert "deny" in out and "cannot be parsed" in out
+    assert "deny" in out and "forge delegate" in out
+
+
+def test_hook_denies_unparseable_bash_instead_of_guessing(repo):
+    command = (
+        "X= node /x/co${X}dex-com${X}panion.mjs task --write <<'EOF'\n"
+        "'\nEOF"
+    )
+    code, out = hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": command},
+    })
+    assert "deny" in out and "could not be safely parsed" in out
+
+
+def test_hook_denies_variable_hidden_companion_in_unparseable_bash(repo):
+    command = (
+        "C=companion; node /x/codex-$C.mjs task --write <<'EOF'\n"
+        "it's only heredoc text\nEOF"
+    )
+    code, out = hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": command},
+    })
+    assert code == 0
+    assert "deny" in out and "could not be safely parsed" in out
+
+
+def test_hook_routes_every_literal_companion_token(repo):
+    for command in (
+        "rg codex-companion factory",
+        "cat /tmp/codex-companion.mjs",
+        "printf '%s\\n' codex-companion",
+    ):
+        code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                                "tool_input": {"command": command}})
+        assert "deny" in out and "forge delegate" in out, command
+
+
+def test_hook_routes_absolute_and_quoted_node_companion_invocations(repo):
+    for command in (
+        "/usr/local/bin/node /x/codex-companion.mjs task --write",
+        '"/usr/local/bin/node" "/x/codex-companion.mjs" task --write',
+        "'/x/codex-companion.mjs' task --write",
+        "exec node /x/codex-companion.mjs task --write",
+        "(node /x/codex-companion.mjs task --write)",
+        "env MODE=x node /x/codex-companion.mjs task --write",
+        "  node /x/codex-companion.mjs task --write",
+        "MODE='two words' node /x/codex-companion.mjs task --write",
+        'env MODE="two words" node /x/codex-companion.mjs task --write',
+        "node --no-warnings /x/codex-companion.mjs task --write",
+        "node --require preload.js /x/codex-companion.mjs task --write",
+        "nohup node /x/codex-companion.mjs task --write",
+        "node codex-companion.mjs task --write",
+        "cd /x && node codex-companion.mjs task --write",
+        "node /x/co'dex-companion'.mjs task --write",
+        "node /x/codex-$'companion'.mjs task --write",
+        "printf %s codex-companion `node /x/codex-companion.mjs task --write`",
+        "printf %s codex-companion <(node /x/codex-companion.mjs task --write)",
+        "printf %s codex-companion\nnode /x/codex-companion.mjs task --write",
+    ):
+        code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                                "tool_input": {"command": command}})
+        assert code == 0 and "deny" in out and "forge delegate" in out, command
+
+
+def test_hook_does_not_block_unrelated_node_companion_helpers(repo):
+    code, out = hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": "node tools/companion-health-check.js --check"},
+    })
+    assert code == 0 and "deny" not in out
 
 
 def test_hook_allows_briefed_write_delegation(repo, tmp_path):
     start_stage(repo, tmp_path, DELEGATE_TASK)
-    code, out = run(repo, "forge.py", "delegate", "T1")
-    assert code == 0, out
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": COMPANION_WRITE}})
-    assert "deny" not in out, out
-    # a read-only delegation does not authorize a write run
-    run(repo, "forge.py", "delegate", "T1", "--read-only")
-    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
-                            "tool_input": {"command": COMPANION_WRITE}})
-    assert "deny" in out
+    assert "deny" in out and "forge delegate" in out
 
 
 def test_hook_requires_the_invocation_to_carry_the_brief(repo, tmp_path):
-    """One briefed stage must not authorize every write run in the session."""
+    """A recorded launch never authorizes a later direct shell invocation."""
     start_stage(repo, tmp_path, DELEGATE_TASK)
-    code, out = run(repo, "forge.py", "delegate", "T1")
-    assert code == 0, out
     for command in (COMPANION + " --write 'rewrite auth'",
                     COMPANION + " --write --prompt-file /tmp/mine.md 'rewrite auth'"):
         code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                                 "tool_input": {"command": command}})
-        assert "deny" in out and "does not carry the recorded brief" in out, command
+        assert "deny" in out and "forge delegate" in out, command
 
 
 def test_hook_denies_when_brief_edited(repo, tmp_path):
     """The record carries the brief's digest, so the brief that was authorized
     is the brief on disk — or the delegation is stale."""
     start_stage(repo, tmp_path, DELEGATE_TASK)
-    run(repo, "forge.py", "delegate", "T1")
     brief = repo / ".factory" / "briefs" / "T1.md"
     brief.write_text(brief.read_text() + "\nAlso rewrite the auth layer.\n")
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": COMPANION_WRITE}})
-    assert "deny" in out and "no longer matches" in out
+    assert "deny" in out and "forge delegate" in out
 
 
 def test_planning_lock_forces_plan_mode(repo, tmp_path):
@@ -1674,15 +1752,14 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
                             "tool_input": {"command":
                                            "codex exec --profile explore -s read-only 'map it'"}})
     assert "deny" in out and "codex:rescue" in out
-    # the sanctioned runtime: companion read-only tasks (exploration) pass,
-    # writing delegation is blocked while unplanned
+    # Direct companion commands are always off-contract.
     companion = "node /x/codex-companion.mjs task --model gpt-5.6-terra 'map the module'"
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": companion}})
-    assert "deny" not in out
+    assert "deny" in out and "forge delegate" in out
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": companion + " --write"}})
-    assert "deny" in out and "PLAN MODE" in out
+    assert "deny" in out and "forge delegate" in out
     # there is NO escape hatch — env-var prefixes don't open a side door
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command":
@@ -1703,13 +1780,12 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
     # authorizes the work, the brief is what the executor is actually given
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": companion + " --write"}})
-    assert "deny" in out and "stage start" in out
+    assert "deny" in out and "forge delegate" in out
     run(repo, "forge.py", "stage", "start", "T1")
-    run(repo, "forge.py", "delegate", "T1")
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": companion + " --write "
                                            "--prompt-file .factory/briefs/T1.md"}})
-    assert "deny" not in out
+    assert "deny" in out and "forge delegate" in out
     # ...but raw codex exec stays off-contract even after approval
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": "codex exec 'build it'"}})
@@ -1802,8 +1878,7 @@ def test_quickfix_lifecycle_tracks_files_and_enforces_budget(repo):
         "tool_name": "Bash", "permission_mode": "default",
         "tool_input": {"command": companion},
     })
-    assert code == 0 and "deny" in out and "five-file budget" in out
-    assert "PLAN MODE" in out and "./forge quickfix start" in out
+    assert code == 0 and "deny" in out and "forge delegate" in out
     assert json.loads(active_path.read_text())["files"] == []
 
     for number in range(1, 6):
@@ -2196,6 +2271,7 @@ def test_recorder_holds_the_task_narrative_contract(repo, tmp_path):
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
     assert code == 0, out
     run(repo, "forge.py", "stage", "start", "T1")
+    launch_fake(repo, tmp_path, "T1")
     write_in_scope(repo, "src/core.py")  # stage done measures the diff
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
@@ -2627,36 +2703,38 @@ def test_stage_loop_orders_execution_and_gates_pr_ready(repo, tmp_path):
     ]}
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(decomp))
     assert code == 0 and "stages.json" in out
-    # order enforced: T2 cannot start before T1 is done...
+    # Order is strict inside one story worktree.
     code, out = run(repo, "forge.py", "stage", "start", "T2")
     assert code != 0 and "T1" in out
-    # ...unless the caller asserts disjoint write scopes
     code, out = run(repo, "forge.py", "stage", "start", "T2", "--parallel")
-    assert code == 0, out
+    assert code != 0 and "task stages are sequential" in out
     # done requires the stage to have actually started
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code != 0 and "not active" in out
     code, out = run(repo, "forge.py", "stage", "start", "T1")
     assert code == 0, out
+    launch_fake(repo, tmp_path, "T1")
     write_in_scope(repo, "src/api/invoices.py")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
     # pr_ready refuses while a stage is open
+    stages_before_artifacts = json.loads(
+        (repo / ".factory" / "stages.json").read_text())
     write_passing_artifacts(repo)
     # write_passing_artifacts stamps the single-task DECOMP; T2's contract has
     # to survive, or stage done has nothing to measure it against
     (repo / ".factory" / "decomposition.json").write_text(
         json.dumps({**decomp, "commit": head(repo)}))
-    (repo / ".factory" / "stages.json").write_text(json.dumps({
-        "issue": "ENG-1", "stages": [
-            {"id": "T1", "title": "api", "status": "done"},
-            {"id": "T2", "title": "ui", "status": "active",
-             "base_sha": head(repo),
-             "dirty_at_start": dirty_digests(repo)}]}))
+    (repo / ".factory" / "stages.json").write_text(json.dumps(stages_before_artifacts))
+    (delegation_ledger(repo).parent / "stages.json").write_text(
+        json.dumps(stages_before_artifacts))
     run(repo, "update_run.py", "--decomposition-status", "recorded")
     code, out = run(repo, "pr_ready.py")
     assert code != 0 and "stage completion" in out and "T2" in out
-    # all stages done -> ships, tracker archived and cleaned
+    # The next task starts only after its predecessor is done.
+    code, out = run(repo, "forge.py", "stage", "start", "T2")
+    assert code == 0, out
+    launch_fake(repo, tmp_path, "T2")
     write_in_scope(repo, "src/ui/list.py")
     code, out = run(repo, "forge.py", "stage", "done", "T2")
     assert code == 0, out
@@ -2666,7 +2744,51 @@ def test_stage_loop_orders_execution_and_gates_pr_ready(repo, tmp_path):
     assert (repo / ".factory" / "history" / "ENG-1" / "stages.json").exists()
 
 
-def start_stage(repo: Path, tmp_path: Path, task: dict, stage_id: str = "T1") -> None:
+def fake_companion_home(tmp_path: Path) -> Path:
+    home = tmp_path / "home"
+    script = home / ".claude/plugins/cache/openai-codex/codex/1.0.0/scripts/codex-companion.mjs"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text(
+        "process.stdout.write(JSON.stringify({ok:true, argv:process.argv.slice(2)}));\n"
+    )
+    metadata = home / ".claude/plugins/installed_plugins.json"
+    metadata.parent.mkdir(parents=True, exist_ok=True)
+    metadata.write_text(json.dumps({
+        "version": 2,
+        "plugins": {
+            "codex@openai-codex": [{
+                "scope": "user",
+                "installPath": str(script.parents[1]),
+                "version": "1.0.0",
+            }],
+        },
+    }))
+    return home
+
+
+def launch_fake(repo: Path, tmp_path: Path, stage_id: str) -> None:
+    code, out = run(repo, "forge.py", "delegate", stage_id,
+                    env={"HOME": str(fake_companion_home(tmp_path))})
+    assert code == 0, out
+
+
+def delegation_ledger(repo: Path) -> Path:
+    git_dir = subprocess.run(
+        ["git", "rev-parse", "--absolute-git-dir"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    return Path(git_dir) / "forge" / "delegations.jsonl"
+
+
+def delegation_lock(repo: Path, task_id: str) -> Path:
+    return delegation_ledger(repo).parent / "locks" / "task" / f"{task_id}.lock"
+
+
+def start_stage(repo: Path, tmp_path: Path, task: dict, stage_id: str = "T1",
+                *, launch: bool = True) -> None:
     """Signed off, planned, decomposed, and the stage started — the state every
     stage-done measurement test needs before it can measure anything."""
     sign_off(repo)
@@ -2677,6 +2799,8 @@ def start_stage(repo: Path, tmp_path: Path, task: dict, stage_id: str = "T1") ->
     assert code == 0, out
     code, out = run(repo, "forge.py", "stage", "start", stage_id)
     assert code == 0, out
+    if launch:
+        launch_fake(repo, tmp_path, stage_id)
 
 
 def write_in_scope(repo: Path, rel: str, text: str = "print('work')\n") -> None:
@@ -2709,13 +2833,106 @@ def test_stage_done_refuses_out_of_scope_change(repo, tmp_path):
     assert code != 0 and "write_scope" in out and "billing/ledger.py" in out
 
 
+def test_stage_done_sees_deleted_initial_untracked_path(repo, tmp_path):
+    outside = repo / "outside.tmp"
+    outside.write_text("keep me\n")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    outside.unlink()
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "outside.tmp" in out and "write_scope" in out
+
+
+def test_stage_done_sees_initial_untracked_path_staged_without_byte_change(
+        repo, tmp_path):
+    outside = repo / "outside.tmp"
+    outside.write_text("same bytes\n")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    git(repo, "add", "outside.tmp")
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "outside.tmp" in out and "write_scope" in out
+
+
+def test_stage_done_does_not_credit_unchanged_initial_dirt(repo, tmp_path):
+    write_in_scope(repo, "src/preexisting.py", "same bytes\n")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    git(repo, "add", "src/preexisting.py")
+    git(repo, "commit", "-qm", "commit pre-stage dirt unchanged")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "EMPTY diff" in out
+
+
+def test_stage_done_refuses_split_index_and_worktree_content(repo, tmp_path):
+    write_in_scope(repo, "src/core.py", "old\n")
+    git(repo, "add", "src/core.py")
+    git(repo, "commit", "-qm", "tracked core")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "src/core.py", "staged but untested\n")
+    git(repo, "add", "src/core.py")
+    write_in_scope(repo, "src/core.py", "old\n")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0
+    assert "staged content that differs from the tested worktree" in out
+
+
+def test_stage_measurement_refuses_an_unreadable_dirty_path(
+        repo, monkeypatch, capsys):
+    write_in_scope(repo, "src/unreadable.py")
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.stages as stages
+        original = stages._digest
+        monkeypatch.setattr(
+            stages, "_digest",
+            lambda base, rel: None
+            if rel == "src/unreadable.py" else original(base, rel),
+        )
+        with pytest.raises(SystemExit):
+            stages.dirty_digests(repo)
+        assert "unreadable content" in capsys.readouterr().out
+    finally:
+        sys.path.pop(0)
+
+
+def test_stage_done_snapshots_checked_out_gitlinks(repo, tmp_path):
+    dependency = tmp_path / "dependency"
+    dependency.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=dependency, check=True)
+    (dependency / "dep.txt").write_text("dependency\n")
+    subprocess.run(["git", *GIT_ID, "add", "dep.txt"],
+                   cwd=dependency, check=True)
+    subprocess.run(["git", *GIT_ID, "commit", "-qm", "dependency"],
+                   cwd=dependency, check=True)
+    git(repo, "-c", "protocol.file.allow=always", "submodule", "add", "-q",
+        str(dependency), "vendor/dependency")
+    git(repo, "commit", "-qam", "add dependency gitlink")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+
+
+def test_stage_done_checks_both_sides_of_a_committed_rename(repo, tmp_path):
+    write_in_scope(repo, "outside.py")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "tracked outside file")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    (repo / "src").mkdir(exist_ok=True)
+    git(repo, "mv", "outside.py", "src/outside.py")
+    git(repo, "commit", "-qam", "move into declared scope")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "outside.py" in out and "write_scope" in out
+
+
 def test_stage_done_refuses_missing_required_test(repo, tmp_path):
-    # Assembled at runtime, never spelled whole in this file: the fixture repo
-    # is a copy of this harness, so a name written literally here would be
-    # found inside the fixture and the gate would look satisfied by its own
-    # test source.
     name = "test_core" + "_slice_runs_green"
-    task = {**STAGE_TASK, "required_tests": [name]}
+    path = "src/test_core.py"
+    task = {**STAGE_TASK, "required_tests": [{
+        "id": name, "path": path,
+        "command": "python3 -m pytest {path}::{id} -q "
+                   "-o junit_family=legacy --junitxml={report}",
+    }]}
     start_stage(repo, tmp_path, task)
     write_in_scope(repo, "src/core.py")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
@@ -2723,6 +2940,154 @@ def test_stage_done_refuses_missing_required_test(repo, tmp_path):
     write_in_scope(repo, "src/test_core.py", f"def {name}():\n    pass\n")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
+
+
+def test_stage_done_requires_exact_junit_testcase_identity(repo, tmp_path):
+    test_id = "test_slice"
+    path = "src/test_core.py"
+    task = {**STAGE_TASK, "required_tests": [{
+        "id": test_id, "path": path,
+        "command": "python3 -m pytest {path} -q -k {id} "
+                   "-o junit_family=legacy --junitxml={report}",
+    }]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
+    write_in_scope(repo, path, "def test_slice_extra():\n    pass\n")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "not present in the fresh JUnit report" in out
+
+
+def test_stage_done_runs_environment_prefixed_required_test(repo, tmp_path):
+    test_id = "test_slice"
+    path = "src/test_core.py"
+    task = {**STAGE_TASK, "required_tests": [{
+        "id": test_id, "path": path,
+        "command": "PYTHONPATH=src python3 -m pytest {path}::{id} -q "
+                   "-o junit_family=legacy --junitxml={report}",
+    }]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
+    write_in_scope(repo, path, "def test_slice():\n    pass\n")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+
+
+def test_stage_done_binds_required_test_to_declared_path(repo, tmp_path):
+    test_id = "test_slice"
+    path = "src/test_core.py"
+    task = {**STAGE_TASK, "required_tests": [{
+        "id": test_id, "path": path,
+        "command": "python3 -m pytest src/test_other.py --ignore={path} "
+                   "-q -k {id} -o junit_family=legacy --junitxml={report}",
+    }]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
+    write_in_scope(repo, path, "def test_not_selected():\n    pass\n")
+    write_in_scope(repo, "src/test_other.py", "def test_slice():\n    pass\n")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "not attributed" in out and path in out
+
+
+def test_stage_done_refuses_required_test_product_mutation(repo, tmp_path):
+    test_id = "test_slice"
+    path = "src/test_core.py"
+    task = {**STAGE_TASK, "required_tests": [{
+        "id": test_id, "path": path,
+        "command": "python3 -m pytest {path}::{id} -q "
+                   "-o junit_family=legacy --junitxml={report}",
+    }]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
+    write_in_scope(
+        repo,
+        path,
+        "from pathlib import Path\n\n"
+        "def test_slice():\n"
+        "    Path('src/generated.py').write_text('changed = True\\n')\n",
+    )
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "proof commands changed the product tree" in out
+
+
+def test_stage_done_refuses_proof_mutation_of_protected_authority(
+        repo, tmp_path):
+    command = (
+        "python3 -c \"from pathlib import Path; "
+        "p=Path('.git/forge/stages.json'); p.write_text('{}')\""
+    )
+    task = {**STAGE_TASK, "verify_commands": [command]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "changed protected Forge authority" in out
+
+
+def test_stage_done_detects_required_test_mode_mutation(repo, tmp_path):
+    test_id = "test_slice"
+    path = "src/test_core.py"
+    task = {**STAGE_TASK, "required_tests": [{
+        "id": test_id, "path": path,
+        "command": "python3 -m pytest {path}::{id} -q "
+                   "-o junit_family=legacy --junitxml={report}",
+    }]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
+    write_in_scope(
+        repo, path,
+        "import os\n\n"
+        "def test_slice():\n"
+        "    os.chmod('src/core.py', 0o755)\n",
+    )
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "proof commands changed the product tree" in out
+
+
+def test_stage_done_detects_required_test_index_flag_mutation(repo, tmp_path):
+    test_id = "test_slice"
+    path = "src/test_core.py"
+    task = {**STAGE_TASK, "required_tests": [{
+        "id": test_id, "path": path,
+        "command": "python3 -m pytest {path}::{id} -q "
+                   "-o junit_family=legacy --junitxml={report}",
+    }]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
+    git(repo, "add", "src/core.py")
+    write_in_scope(
+        repo, path,
+        "import subprocess\n\n"
+        "def test_slice():\n"
+        "    subprocess.run(['git', 'update-index', '--assume-unchanged', "
+        "'src/core.py'], check=True)\n",
+    )
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "proof commands changed the product tree" in out
+
+
+def test_stage_done_reaps_required_test_descendants(repo, tmp_path):
+    test_id = "test_slice"
+    path = "src/test_core.py"
+    task = {**STAGE_TASK, "required_tests": [{
+        "id": test_id, "path": path,
+        "command": "python3 -m pytest {path}::{id} -q "
+                   "-o junit_family=legacy --junitxml={report}",
+    }]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
+    write_in_scope(
+        repo, path,
+        "import subprocess, sys\n\n"
+        "def test_slice():\n"
+        "    subprocess.Popen([sys.executable, '-c', "
+        "\"import time; from pathlib import Path; time.sleep(0.5); "
+        "Path('src/late.py').write_text('late')\"], "
+        "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, "
+        "start_new_session=True)\n",
+    )
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+    threading.Event().wait(0.7)
+    assert not (repo / "src" / "late.py").exists()
 
 
 def test_stage_done_refuses_failing_verify_command(repo, tmp_path):
@@ -2733,53 +3098,61 @@ def test_stage_done_refuses_failing_verify_command(repo, tmp_path):
     assert code != 0 and "exit 3" in out
 
 
-def test_stage_start_parallel_requires_disjoint_scope(repo, tmp_path):
-    """--parallel was an unchecked assertion; the decomposition already states
-    each task's write_scope, so the claim is verifiable."""
-    sign_off(repo)
-    intake(repo)
-    save_plan(repo, tmp_path)
-    decomp = {**DECOMP, "tasks": [
-        {"id": "T1", "title": "api", "write_scope": ["src/api/"],
-         "objective": "Serve invoices over the api.", "acceptance_criteria": ["200 ok"]},
-        {"id": "T2", "title": "ui", "write_scope": ["src/api/", "src/ui/"],
-         "objective": "Render the invoice list.", "acceptance_criteria": ["rows show"]},
-    ]}
-    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(decomp))
-    assert code == 0, out
-    code, out = run(repo, "forge.py", "stage", "start", "T1")
-    assert code == 0, out
-    code, out = run(repo, "forge.py", "stage", "start", "T2", "--parallel")
-    assert code != 0 and "overlap" in out and "src/api/" in out
+def test_stage_done_remeasures_after_verify_command(repo, tmp_path):
+    command = ("python3 -c \"from pathlib import Path; "
+               "p=Path('billing/generated.py'); p.parent.mkdir(exist_ok=True); "
+               "p.write_text('generated = True\\\\n')\"")
+    task = {**STAGE_TASK, "verify_commands": [command]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "proof commands changed the product tree" in out
 
 
-def test_parallel_stages_can_both_close(repo, tmp_path):
-    """Parallel fan-out shares the task worktree (WORKFLOW.md Concurrency), so
-    a sibling's commit lands inside this stage's window. Disjointness is
-    checked at start, so a path in a sibling's scope is that sibling's to
-    answer for — otherwise the parallel workflow could never complete."""
-    sign_off(repo)
-    intake(repo)
-    save_plan(repo, tmp_path)
-    decomp = {**DECOMP, "tasks": [
-        {"id": "T1", "title": "api", "write_scope": ["src/api/"],
-         "objective": "Serve invoices.", "acceptance_criteria": ["200 ok"]},
-        {"id": "T2", "title": "ui", "write_scope": ["src/ui/"],
-         "objective": "Render invoices.", "acceptance_criteria": ["rows show"]},
-    ]}
-    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(decomp))
-    assert code == 0, out
-    run(repo, "forge.py", "stage", "start", "T1")
-    run(repo, "forge.py", "stage", "start", "T2", "--parallel")
-    write_in_scope(repo, "src/api/invoices.py")
-    git(repo, "add", "-A")
-    git(repo, "commit", "-qm", "T1 work")
+def test_stage_done_reaps_verify_command_descendants(repo, tmp_path):
+    command = (
+        "python3 -c \"import subprocess,sys; "
+        "subprocess.Popen([sys.executable,'-c',"
+        "'import time; from pathlib import Path; time.sleep(0.5); "
+        "Path(\\\"src/late-verify.py\\\").write_text(\\\"late\\\")'],"
+        "stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,"
+        "start_new_session=True)\""
+    )
+    task = {**STAGE_TASK, "verify_commands": [command]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
-    # T2's window now contains T1's commit — it must not be charged for it
-    write_in_scope(repo, "src/ui/list.py")
-    code, out = run(repo, "forge.py", "stage", "done", "T2")
+    threading.Event().wait(0.7)
+    assert not (repo / "src" / "late-verify.py").exists()
+
+
+def test_stage_done_reloads_launch_after_proof_commands(repo, tmp_path):
+    command = ("python3 -c \"from pathlib import Path; "
+               "p=Path('.factory/briefs/T1.md'); "
+               "p.write_text(p.read_text() + 'changed')\"")
+    task = {**STAGE_TASK, "verify_commands": [command]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "no successful write launch" in out
+
+
+def test_stage_tasks_are_sequential_and_parallel_flag_is_refused(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    decomp = {**DECOMP, "tasks": [
+        {**STAGE_TASK, "id": "T1", "write_scope": ["src/api/"]},
+        {**STAGE_TASK, "id": "T2", "write_scope": ["src/ui/"]},
+    ]}
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps(decomp))
     assert code == 0, out
+    code, out = run(repo, "forge.py", "stage", "start", "T2", "--parallel")
+    assert code != 0
+    assert "task stages are sequential" in out
+    assert "dependency-ready stories" in out
 
 
 def test_stage_done_refuses_a_contract_rewritten_mid_stage(repo, tmp_path):
@@ -2795,9 +3168,69 @@ def test_stage_done_refuses_a_contract_rewritten_mid_stage(repo, tmp_path):
     # re-baselining is deliberate and on the record
     code, out = run(repo, "forge.py", "stage", "start", "T1")
     assert code == 0, out
+    code, out = run(repo, "forge.py", "delegate", "T1",
+                    env={"HOME": str(fake_companion_home(tmp_path))})
+    assert code == 0, out
     write_in_scope(repo, "billing/ledger.py", "changed = True\n")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
+
+
+def test_decomposition_refuses_to_remove_an_active_task(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    replacement = {
+        **DECOMP,
+        "tasks": [{**STAGE_TASK, "id": "T2", "title": "replacement"}],
+    }
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps(replacement),
+    )
+    assert code != 0
+    assert "active stage cannot be removed or renamed" in out
+
+
+def test_decomposition_refuses_to_rewrite_a_completed_task_contract(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+    changed = {
+        **DECOMP,
+        "tasks": [{
+            **STAGE_TASK,
+            "acceptance_criteria": ["A different contract after completion"],
+        }],
+    }
+    code, out = run(
+        repo, "record_decomposition_from_json.py", stdin=json.dumps(changed))
+    assert code != 0 and "completed stage's contract" in out
+
+
+def test_completed_contract_check_uses_protected_stage_digest(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+    changed_task = {
+        **STAGE_TASK,
+        "acceptance_criteria": ["worker rewrote the prior contract"],
+    }
+    decomposition = repo / ".factory" / "decomposition.json"
+    forged_prior = json.loads(decomposition.read_text())
+    forged_prior["tasks"] = [changed_task]
+    decomposition.write_text(json.dumps(forged_prior))
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [changed_task]}))
+    assert code != 0 and "completed stage's contract" in out
+
+
+def test_stage_start_refuses_to_rebaseline_an_unchanged_active_contract(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "billing/ledger.py")
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code != 0 and "already active" in out and "erase" in out
 
 
 def test_stage_done_refuses_a_task_with_no_boundary(repo, tmp_path):
@@ -2822,6 +3255,16 @@ def test_stage_done_sees_later_edits_to_an_initially_dirty_file(repo, tmp_path):
     write_in_scope(repo, "billing/ledger.py", "before = 1\n")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
+
+
+def test_stage_done_scope_checks_initial_dirt_once_it_is_committed(repo, tmp_path):
+    write_in_scope(repo, "billing/ledger.py", "before = 1\n")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "src/core.py")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "stage work plus unrelated dirt")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "billing/ledger.py" in out and "write_scope" in out
 
 
 def test_stage_done_incomplete_leaves_stage_open(repo, tmp_path):
@@ -2880,7 +3323,85 @@ def test_doctor_reports_prose_verify_commands(repo, tmp_path):
     assert len(found) == 1 and "package test script" in found[0] and "T1" in found[0]
 
 
-DELEGATE_TASK = {**STAGE_TASK, "required_tests": ["test_slice"],
+def test_decomposition_refuses_string_required_tests(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    task = {**STAGE_TASK, "required_tests": ["test_slice"]}
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [task]}))
+    assert code != 0 and "opaque test names" in out
+
+
+def test_decomposition_refuses_malformed_required_test_objects(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    task = {**STAGE_TASK, "required_tests": [
+        {"id": "test_slice", "path": "../escape.py", "command": "true"},
+    ]}
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [task]}))
+    assert code != 0 and "repo-relative" in out
+
+
+def test_decomposition_refuses_required_test_command_without_path_or_id(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    task = {**STAGE_TASK, "required_tests": [{
+        "id": "test_slice", "path": "tests/test_slice.py", "command": "true",
+    }]}
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [task]}))
+    assert code != 0 and "{report}" in out
+    task["required_tests"][0]["command"] = \
+        "true # tests/test_slice.py test_slice"
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [task]}))
+    assert code != 0 and "shell-free runner invocation" in out
+    task["required_tests"][0]["command"] = \
+        "python3 -m pytest tests/test_slice.py::test_slice -q"
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [task]}))
+    assert code != 0 and "{report}" in out
+    task["required_tests"][0]["command"] = \
+        "python3 -m pytest --file={path} --test={id} " \
+        "--junitxml={report}"
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [task]}))
+    assert code == 0, out
+    task["required_tests"][0]["command"] = \
+        "python3 -m pytest --file={path} --test=test_slice " \
+        "--junitxml={report}"
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [task]}))
+    assert code != 0 and "{id}" in out
+    task["required_tests"][0]["command"] = \
+        "sh -c 'python3 -m pytest {path}::{id}; true' --junitxml={report}"
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [task]}))
+    assert code != 0 and "shell/env wrapper" in out
+
+
+def test_doctor_reports_legacy_string_required_tests(repo):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.doctor import legacy_required_tests
+    finally:
+        sys.path.pop(0)
+    (repo / ".factory" / "decomposition.json").write_text(json.dumps(
+        {**DECOMP, "tasks": [{**STAGE_TASK, "required_tests": ["test_slice"]}]}))
+    assert legacy_required_tests(repo) == ["T1: 'test_slice'"]
+
+
+DELEGATE_TASK = {**STAGE_TASK, "required_tests": [{
+                     "id": "test_slice",
+                     "path": "factory/tests/test_gates.py",
+                     "command": "python3 -m pytest {path} "
+                                "-q -k {id} -o junit_family=legacy "
+                                "--junitxml={report}",
+                 }],
                  "reviewer_focus": "the retry path",
                  "verify_commands": ["true"]}
 
@@ -2890,16 +3411,17 @@ def test_delegate_brief_carries_criteria_and_scope(repo, tmp_path):
     has to travel with the brief — including what already exists in scope."""
     start_stage(repo, tmp_path, DELEGATE_TASK)
     write_in_scope(repo, "src/existing_helper.py")
-    code, out = run(repo, "forge.py", "delegate", "T1")
+    code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
+                    env={"HOME": str(fake_companion_home(tmp_path))})
     assert code == 0, out
-    brief = (repo / ".factory" / "briefs" / "T1.md").read_text()
+    brief = (repo / ".factory" / "diagnostic-briefs" / "T1.md").read_text()
     assert "the slice runs green" in brief          # acceptance criteria
     assert "src/" in brief                          # write scope
     assert "src/existing_helper.py" in brief        # existing modules
     assert "test_slice" in brief                    # required tests
     assert "the retry path" in brief                # reviewer focus
     assert "Implementer contract" in brief          # the prompt, inlined
-    assert "--prompt-file .factory/briefs/T1.md" in out
+    assert "--prompt-file .factory/diagnostic-briefs/T1.md" in out
 
 
 def test_delegate_derives_write_from_stage_state(repo, tmp_path):
@@ -2912,32 +3434,495 @@ def test_delegate_derives_write_from_stage_state(repo, tmp_path):
                     stdin=json.dumps({**DECOMP, "tasks": [DELEGATE_TASK]}))
     assert code == 0, out
     # stage not started -> read only
-    code, out = run(repo, "forge.py", "delegate", "T1")
+    home = str(fake_companion_home(tmp_path))
+    code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
+                    env={"HOME": home})
     assert code == 0 and "--write" not in out and "Write access: NO" in out
     run(repo, "forge.py", "stage", "start", "T1")
-    code, out = run(repo, "forge.py", "delegate", "T1")
+    code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
+                    env={"HOME": home})
     assert code == 0 and "--write" in out
     # ...and --read-only is the explicit exception
-    code, out = run(repo, "forge.py", "delegate", "T1", "--read-only")
+    code, out = run(repo, "forge.py", "delegate", "T1", "--read-only", "--print-only",
+                    env={"HOME": home})
     assert code == 0 and "--write" not in out
 
 
 def test_delegate_records_ledger_entry(repo, tmp_path):
-    start_stage(repo, tmp_path, DELEGATE_TASK)
-    code, out = run(repo, "forge.py", "delegate", "T1")
+    start_stage(repo, tmp_path, DELEGATE_TASK, launch=False)
+    home_path = fake_companion_home(tmp_path)
+    unlisted = home_path / ".claude/plugins/cache/openai-codex/codex/9.9.9/scripts/codex-companion.mjs"
+    unlisted.parent.mkdir(parents=True)
+    unlisted.write_text("process.exit(9);\n")
+    code, out = run(repo, "forge.py", "delegate", "T1",
+                    env={"HOME": str(home_path)})
     assert code == 0, out
     lines = [json.loads(x) for x in
-             (repo / ".factory" / "delegations.jsonl").read_text().splitlines() if x.strip()]
-    assert len(lines) == 1
-    entry = lines[0]
+             delegation_ledger(repo).read_text().splitlines() if x.strip()]
+    assert len(lines) == 2
+    assert lines[0]["launch_status"] == "running"
+    entry = lines[-1]
     assert entry["task"] == "T1" and entry["write"] is True
     assert entry["generated_by"] == "orchestrator" and entry["model"]
+    assert entry["launch_status"] == "succeeded"
+    assert entry["launch_id"] == lines[0]["launch_id"]
+    assert "/1.0.0/scripts/codex-companion.mjs" in entry["companion_path"]
+    assert entry["stage_started_at"] and entry["task_sha256"] and entry["argv_sha256"]
     digest = hashlib.sha256(
         (repo / ".factory" / "briefs" / "T1.md").read_bytes()).hexdigest()
     assert entry["brief_sha256"] == digest
     # an unknown task id is refused, and never reaches the filesystem
     code, out = run(repo, "forge.py", "delegate", "../escape")
     assert code != 0 and "not a task" in out
+
+
+def test_delegate_print_only_records_no_successful_launch(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    home = str(fake_companion_home(tmp_path))
+    code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
+                    env={"HOME": home})
+    assert code == 0 and "not launched" in out
+    assert not (repo / ".factory" / "delegations.jsonl").exists()
+    assert not delegation_ledger(repo).exists()
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "no successful write launch" in out
+
+
+def test_running_write_launch_invalidates_older_success(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    ledger = delegation_ledger(repo)
+    lines = [json.loads(line) for line in ledger.read_text().splitlines()]
+    running = {**lines[-1], "at": "2999-01-01T00:00:00+00:00",
+               "launch_status": "running"}
+    running.pop("exit_code", None)
+    with ledger.open("a") as fh:
+        fh.write(json.dumps(running) + "\n")
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "no successful write launch" in out
+
+
+def test_workspace_mirror_cannot_forge_authoritative_launch(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    authority = delegation_ledger(repo)
+    prior = json.loads(authority.read_text().splitlines()[-1])
+    running = {
+        **prior,
+        "launch_id": "real-running-writer",
+        "launch_status": "running",
+        "pid": os.getpid(),
+    }
+    running.pop("exit_code", None)
+    with authority.open("a") as fh:
+        fh.write(json.dumps(running) + "\n")
+    forged = {
+        **running,
+        "launch_id": "forged-workspace-success",
+        "launch_status": "succeeded",
+        "exit_code": 0,
+    }
+    mirror = repo / ".factory" / "delegations.jsonl"
+    with mirror.open("a") as fh:
+        fh.write(json.dumps(forged) + "\n")
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "no successful write launch" in out
+
+
+def test_workspace_stage_mirror_cannot_forge_completion(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    mirror = repo / ".factory" / "stages.json"
+    forged = json.loads(mirror.read_text())
+    forged["stages"][0]["status"] = "done"
+    mirror.write_text(json.dumps(forged))
+    code, out = run(repo, "forge.py", "stage", "list")
+    assert code == 0 and "[>]" in out and "T1" in out
+
+
+def test_workspace_decomposition_mirror_cannot_forge_task_contract(
+        repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}))
+    assert code == 0, out
+    mirror = repo / ".factory" / "decomposition.json"
+    forged = json.loads(mirror.read_text())
+    forged["tasks"][0]["write_scope"] = ["billing/"]
+    mirror.write_text(json.dumps(forged))
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
+                    env={"HOME": str(fake_companion_home(tmp_path))})
+    assert code == 0, out
+    brief = (repo / ".factory" / "diagnostic-briefs" / "T1.md").read_text()
+    assert "src/" in brief and "billing/" not in brief
+
+
+def test_git_environment_cannot_redirect_protected_authority(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    fake = tmp_path / "fake-git"
+    subprocess.run(["git", "init", "-q", str(fake)], check=True)
+    fake_authority = fake / ".git" / "forge"
+    fake_authority.mkdir(parents=True)
+    (fake_authority / "stages.json").write_text(json.dumps({
+        "issue": "ENG-1",
+        "stages": [{"id": "T1", "title": "forged", "status": "done"}],
+    }))
+    code, out = run(repo, "forge.py", "stage", "list",
+                    env={"GIT_DIR": str(fake / ".git")})
+    assert code == 0 and "[>]" in out and "forged" not in out
+
+
+def test_missing_protected_stage_state_never_falls_back_to_workspace(
+        repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.stages import authoritative_stages_path
+        authoritative_stages_path(repo).unlink()
+    finally:
+        sys.path.pop(0)
+    mirror = repo / ".factory" / "stages.json"
+    forged = json.loads(mirror.read_text())
+    forged["stages"][0]["status"] = "done"
+    mirror.write_text(json.dumps(forged))
+    code, out = run(repo, "forge.py", "stage", "list")
+    assert code == 0 and "No stage tracker" in out
+
+
+def test_stage_migrate_requires_confirmation_and_adopts_legacy_state(
+        repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}))
+    assert code == 0, out
+    protected = delegation_ledger(repo).parent
+    shutil.rmtree(protected)
+    code, out = run(repo, "forge.py", "stage", "migrate")
+    assert code != 0 and "--confirm-workspace-state" in out
+    code, out = run(
+        repo, "forge.py", "stage", "migrate", "--confirm-workspace-state")
+    assert code == 0, out
+    assert (protected / "decomposition.json").is_file()
+    assert (protected / "stages.json").is_file()
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code == 0, out
+
+
+@pytest.mark.parametrize(
+    ("extra", "brief_dir"),
+    [
+        (("--print-only",), "diagnostic-briefs"),
+        ((), "briefs"),
+    ],
+)
+def test_delegate_brief_symlink_is_refused(
+        repo, tmp_path, extra, brief_dir):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    victim = repo / "victim.txt"
+    victim.write_text("do not touch\n")
+    brief = repo / ".factory" / brief_dir / "T1.md"
+    brief.parent.mkdir(parents=True, exist_ok=True)
+    brief.symlink_to(victim)
+    code, out = run(
+        repo, "forge.py", "delegate", "T1", *extra,
+        env={"HOME": str(fake_companion_home(tmp_path))},
+    )
+    assert code != 0 and "cannot safely write" in out
+    assert victim.read_text() == "do not touch\n"
+
+
+def test_delegate_mirror_symlink_is_ignored(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    victim = repo / "victim.txt"
+    victim.write_text("do not touch\n")
+    mirror = repo / ".factory" / "delegations.jsonl"
+    mirror.symlink_to(victim)
+    code, out = run(repo, "forge.py", "delegate", "T1",
+                    env={"HOME": str(fake_companion_home(tmp_path))})
+    assert code == 0, out
+    assert victim.read_text() == "do not touch\n"
+    assert delegation_ledger(repo).is_file()
+
+
+def test_overlapping_write_launch_stays_invalid_until_all_are_terminal(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    ledger = delegation_ledger(repo)
+    lines = [json.loads(line) for line in ledger.read_text().splitlines()]
+    prior = lines[-1]
+    first = {**prior, "launch_id": "overlap-a", "launch_status": "running"}
+    second = {**prior, "launch_id": "overlap-b", "launch_status": "running"}
+    first.pop("exit_code", None)
+    second.pop("exit_code", None)
+    with ledger.open("a") as fh:
+        fh.write(json.dumps(first) + "\n")
+        fh.write(json.dumps(second) + "\n")
+        fh.write(json.dumps({**second, "launch_status": "succeeded",
+                             "exit_code": 0}) + "\n")
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "no successful write launch" in out
+    with ledger.open("a") as fh:
+        fh.write(json.dumps({**first, "launch_status": "succeeded",
+                             "exit_code": 0}) + "\n")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+
+
+def test_running_launch_with_old_brief_still_blocks_stage_close(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    ledger = delegation_ledger(repo)
+    prior = json.loads(ledger.read_text().splitlines()[-1])
+    old_running = {
+        **prior,
+        "launch_id": "old-brief-writer",
+        "launch_status": "running",
+        "pid": os.getpid(),
+    }
+    old_running.pop("exit_code", None)
+    brief = repo / ".factory" / "briefs" / "T1.md"
+    brief.write_text(brief.read_text() + "\nnew module appeared\n")
+    new_digest = hashlib.sha256(brief.read_bytes()).hexdigest()
+    new_running = {
+        **prior,
+        "launch_id": "new-brief-writer",
+        "brief_sha256": new_digest,
+        "launch_status": "running",
+    }
+    new_running.pop("exit_code", None)
+    with ledger.open("a") as fh:
+        fh.write(json.dumps(old_running) + "\n")
+        fh.write(json.dumps(new_running) + "\n")
+        fh.write(json.dumps({
+            **new_running, "launch_status": "succeeded", "exit_code": 0,
+        }) + "\n")
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "no successful write launch" in out
+
+
+def test_delegate_retry_reconciles_interrupted_running_launch(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    ledger = delegation_ledger(repo)
+    prior = json.loads(ledger.read_text().splitlines()[-1])
+    stale = {
+        **prior,
+        "launch_id": "interrupted-writer",
+        "launch_status": "running",
+        "pid": 2_147_483_647,
+    }
+    stale.pop("exit_code", None)
+    with ledger.open("a") as fh:
+        fh.write(json.dumps(stale) + "\n")
+    code, out = run(repo, "forge.py", "delegate", "T1",
+                    env={"HOME": str(fake_companion_home(tmp_path))})
+    assert code == 0, out
+    entries = [json.loads(line) for line in ledger.read_text().splitlines()]
+    reconciled = [entry for entry in entries
+                  if entry.get("launch_id") == "interrupted-writer"]
+    assert reconciled[-1]["launch_status"] == "failed"
+    assert entries[-1]["launch_status"] == "succeeded"
+
+
+def test_stale_launch_reconciliation_refuses_unverified_process_group(
+        repo, monkeypatch, capsys):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        entry = {
+            "task": "T1", "write": True, "launch_id": "old",
+            "launch_status": "running", "pid": 123, "pgid": 456,
+        }
+        monkeypatch.setattr(delegate, "load_delegations", lambda _base: [entry])
+        monkeypatch.setattr(delegate, "_pid_alive", lambda _pid: False)
+        monkeypatch.setattr(delegate, "_process_group_alive", lambda _pgid: True)
+        monkeypatch.setattr(
+            delegate, "_terminate_process_group",
+            lambda _pgid: pytest.fail("unverified process group was signalled"))
+        with pytest.raises(SystemExit):
+            delegate._reconcile_stale_launches(repo, "T1")
+    finally:
+        sys.path.pop(0)
+    assert "will not signal an unverified reused group" in capsys.readouterr().out
+
+
+def test_stale_launch_reconciliation_does_not_signal_a_reused_pid(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        entry = {
+            "task": "T1", "write": True, "launch_id": "old",
+            "launch_status": "running", "pid": 123, "pgid": 123,
+            "pid_started": "Mon Jul 27 10:00:00 2026",
+        }
+        recorded = []
+        monkeypatch.setattr(delegate, "load_delegations", lambda _base: [entry])
+        monkeypatch.setattr(delegate, "_pid_alive", lambda _pid: True)
+        monkeypatch.setattr(
+            delegate, "_process_start_identity",
+            lambda _pid: "Tue Jul 28 10:00:00 2026",
+        )
+        monkeypatch.setattr(
+            delegate, "_terminate_process_group",
+            lambda _pgid: pytest.fail("reused process group was signalled"),
+        )
+        monkeypatch.setattr(
+            delegate, "append_delegation",
+            lambda _base, record: recorded.append(record),
+        )
+        delegate._reconcile_stale_launches(repo, "T1")
+    finally:
+        sys.path.pop(0)
+    assert recorded[-1]["launch_status"] == "failed"
+
+
+def test_delegate_ignores_stale_lock_contents_when_no_process_holds_it(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    lock = delegation_lock(repo, "T1")
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    lock.write_text("")
+    code, out = run(repo, "forge.py", "delegate", "T1",
+                    env={"HOME": str(fake_companion_home(tmp_path))})
+    assert code == 0, out
+    assert lock.exists()
+
+
+def test_stage_close_exclusion_blocks_a_new_delegate(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.delegate import delegation_exclusion
+        with delegation_exclusion(repo, "T1", kind="stage-close"):
+            code, out = run(repo, "forge.py", "delegate", "T1",
+                            env={"HOME": str(fake_companion_home(tmp_path))})
+            start_code, start_out = run(repo, "forge.py", "stage", "start", "T1")
+    finally:
+        sys.path.pop(0)
+    assert code != 0 and "active protected lock" in out
+    assert start_code != 0 and "active protected lock" in start_out
+
+
+def test_protected_lock_path_rejects_unsafe_task_id(repo):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.delegate import delegation_lock_path
+        with pytest.raises(SystemExit):
+            delegation_lock_path(repo, "../../../package")
+    finally:
+        sys.path.pop(0)
+
+
+def test_terminal_delegate_reaps_surviving_process_group(repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.delegate import _terminate_and_reap
+    finally:
+        sys.path.pop(0)
+
+    class FakeProcess:
+        pid = 4242
+        returncode = 0
+
+        def poll(self):
+            return self.returncode
+
+        def wait(self):
+            return self.returncode
+
+    signals = []
+    alive = True
+
+    def killpg(pid, sig):
+        nonlocal alive
+        if sig == 0:
+            if not alive:
+                raise ProcessLookupError
+            return
+        signals.append((pid, sig))
+        alive = False
+
+    monkeypatch.setattr(os, "killpg", killpg)
+    proc = FakeProcess()
+    assert _terminate_and_reap(proc) is True
+    assert signals == [(4242, signal.SIGTERM)]
+    assert proc.returncode == 0
+
+
+@pytest.mark.parametrize("wrapper_signal", [
+    signal.SIGTERM,
+    signal.SIGHUP,
+    signal.SIGQUIT,
+])
+def test_termination_signals_reap_companion_before_lock_release(
+        repo, tmp_path, wrapper_signal):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    home = fake_companion_home(tmp_path)
+    companion = next(home.glob(
+        ".claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs"))
+    companion.write_text(
+        ("process.on('SIGTERM', () => {});\n"
+         if wrapper_signal == signal.SIGTERM else "")
+        + "setInterval(() => {}, 1000);\n"
+    )
+    proc = subprocess.Popen(
+        [sys.executable, str(repo / "factory/scripts/forge.py"),
+         "delegate", "T1"],
+        cwd=repo,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env={**os.environ, "HOME": str(home)},
+    )
+    lock = delegation_lock(repo, "T1")
+    for _ in range(100):
+        if lock.exists() and delegation_ledger(repo).exists():
+            break
+        threading.Event().wait(0.05)
+    assert lock.exists() and delegation_ledger(repo).exists()
+    proc.send_signal(wrapper_signal)
+    proc.communicate(timeout=10)
+    assert proc.returncode != 0
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.delegate import _lock_is_held
+        assert not _lock_is_held(lock)
+    finally:
+        sys.path.pop(0)
+    terminal = json.loads(delegation_ledger(repo).read_text().splitlines()[-1])
+    assert terminal["launch_status"] == "failed"
+
+
+def test_read_only_diagnostic_does_not_revoke_write_launch(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    home = str(fake_companion_home(tmp_path))
+    code, out = run(repo, "forge.py", "delegate", "T1", "--read-only",
+                    env={"HOME": home})
+    assert code == 0, out
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+
+
+def test_delegate_missing_companion_guides_doctor_fix(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    code, out = run(repo, "forge.py", "delegate", "T1",
+                    env={"HOME": str(tmp_path / "empty-home")})
+    assert code != 0 and "doctor --fix" in out
+
+
+def test_delegate_refuses_background_write_launch(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    code, out = run(repo, "forge.py", "delegate", "T1", "--background",
+                    env={"HOME": str(fake_companion_home(tmp_path))})
+    assert code != 0 and "background write delegation" in out
+    assert not (repo / ".factory" / "delegations.jsonl").exists()
+    assert not delegation_ledger(repo).exists()
 
 
 def test_codex_status_reports_write_flag_and_stall(repo, tmp_path):
@@ -2964,6 +3949,35 @@ def test_codex_status_reports_write_flag_and_stall(repo, tmp_path):
     assert code == 0 and "unknown" in out
 
 
+def test_codex_status_uses_inactivity_instead_of_total_runtime(repo, tmp_path):
+    jobs = tmp_path / "state" / "proj-abc" / "jobs"
+    jobs.mkdir(parents=True)
+    (jobs / "task-1.json").write_text(json.dumps({
+        "id": "task-1", "workspaceRoot": str(repo), "status": "running",
+        "phase": "implementing", "write": True,
+        "startedAt": "2020-01-01T00:00:00Z",
+    }))
+    project = jobs.parent
+    project.joinpath("state.json").write_text(json.dumps({"jobs": [{
+        "id": "task-1", "updatedAt": "2999-01-01T00:00:00Z",
+    }]}))
+    code, out = run(repo, "forge.py", "codex", "status",
+                    "--state-root", str(tmp_path / "state"))
+    assert code == 0 and "task-1" in out and "STALLED?" not in out
+    project.joinpath("state.json").write_text(json.dumps({"jobs": [{
+        "id": "task-1", "updatedAt": "2020-01-01T00:01:00Z",
+    }]}))
+    code, out = run(repo, "forge.py", "codex", "status",
+                    "--state-root", str(tmp_path / "state"))
+    assert code == 0 and "STALLED?" in out and "no progress" in out
+    project.joinpath("state.json").write_text(json.dumps({"jobs": [{
+        "id": "task-1", "updatedAt": {"malformed": True},
+    }]}))
+    code, out = run(repo, "forge.py", "codex", "status",
+                    "--state-root", str(tmp_path / "state"))
+    assert code == 0 and "task-1" in out
+
+
 def test_doctor_flags_skill_missing_for_codex_runtime(repo, tmp_path):
     """The harness refuses a user-facing artifact whose skills_used omits
     emil-design-eng, while the runtime asked to attest it cannot load it."""
@@ -2983,6 +3997,12 @@ def test_doctor_flags_skill_missing_for_codex_runtime(repo, tmp_path):
     assert ("codex", "emil-design-eng") in missing
     assert ("claude", "emil-design-eng") not in missing
     assert not [m for m in missing if m[1] == "frontend-design"]
+    assert ("codex", "review-animations") in missing
+    assert ("claude", "review-animations") not in missing
+    advisory = skills_missing_per_runtime(repo, home=home, advisory=True)
+    for skill in ("apple-design", "animation-vocabulary"):
+        assert ("claude", skill) in advisory
+        assert ("codex", skill) in advisory
 
 
 def test_next_names_delegation_step(repo, tmp_path):

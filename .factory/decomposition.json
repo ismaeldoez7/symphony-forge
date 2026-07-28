@@ -1,5 +1,5 @@
 {
-  "generated_by": "claude-code:plan-mode",
+  "generated_by": "docs-decomposer",
   "project": "symphony-forge",
   "user_facing": false,
   "doc_roots": [
@@ -30,6 +30,12 @@
     ],
     [
       "DELEG-6"
+    ],
+    [
+      "DELEG-7"
+    ],
+    [
+      "DELEG-8"
     ]
   ],
   "tasks": [
@@ -58,12 +64,36 @@
         "python3 factory/scripts/check_dual_runtime.py"
       ],
       "required_tests": [
-        "test_stage_done_refuses_empty_diff",
-        "test_stage_done_refuses_out_of_scope_change",
-        "test_stage_done_refuses_missing_required_test",
-        "test_stage_done_refuses_failing_verify_command",
-        "test_stage_start_parallel_requires_disjoint_scope",
-        "test_stage_done_incomplete_leaves_stage_open"
+        {
+          "id": "test_stage_done_refuses_empty_diff",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_stage_done_refuses_out_of_scope_change",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_stage_done_refuses_missing_required_test",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_stage_done_refuses_failing_verify_command",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_stage_start_parallel_requires_disjoint_scope",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_stage_done_incomplete_leaves_stage_open",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
       ],
       "reviewer_focus": "the exemption list must not swallow the check (this repo's own product code lives under factory/, so a broad EVIDENCE_PATHS exemption would make write_scope vacuous); refusals must name what failed; verify_commands run with the repo as cwd"
     },
@@ -89,8 +119,16 @@
         "python3 -m pytest factory/tests/test_gates.py -q -k \"decomposition or doctor\""
       ],
       "required_tests": [
-        "test_decomposition_refuses_prose_verify_commands",
-        "test_doctor_reports_prose_verify_commands"
+        {
+          "id": "test_decomposition_refuses_prose_verify_commands",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_doctor_reports_prose_verify_commands",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
       ],
       "reviewer_focus": "the runnable check must not reject legitimate shell (pipes, env prefixes, quoted args) while still catching a sentence"
     },
@@ -121,9 +159,21 @@
         "python3 -m pytest factory/tests/test_gates.py -q -k delegate"
       ],
       "required_tests": [
-        "test_delegate_brief_carries_criteria_and_scope",
-        "test_delegate_derives_write_from_stage_state",
-        "test_delegate_records_ledger_entry"
+        {
+          "id": "test_delegate_brief_carries_criteria_and_scope",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_delegate_derives_write_from_stage_state",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_delegate_records_ledger_entry",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
       ],
       "reviewer_focus": "the task id must be resolved against the recorded decomposition and never used to build a filesystem path; the ledger is append-only and union-merged"
     },
@@ -149,9 +199,21 @@
         "python3 -m pytest factory/tests/test_gates.py -q -k \"hook or companion\""
       ],
       "required_tests": [
-        "test_hook_denies_unbriefed_write_delegation",
-        "test_hook_allows_briefed_write_delegation",
-        "test_hook_denies_when_brief_edited"
+        {
+          "id": "test_hook_denies_unbriefed_write_delegation",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_hook_allows_briefed_write_delegation",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_hook_denies_when_brief_edited",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
       ],
       "reviewer_focus": "the hook must fail closed but must not deny read-only exploration; parsing of the companion command line must not be defeated by flag ordering or quoting"
     },
@@ -180,8 +242,16 @@
         "python3 -m pytest factory/tests/test_gates.py -q -k \"codex_status or skill\""
       ],
       "required_tests": [
-        "test_codex_status_reports_write_flag_and_stall",
-        "test_doctor_flags_skill_missing_for_codex_runtime"
+        {
+          "id": "test_codex_status_reports_write_flag_and_stall",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_doctor_flags_skill_missing_for_codex_runtime",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
       ],
       "reviewer_focus": "advisory means advisory: no exit code from codex status may propagate into a gate; the job registry is third-party data and must be parsed defensively"
     },
@@ -211,10 +281,134 @@
         "python3 factory/scripts/check_dual_runtime.py"
       ],
       "required_tests": [
-        "test_next_names_delegation_step"
+        {
+          "id": "test_next_names_delegation_step",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
       ],
       "reviewer_focus": "the AGENTS.md line count gate must actually be run, not assumed; no policy block may land in AGENTS.md"
+    },
+    {
+      "id": "DELEG-7",
+      "epic": "delegation-boundary",
+      "title": "forge delegate owns companion execution",
+      "objective": "Replace shell-token inference with one executable boundary. forge delegate composes the brief, invokes the installed companion through a fixed argv, records successful launch evidence, and routes direct companion Bash calls back to the command.",
+      "dependencies": [
+        "DELEG-6"
+      ],
+      "write_scope": [
+        "factory/scripts/forge_cli/delegate.py",
+        "factory/scripts/pre_tool_use.py",
+        "factory/scripts/forge_cli/stages.py",
+        "factory/scripts/forge_cli/doctor.py",
+        "factory/scripts/forge_cli/codex_status.py",
+        "factory/scripts/record_decomposition_from_json.py",
+        "factory/scripts/forge.py",
+        "factory/schemas/delegation.json",
+        "factory/prompts/decomposer.md",
+        "factory/skills/forge.md",
+        "docs/specs/delegation-boundary.md",
+        "docs/decisions/0018-delegation-gates.md",
+        "AGENTS.md",
+        ".claude/CLAUDE.md",
+        "factory/tests/test_gates.py",
+        ".review-notes.md"
+      ],
+      "acceptance_criteria": [
+        "forge delegate launches the installed companion without a shell",
+        "--print-only records no launch and cannot satisfy stage done",
+        "successful launch evidence is bound to the stage, task, brief and argv",
+        "stage done refuses without a fresh successful write launch",
+        "direct companion Bash commands are routed to forge delegate"
+      ],
+      "verify_commands": [
+        "uvx --with pytest python3 -m pytest factory/tests/test_gates.py -q -k \"delegate or companion or stage_done or hook\"",
+        "python3 factory/scripts/check_dual_runtime.py"
+      ],
+      "required_tests": [
+        {
+          "id": "test_delegate_records_ledger_entry",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_delegate_print_only_records_no_successful_launch",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_delegate_missing_companion_guides_doctor_fix",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_hook_denies_unbriefed_write_delegation",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "launch must use argv without a shell; print-only, read-only and stale evidence cannot satisfy stage close"
+    },
+    {
+      "id": "DELEG-8",
+      "epic": "delegation-boundary",
+      "title": "required tests become runner-owned proof",
+      "objective": "Replace opaque required_tests strings with proof objects. New decompositions validate each id, path and command; doctor reports legacy strings; stage done executes the declared command instead of inferring collection from source.",
+      "dependencies": [
+        "DELEG-7"
+      ],
+      "write_scope": [
+        "factory/schemas/decomposition.json",
+        "factory/scripts/record_decomposition_from_json.py",
+        "factory/scripts/forge_cli/stages.py",
+        "factory/scripts/forge_cli/doctor.py",
+        "factory/scripts/forge_cli/delegate.py",
+        "factory/prompts/decomposer.md",
+        "factory/tests/test_gates.py",
+        ".factory/decomposition.json"
+      ],
+      "acceptance_criteria": [
+        "new decompositions refuse string required_tests",
+        "proof objects require non-empty id, safe repo-relative path and runnable command",
+        "the command must bind both the declared path and id",
+        "stage done refuses missing paths and failing exact commands",
+        "doctor reports active legacy required_tests strings",
+        "delegate briefs render exact required-test commands"
+      ],
+      "verify_commands": [
+        "uvx --with pytest python3 -m pytest factory/tests/test_gates.py -q -k \"required_test or decomposition or stage_done or doctor or delegate\"",
+        "python3 factory/scripts/check_dual_runtime.py"
+      ],
+      "required_tests": [
+        {
+          "id": "test_decomposition_refuses_string_required_tests",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_decomposition_refuses_malformed_required_test_objects",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_decomposition_refuses_required_test_command_without_path_or_id",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_stage_done_refuses_missing_required_test",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_doctor_reports_legacy_string_required_tests",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "validate the proof shape and execute the exact command; do not add a runner abstraction or source parser"
     }
   ],
-  "commit": "3223e68eabf44c54e740ea0c340b772a8cb48b06"
+  "commit": "e0645385e320da418cf9e2d4340e0bd14f1089e0"
 }

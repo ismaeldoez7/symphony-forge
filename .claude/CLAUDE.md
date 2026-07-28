@@ -15,7 +15,7 @@ Read `AGENTS.md` first; it is the contract. Standards live in `constitution/`
 
 ## codex-plugin-cc
 
-- Delegate with `./forge delegate <task-id>`: it composes the brief and prints
+- Delegate with `./forge delegate <task-id>`: it composes the brief and directly runs
   the exact `/codex:rescue` invocation, deriving `--write` from stage state.
   Never hand-write the flags — an unbriefed `--write` run is hook-denied.
 - WATCH it: `./forge codex status` (still moving?) and Monitor

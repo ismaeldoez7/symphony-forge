@@ -13,11 +13,18 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import shlex
 import subprocess
+import tempfile
+import uuid
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from factory_lib import (
-    decomposition_state_path, dump_json, head_sha, load_json, now_iso, repo_root, run_cmd,
+    clean_git_env, decomposition_state_path, dump_json, git_control_dir,
+    head_sha, load_json, now_iso, protected_decomposition_state_path, repo_root,
+    run_state_path, safe_factory_write_json, sha256_of,
 )
 
 from .common import fail
@@ -37,6 +44,16 @@ def stages_path(base: Path) -> Path:
     return base / ".factory" / "stages.json"
 
 
+def authoritative_stages_path(base: Path) -> Path:
+    return git_control_dir(base) / "stages.json"
+
+
+def write_stages(base: Path, data: dict) -> None:
+    """Publish protected authority first, then a best-effort workspace mirror."""
+    dump_json(authoritative_stages_path(base), data)
+    safe_factory_write_json(base, stages_path(base).name, data)
+
+
 def write_skeleton(base: Path, issue: str, tasks: list[dict]) -> None:
     """Re-recording a decomposition after a mid-story scope change must not
     erase what is already built: surviving task ids keep their status and
@@ -52,14 +69,19 @@ def write_skeleton(base: Path, issue: str, tasks: list[dict]) -> None:
             stage.update({k: v for k, v in old.items()
                           if k in ("status", "started_at", "completed_at",
                                    "base_sha", "dirty_at_start", "task_sha256",
-                                   "incomplete", "parallel")})
+                                   "incomplete")})
             stage["title"] = task["title"]
         stages.append(stage)
-    dump_json(stages_path(base), {"issue": issue, "stages": stages})
+    write_stages(base, {"issue": issue, "stages": stages})
 
 
 def load_stages(base: Path) -> dict:
-    return load_json(stages_path(base), default={})
+    protected = authoritative_stages_path(base)
+    if protected.is_file():
+        data = load_json(protected, default={})
+        current_issue = load_json(run_state_path(base), default={}).get("issue_key")
+        return data if not current_issue or data.get("issue") == current_issue else {}
+    return {}
 
 
 def pending_stages(base: Path) -> list[dict]:
@@ -68,53 +90,277 @@ def pending_stages(base: Path) -> list[dict]:
 
 
 def _git(base: Path, *args: str) -> str:
-    proc = subprocess.run(["git", *args], cwd=base, capture_output=True, text=True)
+    proc = subprocess.run(
+        ["git", *args], cwd=base, capture_output=True, text=True,
+        env=clean_git_env())
     return proc.stdout if proc.returncode == 0 else ""
 
 
 def dirty_paths(base: Path) -> list[str]:
-    paths = []
-    for line in _git(base, "status", "--porcelain", "-uall").splitlines():
-        rel = line[3:].split(" -> ")[-1].strip().strip('"')
+    """Every dirty path, including both sides of renames, without quote parsing."""
+    raw = _git(base, "status", "--porcelain=v1", "-z", "-uall")
+    entries = raw.split("\0")
+    paths: list[str] = []
+    index = 0
+    while index < len(entries):
+        entry = entries[index]
+        index += 1
+        if not entry:
+            continue
+        status, rel = entry[:2], entry[3:]
         if rel:
             paths.append(rel)
-    return sorted(paths)
+        if any(flag in status for flag in "RC") and index < len(entries):
+            source = entries[index]
+            index += 1
+            if source:
+                paths.append(source)
+    return sorted(set(paths))
 
 
-def _digest(base: Path, rel: str) -> str:
+def committed_paths(base: Path, base_sha: str, head: str) -> set[str]:
+    """Both sides of every committed change, including renames and copies."""
+    raw = _git(base, "diff", "--name-status", "-z", "--find-renames",
+               f"{base_sha}..{head}")
+    entries = raw.split("\0")
+    paths: set[str] = set()
+    index = 0
+    while index < len(entries):
+        status = entries[index]
+        index += 1
+        if not status or index >= len(entries):
+            continue
+        rel = entries[index]
+        index += 1
+        if rel:
+            paths.add(rel)
+        if status[:1] in {"R", "C"} and index < len(entries):
+            destination = entries[index]
+            index += 1
+            if destination:
+                paths.add(destination)
+    return paths
+
+
+def _digest(base: Path, rel: str) -> str | None:
     path = base / rel
     try:
-        return hashlib.sha256(path.read_bytes()).hexdigest()
+        digest = hashlib.sha256()
+        digest.update(str(path.lstat().st_mode).encode())
+        if path.is_symlink():
+            digest.update(os.readlink(path).encode())
+        else:
+            digest.update(path.read_bytes())
+        return digest.hexdigest()
+    except FileNotFoundError:
+        return ""
     except OSError:
-        return ""                                     # absent or unreadable
+        return None
 
 
-def dirty_digests(base: Path) -> dict[str, str]:
-    """Content of every already-dirty path when the stage starts.
+def _git_path_identity(base: Path, rel: str) -> str:
+    return "\0".join((
+        _git(base, "status", "--porcelain=v2", "-z", "-uall", "--", rel),
+        _git(base, "ls-files", "--stage", "-z", "--", rel),
+        _git(base, "ls-files", "-v", "-z", "--", rel),
+    ))
+
+
+def dirty_digests(base: Path) -> dict[str, dict[str, str]]:
+    """Content and Git identity of every dirty path when the stage starts.
 
     Names alone are not enough: subtracting a NAME would hide every later edit
-    to that file, so a worker could keep changing an out-of-scope dirty file
-    invisibly, and legitimate work confined to an in-scope dirty file would
-    read as an empty diff. Digests distinguish "still exactly as I found it"
-    from "this stage changed it too"."""
-    return {rel: _digest(base, rel) for rel in dirty_paths(base)}
+    or index transition to that file. Digests plus porcelain/index identity
+    distinguish "still exactly as I found it" from "this stage changed it
+    too", even when bytes stay equal."""
+    result: dict[str, dict[str, str]] = {}
+    for rel in dirty_paths(base):
+        digest = _digest(base, rel)
+        if digest is None:
+            fail(f"cannot read dirty path {rel!r}; stage measurement refuses "
+                 "to treat unreadable content as absent")
+        result[rel] = {
+            "digest": digest,
+            "git": _git_path_identity(base, rel),
+        }
+    return result
+
+
+def product_tree_snapshot(base: Path) -> dict:
+    """The exact Git-visible product tree attested by proof commands."""
+    tracked = [
+        rel for rel in _git(base, "ls-files", "-z", "--cached").split("\0")
+        if rel
+    ]
+    index_stage = _git(base, "ls-files", "--stage", "-z")
+    gitlinks: dict[str, str] = {}
+    for entry in index_stage.split("\0"):
+        if "\t" not in entry:
+            continue
+        metadata, rel = entry.split("\t", 1)
+        fields = metadata.split()
+        if fields and fields[0] == "160000":
+            gitlinks[rel] = metadata
+    dirty = [
+        rel for rel in dirty_paths(base)
+        if not rel.startswith(WORKFLOW_PATHS)
+    ]
+    digests: dict[str, str] = {}
+    for rel in sorted(set(tracked) | set(dirty)):
+        if rel in gitlinks:
+            submodule_head = _git(base, "-C", str(base / rel), "rev-parse", "HEAD")
+            submodule_status = _git(
+                base, "-C", str(base / rel),
+                "status", "--porcelain=v2", "-z", "-uall",
+            )
+            digests[rel] = "\0".join(
+                (gitlinks[rel], submodule_head, submodule_status))
+            continue
+        digest = _digest(base, rel)
+        if digest is None:
+            fail(f"cannot read product path {rel!r}; proof cannot attest an "
+                 "unreadable final tree")
+        digests[rel] = digest
+    return {
+        "head": head_sha(base) or "",
+        "status": _git(base, "status", "--porcelain=v2", "-z", "-uall"),
+        "worktree_raw": _git(base, "diff", "--raw", "-z"),
+        "index_raw": _git(base, "diff", "--cached", "--raw", "-z"),
+        "index_stage": index_stage,
+        "index_flags": _git(base, "ls-files", "-v", "-z"),
+        "tracked": {rel: digests[rel] for rel in tracked},
+        "dirty": {rel: digests[rel] for rel in dirty},
+    }
 
 
 def changed_paths(base: Path, base_sha: str, already_dirty) -> list[str]:
     """Everything this stage moved: commits since base_sha plus the working
-    tree, minus paths that are byte-for-byte as the stage found them."""
-    paths = set()
+    tree. Pre-existing dirt is subtracted only from the working-tree side:
+    once a path enters a commit it is stage work and must be scope-checked."""
+    committed: set[str] = set()
     head = head_sha(base)
     if base_sha and head and base_sha != head:
-        paths.update(
-            line for line in
-            _git(base, "diff", "--name-only", f"{base_sha}..{head}").splitlines()
-            if line.strip()
-        )
-    paths.update(dirty_paths(base))
+        committed.update(committed_paths(base, base_sha, head))
+    working = set(dirty_paths(base))
+    current_digests: dict[str, str] = {}
+    for path in working | (set(already_dirty) if isinstance(already_dirty, dict) else set()):
+        digest = _digest(base, path)
+        if digest is None:
+            fail(f"cannot read changed path {path!r}; stage measurement refuses "
+                 "to treat unreadable content as absent")
+        current_digests[path] = digest
     if isinstance(already_dirty, dict):
-        paths = {p for p in paths if _digest(base, p) != already_dirty.get(p, "\0")}
-    return sorted(paths)
+        working = {
+            path for path in working
+            if (
+                current_digests[path]
+                != (
+                    already_dirty.get(path, {}).get("digest", "\0")
+                    if isinstance(already_dirty.get(path), dict)
+                    else already_dirty.get(path, "\0")
+                )
+                or (
+                    isinstance(already_dirty.get(path), dict)
+                    and _git_path_identity(base, path)
+                    != already_dirty[path].get("git", "\0")
+                )
+            )
+        }
+        for path, baseline in already_dirty.items():
+            digest = (
+                baseline.get("digest", "\0")
+                if isinstance(baseline, dict) else baseline)
+            git_identity = (
+                baseline.get("git", "\0")
+                if isinstance(baseline, dict) else None)
+            if (current_digests[path] != digest
+                    or (git_identity is not None
+                        and _git_path_identity(base, path) != git_identity)):
+                working.add(path)
+    return sorted(committed | working)
+
+
+def contribution_paths(base: Path, paths: list[str], already_dirty,
+                       base_sha: str) -> list[str]:
+    """Paths whose current bytes differ from the pre-stage workspace.
+
+    A pre-existing dirty file may be committed during a stage for workspace
+    hygiene. If its bytes never changed, that commit is still scope-checked but
+    it cannot masquerade as the task's implementation.
+    """
+    if not isinstance(already_dirty, dict):
+        already_dirty = {}
+    worktree_changed = {
+        rel for rel in _git(
+            base, "diff", "--name-only", "-z", base_sha, "--").split("\0")
+        if rel
+    }
+    tracked_at_start = {
+        rel for rel in _git(
+            base, "ls-tree", "-r", "--name-only", "-z",
+            base_sha).split("\0")
+        if rel
+    }
+    result = []
+    for path in paths:
+        baseline = already_dirty.get(path)
+        if baseline is None:
+            current = _digest(base, path)
+            if current is None:
+                fail(f"cannot read changed path {path!r}; stage measurement "
+                     "refuses to treat unreadable content as absent")
+            if path in worktree_changed or (
+                    path not in tracked_at_start and current != ""):
+                result.append(path)
+            continue
+        before = baseline.get("digest") if isinstance(baseline, dict) else baseline
+        current = _digest(base, path)
+        if current is None:
+            fail(f"cannot read changed path {path!r}; stage measurement refuses "
+                 "to treat unreadable content as absent")
+        if current != before:
+            result.append(path)
+    return result
+
+
+def split_index_paths(base: Path) -> list[str]:
+    """Paths with staged content different from the tested worktree content."""
+    staged = {
+        rel for rel in _git(
+            base, "diff", "--cached", "--name-only", "-z").split("\0")
+        if rel
+    }
+    unstaged = {
+        rel for rel in _git(
+            base, "diff", "--name-only", "-z").split("\0")
+        if rel
+    }
+    return sorted(staged & unstaged)
+
+
+def protected_authority_snapshot(base: Path) -> dict[str, str]:
+    """Exact protected state before proof code receives execution."""
+    control = git_control_dir(base)
+    if not control.exists():
+        fail("protected Forge authority is missing")
+    result: dict[str, str] = {}
+    for path in sorted(control.rglob("*")):
+        rel = path.relative_to(control).as_posix()
+        try:
+            info = path.lstat()
+            if path.is_symlink():
+                body = f"symlink:{os.readlink(path)}".encode()
+            elif path.is_dir():
+                body = b"directory"
+            else:
+                body = path.read_bytes()
+        except OSError:
+            fail(f"cannot read protected authority path {rel!r}")
+        digest = hashlib.sha256()
+        digest.update(str(info.st_mode).encode())
+        digest.update(body)
+        result[rel] = digest.hexdigest()
+    return result
 
 
 def task_digest(task: dict) -> str:
@@ -138,49 +384,17 @@ def _covered(path: str, scope: list[str]) -> bool:
     return False
 
 
-def out_of_scope(paths: list[str], scope: list[str],
-                 sibling_scope: list[str] | None = None) -> list[str]:
-    """Product paths this stage touched that it never declared.
-
-    `sibling_scope` is the write_scope of stages that ran ALONGSIDE this one.
-    Parallel stages share a worktree and a HEAD (WORKFLOW.md Concurrency:
-    fan-out happens across leaf tasks, in the task worktree), so a sibling's
-    commit lands inside this stage's window. Disjointness is verified at
-    `stage start`, so a path in a sibling's scope cannot be in mine — it is
-    that sibling's to answer for, and its own `stage done` measures it."""
+def out_of_scope(paths: list[str], scope: list[str]) -> list[str]:
+    """Product paths this sequential task touched but never declared."""
     return [p for p in paths
             if not p.startswith(WORKFLOW_PATHS)
-            and not _covered(p, scope)
-            and not _covered(p, sibling_scope or [])]
+            and not _covered(p, scope)]
 
 
 def task_for(base: Path, stage_id: str) -> dict:
-    tasks = load_json(decomposition_state_path(base), default={}).get("tasks", [])
+    tasks = load_json(
+        protected_decomposition_state_path(base), default={}).get("tasks", [])
     return next((t for t in tasks if t.get("id") == stage_id), {})
-
-
-def unresolved_tests(base: Path, required: list[str]) -> list[str]:
-    """A declared test that exists nowhere is a declaration, not a test.
-
-    Entries are test NAMES by convention (see any recorded decomposition), so
-    the search is a fixed-string grep across tracked and untracked files —
-    language-agnostic, and it catches the real failure: the test was never
-    written. `.factory/` and `plans/` are excluded because the declaration
-    itself lives there and would match itself."""
-    missing = []
-    for name in required:
-        entry = name.strip()
-        if not entry:
-            continue
-        if "/" in entry or entry.endswith((".py", ".ts", ".js", ".tsx", ".go")):
-            if not (base / entry).exists():
-                missing.append(entry)
-            continue
-        found = _git(base, "grep", "-l", "--untracked", "-F", "-e", entry,
-                     "--", ":!.factory/", ":!plans/")
-        if not found.strip():
-            missing.append(entry)
-    return missing
 
 
 def _find(data: dict, stage_id: str) -> dict:
@@ -191,64 +405,78 @@ def _find(data: dict, stage_id: str) -> dict:
     return stage
 
 
-def cmd_start(args: argparse.Namespace) -> None:
-    base = Path(args.repo).resolve() if args.repo else repo_root()
+def _cmd_start_locked(args: argparse.Namespace, base: Path) -> None:
     data = load_stages(base)
     if not data:
         fail("no .factory/stages.json — record the decomposition first "
              "(record_decomposition_from_json.py creates the stage tracker)")
+    if args.parallel:
+        fail("task stages are sequential inside one story worktree; parallelism "
+             "belongs between dependency-ready stories in separate worktrees")
     stage = _find(data, args.id)
     if stage.get("status") == "done":
         fail(f"{args.id} is already done — stages don't reopen; a follow-up is a "
              "new stage in a re-recorded decomposition")
-    # Order is the execution contract: earlier stages must be done first.
-    # --parallel opts out ONLY for provably disjoint write scopes
-    # (WORKFLOW.md Concurrency) — the caller asserts that, on the record.
-    if not args.parallel:
-        earlier = [s for s in data["stages"] if s is not stage]
-        earlier = earlier[:data["stages"].index(stage)]
-        not_done = [s["id"] for s in earlier if s.get("status") != "done"]
-        if not_done:
-            fail(f"{args.id} follows unfinished stage(s): {', '.join(not_done)} — "
-                 "finish them, or pass --parallel if write scopes are disjoint "
-                 "(WORKFLOW.md Concurrency).")
-    else:
-        # --parallel used to be an unchecked assertion. The decomposition
-        # already states each task's write_scope, so the claim is verifiable.
-        mine = task_for(base, args.id).get("write_scope") or []
-        for other in data["stages"]:
-            if other is stage or other.get("status") != "active":
-                continue
-            theirs = task_for(base, other["id"]).get("write_scope") or []
-            overlap = sorted(
-                {p for p in mine if _covered(p, theirs)}
-                | {p for p in theirs if _covered(p, mine)}
+    current_task = task_for(base, args.id)
+    if stage.get("status") == "active":
+        recorded = stage.get("task_sha256")
+        current = task_digest(current_task)
+        if not recorded or recorded == current:
+            fail(f"{args.id} is already active — restarting it would erase the "
+                 "measured delta. Continue the active stage, or re-record a "
+                 "changed task contract before deliberately re-baselining it.")
+        changed = [
+            path for path in changed_paths(
+                base, stage.get("base_sha", ""),
+                stage.get("dirty_at_start", {}),
             )
-            if overlap:
-                fail(f"{args.id} cannot run parallel to active stage {other['id']}: "
-                     f"their write scopes overlap on {', '.join(overlap)}. Finish "
-                     "one first, or re-decompose so the scopes are disjoint "
-                     "(WORKFLOW.md Concurrency).")
+            if not path.startswith(WORKFLOW_PATHS)
+        ]
+        strays = out_of_scope(changed, current_task.get("write_scope") or [])
+        if strays:
+            fail(f"{args.id} cannot re-baseline over path(s) still outside the "
+                 f"new task contract: {', '.join(strays[:10])}. Resolve or "
+                 "remove those changes before restarting the stage.")
+    active_others = [
+        other["id"] for other in data.get("stages", [])
+        if other is not stage and other.get("status") == "active"
+    ]
+    if active_others:
+        fail(f"{args.id} cannot start while task {', '.join(active_others)} is "
+             "active; tasks are sequential inside a story worktree")
+    earlier = data["stages"][:data["stages"].index(stage)]
+    not_done = [s["id"] for s in earlier if s.get("status") != "done"]
+    if not_done:
+        fail(f"{args.id} follows unfinished task(s): {', '.join(not_done)} — "
+             "finish them in decomposition order")
     stage["status"] = "active"
     stage["started_at"] = now_iso()
     # `stage done` measures the diff, and a measurement needs a fixed point —
     # plus the dirt that was already there, which is not this stage's work.
     stage["base_sha"] = head_sha(base) or ""
     stage["dirty_at_start"] = dirty_digests(base)
-    stage["task_sha256"] = task_digest(task_for(base, args.id))
+    stage["task_sha256"] = task_digest(current_task)
     append_event(base, "stage-start", actor="implementer", story=data.get("issue", ""),
                  detail=f"{args.id} {stage.get('title', '')}")
-    if args.parallel:
-        stage["parallel"] = True
-    dump_json(stages_path(base), data)
+    stage.pop("parallel", None)
+    write_stages(base, data)
     print(f"Stage {args.id} active — {stage.get('title')}")
     print("Loop: implement via /codex:rescue → inspect diff → validate assumptions → "
           "smallest checks → LOCAL autoreview until clean → commit → forge stage done "
           f"{args.id}")
 
 
-def _measure(base: Path, stage_id: str, stage: dict, task: dict,
-             siblings: list[dict]) -> None:
+def cmd_start(args: argparse.Namespace) -> None:
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    from .delegate import delegation_exclusion
+
+    with delegation_exclusion(base, args.id, kind="stage-state"):
+        with delegation_exclusion(
+                base, "stages", kind="stage-state", namespace="state"):
+            _cmd_start_locked(args, base)
+
+
+def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> None:
     """Closing a stage is a measurement, not an assertion.
 
     Every other diff-based check in this repo fires when TOO MUCH changed.
@@ -282,9 +510,21 @@ def _measure(base: Path, stage_id: str, stage: dict, task: dict,
     # .factory/ — the stage tracker and the events ledger move on every
     # command — so counting workflow paths would make this check pass for
     # exactly the runs it exists to catch.
-    product = [p for p in changed_paths(base, base_sha, stage.get("dirty_at_start", []))
-               if not p.startswith(WORKFLOW_PATHS)]
-    if not product:
+    baseline = stage.get("dirty_at_start", {})
+    product = [
+        path for path in changed_paths(base, base_sha, baseline)
+        if not path.startswith(WORKFLOW_PATHS)
+    ]
+    split = [
+        path for path in split_index_paths(base)
+        if not path.startswith(WORKFLOW_PATHS)
+    ]
+    if split:
+        fail(f"{stage_id} has staged content that differs from the tested "
+             f"worktree for: {', '.join(split[:10])}. Make the index and "
+             "worktree agree before closing the stage.")
+    contributions = contribution_paths(base, product, baseline, base_sha)
+    if not contributions:
         fail(f"{stage_id} closes on an EMPTY diff — no product path changed since "
              f"{base_sha[:8]}, in commits or in the working tree. That is what a "
              "stalled or read-only run looks like. If the work is genuinely "
@@ -292,28 +532,220 @@ def _measure(base: Path, stage_id: str, stage: dict, task: dict,
              "is missing>\".")
     scope = task.get("write_scope") or []
     if scope:
-        sibling_scope = [p for s in siblings
-                         for p in (task_for(base, s["id"]).get("write_scope") or [])]
-        strays = out_of_scope(product, scope, sibling_scope)
+        if not any(_covered(path, scope) for path in contributions):
+            fail(f"{stage_id} closes without changing anything in its own "
+                 "write_scope.")
+        strays = out_of_scope(product, scope)
         if strays:
             fail(f"{stage_id} changed {len(strays)} path(s) outside its declared "
                  f"write_scope: {', '.join(strays[:10])}"
                  f"{'…' if len(strays) > 10 else ''}. Either the work exceeded the "
                  "task or the scope was wrong — re-record the decomposition with "
                  "the real scope rather than closing over it.")
-    missing = unresolved_tests(base, task.get("required_tests") or [])
-    if missing:
-        fail(f"{stage_id} declares test(s) that exist nowhere in the repo: "
-             f"{', '.join(missing)}. The implementer writes and records the "
-             "tests (AGENTS.md); a declared test is not a test.")
+
+
+def _require_successful_launch(base: Path, stage_id: str, stage: dict,
+                               task: dict) -> None:
+    from .delegate import brief_path, current_delegation
+
+    digest = task_digest(task)
+    entry = current_delegation(
+        base,
+        stage_id,
+        stage_started_at=stage.get("started_at", ""),
+        task_sha256=digest,
+        ignore_lock=True,
+    )
+    valid = (
+        entry
+        and entry.get("launch_status") == "succeeded"
+        and entry.get("write") is True
+        and entry.get("task_sha256") == digest
+        and entry.get("stage_started_at") == stage.get("started_at")
+        and entry.get("brief_sha256") == sha256_of(brief_path(base, stage_id))
+    )
+    if not valid:
+        fail(f"{stage_id} has no successful write launch bound to this stage, "
+             "task contract and brief. Run `forge delegate "
+             f"{stage_id}` successfully; `--print-only` is diagnostic only.")
+
+
+def _run_required_tests(base: Path, stage_id: str, task: dict) -> None:
+    from .delegate import _terminate_and_reap, _wait_and_reap
+
+    for proof in task.get("required_tests") or []:
+        if not isinstance(proof, dict) or not all(
+                isinstance(proof.get(key), str) for key in ("id", "path", "command")):
+            fail(f"{stage_id} carries a legacy or malformed required_tests entry "
+                 f"{proof!r}. Re-record the decomposition with id, path and command.")
+        test_id = proof["id"]
+        rel = proof["path"]
+        command = proof["command"]
+        if not (base / rel).is_file():
+            fail(f"{stage_id} required test {test_id!r} is missing: {rel}")
+        with tempfile.TemporaryDirectory(prefix="forge-required-test-") as tmp:
+            report = Path(tmp) / "junit.xml"
+            tokens = [token.replace("{report}", str(report))
+                      .replace("{path}", rel).replace("{id}", test_id)
+                      for token in shlex.split(command)]
+            env = os.environ.copy()
+            process_token = f"proof-{uuid.uuid4().hex}"
+            env["FORGE_PROCESS_TOKEN"] = process_token
+            while tokens and "=" in tokens[0] and not tokens[0].startswith("="):
+                name, value = tokens.pop(0).split("=", 1)
+                env[name] = value
+            proc: subprocess.Popen[str] | None = None
+            stdout = ""
+            stderr = ""
+            with tempfile.TemporaryFile(mode="w+t") as stdout_log, \
+                    tempfile.TemporaryFile(mode="w+t") as stderr_log:
+                try:
+                    proc = subprocess.Popen(
+                        tokens, cwd=base, stdout=stdout_log,
+                        stderr=stderr_log, text=True, env=env,
+                        start_new_session=True,
+                    )
+                    if not _wait_and_reap(proc, process_token):
+                        fail(f"{stage_id} required test {test_id!r} left a "
+                             "process tree alive; proof must be terminal")
+                except OSError as exc:
+                    fail(f"{stage_id} required test {test_id!r} could not start: {exc}")
+                except BaseException:
+                    if proc is not None:
+                        _terminate_and_reap(proc)
+                    raise
+                stdout_log.seek(0)
+                stderr_log.seek(0)
+                stdout = stdout_log.read()
+                stderr = stderr_log.read()
+            if proc.returncode != 0:
+                tail = (stderr or stdout or "").strip().splitlines()
+                fail(f"{stage_id} required test {test_id!r} failed "
+                     f"(exit {proc.returncode}): {command}\n"
+                     + "\n".join(tail[-15:]))
+            if not report.is_file():
+                fail(f"{stage_id} required test {test_id!r} produced no fresh "
+                     "JUnit report; its command must write {report}")
+            try:
+                root = ET.parse(report).getroot()
+            except (ET.ParseError, OSError) as exc:
+                fail(f"{stage_id} required test {test_id!r} produced invalid "
+                     f"JUnit proof: {exc}")
+            matches = [
+                case for case in root.iter("testcase")
+                if str(case.get("name", "")) == test_id
+            ]
+            if not matches:
+                fail(f"{stage_id} required test {test_id!r} was not present in "
+                     "the fresh JUnit report")
+            attributed = [
+                case for case in matches
+                if str(case.get("file", "")).removeprefix("./") == rel
+            ]
+            if not attributed:
+                fail(f"{stage_id} required test {test_id!r} was not attributed "
+                     f"to its declared path {rel!r} in the fresh JUnit report")
+            if any(case.find("failure") is not None
+                   or case.find("error") is not None
+                   or case.find("skipped") is not None for case in attributed):
+                fail(f"{stage_id} required test {test_id!r} did not pass in the "
+                     "fresh JUnit report")
+
+
+def _run_verify_commands(base: Path, stage_id: str, task: dict) -> None:
+    from .delegate import _terminate_and_reap, _wait_and_reap
+
     for command in task.get("verify_commands") or []:
         if not str(command).strip():
             continue
-        result = run_cmd(str(command), base)
-        if result["exit_code"] != 0:
-            tail = (result["stderr"] or result["stdout"] or "").strip().splitlines()
-            fail(f"{stage_id} verify command failed (exit {result['exit_code']}): "
+        proc: subprocess.Popen[str] | None = None
+        process_token = f"verify-{uuid.uuid4().hex}"
+        env = os.environ.copy()
+        env["FORGE_PROCESS_TOKEN"] = process_token
+        with tempfile.TemporaryFile(mode="w+t") as stdout_log, \
+                tempfile.TemporaryFile(mode="w+t") as stderr_log:
+            try:
+                proc = subprocess.Popen(
+                    str(command), cwd=base, shell=True, stdout=stdout_log,
+                    stderr=stderr_log, text=True, start_new_session=True,
+                    env=env,
+                )
+                if not _wait_and_reap(proc, process_token):
+                    fail(f"{stage_id} verify command left a process tree alive; "
+                         "verification must be terminal")
+            except OSError as exc:
+                fail(f"{stage_id} verify command could not start: {exc}")
+            except BaseException:
+                if proc is not None:
+                    _terminate_and_reap(proc)
+                raise
+            stdout_log.seek(0)
+            stderr_log.seek(0)
+            stdout = stdout_log.read()
+            stderr = stderr_log.read()
+        if proc.returncode != 0:
+            tail = (stderr or stdout or "").strip().splitlines()
+            fail(f"{stage_id} verify command failed (exit {proc.returncode}): "
                  f"{command}\n" + "\n".join(tail[-15:]))
+
+
+def _finish_stage(base: Path, args: argparse.Namespace, data: dict,
+                  stage: dict, task: dict) -> None:
+    # Validate the input tree, run the task proof once, then validate again.
+    # Verify commands are executable shell and may mutate files; only the
+    # post-command measurement is allowed to authorize completion.
+    _measure(base, args.id, stage, task)
+    _require_successful_launch(base, args.id, stage, task)
+    proof_tree = product_tree_snapshot(base)
+    authority_tree = protected_authority_snapshot(base)
+    _run_verify_commands(base, args.id, task)
+    _run_required_tests(base, args.id, task)
+    if product_tree_snapshot(base) != proof_tree:
+        fail(f"{args.id} proof commands changed the product tree; verification "
+             "must be read-only")
+    if protected_authority_snapshot(base) != authority_tree:
+        fail(f"{args.id} proof commands changed protected Forge authority; "
+             "stage completion refused")
+    _measure(base, args.id, stage, task)
+    final_task = task_for(base, args.id)
+    _measure(base, args.id, stage, final_task)
+    _require_successful_launch(base, args.id, stage, final_task)
+    from .delegate import delegation_exclusion
+
+    with delegation_exclusion(
+            base, "stages", kind="stage-state", namespace="state"):
+        data = load_stages(base)
+        current = _find(data, args.id)
+        identity = ("started_at", "base_sha", "dirty_at_start", "task_sha256")
+        if (current.get("status") != "active"
+                or any(current.get(key) != stage.get(key) for key in identity)):
+            fail(f"{args.id} changed identity before its done transition could "
+                 "be serialized; inspect `forge stage list` and retry.")
+        locked_task = task_for(base, args.id)
+        if (not current.get("task_sha256")
+                or task_digest(locked_task) != current["task_sha256"]):
+            fail(f"{args.id}'s task contract changed before its done transition "
+                 "could be serialized; re-baseline and prove the current contract.")
+        _measure(base, args.id, current, locked_task)
+        _require_successful_launch(base, args.id, current, locked_task)
+        if product_tree_snapshot(base) != proof_tree:
+            fail(f"{args.id}'s product tree changed after its required proof; "
+                 "rerun stage completion against the final snapshot")
+        current.pop("incomplete", None)
+        current.pop("attested_digests", None)
+        current["status"] = "done"
+        current["completed_at"] = now_iso()
+        append_event(base, "stage-done", actor="implementer",
+                     story=data.get("issue", ""),
+                     detail=f"{args.id} {current.get('title', '')}")
+        write_stages(base, data)
+    remaining = [s for s in data["stages"] if s.get("status") != "done"]
+    if remaining:
+        print(f"Stage {args.id} done. Next: forge stage start {remaining[0]['id']} "
+              f"— {remaining[0].get('title')} ({len(remaining)} to go)")
+    else:
+        print(f"Stage {args.id} done — all {len(data['stages'])} stage(s) complete. "
+              "Continue the task loop: verify, then the ONE branch autoreview.")
 
 
 def cmd_done(args: argparse.Namespace) -> None:
@@ -325,42 +757,42 @@ def cmd_done(args: argparse.Namespace) -> None:
     if stage.get("status") != "active":
         fail(f"{args.id} is {stage.get('status', 'pending')!r}, not active — "
              "`forge stage start` it first; done attests a stage that actually ran.")
-    task = task_for(base, args.id)
     incomplete = (getattr(args, "incomplete", None) or "").strip()
     if incomplete:
         # A worker that genuinely finished part of the job had no vocabulary for
         # it: every signal kind presumes it wants to continue. This says so and
         # leaves the stage open, so nothing downstream reads it as delivered.
-        stage["incomplete"] = incomplete
-        stage["updated_at"] = now_iso()
-        append_event(base, "stage-incomplete", actor="implementer",
-                     story=data.get("issue", ""),
-                     detail=f"{args.id}: {incomplete}")
-        dump_json(stages_path(base), data)
+        from .delegate import delegation_exclusion
+        with delegation_exclusion(base, args.id, kind="stage-close"):
+            with delegation_exclusion(
+                    base, "stages", kind="stage-state", namespace="state"):
+                data = load_stages(base)
+                stage = _find(data, args.id)
+                if stage.get("status") != "active":
+                    fail(f"{args.id} changed state before its incomplete note "
+                         "could be serialized; inspect `forge stage list` and retry.")
+                stage["incomplete"] = incomplete
+                stage["updated_at"] = now_iso()
+                append_event(base, "stage-incomplete", actor="implementer",
+                             story=data.get("issue", ""),
+                             detail=f"{args.id}: {incomplete}")
+                write_stages(base, data)
         print(f"Stage {args.id} recorded INCOMPLETE and left active: {incomplete}")
         print("Nothing downstream treats it as delivered. Finish the gap, then "
               f"forge stage done {args.id}.")
         return
-    # Stages that ran alongside this one: their commits land inside this
-    # stage's window because parallel fan-out shares the task worktree.
-    siblings = [s for s in data.get("stages", [])
-                if s is not stage
-                and (s.get("status") == "active"
-                     or (s.get("completed_at") or "") >= (stage.get("started_at") or "~"))]
-    _measure(base, args.id, stage, task, siblings)
-    stage.pop("incomplete", None)
-    stage["status"] = "done"
-    stage["completed_at"] = now_iso()
-    append_event(base, "stage-done", actor="implementer", story=data.get("issue", ""),
-                 detail=f"{args.id} {stage.get('title', '')}")
-    dump_json(stages_path(base), data)
-    remaining = [s for s in data["stages"] if s.get("status") != "done"]
-    if remaining:
-        print(f"Stage {args.id} done. Next: forge stage start {remaining[0]['id']} "
-              f"— {remaining[0].get('title')} ({len(remaining)} to go)")
-    else:
-        print(f"Stage {args.id} done — all {len(data['stages'])} stage(s) complete. "
-              "Continue the task loop: verify, then the ONE branch autoreview.")
+    from .delegate import delegation_exclusion
+
+    # This is the commit point for a stage. The same per-task exclusion used by
+    # `forge delegate` stays held from the first measurement through the
+    # persisted done status, so no new writer can enter after the final check.
+    with delegation_exclusion(base, args.id, kind="stage-close"):
+        data = load_stages(base)
+        stage = _find(data, args.id)
+        if stage.get("status") != "active":
+            fail(f"{args.id} changed state while stage close was waiting for "
+                 "exclusive access; inspect `forge stage list` and retry.")
+        _finish_stage(base, args, data, stage, task_for(base, args.id))
 
 
 def cmd_list(args: argparse.Namespace) -> None:
@@ -373,5 +805,58 @@ def cmd_list(args: argparse.Namespace) -> None:
     marks = {"pending": " ", "active": ">", "done": "x"}
     for stage in data.get("stages", []):
         status = stage.get("status", "pending")
-        par = " [parallel]" if stage.get("parallel") else ""
-        print(f"[{marks.get(status, '?')}] {stage['id']} — {stage.get('title')}{par}")
+        print(f"[{marks.get(status, '?')}] {stage['id']} — {stage.get('title')}")
+
+
+def _cmd_migrate_locked(args: argparse.Namespace, base: Path) -> None:
+    if not args.confirm_workspace_state:
+        fail("migration trusts legacy workspace state exactly once; inspect "
+             ".factory/decomposition.json and .factory/stages.json, then pass "
+             "--confirm-workspace-state")
+    protected_decomposition = protected_decomposition_state_path(base)
+    protected_stages = authoritative_stages_path(base)
+    if protected_decomposition.exists() and protected_stages.exists():
+        fail("protected decomposition and stage authority already exist")
+    decomposition = load_json(decomposition_state_path(base), default={})
+    stages = load_json(stages_path(base), default={})
+    issue = load_json(run_state_path(base), default={}).get("issue_key")
+    tasks = {
+        task.get("id"): task for task in decomposition.get("tasks") or []
+        if isinstance(task, dict) and isinstance(task.get("id"), str)
+    }
+    stage_ids = {
+        stage.get("id") for stage in stages.get("stages") or []
+        if isinstance(stage, dict)
+    }
+    if (
+        not tasks
+        or not stages.get("stages")
+        or stages.get("issue") != issue
+        or stage_ids != set(tasks)
+    ):
+        fail("legacy workspace decomposition/stages do not form one complete "
+             "tracker for the active story; migration refused")
+    for stage in stages["stages"]:
+        if stage.get("status") not in {"pending", "active", "done"}:
+            fail(f"legacy stage {stage.get('id')} has invalid status")
+        if stage.get("status") in {"active", "done"}:
+            stage["task_sha256"] = task_digest(tasks[stage["id"]])
+        stage.pop("parallel", None)
+        stage.pop("attested_digests", None)
+    if not protected_decomposition.exists():
+        dump_json(protected_decomposition, decomposition)
+    if not protected_stages.exists():
+        write_stages(base, stages)
+    append_event(base, "stage-authority-migrated", actor="orchestrator",
+                 story=issue or "", detail=f"{len(tasks)} task(s)")
+    print(f"Migrated {len(tasks)} task(s) into protected story authority.")
+
+
+def cmd_migrate(args: argparse.Namespace) -> None:
+    """Explicit one-time adoption of a pre-protected story workspace."""
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    from .delegate import delegation_exclusion
+
+    with delegation_exclusion(
+            base, "stages", kind="stage-state", namespace="state"):
+        _cmd_migrate_locked(args, base)

@@ -24,11 +24,28 @@ STATE_ROOT = Path.home() / ".claude" / "plugins" / "data" / "codex-openai-codex"
 STALL_MINUTES = 20
 
 
-def _parse_time(value: str) -> datetime.datetime | None:
-    try:
-        return datetime.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    except (TypeError, ValueError):
+def _parse_time(value) -> datetime.datetime | None:
+    if not isinstance(value, str):
         return None
+    try:
+        return datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _registry_jobs(project_root: Path) -> dict[str, dict]:
+    """Best-effort job records from the companion's project registry."""
+    try:
+        state = json.loads((project_root / "state.json").read_text())
+    except Exception:
+        return {}
+    if not isinstance(state, dict) or not isinstance(state.get("jobs"), list):
+        return {}
+    return {
+        str(job["id"]): job
+        for job in state["jobs"]
+        if isinstance(job, dict) and job.get("id") is not None
+    }
 
 
 def load_jobs(base: Path, state_root: Path | None = None) -> list[dict]:
@@ -41,6 +58,7 @@ def load_jobs(base: Path, state_root: Path | None = None) -> list[dict]:
     if not root.is_dir():
         return []
     jobs = []
+    registries: dict[Path, dict[str, dict]] = {}
     for path in sorted(root.glob("*/jobs/*.json")):
         try:
             job = json.loads(path.read_text())
@@ -50,6 +68,14 @@ def load_jobs(base: Path, state_root: Path | None = None) -> list[dict]:
             continue
         if not isinstance(job, dict):
             continue
+        # The per-job file has the detailed payload, while state.json carries
+        # updatedAt from phase/progress upserts. Merge them so inactivity can
+        # use the companion's freshest available progress timestamp.
+        project_root = path.parent.parent
+        if project_root not in registries:
+            registries[project_root] = _registry_jobs(project_root)
+        registry_job = registries[project_root].get(str(job.get("id", "")), {})
+        job = {**job, **registry_job}
         if Path(str(job.get("workspaceRoot", ""))) != base:
             continue
         job["_path"] = path
@@ -67,13 +93,46 @@ def age_minutes(job: dict, now: datetime.datetime | None = None) -> float | None
     return (now - started).total_seconds() / 60.0
 
 
+def inactivity_minutes(job: dict,
+                       now: datetime.datetime | None = None) -> float | None:
+    """Minutes since the newest parseable progress timestamp.
+
+    The registry is third-party data, so accept the known update/phase field
+    variants independently and fall back to the job start when none parse.
+    """
+    timestamps = [
+        _parse_time(job.get(key))
+        for key in (
+            "updatedAt",
+            "phaseUpdatedAt",
+            "lastUpdateAt",
+            "lastActivityAt",
+            "startedAt",
+            "createdAt",
+        )
+    ]
+    parsed = [timestamp for timestamp in timestamps if timestamp is not None]
+    if not parsed:
+        return None
+    normalized = [
+        timestamp if timestamp.tzinfo is not None
+        else timestamp.replace(tzinfo=datetime.timezone.utc)
+        for timestamp in parsed
+    ]
+    latest = max(normalized)
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=datetime.timezone.utc)
+    return (now - latest).total_seconds() / 60.0
+
+
 def warnings_for(job: dict, *, stage_active: bool, stale_minutes: int,
                  now: datetime.datetime | None = None) -> list[str]:
     notes = []
     running = str(job.get("status", "")) in {"running", "starting", "queued"}
-    age = age_minutes(job, now)
-    if running and age is not None and age >= stale_minutes:
-        notes.append(f"STALLED? running {int(age)}m with phase "
+    inactivity = inactivity_minutes(job, now)
+    if running and inactivity is not None and inactivity >= stale_minutes:
+        notes.append(f"STALLED? no progress for {int(inactivity)}m with phase "
                      f"{str(job.get('phase') or 'unknown')!r}")
     if running and stage_active and job.get("write") is not True:
         # A read-only sandbox with approvalPolicy "never" can neither write nor

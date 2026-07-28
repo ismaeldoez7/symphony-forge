@@ -1,33 +1,24 @@
 {
   "generated_by": "griller",
   "gate": "plan",
-  "issue": "FORGE-DELEG-1",
   "verdict": "pass",
-  "questions_asked": 5,
-  "summary": "Five design decisions put to the human one at a time, each led by a recommendation; all five confirmed as recommended. Facts (file:line for the write-permission conflict, the completion predicate, the missing prompt wiring, and the installed Codex skills) were looked up in two read-only audits and verified directly, not asked.",
+  "issue": "FORGE-DELEG-1",
   "gaps": [
-    "The plan initially had no answer for a worker that genuinely finishes part of a task: every signal kind presumes it wants to continue.",
-    "Enforcing runnable verify_commands would break real projects whose active decompositions already carry prose (agentstats: 'package test script').",
-    "stage done measuring the diff needed a base to measure from; stages carried no base commit.",
-    "A brief recorded once could drift from the file actually handed to the executor."
+    "A pytest-only selector implementation would break the factory template's language independence.",
+    "A print-only delegation could become a launch-record laundering path if it wrote successful evidence."
   ],
   "contradictions": [
-    "The plan's own gate (a hook denial on unbriefed --write) contradicts decision 0011's separation only in appearance: 0011 governs review ownership, not delegation, and no reviewer is being nested. Checked against every active decision; no other conflict found.",
-    "forge codex status reads a third-party plugin path, which conflicts with decision 0001's determinism contract if it could gate a ship."
+    "The original plan made the pre-tool shell parser the authorization boundary, while repeated autoreview proved arbitrary shell argv cannot be inferred safely."
   ],
   "resolutions": [
-    "Added stage done --incomplete '<what is missing>': the stage stays open, the gap lands in the events ledger, and forge next surfaces it.",
-    "Migration is explicit: the recorder refuses prose only for NEW decompositions; shipped history is untouched and forge doctor reports any active decomposition still carrying prose.",
-    "stage start records the base commit on the stage, so stage done measures against a fixed point rather than a guess.",
-    "The delegation record stores brief_sha256; the hook re-digests the file on disk, so an edited brief invalidates the delegation.",
-    "forge codex status is declared advisory in the enforcement matrix \u2014 a diagnostic reading a third-party path must never be able to block a ship.",
-    "Every rule in the plan is listed in an enforcement matrix naming the script that refuses; nothing in it relies on an agent following an instruction."
+    "Required tests use generic runner-owned id, path, and command objects; Forge executes the command without parsing test source or selecting a runner.",
+    "Print-only writes no successful launch record, and stage done requires a fresh successful write launch bound to the stage and task digest.",
+    "The spec, proposed decision 0018, and amended plan move authorization to direct forge delegate execution and make the hook routing-only."
   ],
-  "open_items": [
-    "Rendering delegation state on the board is deferred to the display-layer work still outstanding from PR #24. Non-blocking: the CLI surfaces it this round.",
-    "docs/decisions/0018-delegation-gates.md is recorded as proposed. Acceptance is human chat confirmation, not an implementation step."
-  ],
-  "input_sha256": "2d9e098f59d481b4e9ad0838058fd9bbcef20c919361a0dbcf0bf4f6b2d341b4",
-  "recorded_at": "2026-07-27T12:10:13+00:00",
-  "commit": "74e2ceb84464fe69fd5671dffa299ce42b937ad1"
+  "open_items": [],
+  "summary": "The amendment removes both inference layers with the smallest executable contracts and adds no UI, runner framework, or shell parser.",
+  "questions_asked": 1,
+  "input_sha256": "4b2beaca4939662d5ac0f179806411ae3fb06f4ace1d19cf9a09cb374f760072",
+  "recorded_at": "2026-07-27T15:21:02+00:00",
+  "commit": "e0645385e320da418cf9e2d4340e0bd14f1089e0"
 }

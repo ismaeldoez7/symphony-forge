@@ -41,14 +41,41 @@ The delegation boundary is instrumented rather than described. Six gates:
    vocabulary: the stage stays open and the gap enters the timeline.
 3. `forge delegate` composes the brief, derives write permission from stage
    state, invokes the installed companion directly with a subprocess argument
-   vector, and records successful launch evidence. `--print-only` is
-   diagnostic and cannot satisfy stage close.
+   vector, and records running and terminal evidence under one launch id.
+   An OS-backed per-task lock beside the protected authority ledger
+   excludes concurrent writers and is also held across the final stage
+   measurement and persisted done transition. A shared state lock serializes
+   stage-state transitions.
+   Stage close refuses while any matching launch is active. `--print-only` is
+   diagnostic and cannot satisfy stage close. Background write launches are
+   refused because their completion cannot be bound to the final measurement.
+   A retry reconciles a dead interrupted process before starting another
+   writer; every terminal path empties the observed worker process tree before
+   evidence or lock release on TERM, HUP and QUIT. PID start identity prevents
+   a recycled PID from being mistaken for the original worker. If only an
+   unverified numeric process group remains, retry blocks without signalling it.
+   Authoritative launch rows, decomposition, stage state, and locks live in
+   Git's protected control directory; their `.factory/` copies are best-effort
+   diagnostic mirrors the worker may write but gates never trust.
 4. Direct companion Bash calls are off-contract and routed to `forge
    delegate`; the pre-tool hook is not an authorization parser for arbitrary
-   shell. `stage done` enforces the successful-launch postcondition.
-5. Required tests are runner-owned `{id, path, command}` proof objects and
-   execute at stage close. `verify_commands` remain broader proof commands;
-   both command classes must be runnable and prose is refused at record time.
+   shell. Every literal companion token is routed through `forge delegate`;
+   lock paths validate the canonical task-id grammar.
+   `stage done` enforces the successful-launch postcondition.
+5. Required tests are runner-owned `{id, path, command}` proof objects. The
+   shell-free command substitutes `{path}` and `{id}` in the runner's native
+   selector, writes fresh JUnit XML at `{report}`, and stage close verifies that
+   report names the declared test exactly and carries `file="{path}"`.
+   Parameterized cases declare their exact emitted testcase name. Shell and
+   `env` wrappers are refused. Every required-test command must leave the
+   verified product tree unchanged before the next proof runs, including every
+   tracked path, modes, symlinks, index flags and status; its process tree
+   must also be empty.
+   `verify_commands` remain broader proof commands. Both command classes are
+   read-only: stage close snapshots the product tree and protected Forge
+   authority once around the whole proof set, refuses any mutation, and then
+   binds the done transition to that exact final snapshot. Both command classes
+   must be runnable and prose is refused at record time.
 6. `forge doctor` checks that every skill the harness demands is loadable by
    each runtime expected to attest it.
 
@@ -71,15 +98,16 @@ that it could not. Two costs are accepted:
   compared by CONTENT rather than name — otherwise a worker could keep editing
   an out-of-scope dirty file invisibly, and work confined to an in-scope dirty
   file would read as an empty diff.
+- A path cannot close with staged content different from the tested worktree;
+  split index/worktree states are refused.
 - The decomposition may still be re-recorded mid-stage (the sanctioned repair
   for a scope that turns out to be wrong), but closing over a contract rewritten
   after the stage started is refused: `stage start` again to re-baseline, on the
   record. Re-baselining discards credit for work already in the tree, so it is
   the first move after a scope correction, not the last.
-- Parallel stages share a worktree and a HEAD, so a sibling's commit falls
-  inside this stage's window. Disjointness is verified at `stage start`, so a
-  path in a sibling's `write_scope` is that sibling's to answer for. Without
-  this, the parallel workflow the harness advertises could never complete.
+- Tasks are sequential inside one story worktree and follow decomposition
+  order. Parallel delivery happens between dependency-ready stories, each in
+  its own worktree; task-level `--parallel` is refused.
 - Companion cache lookup can drift. Delegation fails closed with
   `forge doctor --fix` guidance and never falls back to a pasted shell command.
 - Runner ownership stays in the decomposition: Forge executes the declared

@@ -62,29 +62,35 @@ def unrunnable_reason(command: str) -> str | None:
     return f"starts with {program!r}, which is not on PATH and is not a shell builtin"
 
 
-# The runtimes that have to ATTEST skills_used, and where each loads skills
-# from. Claude coordinates and reviews; Codex implements — and the implementer
-# is the one the recorder makes attest the design skills.
+# The runtimes that consume each skill group, and where each loads skills from.
 SKILL_HOMES = {"claude": Path(".claude") / "skills", "codex": Path(".codex") / "skills"}
+# Implementation guidance is consumed by both the coordinating and executing
+# runtimes; review inputs are consumed by Codex's sole autoreview pass.
+SKILL_GROUP_RUNTIMES = {
+    "implementation": tuple(SKILL_HOMES),
+    "review": ("codex",),
+}
 
 
-def skills_missing_per_runtime(base: Path, home: Path | None = None) -> list[tuple[str, str]]:
-    """(runtime, skill) pairs a runtime cannot load but is required to attest.
+def skills_missing_per_runtime(base: Path, home: Path | None = None,
+                               *, advisory: bool = False) -> list[tuple[str, str]]:
+    """(runtime, skill) pairs a runtime cannot load for one requirement kind.
 
-    The harness refuses a user-facing artifact whose skills_used omits
-    emil-design-eng while the runtime being asked to attest it has no way to
-    load it. Every such attestation is false by construction."""
-    from .delegate import required_skills
+    Required groups back artifact attestations; advisory groups are reported
+    without turning doctor into a gate."""
+    from .delegate import skill_groups
 
     home = home or Path.home()
     missing = []
-    for skill in required_skills(base):
-        for runtime, rel in SKILL_HOMES.items():
-            # A directory is not a skill: what a runtime LOADS is SKILL.md, and
-            # a half-installed directory reports ready here while delegation
-            # later finds nothing to inline.
-            if not (home / rel / skill / "SKILL.md").is_file():
-                missing.append((runtime, skill))
+    kind = "advisory" if advisory else "required"
+    for phase, groups in skill_groups(base).items():
+        for skill in groups[kind]:
+            for runtime in SKILL_GROUP_RUNTIMES.get(phase, ()):
+                rel = SKILL_HOMES[runtime]
+                # A directory is not a skill: what a runtime LOADS is SKILL.md,
+                # and a half-install must not report ready.
+                if not (home / rel / skill / "SKILL.md").is_file():
+                    missing.append((runtime, skill))
     return missing
 
 
@@ -99,6 +105,17 @@ def prose_verify_commands(base: Path) -> list[str]:
             reason = unrunnable_reason(str(command))
             if reason:
                 found.append(f"{task.get('id', '?')}: {command!r} {reason}")
+    return found
+
+
+def legacy_required_tests(base: Path) -> list[str]:
+    """Active task tests that predate the executable proof-object contract."""
+    tasks = load_json(decomposition_state_path(base), default={}).get("tasks", [])
+    found = []
+    for task in tasks:
+        for proof in task.get("required_tests") or []:
+            if not isinstance(proof, dict) or set(proof) != {"id", "path", "command"}:
+                found.append(f"{task.get('id', '?')}: {proof!r}")
     return found
 
 
@@ -674,6 +691,21 @@ def cmd_doctor(args: argparse.Namespace) -> None:
                   f"install it, then rerun with --fix to mirror it across runtimes.")
             failures += 1
 
+    for runtime, skill in (
+            skills_missing_per_runtime(repo, advisory=True) if repo else []):
+        target = home / SKILL_HOMES[runtime] / skill
+        source = next((home / rel / skill for rel in SKILL_HOMES.values()
+                       if (home / rel / skill / "SKILL.md").is_file()), None)
+        if args.fix and source:
+            print(f"[fix ] mirroring {skill} -> {target} ...")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(source, target, dirs_exist_ok=True)
+        if not (target / "SKILL.md").is_file():
+            print(f"[opt ] skill/{runtime:<7} {skill} not loadable by {runtime} "
+                  f"({target})")
+            print(f"       fix: harness.yaml advises {skill}; install it, then "
+                  f"rerun with --fix to mirror it across runtimes.")
+
     prose = prose_verify_commands(repo) if repo else []
     for entry in prose:
         print(f"[MISS] verify_commands  {entry}")
@@ -682,6 +714,14 @@ def cmd_doctor(args: argparse.Namespace) -> None:
               "proves the task — `forge stage done` executes every entry, so "
               "these can never pass.")
         failures += len(prose)
+
+    legacy = legacy_required_tests(repo) if repo else []
+    for entry in legacy:
+        print(f"[MISS] required_tests   {entry}")
+    if legacy:
+        print("       fix: re-record the decomposition with {id, path, command} "
+              "objects; stage done executes the exact command.")
+        failures += len(legacy)
 
     if failures:
         print(f"\nforge doctor: {failures} required item(s) missing.")

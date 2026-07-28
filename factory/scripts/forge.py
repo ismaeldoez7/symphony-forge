@@ -252,7 +252,7 @@ def main() -> None:
     p_ss = st_sub.add_parser("start", help="begin a stage (order-enforced)")
     p_ss.add_argument("id", help="stage id from the recorded decomposition")
     p_ss.add_argument("--parallel", action="store_true",
-                      help="skip order enforcement — ONLY for disjoint write scopes")
+                      help="unsupported: tasks are sequential inside one story worktree")
     p_ss.add_argument("--repo")
     p_ss.set_defaults(func=stages_mod.cmd_start)
     p_sd = st_sub.add_parser("done", help="finish a stage AFTER local autoreview + commit")
@@ -262,6 +262,11 @@ def main() -> None:
                            "and the gap lands in the timeline")
     p_sd.add_argument("--repo")
     p_sd.set_defaults(func=stages_mod.cmd_done)
+    p_sm = st_sub.add_parser(
+        "migrate", help="adopt inspected legacy workspace state once")
+    p_sm.add_argument("--confirm-workspace-state", action="store_true")
+    p_sm.add_argument("--repo")
+    p_sm.set_defaults(func=stages_mod.cmd_migrate)
     p_cx = sub.add_parser("codex", help="delegated Codex runs (diagnostics)")
     cx_sub = p_cx.add_subparsers(dest="codex_command", required=True)
     p_cxs = cx_sub.add_parser("status", help="is the delegated run still moving?")
@@ -271,11 +276,14 @@ def main() -> None:
     p_cxs.add_argument("--repo")
     p_cxs.set_defaults(func=codex_status.cmd_status)
 
-    p_del = sub.add_parser("delegate", help="compose the brief + invocation for one task")
+    p_del = sub.add_parser("delegate", help="compose the brief and launch one task")
     p_del.add_argument("id", help="task id from the recorded decomposition")
     p_del.add_argument("--read-only", action="store_true",
                        help="exploration run: override the derived write flag")
-    p_del.add_argument("--background", action="store_true")
+    p_del.add_argument("--background", action="store_true",
+                       help="background exploration only; active write stages refuse it")
+    p_del.add_argument("--print-only", action="store_true",
+                       help="print the argv without launching or recording evidence")
     p_del.add_argument("--repo")
     p_del.set_defaults(func=delegate_mod.cmd_delegate)
 

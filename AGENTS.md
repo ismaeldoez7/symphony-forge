@@ -38,8 +38,7 @@ Codex executes exploration, implementation, testing, and review. The `.factory` 
 1. record client sign-off (the spec/roadmap gate is checked now)
 2. plan one roadmap story and generate its decomposition
 3. wait for approval
-4. implement one bounded task — `./forge delegate <task-id>` briefs it, `stage
-   done` measures it (the implementer writes and records the tests)
+4. implement one bounded task via `./forge delegate`; measure under decision 0018
 5. run deterministic verify
 6. run one autoreview pass (three lenses: quality, performance, security)
 7. run the functional check when the decomposition says `user_facing: true`
@@ -106,5 +105,6 @@ A task is not PR-ready until all of these exist:
   `factory/schemas/` (incl. a pinned `generated_by`) — never by hand.
 - Review = ONE autoreview pass run by the orchestrating session directly —
   never a Codex review job (decision 0011), never nested reviewers.
+- One worktree/story; sequential tasks; dependency-ready stories may parallelize (0002).
 - Keep the template repo independent of any client-specific source repo.
 - Do not keep long policy blocks in `AGENTS.md`; move them into docs.

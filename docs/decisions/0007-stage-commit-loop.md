@@ -19,11 +19,13 @@ diff until clean, then commit — keeps defects out of history entirely.
 
 Recording a decomposition also creates `.factory/stages.json`, a mutable
 per-task tracker (one stage per leaf task, list order = execution order).
-The dev loop per stage: `/codex:rescue` implements in the task worktree →
+The dev loop per stage: `/codex:rescue` implements in the story worktree →
 orchestrator inspects the diff → assumption rows validated → smallest
 relevant checks → **local autoreview (`--mode local`) until clean → commit**
-→ `forge stage done`. `forge stage start` enforces order (`--parallel` only
-for disjoint write scopes per the concurrency contract); `pr_ready` refuses
+→ `forge stage done`. `forge stage start` strictly enforces decomposition
+order and refuses task-level `--parallel`; independent stories may run in
+parallel only in separate worktrees when their roadmap dependencies are done.
+`pr_ready` refuses
 while any stage is not done; the tracker is archived to history and cleaned
 at ship like all task-scoped state.
 
@@ -39,5 +41,5 @@ GATE and the sole producer of `.factory/reviews/*`.
   per-stage ones.
 - Stage state is deterministic and visible (`forge next` shows n/m done),
   so an interrupted task resumes exactly where it stopped.
-- Slightly more ceremony per task; single-stage tasks pay one `stage start`
+- Slightly more ceremony per story; single-stage stories pay one `stage start`
   / `stage done` pair.

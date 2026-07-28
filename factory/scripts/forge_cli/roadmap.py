@@ -557,9 +557,9 @@ def cmd_heal(args: argparse.Namespace) -> None:
 
 def cmd_parallel(args: argparse.Namespace) -> None:
     """The orchestrator's fan-out view: which stories can run CONCURRENTLY
-    right now (pending, dependencies done), each in its own worktree —
-    one task per branch with its own committed .factory state (decision
-    0002), implementations driven via /codex:rescue --background."""
+    right now (pending, dependencies done), each in its own worktree and branch
+    with committed .factory state (decision 0002). Tasks inside each story are
+    sequential."""
     base = Path(args.repo).resolve() if args.repo else repo_root()
     from factory_lib import slugify
     items = load_items(base)

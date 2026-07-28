@@ -6,15 +6,25 @@
   "required": {
     "generated_by": "str",
     "at": "str",
+    "launch_id": "str",
     "task": "str",
     "brief_sha256": "str",
+    "task_sha256": "str",
     "write": "bool",
     "model": "str",
-    "effort": "str"
+    "effort": "str",
+    "companion_path": "str",
+    "argv_sha256": "str",
+    "launch_status": "str"
   },
   "optional": {
     "story": "str",
-    "background": "bool"
+    "background": "bool",
+    "stage_started_at": "str",
+    "pid": "int",
+    "pgid": "int",
+    "pid_started": "str",
+    "exit_code": "int"
   },
-  "kind_note": "One append-only line per delegation in .factory/delegations.jsonl. `brief_sha256` binds the record to the exact brief handed to the executor: the pre-tool hook re-digests the file on disk, so an edited brief invalidates the delegation rather than silently authorizing a different one. `write` is DERIVED from stage state, never typed per request — three layers disagreed on the default and a read-only sandbox with approvalPolicy never can neither write nor ask."
+  "kind_note": "Append-only running and terminal lines share a launch_id. Brief, task, stage and argv digests bind the launch to the active contract. Authoritative rows and locks live in Git's protected control directory; .factory/delegations.jsonl is a diagnostic mirror. Per-task and shared-state locks serialize writers; PID start identity prevents reuse mistakes, unverified reused groups are never signalled, and every terminal path empties the observed process tree. Print-only diagnostics never create a record."
 }

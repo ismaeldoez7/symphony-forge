@@ -194,16 +194,18 @@ about unassigned ones). Refine it by PR as planning teaches you more.
 
 ## 8. The feature loop
 
-Start each feature with: **"Start the next task on the roadmap."**
+Start each feature with: **"Start the next story on the roadmap."**
 
 ```bash
+git worktree add ../ENG-123 -b feat/ENG-123-build-billing-dashboard
+cd ../ENG-123
 python3 factory/scripts/intake.py --issue ENG-123 --title "Build billing dashboard"
-git checkout -b feat/ENG-123-build-billing-dashboard   # one task per branch (WORKFLOW.md Concurrency)
 ```
 
-Each story lives on its own branch with its own committed `.factory/` state —
-parallel devs are parallel branches; `pr_ready.py` archives evidence before
-merge.
+Each story lives in its own isolated worktree and branch with its own committed
+`.factory/` state. Tasks inside that story run sequentially. Stories whose
+roadmap dependencies are done may run in parallel worktrees; `pr_ready.py`
+archives evidence before merge.
 
 1. **Plan (mandatory — enforced)** — say: **"Plan this task."** and switch to
    PLAN MODE (shift+tab). While the task is unplanned, the hook blocks

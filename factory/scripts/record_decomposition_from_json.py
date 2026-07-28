@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shlex
 import sys
 from pathlib import Path
 
 from factory_lib import (
-    decomposition_state_path, dump_json, gate, head_sha, now_iso, repo_root,
-    run_state_path, validate_payload,
+    decomposition_state_path, dump_json, gate, head_sha, now_iso,
+    protected_decomposition_state_path, repo_root, run_state_path,
+    safe_factory_write_json, validate_payload,
 )
 from forge_cli.doctor import unrunnable_reason
 
@@ -55,6 +58,81 @@ for pos, task in enumerate(tasks, 1):
             f"(max {OBJECTIVE_MAX}) — it is the summary a human reads, not the "
             "implementation transcript; put the detail in the plan."
         )
+    for proof_pos, proof in enumerate(task.get("required_tests") or [], 1):
+        if not isinstance(proof, dict):
+            raise SystemExit(
+                f"decomposition task {task['id']}: required_tests entry "
+                f"{proof_pos} must be an object with id, path and command; "
+                "opaque test names are not executable proof."
+            )
+        if set(proof) != {"id", "path", "command"} or not all(
+            isinstance(proof.get(key), str) and proof[key].strip()
+            for key in ("id", "path", "command")
+        ):
+            raise SystemExit(
+                f"decomposition task {task['id']}: required_tests entry "
+                f"{proof_pos} needs exactly non-empty id, path and command strings."
+            )
+        rel = Path(proof["path"])
+        if rel.is_absolute() or ".." in rel.parts or os.path.normpath(proof["path"]) != proof["path"]:
+            raise SystemExit(
+                f"decomposition task {task['id']}: required test path "
+                f"{proof['path']!r} must be a normalized repo-relative path."
+            )
+        try:
+            tokens = shlex.split(proof["command"])
+        except ValueError as exc:
+            raise SystemExit(
+                f"decomposition task {task['id']}: required test command is not "
+                f"parseable as argv ({exc})."
+            )
+        forbidden = {";", "&&", "||", "|", "&", ">", ">>", "<", "<<", "#"}
+        if any(token in forbidden or token.startswith("#") for token in tokens):
+            raise SystemExit(
+                f"decomposition task {task['id']}: required test command must be "
+                "one shell-free runner invocation, not a compound/commented command."
+            )
+        executable_pos = 0
+        while (
+            executable_pos < len(tokens)
+            and "=" in tokens[executable_pos]
+            and not tokens[executable_pos].startswith("=")
+        ):
+            executable_pos += 1
+        executable = (
+            Path(tokens[executable_pos]).name.lower()
+            if executable_pos < len(tokens) else ""
+        )
+        if executable in {
+            "sh", "bash", "zsh", "dash", "ksh", "fish", "csh", "tcsh",
+            "pwsh", "powershell", "cmd", "cmd.exe", "env",
+        }:
+            raise SystemExit(
+                f"decomposition task {task['id']}: required test command must "
+                f"invoke the runner directly; shell/env wrapper {executable!r} "
+                "is not shell-free."
+            )
+        if not any("{report}" in token for token in tokens):
+            raise SystemExit(
+                f"decomposition task {task['id']}: required test command "
+                "must include a {report} placeholder for fresh JUnit proof."
+            )
+        if not any("{path}" in token for token in tokens):
+            raise SystemExit(
+                f"decomposition task {task['id']}: required test command "
+                "must include a runner-native {path} placeholder."
+            )
+        if not any("{id}" in token for token in tokens):
+            raise SystemExit(
+                f"decomposition task {task['id']}: required test command "
+                "must include a runner-native {id} placeholder."
+            )
+        reason = unrunnable_reason(proof["command"])
+        if reason:
+            raise SystemExit(
+                f"decomposition task {task['id']}: required test command "
+                f"{proof['command']!r} {reason}."
+            )
     # `stage done` runs these. An entry that cannot execute is not a check, and
     # in practice it was prose ("package test script") nobody ever ran.
     for command in task.get("verify_commands") or []:
@@ -75,17 +153,51 @@ for pos, task in enumerate(tasks, 1):
             "non-empty list of non-empty strings — a task nobody can check is done "
             "cannot be reviewed."
         )
-payload["commit"] = head_sha(root)
-dump_json(decomposition_state_path(root), payload)
-# The decomposition is immutable evidence; the stage tracker is its mutable
-# execution twin (decision 0007) — pr_ready refuses while stages are open.
-from forge_cli.stages import write_skeleton  # noqa: E402
-write_skeleton(root, state.get("issue_key", ""), tasks)
-state["decomposition_status"] = "recorded"
-state["updated_at"] = now_iso()
-dump_json(run_state_path(root), state)
-from forge_cli.events import append_event  # noqa: E402
-append_event(root, "decomposed", actor="docs-decomposer",
-             story=state.get("issue_key", ""), detail=f"{len(tasks)} task(s)")
+from forge_cli.delegate import delegation_exclusion  # noqa: E402
+from forge_cli.stages import load_stages, task_digest, write_skeleton  # noqa: E402
+
+# Stage transitions and decomposition publication share one protected state
+# lock. A re-record may amend an active task, but never rewrite the contract a
+# completed stage already attested or race that stage's done transition.
+with delegation_exclusion(
+        root, "stages", kind="stage-state", namespace="state"):
+    state = gate(root, signoff=True, approved_plan=True)
+    current_tasks = {
+        task.get("id"): task for task in tasks if isinstance(task, dict)
+    }
+    for stage in load_stages(root).get("stages") or []:
+        if stage.get("status") not in {"active", "done"}:
+            continue
+        task_id = stage.get("id")
+        new = current_tasks.get(task_id)
+        if new is None:
+            raise SystemExit(
+                f"decomposition task {task_id}: an {stage.get('status')} stage "
+                "cannot be removed or renamed; finish it or record it incomplete "
+                "before changing the task list."
+            )
+        if (
+            stage.get("status") == "done"
+            and (
+                not stage.get("task_sha256")
+                or task_digest(new) != stage["task_sha256"]
+            )
+        ):
+            raise SystemExit(
+                f"decomposition task {task_id}: a completed stage's contract "
+                "cannot be changed or removed; add a new follow-up task instead."
+            )
+    payload["commit"] = head_sha(root)
+    dump_json(protected_decomposition_state_path(root), payload)
+    safe_factory_write_json(root, decomposition_state_path(root).name, payload)
+    # The decomposition is immutable evidence; the stage tracker is its mutable
+    # execution twin (decision 0007) — pr_ready refuses while stages are open.
+    write_skeleton(root, state.get("issue_key", ""), tasks)
+    state["decomposition_status"] = "recorded"
+    state["updated_at"] = now_iso()
+    dump_json(run_state_path(root), state)
+    from forge_cli.events import append_event  # noqa: E402
+    append_event(root, "decomposed", actor="docs-decomposer",
+                 story=state.get("issue_key", ""), detail=f"{len(tasks)} task(s)")
 print(f"Recorded decomposition ({len(tasks)} stage(s) -> .factory/stages.json; "
       "work them with `forge stage start/done`)")

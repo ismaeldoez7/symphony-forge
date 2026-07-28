@@ -54,6 +54,45 @@
       "base_sha": "3223e68eabf44c54e740ea0c340b772a8cb48b06",
       "dirty_at_start": [],
       "completed_at": "2026-07-27T12:49:00+00:00"
+    },
+    {
+      "id": "DELEG-7",
+      "title": "forge delegate owns companion execution",
+      "status": "active",
+      "started_at": "2026-07-28T07:44:48+00:00",
+      "base_sha": "e0645385e320da418cf9e2d4340e0bd14f1089e0",
+      "dirty_at_start": {
+        ".claude/CLAUDE.md": "d0788f94e5045e8f749be0a3d5f0e2d97b1ca47c9c8f22393d23f56a82889e34",
+        ".factory/decomposition.json": "3ead1c4ce77e56be0f9bb6c2f516f7fea9820ef01918939d0bbb7e3de6c6b6b5",
+        ".factory/events.jsonl": "b44384b0055dd6464668ebe31f88732d61d0d1fccbc05c29b2ac3e060490bb9a",
+        ".factory/grills/plan.json": "bb40be82d97b43e8e8fcc52899b1c280f100a7c12a2e1cd756bd4df2484b24b1",
+        ".factory/run.json": "523a845218683f660b09e3d31386fcc69ac1b5daa61e1ec5635a95f72e2ef8be",
+        ".factory/signals.jsonl": "86ec60104edcc5e5d9884038e69c9dfae3f672adafbc7190a7a65939b67b2bd0",
+        ".factory/stages.json": "6e5a234cc444484935ef38e227fd042bc1da703431c101abdc46e4115d2abb63",
+        ".factory/verify.json": "2f8236043162494a20f76e96f17c4ecc65a012311dca3c46835cb3a1f61a1060",
+        ".review-notes.md": "de84d04c031b70daf6e04aec7e5a410bc8b79db58dc61f94ce5db75ba1dad0ae",
+        "AGENTS.md": "47ead3f7843a72cf770abd0d48d0b22fd58b7b024570843f12a5547a5d84122e",
+        "docs/decisions/0018-delegation-gates.md": "3d920a7fb56f8cd8660b394bb2059a8ca98cfffa217c1619464f82feeac0875a",
+        "docs/specs/delegation-boundary.md": "4048022ab6f1cce34ebd1bc43b12b627efbe8b17cd9db7e17aa2a2b1835fecbd",
+        "factory/prompts/decomposer.md": "00d93558002603081bc7e98ca93d7049ae38a61833cb2e89abc3612bfcce4c2a",
+        "factory/schemas/delegation.json": "f777236f0249eeedfbf718176b51e7b355447fc080ee7b64dccbe7957f75b266",
+        "factory/scripts/forge.py": "5db1a5878837921c6dd6671b663b635ea91e2e1630348d6303df7afb080b3c98",
+        "factory/scripts/forge_cli/codex_status.py": "6b42870bbe1a5d8d439addedd4d6bc44b7958a5851926a48624f0b53acb3ed91",
+        "factory/scripts/forge_cli/delegate.py": "2ade19821925d250163b88379ea5b51da624462f2059e7df215be02dd1f436ab",
+        "factory/scripts/forge_cli/doctor.py": "bf10a7158cf2340f4b905e27b78f8eeb4e14e2a89ea3c255390e341efa850005",
+        "factory/scripts/forge_cli/stages.py": "05692b7f6b8f7498d7228ebae3abadcc0b813addf2a56c5a72b1c4d9c4ffe48a",
+        "factory/scripts/pre_tool_use.py": "e321a17a4ace3e56ca38e4882beba77db5de44475ccd95c54838e11657ac2469",
+        "factory/scripts/record_decomposition_from_json.py": "51ecbf06f19834aaffd1c899a458a90490e53e3de70b4ed3752807d81f28217b",
+        "factory/skills/forge.md": "a0dce85eff20d8d07bee887320cc9733b70f8b003a63939a82ac97ac24d4cfad",
+        "factory/tests/test_gates.py": "32e9ac574a0fec9b6e216580d7b62010ee37856aedfcede60e3caf575e39897c",
+        "plans/active/FORGE-DELEG-1-briefed-bounded-measured-delegation-boundary.md": "99b4d6764d710ea594bb87919240f8a1033f6103f86111457dc963f1f48b7f70"
+      },
+      "task_sha256": "a6b3998a1a5ffb9ca238bc97b194db90cf475aa10450363f25b5729dc6a55fdb"
+    },
+    {
+      "id": "DELEG-8",
+      "title": "required tests become runner-owned proof",
+      "status": "pending"
     }
   ]
 }

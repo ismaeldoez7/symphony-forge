@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -12,7 +13,13 @@ from typing import Any
 
 
 def repo_root() -> Path:
-    out = subprocess.run(["git", "rev-parse", "--show-toplevel"], check=True, capture_output=True, text=True)
+    out = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=clean_git_env(),
+    )
     return Path(out.stdout.strip())
 
 
@@ -26,6 +33,13 @@ def run_state_path(root: Path | None = None) -> Path:
 
 def decomposition_state_path(root: Path | None = None) -> Path:
     return factory_dir(root) / "decomposition.json"
+
+
+def clean_git_env() -> dict[str, str]:
+    return {
+        key: value for key, value in os.environ.items()
+        if not key.startswith("GIT_")
+    }
 
 
 def verify_state_path(root: Path | None = None) -> Path:
@@ -53,6 +67,154 @@ def load_json(path: Path, default: Any = None) -> Any:
 def dump_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n")
+
+
+def git_control_dir(root: Path) -> Path:
+    proc = subprocess.run(
+        ["git", "rev-parse", "--absolute-git-dir"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        env=clean_git_env(),
+    )
+    top = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        env=clean_git_env(),
+    )
+    if (
+        proc.returncode != 0
+        or top.returncode != 0
+        or not proc.stdout.strip()
+        or Path(top.stdout.strip()).resolve() != root.resolve()
+    ):
+        raise SystemExit(
+            "Cannot resolve Git's protected control directory for factory state."
+        )
+    return Path(proc.stdout.strip()) / "forge"
+
+
+def protected_decomposition_state_path(root: Path) -> Path:
+    return git_control_dir(root) / "decomposition.json"
+
+
+def _safe_factory_fd(root: Path, name: str, flags: int) -> int | None:
+    """Open one direct .factory diagnostic file without following links.
+
+    Workers own the workspace, so these mirrors are never authoritative. The
+    orchestrator still must not follow a swapped file or parent directory when
+    publishing a diagnostic copy.
+    """
+    if Path(name).name != name:
+        raise ValueError("factory diagnostic name must be one path component")
+    directory = factory_dir(root)
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        directory_fd = os.open(
+            directory,
+            os.O_RDONLY
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
+    except OSError:
+        return None
+    try:
+        descriptor = os.open(
+            name,
+            flags | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=directory_fd,
+        )
+    except OSError:
+        os.close(directory_fd)
+        return None
+    os.close(directory_fd)
+    info = os.fstat(descriptor)
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        os.close(descriptor)
+        return None
+    return descriptor
+
+
+def safe_factory_append(root: Path, name: str, line: bytes) -> bool:
+    descriptor = _safe_factory_fd(
+        root, name, os.O_WRONLY | os.O_CREAT | os.O_APPEND)
+    if descriptor is None:
+        return False
+    try:
+        os.write(descriptor, line)
+    finally:
+        os.close(descriptor)
+    return True
+
+
+def safe_factory_write_json(root: Path, name: str, data: Any) -> bool:
+    descriptor = _safe_factory_fd(root, name, os.O_WRONLY | os.O_CREAT)
+    if descriptor is None:
+        return False
+    body = (json.dumps(data, indent=2) + "\n").encode()
+    try:
+        os.ftruncate(descriptor, 0)
+        os.write(descriptor, body)
+    finally:
+        os.close(descriptor)
+    return True
+
+
+def safe_factory_write_bytes(root: Path, relative: str, body: bytes) -> bool:
+    """Write a nested diagnostic file without following workspace symlinks."""
+    rel = Path(relative)
+    if rel.is_absolute() or not rel.parts or any(
+            part in {"", ".", ".."} for part in rel.parts):
+        return False
+    directory = factory_dir(root)
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        parent_fd = os.open(
+            directory,
+            os.O_RDONLY
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
+    except OSError:
+        return False
+    try:
+        for part in rel.parts[:-1]:
+            try:
+                os.mkdir(part, 0o700, dir_fd=parent_fd)
+            except FileExistsError:
+                pass
+            child_fd = os.open(
+                part,
+                os.O_RDONLY
+                | getattr(os, "O_DIRECTORY", 0)
+                | getattr(os, "O_NOFOLLOW", 0),
+                dir_fd=parent_fd,
+            )
+            os.close(parent_fd)
+            parent_fd = child_fd
+        descriptor = os.open(
+            rel.parts[-1],
+            os.O_WRONLY | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=parent_fd,
+        )
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            os.close(descriptor)
+            return False
+        try:
+            os.ftruncate(descriptor, 0)
+            os.write(descriptor, body)
+        finally:
+            os.close(descriptor)
+        return True
+    except OSError:
+        return False
+    finally:
+        os.close(parent_fd)
 
 
 def gate(
@@ -88,7 +250,7 @@ def gate(
     if decomposition:
         if (
             state.get("decomposition_status") != "recorded"
-            or not decomposition_state_path(root).exists()
+            or not protected_decomposition_state_path(root).exists()
         ):
             raise SystemExit(
                 "Recorded decomposition is required first "
@@ -155,7 +317,7 @@ def validate_payload(root: Path, name: str, payload: dict) -> None:
 def head_sha(root: Path | None = None) -> str | None:
     proc = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=root or repo_root(),
-        capture_output=True, text=True,
+        capture_output=True, text=True, env=clean_git_env(),
     )
     return proc.stdout.strip() if proc.returncode == 0 else None
 

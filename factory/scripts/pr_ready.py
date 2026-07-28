@@ -11,6 +11,7 @@ from factory_lib import (
     head_sha,
     load_json,
     now_iso,
+    protected_decomposition_state_path,
     repo_root,
     review_dir,
     run_state_path,
@@ -25,6 +26,7 @@ from forge_cli.roadmap import load_items, mark_status
 from forge_cli.quickfix import load_active
 from forge_cli.readiness import review_passed, tests_passed
 from forge_cli.signal import open_signals, signals_path
+from forge_cli.stages import load_stages
 
 # Commits touching only these paths after evidence was recorded do not
 # invalidate it: evidence/plan/doc records, harness machinery and adapters
@@ -50,7 +52,7 @@ if run_state and not run_state.get("issue_key") and run_state.get("client_signof
     print(f"PR_READY (nothing active; shipped so far: {shipped} — "
           "start the next task with intake)")
     raise SystemExit(0)
-decomposition = load_json(decomposition_state_path(root), default={})
+decomposition = load_json(protected_decomposition_state_path(root), default={})
 verify = load_json(verify_state_path(root), default={})
 tests = load_json(tests_state_path(root), default={})
 missing: list[str] = []
@@ -81,7 +83,7 @@ if not decomposition:
 else:
     # The stage tracker is the decomposition's execution twin (decision 0007):
     # every stage must have run its loop (local autoreview -> commit -> done).
-    stages_data = load_json(root / ".factory" / "stages.json", default={})
+    stages_data = load_stages(root)
     if not stages_data:
         missing.append(".factory/stages.json (re-record the decomposition — "
                        "the recorder creates the stage tracker)")
