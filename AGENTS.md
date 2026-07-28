@@ -105,6 +105,6 @@ A task is not PR-ready until all of these exist:
   `factory/schemas/` (incl. a pinned `generated_by`) — never by hand.
 - Review = ONE autoreview pass run by the orchestrating session directly —
   never a Codex review job (decision 0011), never nested reviewers.
-- One worktree/story; sequential tasks; dependency-ready stories may parallelize (0002).
+- One worktree/story; sequential tasks; dependency-ready stories may parallelize (0002). Delegation/proof commands are trusted inputs; observed descendant cleanup is not hostile-code containment.
 - Keep the template repo independent of any client-specific source repo.
 - Do not keep long policy blocks in `AGENTS.md`; move them into docs.

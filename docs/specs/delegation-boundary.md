@@ -44,8 +44,9 @@ launch remains active. An OS-backed single-writer lock in Git's
 protected control directory prevents canonical-brief rewrites and is held by
 stage close through its persisted done transition; a shared state lock
 serializes stage-state changes and revalidates stage identity. Retry reconciles
-a dead interruption, and every terminal path empties the observed worker
-process tree on TERM, HUP and QUIT. PID start identity prevents a recycled PID
+a dead interruption, and every terminal path reaps the process group plus
+trusted descendants observed during execution and a post-exit quiet window on
+TERM, HUP and QUIT. PID start identity prevents a recycled PID
 from being mistaken for the original worker; an unverified reused process group
 blocks retry and is never signalled. Authoritative launch evidence,
 decomposition, and stage state are protected with the locks; their `.factory/`
@@ -77,7 +78,7 @@ declared path. Parameterized cases declare their exact emitted name. Every
 proof set is wrapped in one exact product-tree and protected-authority
 transaction. Neither required tests nor `verify_commands` may change tracked
 content, mode, symlink, index flag, status, or Forge authority; every observed
-process tree must also be empty. This avoids rehashing the repository after
+trusted-command process tree must also be empty. This avoids rehashing the repository after
 each required test while binding all proofs to one final snapshot. Source-text
 inference is not test evidence. Commands must invoke the runner directly —
 prose, shells, and `env` wrappers are refused at record time.
@@ -129,3 +130,10 @@ expected to attest them, and `--fix` installs what is missing.
 never be able to block a ship. The board stays read-only — delegation state is
 CLI-surfaced this round. Existing shipped history keeps its prose
 `verify_commands`; only new decompositions are refused.
+
+Delegation and proof commands are trusted repository inputs. Process groups,
+PID identity, inherited launch tokens, termination handlers, and a post-exit
+quiet window provide deterministic cleanup for ordinary detached children;
+they are not a hostile-code sandbox against a process that deliberately
+double-forks and clears its environment. Supporting untrusted commands requires
+the separately deferred, digest-pinned container runtime boundary.

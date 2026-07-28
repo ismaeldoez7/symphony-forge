@@ -50,6 +50,8 @@ SAFE_TASK_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\Z")
 SKILL_INLINE_CHARS = 12000
 DEFAULT_MODEL = "gpt-5.6-sol"
 DEFAULT_EFFORT = "medium"
+PROCESS_QUIET_SECONDS = 0.2
+PROCESS_POLL_SECONDS = 0.02
 
 
 def briefs_dir(base: Path) -> Path:
@@ -191,6 +193,24 @@ def _descendants(root_pid: int,
 
 def _tagged_processes(token: str) -> dict[int, str]:
     marker = f"FORGE_PROCESS_TOKEN={token}"
+    proc_root = Path("/proc")
+    if proc_root.is_dir():
+        found: dict[int, str] = {}
+        marker_bytes = marker.encode()
+        for candidate in proc_root.iterdir():
+            if not candidate.name.isdigit():
+                continue
+            try:
+                environment = (candidate / "environ").read_bytes().split(b"\0")
+            except (FileNotFoundError, PermissionError, ProcessLookupError):
+                continue
+            if marker_bytes not in environment:
+                continue
+            pid = int(candidate.name)
+            identity = _process_start_identity(pid)
+            if identity:
+                found[pid] = identity
+        return found
     proc = subprocess.run(
         ["ps", "eww", "-axo", "pid=,lstart=,command="],
         capture_output=True, text=True,
@@ -317,9 +337,15 @@ def _reconcile_stale_launches(base: Path, task_id: str) -> None:
         key = entry.get("launch_id")
         launches[key if isinstance(key, str) else f"legacy:{index}"] = entry
     for entry in launches.values():
-        if entry.get("launch_status") != "running":
+        status = entry.get("launch_status")
+        if status not in {"starting", "running"}:
             continue
         pid = entry.get("pid")
+        if status == "starting" and not _pid_alive(pid):
+            failed = {**entry, "at": now_iso(), "launch_status": "failed"}
+            failed.pop("exit_code", None)
+            append_delegation(base, failed)
+            continue
         if _pid_alive(pid):
             recorded_identity = entry.get("pid_started")
             current_identity = _process_start_identity(pid)
@@ -370,11 +396,15 @@ def _terminate_and_reap(proc: subprocess.Popen[str]) -> bool:
 
 
 def _wait_and_reap(proc: subprocess.Popen[str], token: str = "") -> bool:
-    """Wait for the leader and terminate every descendant observed while live.
+    """Wait for trusted work and reap its observed process tree.
 
-    A child can create a new session and leave the leader's process group.
-    Tracking PID plus start identity lets Forge clean that child without
-    risking a later process that merely reused the same PID.
+    A child can create a new session and leave the leader's process group. PID
+    identity plus an inherited token finds normal detached children without
+    risking a later process that merely reused the same PID. The short
+    post-exit quiet window closes the common fork-and-exit race. This is
+    deterministic cleanup for trusted repository commands, not hostile-code
+    containment; a process that deliberately clears its environment needs the
+    separately deferred container boundary.
     """
     descendants: dict[int, str] = {}
     try:
@@ -382,7 +412,7 @@ def _wait_and_reap(proc: subprocess.Popen[str], token: str = "") -> bool:
             descendants.update(_descendants(proc.pid, _process_table()))
             if token:
                 descendants.update(_tagged_processes(token))
-            time.sleep(0.02)
+            time.sleep(PROCESS_POLL_SECONDS)
         descendants.update(_descendants(proc.pid, _process_table()))
         if token:
             descendants.update(_tagged_processes(token))
@@ -392,10 +422,20 @@ def _wait_and_reap(proc: subprocess.Popen[str], token: str = "") -> bool:
             _terminate_identified_process(pid, identity)
         raise
     group_stopped = _terminate_and_reap(proc)
-    children_stopped = all(
-        _terminate_identified_process(pid, identity)
-        for pid, identity in descendants.items()
-    )
+    children_stopped = True
+    deadline = time.monotonic() + PROCESS_QUIET_SECONDS
+    while True:
+        descendants.update(_descendants(proc.pid, _process_table()))
+        if token:
+            descendants.update(_tagged_processes(token))
+        for pid, identity in list(descendants.items()):
+            children_stopped = (
+                _terminate_identified_process(pid, identity)
+                and children_stopped
+            )
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(PROCESS_POLL_SECONDS)
     return group_stopped and children_stopped
 
 
@@ -429,7 +469,7 @@ def current_delegation(base: Path, task_id: str, *,
         started, _ = launches.get(key, (index, entry))
         launches[key] = (started, entry)
     if not launches or any(
-            entry.get("launch_status") == "running"
+            entry.get("launch_status") in {"starting", "running"}
             for _, entry in launches.values()):
         return None
     _, latest = max(launches.values(), key=lambda item: item[0])
@@ -672,7 +712,7 @@ def cmd_delegate(args: argparse.Namespace) -> None:
         "companion_path": str(companion),
         "argv_sha256": hashlib.sha256(
             json.dumps(argv, separators=(",", ":")).encode()).hexdigest(),
-        "launch_status": "running",
+        "launch_status": "starting",
     }
     if story:
         record["story"] = story
@@ -703,6 +743,7 @@ def cmd_delegate(args: argparse.Namespace) -> None:
 
     for candidate in handled_signals:
         signal.signal(candidate, handle_termination)
+    append_delegation(base, record)
     try:
         try:
             process_token = f"delegation-{launch_id}"
@@ -713,10 +754,18 @@ def cmd_delegate(args: argparse.Namespace) -> None:
                 text=True, start_new_session=True, env=process_env,
             )
         except OSError as exc:
+            append_delegation(base, {
+                **record, "at": now_iso(), "launch_status": "failed",
+            })
+            terminal_recorded = True
             fail(f"Codex companion could not start: {exc}")
-        record["pid"] = proc.pid
-        record["pgid"] = proc.pid
-        record["pid_started"] = _process_start_identity(proc.pid) or ""
+        record.update({
+            "at": now_iso(),
+            "launch_status": "running",
+            "pid": proc.pid,
+            "pgid": proc.pid,
+            "pid_started": _process_start_identity(proc.pid) or "",
+        })
         if lock is not None:
             _update_delegation_lock(
                 lock, record["launch_id"], proc.pid, owner_pgid=proc.pid)

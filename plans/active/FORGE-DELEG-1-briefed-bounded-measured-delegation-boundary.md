@@ -36,14 +36,16 @@ with executable, measured contracts.
   protected launch authority/locking, literal-command routing, executable
   `{id,path,command}` test proof, stage-close execution, and legacy diagnosis.
 - Out: board/UI work, nested review, shell/test-language parsing, shipped
-  history migration, runner abstraction, and runner whitelist.
+  history migration, runner abstraction, runner whitelist, and hostile-code
+  container isolation.
 
 ## Acceptance Criteria
 
 - Delegate composes the brief, resolves the installed companion, launches
   without a shell, and points missing installs to `forge doctor --fix`.
 - Print-only has no authority; background is read-only; write launches are
-  foreground, single-writer, fully reaped, and bound to stage/task/brief/argv.
+  foreground, single-writer, deterministically cleaned up for trusted
+  repository commands, and bound to stage/task/brief/argv.
 - Stage close is serialized through persisted done state and trusts only the
   protected ledger. Literal companion calls route to delegate.
 - Required proof has normalized path plus `{path}`, `{id}`, `{report}` argv;
@@ -55,8 +57,9 @@ with executable, measured contracts.
 - Delegate resolves canonical plugin metadata, writes the brief, launches a
   fixed Node argv, and records running/terminal rows under one launch id.
 - Authority and atomic per-task/shared-state locks live in Git control data;
-  `.factory/delegations.jsonl` is diagnostic. Every terminal path empties the
-  observed process tree on TERM/HUP/QUIT; unresolved descendants keep
+  `.factory/delegations.jsonl` is diagnostic. Every terminal path reaps the
+  process group plus trusted descendants observed during execution and a
+  post-exit quiet window on TERM/HUP/QUIT; unresolved observed descendants keep
   authority locked, and unverified reused process groups are never signalled.
 - The hook routes every literal companion token through `forge delegate`.
 - The recorder rejects malformed, unsafe, shell/env-wrapped proof commands.
@@ -85,6 +88,9 @@ with executable, measured contracts.
 - Background proves queuing; gates prove completion.
 - Decomposition commands are trusted but constrained, shell-free task content.
 - Tests use a fake companion; production paths are fixed.
+- Deliberate double-fork plus environment-clearing evasion needs the separately
+  deferred container boundary and is not misrepresented as solved by process
+  sampling.
 
 ## Verify Plan
 

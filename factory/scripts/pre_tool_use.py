@@ -326,11 +326,9 @@ except ValueError:
     if (
         tool_name == "Bash"
         and (
+            "--write" in shell_shape
+            or
             re.search(r"\bcodex-companion(?:\.mjs)?\b", shell_shape)
-            or (
-                "--write" in shell_shape
-                and re.search(r"\b(?:node|codex|companion)\b", shell_shape)
-            )
         )
     ):
         deny("Bash command could not be safely parsed, so Forge cannot verify "

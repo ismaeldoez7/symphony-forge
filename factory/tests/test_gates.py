@@ -1638,6 +1638,16 @@ def test_hook_denies_unparseable_bash_instead_of_guessing(repo):
     assert "deny" in out and "could not be safely parsed" in out
 
 
+def test_hook_denies_any_unparseable_bash_write_flag(repo):
+    code, out = hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": "unknown-tool --write 'unbalanced"},
+    })
+    assert code == 0
+    assert "deny" in out and "could not be safely parsed" in out
+
+
 def test_hook_denies_variable_hidden_companion_in_unparseable_bash(repo):
     command = (
         "C=companion; node /x/codex-$C.mjs task --write <<'EOF'\n"
@@ -2876,6 +2886,18 @@ def test_stage_done_refuses_split_index_and_worktree_content(repo, tmp_path):
     assert "staged content that differs from the tested worktree" in out
 
 
+def test_stage_done_refuses_staged_delete_recreated_as_untracked(repo, tmp_path):
+    write_in_scope(repo, "src/core.py", "tracked\n")
+    git(repo, "add", "src/core.py")
+    git(repo, "commit", "-qm", "track core")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    git(repo, "rm", "src/core.py")
+    write_in_scope(repo, "src/core.py", "recreated but untracked\n")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0
+    assert "staged content that differs from the tested worktree" in out
+
+
 def test_stage_measurement_refuses_an_unreadable_dirty_path(
         repo, monkeypatch, capsys):
     write_in_scope(repo, "src/unreadable.py")
@@ -2911,6 +2933,32 @@ def test_stage_done_snapshots_checked_out_gitlinks(repo, tmp_path):
     write_in_scope(repo, "src/core.py")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
+
+
+def test_stage_done_measures_a_changed_gitlink(repo, tmp_path):
+    dependency = tmp_path / "dependency"
+    dependency.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=dependency, check=True)
+    (dependency / "dep.txt").write_text("dependency\n")
+    subprocess.run(["git", *GIT_ID, "add", "dep.txt"],
+                   cwd=dependency, check=True)
+    subprocess.run(["git", *GIT_ID, "commit", "-qm", "dependency"],
+                   cwd=dependency, check=True)
+    git(repo, "-c", "protocol.file.allow=always", "submodule", "add", "-q",
+        str(dependency), "vendor/dependency")
+    git(repo, "commit", "-qam", "add dependency gitlink")
+    start_stage(repo, tmp_path, STAGE_TASK)
+    checkout = repo / "vendor" / "dependency"
+    (checkout / "dep.txt").write_text("advanced\n")
+    subprocess.run(["git", *GIT_ID, "add", "dep.txt"],
+                   cwd=checkout, check=True)
+    subprocess.run(["git", *GIT_ID, "commit", "-qm", "advance dependency"],
+                   cwd=checkout, check=True)
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0
+    assert "vendor/dependency" in out and "write_scope" in out
+    assert "unreadable" not in out
 
 
 def test_stage_done_checks_both_sides_of_a_committed_rename(repo, tmp_path):
@@ -3125,6 +3173,37 @@ def test_stage_done_reaps_verify_command_descendants(repo, tmp_path):
     assert code == 0, out
     threading.Event().wait(0.7)
     assert not (repo / "src" / "late-verify.py").exists()
+
+
+def test_stage_done_termination_signal_reaps_active_proof(repo, tmp_path):
+    command = (
+        "python3 -c \"import os,signal,time; from pathlib import Path; "
+        "Path('.factory/proof-child.pid').write_text(str(os.getpid())); "
+        "signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(30)\""
+    )
+    task = {**STAGE_TASK, "verify_commands": [command]}
+    start_stage(repo, tmp_path, task)
+    write_in_scope(repo, "src/core.py")
+    proc = subprocess.Popen(
+        [sys.executable, str(repo / "factory/scripts/forge.py"),
+         "stage", "done", "T1"],
+        cwd=repo,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    marker = repo / ".factory" / "proof-child.pid"
+    for _ in range(100):
+        if marker.is_file():
+            break
+        threading.Event().wait(0.05)
+    assert marker.is_file()
+    child_pid = int(marker.read_text())
+    proc.send_signal(signal.SIGTERM)
+    proc.communicate(timeout=12)
+    assert proc.returncode != 0
+    with pytest.raises(ProcessLookupError):
+        os.kill(child_pid, 0)
 
 
 def test_stage_done_reloads_launch_after_proof_commands(repo, tmp_path):
@@ -3459,13 +3538,15 @@ def test_delegate_records_ledger_entry(repo, tmp_path):
     assert code == 0, out
     lines = [json.loads(x) for x in
              delegation_ledger(repo).read_text().splitlines() if x.strip()]
-    assert len(lines) == 2
-    assert lines[0]["launch_status"] == "running"
+    assert len(lines) == 3
+    assert lines[0]["launch_status"] == "starting"
+    assert "pid" not in lines[0]
+    assert lines[1]["launch_status"] == "running" and lines[1]["pid"] > 0
     entry = lines[-1]
     assert entry["task"] == "T1" and entry["write"] is True
     assert entry["generated_by"] == "orchestrator" and entry["model"]
     assert entry["launch_status"] == "succeeded"
-    assert entry["launch_id"] == lines[0]["launch_id"]
+    assert entry["launch_id"] == lines[0]["launch_id"] == lines[1]["launch_id"]
     assert "/1.0.0/scripts/codex-companion.mjs" in entry["companion_path"]
     assert entry["stage_started_at"] and entry["task_sha256"] and entry["argv_sha256"]
     digest = hashlib.sha256(
@@ -3612,6 +3693,26 @@ def test_stage_migrate_requires_confirmation_and_adopts_legacy_state(
     assert (protected / "stages.json").is_file()
     code, out = run(repo, "forge.py", "stage", "start", "T1")
     assert code == 0, out
+
+
+@pytest.mark.parametrize("protected_name", ["decomposition.json", "stages.json"])
+def test_stage_migrate_refuses_partial_protected_authority(
+        repo, tmp_path, protected_name):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}))
+    assert code == 0, out
+    protected = delegation_ledger(repo).parent
+    source = (repo / ".factory" / protected_name).read_bytes()
+    shutil.rmtree(protected)
+    protected.mkdir(parents=True)
+    (protected / protected_name).write_bytes(source)
+    code, out = run(
+        repo, "forge.py", "stage", "migrate", "--confirm-workspace-state")
+    assert code != 0
+    assert "partial protected" in out
 
 
 @pytest.mark.parametrize(
@@ -3880,11 +3981,15 @@ def test_termination_signals_reap_companion_before_lock_release(
         env={**os.environ, "HOME": str(home)},
     )
     lock = delegation_lock(repo, "T1")
+    latest = {}
     for _ in range(100):
         if lock.exists() and delegation_ledger(repo).exists():
-            break
+            latest = json.loads(
+                delegation_ledger(repo).read_text().splitlines()[-1])
+            if latest.get("launch_status") == "running":
+                break
         threading.Event().wait(0.05)
-    assert lock.exists() and delegation_ledger(repo).exists()
+    assert lock.exists() and latest["launch_status"] == "running"
     proc.send_signal(wrapper_signal)
     proc.communicate(timeout=10)
     assert proc.returncode != 0

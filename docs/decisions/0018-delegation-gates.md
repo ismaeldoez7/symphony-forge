@@ -50,8 +50,9 @@ The delegation boundary is instrumented rather than described. Six gates:
    diagnostic and cannot satisfy stage close. Background write launches are
    refused because their completion cannot be bound to the final measurement.
    A retry reconciles a dead interrupted process before starting another
-   writer; every terminal path empties the observed worker process tree before
-   evidence or lock release on TERM, HUP and QUIT. PID start identity prevents
+   writer; every terminal path reaps the process group plus trusted descendants
+   observed during execution and a post-exit quiet window before evidence or
+   lock release on TERM, HUP and QUIT. PID start identity prevents
    a recycled PID from being mistaken for the original worker. If only an
    unverified numeric process group remains, retry blocks without signalling it.
    Authoritative launch rows, decomposition, stage state, and locks live in
@@ -116,3 +117,9 @@ that it could not. Two costs are accepted:
 Existing shipped history is untouched: the `verify_commands` refusal applies at
 record time only, and `forge doctor` reports an active decomposition still
 carrying prose so it is fixed before the next stage closes.
+
+Delegation and proof commands are trusted repository inputs. The cleanup gate
+is deliberately not described as hostile-code containment: a process that
+double-forks and clears its environment needs a digest-pinned container
+boundary. That separate runtime capability is deferred until Forge permits
+untrusted commands or third-party worker code to execute with write access.

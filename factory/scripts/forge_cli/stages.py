@@ -11,10 +11,12 @@ scoped: archived to .factory/history/<issue>/ and cleaned at ship.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
 import shlex
+import signal
 import subprocess
 import tempfile
 import uuid
@@ -38,6 +40,31 @@ from .events import append_event
 # — exempting it here would make the scope check vacuous exactly where it is
 # being dogfooded.
 WORKFLOW_PATHS = (".factory/", "plans/")
+
+
+@contextlib.contextmanager
+def termination_signal_guard():
+    """Turn wrapper termination into normal cleanup paths for proof children."""
+    handled = [
+        candidate for candidate in (
+            signal.SIGTERM,
+            getattr(signal, "SIGHUP", None),
+            getattr(signal, "SIGQUIT", None),
+        )
+        if candidate is not None
+    ]
+    previous = {candidate: signal.getsignal(candidate) for candidate in handled}
+
+    def stop(signum, _frame):
+        raise SystemExit(128 + signum)
+
+    for candidate in handled:
+        signal.signal(candidate, stop)
+    try:
+        yield
+    finally:
+        for candidate, prior in previous.items():
+            signal.signal(candidate, prior)
 
 
 def stages_path(base: Path) -> Path:
@@ -142,7 +169,24 @@ def committed_paths(base: Path, base_sha: str, head: str) -> set[str]:
     return paths
 
 
+def _gitlink_identity(base: Path, rel: str) -> str | None:
+    entry = _git(base, "ls-files", "--stage", "--", rel).strip()
+    fields = entry.split(maxsplit=3)
+    if len(fields) < 4 or fields[0] != "160000" or fields[3] != rel:
+        return None
+    checkout = base / rel
+    head = _git(base, "-C", str(checkout), "rev-parse", "HEAD")
+    status = _git(
+        base, "-C", str(checkout), "status", "--porcelain=v2", "-z", "-uall")
+    digest = hashlib.sha256()
+    digest.update("\0".join((entry, head, status)).encode())
+    return digest.hexdigest()
+
+
 def _digest(base: Path, rel: str) -> str | None:
+    gitlink = _gitlink_identity(base, rel)
+    if gitlink is not None:
+        return gitlink
     path = base / rel
     try:
         digest = hashlib.sha256()
@@ -193,29 +237,12 @@ def product_tree_snapshot(base: Path) -> dict:
         if rel
     ]
     index_stage = _git(base, "ls-files", "--stage", "-z")
-    gitlinks: dict[str, str] = {}
-    for entry in index_stage.split("\0"):
-        if "\t" not in entry:
-            continue
-        metadata, rel = entry.split("\t", 1)
-        fields = metadata.split()
-        if fields and fields[0] == "160000":
-            gitlinks[rel] = metadata
     dirty = [
         rel for rel in dirty_paths(base)
         if not rel.startswith(WORKFLOW_PATHS)
     ]
     digests: dict[str, str] = {}
     for rel in sorted(set(tracked) | set(dirty)):
-        if rel in gitlinks:
-            submodule_head = _git(base, "-C", str(base / rel), "rev-parse", "HEAD")
-            submodule_status = _git(
-                base, "-C", str(base / rel),
-                "status", "--porcelain=v2", "-z", "-uall",
-            )
-            digests[rel] = "\0".join(
-                (gitlinks[rel], submodule_head, submodule_status))
-            continue
         digest = _digest(base, rel)
         if digest is None:
             fail(f"cannot read product path {rel!r}; proof cannot attest an "
@@ -335,6 +362,11 @@ def split_index_paths(base: Path) -> list[str]:
             base, "diff", "--name-only", "-z").split("\0")
         if rel
     }
+    unstaged.update(
+        rel for rel in _git(
+            base, "ls-files", "--others", "--exclude-standard", "-z").split("\0")
+        if rel
+    )
     return sorted(staged & unstaged)
 
 
@@ -698,8 +730,9 @@ def _finish_stage(base: Path, args: argparse.Namespace, data: dict,
     _require_successful_launch(base, args.id, stage, task)
     proof_tree = product_tree_snapshot(base)
     authority_tree = protected_authority_snapshot(base)
-    _run_verify_commands(base, args.id, task)
-    _run_required_tests(base, args.id, task)
+    with termination_signal_guard():
+        _run_verify_commands(base, args.id, task)
+        _run_required_tests(base, args.id, task)
     if product_tree_snapshot(base) != proof_tree:
         fail(f"{args.id} proof commands changed the product tree; verification "
              "must be read-only")
@@ -815,6 +848,11 @@ def _cmd_migrate_locked(args: argparse.Namespace, base: Path) -> None:
              "--confirm-workspace-state")
     protected_decomposition = protected_decomposition_state_path(base)
     protected_stages = authoritative_stages_path(base)
+    if protected_decomposition.exists() != protected_stages.exists():
+        fail("partial protected stage authority exists; Forge will not combine "
+             "one protected artifact with one worker-writable workspace mirror. "
+             "Restore or remove the incomplete protected migration as a unit, "
+             "then retry.")
     if protected_decomposition.exists() and protected_stages.exists():
         fail("protected decomposition and stage authority already exist")
     decomposition = load_json(decomposition_state_path(base), default={})
