@@ -3420,8 +3420,9 @@ def test_stage_done_termination_signal_reaps_active_proof(
         os.kill(child_pid, 0)
 
 
-def test_verify_reaps_spawn_when_process_identity_probe_fails(
-        repo, monkeypatch):
+@pytest.mark.parametrize("proof_kind", ["verify-command", "required-test"])
+def test_proof_reaps_spawn_when_process_identity_probe_fails(
+        repo, monkeypatch, proof_kind):
     sys.path.insert(0, str(repo / "factory" / "scripts"))
     try:
         import forge_cli.delegate as delegate
@@ -3457,8 +3458,21 @@ def test_verify_reaps_spawn_when_process_identity_probe_fails(
             delegate, "_terminate_observed_process_tree",
             lambda proc, *_args: cleaned.append(proc.pid) or True)
         with pytest.raises(SystemExit):
-            stages._run_verify_commands(
-                repo, "T1", {"verify_commands": ["true"]})
+            if proof_kind == "verify-command":
+                stages._run_verify_commands(
+                    repo, "T1", {"verify_commands": ["true"]})
+            else:
+                write_in_scope(
+                    repo, "src/test_core.py",
+                    "def test_core():\n    pass\n")
+                stages._run_required_tests(repo, "T1", {
+                    "required_tests": [{
+                        "id": "test_core",
+                        "path": "src/test_core.py",
+                        "command": "python3 -m pytest {path}::{id} "
+                                   "--junitxml={report}",
+                    }],
+                })
     finally:
         sys.path.pop(0)
     assert cleaned == [fake_process.pid]
