@@ -4362,6 +4362,46 @@ def test_tagged_process_scan_is_limited_to_same_user_processes(
     assert found == {}
 
 
+def test_tagged_process_scan_skips_permission_denied_candidates(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        real_path = Path
+
+        class Candidate:
+            def __init__(self, name):
+                self.name = name
+
+            def __truediv__(self, _name):
+                return self
+
+            def read_bytes(self):
+                if self.name == "101":
+                    raise PermissionError("hidden process environment")
+                return b"FORGE_PROCESS_" + b"TOKEN=owned\0"
+
+        class ProcRoot:
+            def is_dir(self):
+                return True
+
+            def __truediv__(self, pid):
+                return Candidate(str(pid))
+
+        monkeypatch.setattr(
+            delegate, "Path",
+            lambda value: ProcRoot() if value == "/proc" else real_path(value))
+        monkeypatch.setattr(
+            delegate, "_process_table",
+            lambda: {101: (1, "hidden"), 202: (1, "readable")})
+        monkeypatch.setattr(
+            delegate, "_process_start_identity", lambda pid: f"identity-{pid}")
+        found = delegate._tagged_processes("owned")
+    finally:
+        sys.path.pop(0)
+    assert found == {202: "identity-202"}
+
+
 def test_live_process_identity_probe_failure_is_not_treated_as_exit(
         repo, monkeypatch):
     sys.path.insert(0, str(repo / "factory" / "scripts"))

@@ -259,7 +259,13 @@ def _tagged_processes(
                 environment = (candidate / "environ").read_bytes().split(b"\0")
             except (FileNotFoundError, ProcessLookupError):
                 continue
-            except (PermissionError, OSError) as exc:
+            except PermissionError:
+                # `/proc` can expose same-user or namespace-visible PIDs whose
+                # environments are intentionally unreadable. They cannot be
+                # attributed to this trusted launch, so ignore them; failure
+                # to read the process table itself remains fatal.
+                continue
+            except OSError as exc:
                 raise ProcessDiscoveryError(
                     f"could not inspect process {candidate.name}") from exc
             if marker_bytes not in environment:
