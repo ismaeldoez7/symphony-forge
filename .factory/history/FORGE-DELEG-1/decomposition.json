@@ -313,7 +313,15 @@
         "AGENTS.md",
         ".claude/CLAUDE.md",
         "factory/tests/test_gates.py",
-        ".review-notes.md"
+        ".review-notes.md",
+        "WORKFLOW.md",
+        "docs/decisions/0002-concurrency-one-task-per-branch.md",
+        "docs/decisions/0007-stage-commit-loop.md",
+        "docs/getting-started.md",
+        "factory/scripts/factory_lib.py",
+        "factory/scripts/forge_cli/roadmap.py",
+        "factory/scripts/pr_ready.py",
+        "factory/prompts/implementer.md"
       ],
       "acceptance_criteria": [
         "forge delegate launches the installed companion without a shell",
@@ -410,5 +418,5 @@
       "reviewer_focus": "validate the proof shape and execute the exact command; do not add a runner abstraction or source parser"
     }
   ],
-  "commit": "e0645385e320da418cf9e2d4340e0bd14f1089e0"
+  "commit": "0fb464659380cebd360dd6912ac7906afc1e3ebc"
 }

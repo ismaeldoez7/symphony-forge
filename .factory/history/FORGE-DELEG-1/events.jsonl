@@ -1,5 +1,3 @@
-{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-07-27T12:06:47+00:00", "detail": "delegation-boundary: Delegation boundary: briefed, bounded, measured"}
-{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-07-27T12:07:10+00:00", "detail": "delegation-boundary"}
 {"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-07-27T12:07:19+00:00", "story": "FORGE-DELEG-1", "detail": "docs/specs/delegation-boundary.md"}
 {"event": "intake", "generated_by": "orchestrator", "at": "2026-07-27T12:09:46+00:00", "story": "FORGE-DELEG-1", "detail": "Briefed, bounded, measured delegation boundary"}
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-07-27T12:10:13+00:00", "story": "FORGE-DELEG-1", "detail": "plans/active/FORGE-DELEG-1-briefed-bounded-measured-delegation-boundary.md"}
