@@ -4109,12 +4109,18 @@ def test_overlapping_write_launch_stays_invalid_until_all_are_terminal(repo, tmp
     ledger = delegation_ledger(repo)
     lines = [json.loads(line) for line in ledger.read_text().splitlines()]
     prior = lines[-1]
-    first = {**prior, "launch_id": "overlap-a", "launch_status": "running"}
-    second = {**prior, "launch_id": "overlap-b", "launch_status": "running"}
-    first.pop("exit_code", None)
-    second.pop("exit_code", None)
+    first_start = {
+        **prior, "launch_id": "overlap-a", "launch_status": "starting"}
+    second_start = {
+        **prior, "launch_id": "overlap-b", "launch_status": "starting"}
+    first_start.pop("exit_code", None)
+    second_start.pop("exit_code", None)
+    first = {**first_start, "launch_status": "running"}
+    second = {**second_start, "launch_status": "running"}
     with ledger.open("a") as fh:
+        fh.write(json.dumps(first_start) + "\n")
         fh.write(json.dumps(first) + "\n")
+        fh.write(json.dumps(second_start) + "\n")
         fh.write(json.dumps(second) + "\n")
         fh.write(json.dumps({**second, "launch_status": "succeeded",
                              "exit_code": 0}) + "\n")
