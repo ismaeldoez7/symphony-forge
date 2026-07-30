@@ -176,9 +176,10 @@ Two rules keep it grounded:
 
 ## Event-Driven Delegation — signals
 
-Delegation is not fire-and-forget. While a background rescue runs, the
+Delegation is not fire-and-forget. While a delegated companion runs, the
 orchestrator WATCHES `.factory/signals.jsonl` (Claude's Monitor tool on the
-file, alongside the companion job status). A delegated worker raises a
+file, alongside the companion job status). Stage write launches run in the
+foreground; only read-only exploration may run in the background. A worker raises a
 signal the moment it hits a `contradiction` (plan vs decision vs doc),
 genuine `confusion`, a hard `blocked`, or a `scope-change` — via
 `forge.py signal raise --kind <k> --by <agent> -m "<sentence>"` — and PAUSES
@@ -297,7 +298,8 @@ through the loop:
 
 1. `forge stage start <id>` (strictly order-enforced; task-level `--parallel`
    is refused)
-2. `/codex:rescue` implements the stage in the story worktree
+2. `forge delegate <id>` composes the task brief and launches the installed
+   companion in the foreground with write access derived from stage state
 3. the orchestrator inspects the diff and rejects overbuilt code
 4. that stage's assumption rows are validated (`forge assumptions list --open`)
 5. smallest relevant checks run

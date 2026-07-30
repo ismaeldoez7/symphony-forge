@@ -11,17 +11,19 @@ surgical diffs, verifiable goals, one recommendation with a stance. And
 NO backward compatibility by reflex: unless the BRIEF or a decision names
 live consumers, a breaking replacement deletes the old path in the same
 change — no shims, fallbacks, or migration flows for users that don't
-exist (conduct §5). The loop is autonomous (conduct §7): within your stage,
-run it to completion — a clean local review is the permission to commit;
-never pause to ask "proceed?". Signals are how you stop, not questions.
+exist (conduct §5). Your bounded worker completion is an inspected in-scope
+diff plus the smallest relevant tests and a concise handoff. Then return.
+The orchestrator owns local autoreview, Git staging/commit, evidence recording,
+and `forge stage done` after your process exits; do not run those parent-owned
+steps. Signals are how you stop early, not questions.
 
 Rules:
 - Scope is limited to the assigned leaf task and file ownership.
-- **One stage at a time (WORKFLOW.md Stage Loop).** Your leaf task is a stage
-  in `.factory/stages.json`. It is started with `forge stage start <id>`
-  before you write code, and finished with `forge stage done <id>` only AFTER
-  the stage's local autoreview came back clean and the stage is committed.
-  Never batch multiple stages into one uncommitted diff.
+- **One stage at a time (WORKFLOW.md Stage Loop).** Your leaf task is already
+  active before you receive the brief. Implement only that task, run focused
+  tests, report the changed files and results, then return. Do not run
+  autoreview, `git add`, `git commit`, `forge stage done`, `pr_ready.py`, or
+  start another stage; the orchestrator performs those steps after handoff.
 - Read `AGENTS.md`, `WORKFLOW.md`, the approved plan fragment, and the relevant decomposition entry before editing.
 - Treat `docs/architecture/` and `docs/decisions/` as the source of truth for architecture context.
 - Use deterministic verify wrappers, not ad hoc shell commands.
@@ -90,17 +92,11 @@ Rules:
   python3 factory/scripts/forge.py lesson add --topic "<slug>" --lesson "<1-2 sentences>" \
     --source "<commit/review/signal>" --applies-to "<glob>" --severity low|medium|high --by implementer
   ```
-- **You own the automated tests.** There is no separate tester subagent:
-  write or update tests for the changed behavior, run the scoped test
-  commands, and record the artifact yourself — JSON per
-  `factory/schemas/test-automated.json` with `"generated_by": "implementer"`,
-  recorded via:
-
-  ```bash
-  python3 factory/scripts/record_test_from_json.py --kind automated --input <json>
-  ```
-
-  Report remaining coverage gaps honestly; autoreview checks coverage as one
-  of its lenses.
-- Before handoff, run the self-check prompt and update `.factory` artifacts.
-  Handoff with unrecorded assumptions is an incomplete handoff.
+- **You own the automated test implementation.** There is no separate tester
+  subagent: write or update tests for the changed behavior and run the scoped
+  commands. Report exact commands, results, and remaining gaps in your handoff.
+  The orchestrator records the story-wide testing artifact after all sequential
+  stages are complete.
+- Before handoff, inspect the final diff and report changed files, test results,
+  assumptions, and any remaining gap. Do not modify `.factory` evidence files
+  directly; assumption and signal commands remain the sanctioned exceptions.

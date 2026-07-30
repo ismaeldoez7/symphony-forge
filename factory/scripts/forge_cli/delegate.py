@@ -124,14 +124,18 @@ def load_delegations(base: Path) -> list[dict]:
     if not path.exists():
         return []
     entries = []
-    for line in path.read_text().splitlines():
+    for line_number, line in enumerate(path.read_text().splitlines(), start=1):
         if not line.strip():
             continue
         try:
-            entries.append(json.loads(line))
+            entry = json.loads(line)
         except json.JSONDecodeError:
-            # Union-merged across worktrees: one torn line costs one record.
-            continue
+            fail(f"delegation authority is malformed at line {line_number}; "
+                 "no prior launch can authorize stage close")
+        if not isinstance(entry, dict):
+            fail(f"delegation authority has a non-object row at line "
+                 f"{line_number}; no prior launch can authorize stage close")
+        entries.append(entry)
     return entries
 
 
@@ -657,7 +661,7 @@ def current_delegation(base: Path, task_id: str, *,
         return None
     if not ignore_lock and _lock_is_held(lock_path):
         return None
-    launches: dict[str, tuple[int, dict]] = {}
+    launches: dict[str, tuple[int, list[dict]]] = {}
     for index, entry in enumerate(load_delegations(base)):
         if (
             entry.get("task") != task_id
@@ -668,14 +672,43 @@ def current_delegation(base: Path, task_id: str, *,
         ):
             continue
         launch_id = entry.get("launch_id")
-        key = launch_id if isinstance(launch_id, str) else f"legacy:{index}"
-        started, _ = launches.get(key, (index, entry))
-        launches[key] = (started, entry)
-    if not launches or any(
-            entry.get("launch_status") in {"starting", "running"}
-            for _, entry in launches.values()):
+        if not isinstance(launch_id, str):
+            return None
+        started, rows = launches.get(launch_id, (index, []))
+        rows.append(entry)
+        launches[launch_id] = (started, rows)
+    if not launches:
         return None
-    _, latest = max(launches.values(), key=lambda item: item[0])
+    bindings = (
+        "task", "brief_sha256", "task_sha256", "write", "model", "effort",
+        "companion_path", "argv", "argv_sha256", "stage_started_at",
+        "process_token",
+    )
+    completed: list[tuple[int, dict]] = []
+    for started, rows in launches.values():
+        if any(
+            row.get(field) != rows[0].get(field)
+            for row in rows[1:]
+            for field in bindings
+        ):
+            return None
+        statuses = [row.get("launch_status") for row in rows]
+        if statuses in (["starting"], ["starting", "running"]):
+            return None
+        if statuses not in (
+            ["starting", "failed"],
+            ["starting", "running", "failed"],
+            ["starting", "running", "succeeded"],
+        ):
+            return None
+        terminal = rows[-1]
+        if (
+            terminal.get("launch_status") == "succeeded"
+            and terminal.get("exit_code") != 0
+        ):
+            return None
+        completed.append((started, terminal))
+    _, latest = max(completed, key=lambda item: item[0])
     return latest
 
 
@@ -837,6 +870,13 @@ def compose_brief(base: Path, task: dict, *, write: bool, user_facing: bool,
     return body
 
 
+def argv_digest(argv: list[str]) -> str:
+    """Digest the exact shell-free argument vector recorded for a launch."""
+    return hashlib.sha256(
+        json.dumps(argv, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
 def cmd_delegate(args: argparse.Namespace) -> None:
     base = Path(args.repo).resolve() if args.repo else repo_root()
     decomposition = load_json(
@@ -914,8 +954,8 @@ def cmd_delegate(args: argparse.Namespace) -> None:
         "model": model,
         "effort": effort,
         "companion_path": str(companion),
-        "argv_sha256": hashlib.sha256(
-            json.dumps(argv, separators=(",", ":")).encode()).hexdigest(),
+        "argv": argv,
+        "argv_sha256": argv_digest(argv),
         "launch_status": "starting",
     }
     record["process_token"] = process_token

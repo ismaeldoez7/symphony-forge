@@ -23,7 +23,7 @@ you what's missing. But this is the shape of the whole system:
 prototype ▶ spec grills ▶ CONFIRMED SPECS ▶ derived roadmap ▶ sign-off grill
   ▶ SIGN-OFF ▶ roadmap+team ▶ per task:
   PLAN MODE (hook-forced) ▶ grill ▶ plan saved (incl. Surface Impact) ▶
-  decompose (creates the stage tracker) ▶ per stage: implement (rescue-only)
+  decompose (creates the stage tracker) ▶ per stage: implement (`forge delegate`)
   ▶ LOCAL autoreview until clean ▶ commit ▶ stage done ▶ … ▶ verify ▶
   ONE branch autoreview ▶ functional (if user-facing) ▶ assumptions guided ▶
   pr_ready (stages done + refactor ratchet) ▶ archive
@@ -33,8 +33,10 @@ prototype ▶ spec grills ▶ CONFIRMED SPECS ▶ derived roadmap ▶ sign-off g
   confirmation, sign-off, and every plan approval (`/grill-me`) require the
   relevant fresh pass.
 - One **write gate** is always armed: product edits are denied until the plan
-  is saved, unless a bounded `forge quickfix start` window is open. `/codex:rescue`
-  is the ONLY Codex invocation — raw `codex exec` is always denied.
+  is saved, unless a bounded `forge quickfix start` window is open.
+  `forge delegate` is the only implementation boundary; `/codex:rescue`
+  remains the sanctioned read-only planning explorer. Raw `codex exec` is
+  always denied.
 - Every artifact is **attested**: `generated_by` on the allowlist,
   `skills_used` mandatory on user-facing work, commit-stamped and fresh.
 - The **ship gate** additionally demands orchestrator guidance on every
@@ -233,9 +235,11 @@ python3 factory/scripts/record_decomposition_from_json.py --input /tmp/decomposi
 python3 factory/scripts/update_run.py --phase implementing --plan-status approved --decomposition-status recorded
 ```
 
-3. **Implement** — say: **"Implement it."** (Codex,
-   `/codex:rescue --background`, one bounded task at a time). Feature type
-   routes the design skills, ENFORCED at record time: `user_facing: true`
+3. **Implement** — say: **"Implement it."** The orchestrator runs
+   `./forge stage start <id>` and then `./forge delegate <id>` for one bounded
+   task at a time. Write delegations stay in the foreground so stage close
+   cannot race a worker that is still editing. Feature type routes the design
+   skills, ENFORCED at record time: `user_facing: true`
    tasks MUST load `emil-design-eng` + `frontend-design` and attest them in
    the artifact's `skills_used` — the recorder refuses otherwise
    (`apple-design`/`animation-vocabulary` advisory for motion work); backend

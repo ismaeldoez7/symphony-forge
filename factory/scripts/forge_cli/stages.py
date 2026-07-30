@@ -712,9 +712,10 @@ def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> None:
 
 def _require_successful_launch(base: Path, stage_id: str, stage: dict,
                                task: dict) -> None:
-    from .delegate import brief_path, current_delegation
+    from .delegate import argv_digest, brief_path, current_delegation
 
     digest = task_digest(task)
+    brief = brief_path(base, stage_id)
     entry = current_delegation(
         base,
         stage_id,
@@ -722,13 +723,37 @@ def _require_successful_launch(base: Path, stage_id: str, stage: dict,
         task_sha256=digest,
         ignore_lock=True,
     )
+    argv = entry.get("argv") if entry else None
+    argv_valid = (
+        isinstance(argv, list)
+        and bool(argv)
+        and all(isinstance(token, str) for token in argv)
+        and Path(argv[0]).name == "node"
+        and argv == [
+            argv[0],
+            entry.get("companion_path"),
+            "task",
+            "--json",
+            "--cwd",
+            str(base),
+            "--model",
+            entry.get("model"),
+            "--effort",
+            entry.get("effort"),
+            "--prompt-file",
+            brief.relative_to(base).as_posix(),
+            "--write",
+        ]
+        and entry.get("argv_sha256") == argv_digest(argv)
+    )
     valid = (
         entry
         and entry.get("launch_status") == "succeeded"
         and entry.get("write") is True
         and entry.get("task_sha256") == digest
         and entry.get("stage_started_at") == stage.get("started_at")
-        and entry.get("brief_sha256") == sha256_of(brief_path(base, stage_id))
+        and entry.get("brief_sha256") == sha256_of(brief)
+        and argv_valid
     )
     if not valid:
         fail(f"{stage_id} has no successful write launch bound to this stage, "

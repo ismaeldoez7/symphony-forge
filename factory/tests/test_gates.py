@@ -3790,6 +3790,9 @@ def test_delegate_brief_carries_criteria_and_scope(repo, tmp_path):
     assert "test_slice" in brief                    # required tests
     assert "the retry path" in brief                # reviewer focus
     assert "Implementer contract" in brief          # the prompt, inlined
+    assert "Then return." in brief
+    assert "orchestrator owns local autoreview" in brief
+    assert "Do not run" in brief and "forge stage done" in brief
     assert "--prompt-file .factory/diagnostic-briefs/T1.md" in out
 
 
@@ -3839,6 +3842,10 @@ def test_delegate_records_ledger_entry(repo, tmp_path):
     assert entry["launch_id"] == lines[0]["launch_id"] == lines[1]["launch_id"]
     assert "/1.0.0/scripts/codex-companion.mjs" in entry["companion_path"]
     assert entry["stage_started_at"] and entry["task_sha256"] and entry["argv_sha256"]
+    assert entry["argv"][1] == entry["companion_path"]
+    assert entry["argv"][-1] == "--write"
+    assert entry["argv_sha256"] == hashlib.sha256(json.dumps(
+        entry["argv"], separators=(",", ":")).encode()).hexdigest()
     assert entry["process_token"] == f"delegation-{entry['launch_id']}"
     digest = hashlib.sha256(
         (repo / ".factory" / "briefs" / "T1.md").read_bytes()).hexdigest()
@@ -3859,6 +3866,47 @@ def test_delegate_print_only_records_no_successful_launch(repo, tmp_path):
     write_in_scope(repo, "src/core.py")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code != 0 and "no successful write launch" in out
+
+
+@pytest.mark.parametrize("tamper", ["missing", "digest", "read-only"])
+def test_stage_done_rejects_unbound_launch_argv(repo, tmp_path, tamper):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    ledger = delegation_ledger(repo)
+    entry = json.loads(ledger.read_text().splitlines()[-1])
+    if tamper == "missing":
+        entry.pop("argv")
+    elif tamper == "digest":
+        entry["argv_sha256"] = "0" * 64
+    else:
+        entry["argv"][-1] = "--read-only"
+        entry["argv_sha256"] = hashlib.sha256(json.dumps(
+            entry["argv"], separators=(",", ":")).encode()).hexdigest()
+    with ledger.open("a") as fh:
+        fh.write(json.dumps(entry) + "\n")
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "no successful write launch" in out
+
+
+def test_stage_done_rejects_incomplete_success_lifecycle(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    ledger = delegation_ledger(repo)
+    entry = json.loads(ledger.read_text().splitlines()[-1])
+    entry["launch_id"] = "terminal-only"
+    with ledger.open("a") as fh:
+        fh.write(json.dumps(entry) + "\n")
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "no successful write launch" in out
+
+
+def test_stage_done_fails_closed_on_malformed_launch_authority(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    with delegation_ledger(repo).open("a") as fh:
+        fh.write('{"launch_status":\n')
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code != 0 and "delegation authority is malformed" in out
 
 
 def test_running_write_launch_invalidates_older_success(repo, tmp_path):

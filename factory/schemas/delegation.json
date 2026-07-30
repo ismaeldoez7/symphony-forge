@@ -14,6 +14,7 @@
     "model": "str",
     "effort": "str",
     "companion_path": "str",
+    "argv": "list",
     "argv_sha256": "str",
     "launch_status": "str"
   },

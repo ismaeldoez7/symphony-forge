@@ -15,16 +15,16 @@ Read `AGENTS.md` first; it is the contract. Standards live in `constitution/`
 
 ## codex-plugin-cc
 
-- Delegate with `./forge delegate <task-id>`: it composes the brief and directly runs
-  the exact `/codex:rescue` invocation, deriving `--write` from stage state.
-  Never hand-write the flags — an unbriefed `--write` run is hook-denied.
+- `./forge delegate <task-id>` composes the brief and runs the installed companion
+  with a fixed shell-free argv, deriving `--write` from stage state.
+  All direct companion Bash calls are routed back to `forge delegate`.
 - WATCH it: `./forge codex status` (still moving?) and Monitor
   `.factory/signals.jsonl` — workers raise contradiction/confusion/blocked/
   scope-change and PAUSE; `./forge signal resolve <id> --notes "<answer>"`, then
   resume. `stage done` MEASURES the diff; partial work is `--incomplete "<gap>"`.
 - PARALLELIZE whenever separation allows: `./forge roadmap parallel` → one
-  worktree + background rescue per unblocked story; within a task only across
-  disjoint write_scope (contract: WORKFLOW.md Concurrency).
+  worktree + companion per unblocked story. Tasks inside a story stay sequential;
+  parallel work belongs in separate story worktrees (WORKFLOW.md Concurrency).
 - The Stop-hook review gate must stay DISABLED (`/codex:setup --disable-review-gate`).
 - If the plugin is unavailable, follow `docs/degraded-mode.md`.
 
