@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from factory_lib import (
-    decomposition_state_path, dump_json, gate, head_sha, now_iso,
+    decomposition_state_path, dump_json, gate, head_sha, load_json, now_iso,
     protected_decomposition_state_path, repo_root, run_state_path,
     safe_factory_write_json, validate_payload,
 )
@@ -154,7 +154,9 @@ for pos, task in enumerate(tasks, 1):
             "cannot be reviewed."
         )
 from forge_cli.delegate import delegation_exclusion  # noqa: E402
-from forge_cli.stages import load_stages, task_digest, write_skeleton  # noqa: E402
+from forge_cli.stages import (  # noqa: E402
+    load_stages, task_digest, write_skeleton, write_stages,
+)
 
 # Stage transitions and decomposition publication share one protected state
 # lock. A re-record may amend an active task, but never rewrite the contract a
@@ -165,7 +167,16 @@ with delegation_exclusion(
     current_tasks = {
         task.get("id"): task for task in tasks if isinstance(task, dict)
     }
-    for stage in load_stages(root).get("stages") or []:
+    prior_decomposition = load_json(
+        protected_decomposition_state_path(root), default={})
+    prior_tasks = {
+        task.get("id"): task
+        for task in prior_decomposition.get("tasks") or []
+        if isinstance(task, dict)
+    }
+    stages_data = load_stages(root)
+    backfilled_stage_digest = False
+    for stage in stages_data.get("stages") or []:
         if stage.get("status") not in {"active", "done"}:
             continue
         task_id = stage.get("id")
@@ -176,17 +187,26 @@ with delegation_exclusion(
                 "cannot be removed or renamed; finish it or record it incomplete "
                 "before changing the task list."
             )
-        if (
-            stage.get("status") == "done"
-            and (
-                not stage.get("task_sha256")
-                or task_digest(new) != stage["task_sha256"]
-            )
-        ):
-            raise SystemExit(
-                f"decomposition task {task_id}: a completed stage's contract "
-                "cannot be changed or removed; add a new follow-up task instead."
-            )
+        if stage.get("status") == "done":
+            recorded_digest = stage.get("task_sha256")
+            new_digest = task_digest(new)
+            if not recorded_digest:
+                prior = prior_tasks.get(task_id)
+                if prior is None or task_digest(prior) != new_digest:
+                    raise SystemExit(
+                        f"decomposition task {task_id}: a completed stage's "
+                        "legacy contract cannot be changed or removed; add a "
+                        "new follow-up task instead."
+                    )
+                stage["task_sha256"] = new_digest
+                backfilled_stage_digest = True
+            elif new_digest != recorded_digest:
+                raise SystemExit(
+                    f"decomposition task {task_id}: a completed stage's contract "
+                    "cannot be changed or removed; add a new follow-up task instead."
+                )
+    if backfilled_stage_digest:
+        write_stages(root, stages_data)
     payload["commit"] = head_sha(root)
     dump_json(protected_decomposition_state_path(root), payload)
     safe_factory_write_json(root, decomposition_state_path(root).name, payload)

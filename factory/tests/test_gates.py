@@ -3545,6 +3545,37 @@ def test_decomposition_refuses_to_rewrite_a_completed_task_contract(repo, tmp_pa
     assert code != 0 and "completed stage's contract" in out
 
 
+def test_decomposition_backfills_unchanged_legacy_completed_contract(
+        repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "src/core.py")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+    protected_stages = delegation_ledger(repo).parent / "stages.json"
+    stages = json.loads(protected_stages.read_text())
+    stages["stages"][0].pop("task_sha256")
+    protected_stages.write_text(json.dumps(stages))
+    grown = {
+        **DECOMP,
+        "tasks": [
+            STAGE_TASK,
+            {
+                "id": "T2",
+                "title": "follow-up",
+                "objective": "Add the next bounded slice.",
+                "acceptance_criteria": ["the follow-up is recorded"],
+            },
+        ],
+    }
+    code, out = run(
+        repo, "record_decomposition_from_json.py", stdin=json.dumps(grown))
+    assert code == 0, out
+    recorded = json.loads(protected_stages.read_text())
+    completed = recorded["stages"][0]
+    assert completed["status"] == "done"
+    assert completed["task_sha256"]
+
+
 def test_completed_contract_check_uses_protected_stage_digest(repo, tmp_path):
     start_stage(repo, tmp_path, STAGE_TASK)
     write_in_scope(repo, "src/core.py")
