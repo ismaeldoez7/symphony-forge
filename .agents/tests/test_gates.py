@@ -310,6 +310,16 @@ def test_pin_insertion_preserves_a_yaml_prologue(repo):
     sys.modules.pop("factory_lib", None)
     factory_lib = import_module("factory_lib")
 
+    # A symlink LOOP must read as an invalid pin, not a traceback: non-strict
+    # resolve() raises RuntimeError for loops on Python 3.10-3.12 (CI's) and
+    # OSError elsewhere (r11/r12).
+    loop = repo / "docs" / "decisions" / "0001-loop-client-signoff.md"
+    loop.symlink_to(loop)
+    assert factory_lib.canonical_signoff_path(
+        repo, "docs/decisions/0001-loop-client-signoff.md") == ""
+    assert factory_lib.client_signoff(repo)[0] is False
+    loop.unlink()
+
     doc = "%YAML 1.2\n---\nversion: 1\nprecedence:\n  - constitution\n"
     out = factory_lib.insert_signoff_pin(doc, "docs/decisions/0001-client-signoff.md")
     assert out.startswith("%YAML 1.2\n---\n"), out

@@ -118,9 +118,11 @@ def canonical_signoff_path(root: Path, relative: str) -> str:
         target = (root / relative).resolve()
         if not target.is_file():
             return ""
-    except OSError:
+    except (OSError, RuntimeError):
         # A malformed symlink chain must read as "invalid pin" with the normal
         # actionable message, never a traceback out of a hook or pr_ready.
+        # RuntimeError too: non-strict resolve() raises it for a symlink LOOP on
+        # Python 3.10-3.12, which is what CI runs.
         return ""
     if target.parent != decisions:
         return ""

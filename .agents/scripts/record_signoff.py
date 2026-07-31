@@ -15,8 +15,8 @@ import sys
 from pathlib import Path
 
 from factory_lib import (
-    insert_signoff_pin, parse_frontmatter, repo_root, require_grill, signoff_pin,
-    valid_signoff_path,
+    canonical_signoff_path, insert_signoff_pin, parse_frontmatter, repo_root,
+    require_grill, signoff_pin, valid_signoff_path,
 )
 
 
@@ -72,14 +72,17 @@ def main() -> int:
         # ANY file carrying `status: accepted` and a `confirmed_by` could be
         # pinned as the project's sign-off, and `../` would persist a traversal
         # into harness.yaml.
-        record = (root / args.record).resolve()
-        if not valid_signoff_path(root, args.record):
+        # Guarded resolution first: a bare .resolve() here would raise on a
+        # symlink loop before the check could report it.
+        canonical = canonical_signoff_path(root, args.record)
+        if not canonical:
             print(
                 f"VIOLATION: --record {args.record} is not a client sign-off record.\n"
                 "  Expected docs/decisions/NNNN-<slug>client-signoff.md directly under "
                 "this repo's docs/decisions/."
             )
             return 1
+        record = root / canonical
     else:
         candidates = sorted(
             c for c in decisions.glob("[0-9][0-9][0-9][0-9]-*client-signoff.md")
