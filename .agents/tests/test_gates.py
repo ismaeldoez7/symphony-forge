@@ -300,6 +300,25 @@ def test_signoff_record_must_be_a_real_signoff_record(repo, tmp_path):
     assert not signed_off(repo)
 
 
+def test_signoff_pin_round_trips_or_is_refused(repo):
+    """The writer must not accept a name the stdlib pin reader truncates: that
+    combination reports success while leaving every gate locked, and the repair
+    path then refuses because the pin is non-empty (autoreview r2)."""
+    odd = repo / "docs" / "decisions" / "0001-acme co client-signoff.md"
+    odd.write_text('---\nstatus: accepted\nconfirmed_by: "PM"\n---\n')
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "oddly named record")
+    code, out = record_grill(repo, "signoff")
+    assert code == 0, out
+
+    code, out = run(repo, "record_signoff.py", "--record", str(odd.relative_to(repo)))
+    assert code != 0, out
+    assert not signed_off(repo)
+    # And it is not silently chosen by auto-discovery either.
+    code, out = run(repo, "record_signoff.py")
+    assert not signed_off(repo), out
+
+
 def test_signoff_pin_is_added_to_a_manifest_that_predates_it(repo):
     """A project vendored before the key existed keeps its project-owned
     harness.yaml through upgrade, so the key is simply absent. Refusing there
