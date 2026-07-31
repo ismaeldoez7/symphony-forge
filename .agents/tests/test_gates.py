@@ -300,37 +300,6 @@ def test_signoff_record_must_be_a_real_signoff_record(repo, tmp_path):
     assert not signed_off(repo)
 
 
-def test_upgrade_recovers_signoff_without_run_state(repo):
-    """A project signed off under the old scheme, upgraded from a FRESH CLONE:
-    .factory/ is gitignored so there is no run.json to read. Falling back to
-    nothing would silently un-sign it — the same reliance on per-worktree state
-    this pin exists to remove (r8)."""
-    from importlib import import_module
-    import sys
-    sys.path.insert(0, str(repo / ".agents" / "scripts"))
-    sys.modules.pop("factory_lib", None)
-    factory_lib = import_module("factory_lib")
-
-    (repo / "docs" / "decisions" / "0005-client-signoff.md").write_text(
-        '---\nstatus: accepted\nconfirmed_by: "Client PM"\n---\n')
-    assert factory_lib.accepted_signoff_records(repo) == \
-        ["docs/decisions/0005-client-signoff.md"]
-
-    # A merely PROPOSED record is not evidence of sign-off.
-    (repo / "docs" / "decisions" / "0006-client-signoff.md").write_text(
-        '---\nstatus: proposed\nconfirmed_by: ""\n---\n')
-    assert factory_lib.accepted_signoff_records(repo) == \
-        ["docs/decisions/0005-client-signoff.md"]
-
-    # Two ACCEPTED records is ambiguous: guessing between them was the original
-    # bug, so recovery stays empty and the operator names one.
-    (repo / "docs" / "decisions" / "0006-client-signoff.md").write_text(
-        '---\nstatus: accepted\nconfirmed_by: "Someone Else"\n---\n')
-    assert len(factory_lib.accepted_signoff_records(repo)) == 2
-    sys.path.remove(str(repo / ".agents" / "scripts"))
-    sys.modules.pop("factory_lib", None)
-
-
 def test_symlinked_manifest_is_refused(repo, tmp_path):
     """A symlinked harness.yaml would let the gate's 'committed' state live
     outside the repo, and write_text would follow the link (r6)."""
@@ -829,21 +798,44 @@ def test_upgrade_migration_promotes_and_refuses_correctly(repo, tmp_path):
     strip_pin(repo)
     # Explicitly UNSIGNED legacy state, with an accepted-looking record present.
     (repo / ".factory").mkdir(exist_ok=True)
-    (repo / ".factory" / "run.json").write_text(json.dumps({"client_signoff": False}))
+    # The record path is present but the FLAG says unsigned, so only the flag
+    # check can refuse — otherwise the control below proves nothing.
+    (repo / ".factory" / "run.json").write_text(json.dumps({
+        "client_signoff": False,
+        "client_signoff_record": "docs/decisions/0005-client-signoff.md",
+    }))
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "legacy project, unsigned")
     proc = upgrade_into(repo)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert not signed_off(repo), "an explicitly unsigned project was promoted"
 
-    # Same project, but the gitignored run state is simply GONE (fresh clone).
+    # Run state simply GONE (fresh clone). An accepted record is NOT evidence
+    # that sign-off happened — it can be committed before record_signoff.py ever
+    # succeeds, and the required grill leaves no committed trace. The old scheme
+    # also refused here (`if not state ... fail`), so nothing is lost.
     strip_pin(repo)
     (repo / ".factory" / "run.json").unlink()
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "no run state")
     proc = upgrade_into(repo)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert signed_off(repo), "a signed project was silently un-signed by upgrade"
+    assert not signed_off(repo), "absent run state was treated as prior sign-off"
+    assert "record_signoff.py" in proc.stdout + proc.stderr
+
+    # An explicitly SIGNED legacy state is carried across, which is the one
+    # case with real evidence.
+    strip_pin(repo)
+    (repo / ".factory").mkdir(exist_ok=True)
+    (repo / ".factory" / "run.json").write_text(json.dumps({
+        "client_signoff": True,
+        "client_signoff_record": "docs/decisions/0005-client-signoff.md",
+    }))
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "legacy signed")
+    proc = upgrade_into(repo)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert signed_off(repo), "a genuinely signed legacy project was un-signed"
     assert "0005-client-signoff.md" in (repo / "harness.yaml").read_text()
 
 

@@ -12,8 +12,7 @@ import tempfile
 from pathlib import Path
 
 from factory_lib import (
-    SIGNOFF_KEY, accepted_signoff_records, canonical_signoff_path, head_sha,
-    load_json, repo_root,
+    SIGNOFF_KEY, canonical_signoff_path, head_sha, load_json, repo_root,
 )
 
 from .common import fail
@@ -177,10 +176,9 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     if (manifest_yaml.exists() and not manifest_yaml.is_symlink()
             and not SIGNOFF_KEY.search(manifest_yaml.read_text())):
         legacy_state = target / ".factory" / "run.json"
-        legacy_present = legacy_state.is_file()
         legacy = load_json(legacy_state, default={})
-        signed_legacy = bool(legacy.get("client_signoff"))
-        carried = legacy.get("client_signoff_record", "") if signed_legacy else ""
+        carried = (legacy.get("client_signoff_record", "")
+                   if legacy.get("client_signoff") else "")
         # Held to the same contract as any other pin: run.json is gitignored,
         # per-worktree, ungoverned state, so an unvalidated path from it must
         # never become the project's attestation.
@@ -188,14 +186,13 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         # resolve to a valid record yet be absolute (machine-specific) or carry
         # quotes/newlines that inject YAML into harness.yaml.
         carried = canonical_signoff_path(target, carried) if carried else ""
-        # Discovery ONLY when the legacy state is genuinely absent — a fresh
-        # clone of an already-signed project, which is the situation this pin
-        # exists to fix. A run.json that says client_signoff: false is an
-        # explicit answer: an accepted-looking record may never have passed the
-        # grill, and upgrading must not promote an unsigned project.
-        if not carried and (not legacy_present or signed_legacy):
-            accepted = accepted_signoff_records(target)
-            carried = accepted[0] if len(accepted) == 1 else ""
+        # NO inference from the decision corpus. An accepted client-signoff
+        # record is not evidence that sign-off HAPPENED: it can be committed
+        # before record_signoff.py ever succeeds, and the required fresh grill
+        # leaves no committed trace. Absent legacy state therefore stays
+        # unsigned — which is exactly what the old scheme did in a fresh clone
+        # (`if not state ... fail`), so nothing is lost here that a project
+        # previously had.
         manifest_yaml.write_text(
             f'signoff_record: "{carried}"\n' + manifest_yaml.read_text()
         )
