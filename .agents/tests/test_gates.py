@@ -334,6 +334,13 @@ def test_migration_ignores_a_mentioned_but_unset_key(repo):
     commented = "# signoff_record: docs/decisions/0001-client-signoff.md (example)\n"
     assert not factory_lib.SIGNOFF_KEY.search(commented)
     assert factory_lib.SIGNOFF_KEY.search('signoff_record: ""\n')
+
+    # A bare `signoff_record:` is valid YAML for "no value". The reader must not
+    # swallow the following top-level key as the pin (r7).
+    manifest = repo / "harness.yaml"
+    manifest.write_text("signoff_record:\nprecedence:\n  - constitution\n")
+    assert factory_lib.signoff_pin(repo) == ""
+    assert factory_lib.client_signoff(repo)[0] is False
     sys.path.remove(str(repo / ".agents" / "scripts"))
     sys.modules.pop("factory_lib", None)
 

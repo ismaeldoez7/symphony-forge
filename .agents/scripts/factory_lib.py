@@ -43,7 +43,9 @@ def review_dir(root: Path | None = None) -> Path:
 FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 # Substring match, not a YAML parse: these scripts are stdlib-only by design
 # (see check_dual_runtime.py's harness.yaml allowlist reader).
-SIGNOFF_PIN = re.compile(r"^signoff_record:\s*[\"']?([^\"'\s#]+)", re.MULTILINE)
+# [ \t]* deliberately, NOT \s*: \s crosses newlines, so an empty
+# `signoff_record:` would capture the NEXT top-level key as the pin.
+SIGNOFF_PIN = re.compile(r"^signoff_record:[ \t]*[\"']?([^\"'\s#]+)", re.MULTILINE)
 # "is the key present at top level", as distinct from "does it have a value" —
 # a substring test would also match the key inside a comment or an indented
 # mapping, which a project-owned harness.yaml may legitimately contain.
