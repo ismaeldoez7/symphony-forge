@@ -300,6 +300,37 @@ def test_signoff_record_must_be_a_real_signoff_record(repo, tmp_path):
     assert not signed_off(repo)
 
 
+def test_upgrade_recovers_signoff_without_run_state(repo):
+    """A project signed off under the old scheme, upgraded from a FRESH CLONE:
+    .factory/ is gitignored so there is no run.json to read. Falling back to
+    nothing would silently un-sign it — the same reliance on per-worktree state
+    this pin exists to remove (r8)."""
+    from importlib import import_module
+    import sys
+    sys.path.insert(0, str(repo / ".agents" / "scripts"))
+    sys.modules.pop("factory_lib", None)
+    factory_lib = import_module("factory_lib")
+
+    (repo / "docs" / "decisions" / "0005-client-signoff.md").write_text(
+        '---\nstatus: accepted\nconfirmed_by: "Client PM"\n---\n')
+    assert factory_lib.accepted_signoff_records(repo) == \
+        ["docs/decisions/0005-client-signoff.md"]
+
+    # A merely PROPOSED record is not evidence of sign-off.
+    (repo / "docs" / "decisions" / "0006-client-signoff.md").write_text(
+        '---\nstatus: proposed\nconfirmed_by: ""\n---\n')
+    assert factory_lib.accepted_signoff_records(repo) == \
+        ["docs/decisions/0005-client-signoff.md"]
+
+    # Two ACCEPTED records is ambiguous: guessing between them was the original
+    # bug, so recovery stays empty and the operator names one.
+    (repo / "docs" / "decisions" / "0006-client-signoff.md").write_text(
+        '---\nstatus: accepted\nconfirmed_by: "Someone Else"\n---\n')
+    assert len(factory_lib.accepted_signoff_records(repo)) == 2
+    sys.path.remove(str(repo / ".agents" / "scripts"))
+    sys.modules.pop("factory_lib", None)
+
+
 def test_symlinked_manifest_is_refused(repo, tmp_path):
     """A symlinked harness.yaml would let the gate's 'committed' state live
     outside the repo, and write_text would follow the link (r6)."""

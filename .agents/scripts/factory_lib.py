@@ -113,6 +113,26 @@ def valid_signoff_path(root: Path, relative: str) -> bool:
     return bool(canonical_signoff_path(root, relative))
 
 
+def accepted_signoff_records(root: Path) -> list[str]:
+    """Canonical paths of every ACCEPTED, human-confirmed client-signoff record.
+
+    Committed evidence, so it is readable in a fresh clone where .factory/ does
+    not exist — which is exactly where a run.json-based answer is unavailable.
+    """
+    decisions = root / "docs" / "decisions"
+    if not decisions.is_dir():
+        return []
+    found: list[str] = []
+    for candidate in sorted(decisions.glob("[0-9][0-9][0-9][0-9]-*client-signoff.md")):
+        rel = canonical_signoff_path(root, candidate.relative_to(root).as_posix())
+        if not rel:
+            continue
+        fields = parse_frontmatter((root / rel).read_text())
+        if fields.get("status") == "accepted" and fields.get("confirmed_by"):
+            found.append(rel)
+    return found
+
+
 def signoff_pin(root: Path) -> str:
     """The decision record harness.yaml pins as THE project sign-off, or ''."""
     manifest = root / "harness.yaml"

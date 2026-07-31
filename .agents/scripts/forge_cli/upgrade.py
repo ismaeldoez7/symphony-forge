@@ -12,7 +12,8 @@ import tempfile
 from pathlib import Path
 
 from factory_lib import (
-    SIGNOFF_KEY, canonical_signoff_path, head_sha, load_json, repo_root,
+    SIGNOFF_KEY, accepted_signoff_records, canonical_signoff_path, head_sha,
+    load_json, repo_root,
 )
 
 from .common import fail
@@ -184,11 +185,21 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         # resolve to a valid record yet be absolute (machine-specific) or carry
         # quotes/newlines that inject YAML into harness.yaml.
         carried = canonical_signoff_path(target, carried) if carried else ""
+        if not carried:
+            # run.json is gitignored, so a fresh clone of an ALREADY SIGNED-OFF
+            # project has none — the very situation this pin exists to fix.
+            # Fall back to the committed evidence, but only when it is
+            # unambiguous; guessing between records is the original bug.
+            accepted = accepted_signoff_records(target)
+            carried = accepted[0] if len(accepted) == 1 else ""
         manifest_yaml.write_text(
             f'signoff_record: "{carried}"\n' + manifest_yaml.read_text()
         )
         ensured.append(
-            f"harness.yaml signoff_record pin ({carried or 'empty — re-run record_signoff.py'})"
+            "harness.yaml signoff_record pin ("
+            + (carried or "EMPTY — pin it with record_signoff.py [--record <path>]; "
+                          "no unambiguous accepted record was found")
+            + ")"
         )
 
     from .scaffold import ensure_onboarding
