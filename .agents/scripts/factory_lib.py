@@ -133,7 +133,11 @@ def client_signoff(root: Path) -> tuple[bool, str]:
             "accepted (non-empty confirmed_by), then run "
             "`python3 .agents/scripts/record_signoff.py` to pin it in harness.yaml."
         )
-    if not valid_signoff_path(root, pinned):
+    # Require the pin to BE canonical, not merely to resolve: the recovery path
+    # is a hand edit to harness.yaml, and an absolute path would resolve here
+    # while failing in every differently-located clone — exactly the
+    # same-answer-everywhere guarantee this pin exists to provide.
+    if canonical_signoff_path(root, pinned) != pinned:
         return False, (
             f"harness.yaml pins signoff_record: {pinned}, which is not a readable "
             "client sign-off record directly under docs/decisions/ "

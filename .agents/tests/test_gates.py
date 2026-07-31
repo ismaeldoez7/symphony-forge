@@ -367,6 +367,17 @@ def test_signoff_pin_cannot_escape_docs_decisions(repo, tmp_path):
     # unrelated refusals and the control would pass with the check removed.
     assert code != 0 and "not a readable client sign-off record" in out, out
 
+    # An ABSOLUTE pin resolves here but breaks in every other clone, so the
+    # reader requires the pin to be canonical, not merely resolvable.
+    real = repo / "docs" / "decisions" / "0009-client-signoff.md"
+    real.write_text('---\nstatus: accepted\nconfirmed_by: "PM"\n---\n')
+    harness_yaml.write_text(
+        re.sub(r'^signoff_record:.*$', f'signoff_record: "{real}"',
+               harness_yaml.read_text(), count=1, flags=re.MULTILINE)
+    )
+    code, out = run(repo, "forge.py", "plan", "save", "--issue", "ENG-9", "--from", str(plan))
+    assert code != 0 and "not a readable client sign-off record" in out, out
+
 
 def test_signoff_pin_round_trips_or_is_refused(repo):
     """The writer must not accept a name the stdlib pin reader truncates: that
@@ -382,7 +393,9 @@ def test_signoff_pin_round_trips_or_is_refused(repo):
     code, out = run(repo, "record_signoff.py", "--record", str(odd.relative_to(repo)))
     assert code != 0, out
     assert not signed_off(repo)
-    # And it is not silently chosen by auto-discovery either.
+    # And it is not silently chosen by auto-discovery either. This test
+    # deliberately never calls sign_off(), so the fresh `forge init` fixture
+    # holds no valid record and the odd one is the ONLY candidate.
     code, out = run(repo, "record_signoff.py")
     assert not signed_off(repo), out
 
