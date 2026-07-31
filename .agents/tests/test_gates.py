@@ -278,6 +278,42 @@ def test_signoff_is_pinned_and_cannot_be_repointed(repo, tmp_path):
     assert code != 0, out
 
 
+def test_signoff_record_must_be_a_real_signoff_record(repo, tmp_path):
+    """--record pinned any file that merely carried `status: accepted` and a
+    confirmed_by, including one outside docs/decisions (autoreview P1)."""
+    # Written BEFORE the grill: creating it after would trip the (separate,
+    # also correct) grill-staleness gate and prove nothing about --record.
+    impostor = repo / "docs" / "decisions" / "0001-some-other-decision.md"
+    impostor.write_text('---\nstatus: accepted\nconfirmed_by: "Nobody"\n---\n\n# Unrelated\n')
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "unrelated decision")
+    code, out = record_grill(repo, "signoff")
+    assert code == 0, out
+    code, out = run(repo, "record_signoff.py", "--record", str(impostor.relative_to(repo)))
+    assert code != 0 and "not a client sign-off record" in out, out
+
+    outside = tmp_path / "elsewhere" / "0001-client-signoff.md"
+    outside.parent.mkdir(parents=True, exist_ok=True)
+    outside.write_text('---\nstatus: accepted\nconfirmed_by: "Nobody"\n---\n')
+    code, out = run(repo, "record_signoff.py", "--record", str(outside))
+    assert code != 0 and "not a client sign-off record" in out, out
+    assert not signed_off(repo)
+
+
+def test_signoff_pin_is_added_to_a_manifest_that_predates_it(repo):
+    """A project vendored before the key existed keeps its project-owned
+    harness.yaml through upgrade, so the key is simply absent. Refusing there
+    would make the gate unreachable in exactly those repos (autoreview P1)."""
+    harness_yaml = repo / "harness.yaml"
+    harness_yaml.write_text(
+        re.sub(r'^signoff_record:.*$\n', '', harness_yaml.read_text(),
+               count=1, flags=re.MULTILINE)
+    )
+    assert "signoff_record:" not in harness_yaml.read_text()
+    sign_off(repo)
+    assert signed_off(repo)
+
+
 def test_signoff_survives_a_wiped_factory_dir(repo, tmp_path):
     """Every task runs in a fresh worktree where .factory/ is gitignored and
     absent. The gate must still hold there — that is why the pin is committed

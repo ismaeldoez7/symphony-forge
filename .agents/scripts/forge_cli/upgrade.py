@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from factory_lib import head_sha, repo_root
+from factory_lib import head_sha, load_json, repo_root
 
 from .common import fail
 from .scaffold import COPY_CODEX, COPY_WORKFLOWS, DOC_CONTRACTS
@@ -166,6 +166,23 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         with attrs.open("a") as fh:
             fh.write("\n.gstack/**/*.jsonl merge=jsonl-append\n")
         ensured.append(".gitattributes (jsonl merge rule appended)")
+    # Sign-off moved from a per-worktree run.json flag to a committed
+    # harness.yaml pin. A project that signed off under the old scheme keeps
+    # its project-owned harness.yaml (no key) and its old run.json, so carry
+    # the attestation across rather than silently un-signing the project.
+    manifest_yaml = target / "harness.yaml"
+    if manifest_yaml.exists() and "signoff_record:" not in manifest_yaml.read_text():
+        legacy = load_json(target / ".factory" / "run.json", default={})
+        carried = legacy.get("client_signoff_record", "") if legacy.get("client_signoff") else ""
+        if carried and not (target / carried).is_file():
+            carried = ""  # never pin a record that is not there to read
+        manifest_yaml.write_text(
+            f'signoff_record: "{carried}"\n' + manifest_yaml.read_text()
+        )
+        ensured.append(
+            f"harness.yaml signoff_record pin ({carried or 'empty — re-run record_signoff.py'})"
+        )
+
     from .scaffold import ensure_onboarding
     if ensure_onboarding(target, target.name):
         ensured.append("README.md ('Working in this repo' onboarding section appended)")

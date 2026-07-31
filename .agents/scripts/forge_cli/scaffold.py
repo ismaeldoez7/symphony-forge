@@ -157,9 +157,10 @@ def cmd_init(args: argparse.Namespace) -> None:
             shutil.copy2(src, dst)
 
     # A new client has signed nothing off: clear the harness's own sign-off pin
-    # so a scaffold cannot inherit THIS project's gate. Must run before
-    # write_manifest below, or the frozen-gate manifest records the pre-reset
-    # bytes and check_vendor_integrity reports drift on a fresh scaffold.
+    # so a scaffold cannot inherit THIS project's gate. (harness.yaml is
+    # project-owned and deliberately OUTSIDE the frozen-gate manifest, which
+    # covers .agents/{scripts,schemas,prompts} + forge + .claude/settings.json,
+    # so signing off later never shows up as gate drift.)
     manifest_yaml = target / "harness.yaml"
     if manifest_yaml.exists():
         manifest_yaml.write_text(

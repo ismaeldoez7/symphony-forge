@@ -18,6 +18,9 @@ from pathlib import Path
 from factory_lib import parse_frontmatter, repo_root, require_grill, signoff_pin
 
 
+CLIENT_SIGNOFF_NAME = re.compile(r"^[0-9]{4}-.*client-signoff\.md$")
+
+
 def pin_into_harness(manifest: Path, relative: str) -> None:
     text = manifest.read_text()
     updated, count = re.subn(
@@ -28,10 +31,11 @@ def pin_into_harness(manifest: Path, relative: str) -> None:
         flags=re.MULTILINE,
     )
     if count != 1:
-        raise SystemExit(
-            f"VIOLATION: {manifest.name} has no `signoff_record:` line to pin.\n"
-            "  That key is the sign-off gate; restore it before signing off."
-        )
+        # A project vendored before this key existed keeps its own harness.yaml
+        # through `forge upgrade` (it is project-owned), so the key is simply
+        # absent. Add it rather than refusing — otherwise the gate is
+        # unreachable in exactly the repos that predate it.
+        updated = f'signoff_record: "{relative}"\n' + text
     manifest.write_text(updated)
 
 
@@ -66,9 +70,25 @@ def main() -> int:
 
     decisions = root / "docs" / "decisions"
     if args.record:
-        record = root / args.record
+        # An explicit path is still held to the contract: inside this repo's
+        # docs/decisions/ and named NNNN-...client-signoff.md. Without this,
+        # ANY file carrying `status: accepted` and a `confirmed_by` could be
+        # pinned as the project's sign-off, and `../` would persist a traversal
+        # into harness.yaml.
+        record = (root / args.record).resolve()
+        try:
+            inside = record.relative_to(decisions.resolve()).parts
+        except ValueError:
+            inside = ()
         if not record.is_file():
             print(f"VIOLATION: --record {args.record} does not exist.")
+            return 1
+        if len(inside) != 1 or not CLIENT_SIGNOFF_NAME.match(record.name):
+            print(
+                f"VIOLATION: --record {args.record} is not a client sign-off record.\n"
+                "  Expected docs/decisions/NNNN-<slug>client-signoff.md directly under "
+                "this repo's docs/decisions/."
+            )
             return 1
     else:
         candidates = sorted(decisions.glob("[0-9][0-9][0-9][0-9]-*client-signoff.md"))
