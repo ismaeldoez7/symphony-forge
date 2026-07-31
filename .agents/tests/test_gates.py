@@ -326,6 +326,12 @@ def test_pin_insertion_preserves_a_yaml_prologue(repo):
     assert out.count("---") == 1, out
     assert out.splitlines()[2] == 'signoff_record: "docs/decisions/0001-client-signoff.md"'
 
+    # A document-start marker carrying an inline comment is still a marker.
+    commented_marker = "--- # main document\nversion: 1\n"
+    out3 = factory_lib.insert_signoff_pin(commented_marker, "docs/decisions/0001-client-signoff.md")
+    assert out3.startswith("--- # main document\n"), out3
+    assert out3.splitlines()[1].startswith('signoff_record: "')
+
     # Replacing an existing key is still a plain line substitution.
     again = factory_lib.insert_signoff_pin(out, "docs/decisions/0002-client-signoff.md")
     assert again.count("signoff_record:") == 1

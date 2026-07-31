@@ -91,7 +91,9 @@ def insert_signoff_pin(text: str, relative: str) -> str:
         stripped = line.strip()
         if stripped.startswith("%") or not stripped or stripped.startswith("#"):
             continue
-        if stripped == "---":
+        # `--- # comment` is a valid document-start marker too; missing it
+        # would insert the key BEFORE the marker, making a second document.
+        if stripped == "---" or stripped.startswith("---#") or stripped.startswith("--- "):
             cut = index + 1
         break
     return "".join(lines[:cut]) + f'signoff_record: "{relative}"\n' + "".join(lines[cut:])
