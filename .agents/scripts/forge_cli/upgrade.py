@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from factory_lib import head_sha, load_json, repo_root, valid_signoff_path
+from factory_lib import canonical_signoff_path, head_sha, load_json, repo_root
 
 from .common import fail
 from .scaffold import COPY_CODEX, COPY_WORKFLOWS, DOC_CONTRACTS
@@ -177,8 +177,10 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         # Held to the same contract as any other pin: run.json is gitignored,
         # per-worktree, ungoverned state, so an unvalidated path from it must
         # never become the project's attestation.
-        if carried and not valid_signoff_path(target, carried):
-            carried = ""
+        # Persist the CANONICAL path, never run.json's spelling: a value can
+        # resolve to a valid record yet be absolute (machine-specific) or carry
+        # quotes/newlines that inject YAML into harness.yaml.
+        carried = canonical_signoff_path(target, carried) if carried else ""
         manifest_yaml.write_text(
             f'signoff_record: "{carried}"\n' + manifest_yaml.read_text()
         )

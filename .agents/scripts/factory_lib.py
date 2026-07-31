@@ -64,8 +64,13 @@ def parse_frontmatter(text: str) -> dict[str, str]:
 CLIENT_SIGNOFF_NAME = re.compile(r"^[0-9]{4}-[a-z0-9-]*client-signoff\.md$")
 
 
-def valid_signoff_path(root: Path, relative: str) -> bool:
-    """Is `relative` a client-signoff record DIRECTLY under docs/decisions?
+def canonical_signoff_path(root: Path, relative: str) -> str:
+    """The canonical repo-relative path of a valid sign-off record, or ''.
+
+    Returns the CANONICAL form, never the caller's spelling: a value that
+    resolves to a valid record can still be absolute (machine-specific, broken
+    in every other clone) or carry quotes and newlines that inject YAML when
+    written into harness.yaml. Callers must persist what this returns.
 
     Enforced at the READER, which is authoritative, not only where a path is
     written: auto-discovery can glob a symlink whose target lies outside, and
@@ -74,14 +79,29 @@ def valid_signoff_path(root: Path, relative: str) -> bool:
     sign-off gate. resolve() collapses symlinks and `..` before the check.
     """
     if not relative:
-        return False
+        return ""
     decisions = (root / "docs" / "decisions").resolve()
     target = (root / relative).resolve()
     if not target.is_file():
-        return False
+        return ""
     if target.parent != decisions:
-        return False
-    return bool(CLIENT_SIGNOFF_NAME.match(target.name))
+        return ""
+    if not CLIENT_SIGNOFF_NAME.match(target.name):
+        return ""
+    try:
+        return target.relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return ""
+
+
+def valid_signoff_path(root: Path, relative: str) -> bool:
+    """Is `relative` a client-signoff record DIRECTLY under docs/decisions?
+
+    Enforced at the READER, which is authoritative, not only where a path is
+    written: auto-discovery can glob a symlink whose target lies outside, and
+    the upgrade migration carries a path out of gitignored run.json.
+    """
+    return bool(canonical_signoff_path(root, relative))
 
 
 def signoff_pin(root: Path) -> str:

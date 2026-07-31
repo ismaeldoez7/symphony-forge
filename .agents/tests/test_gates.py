@@ -300,6 +300,33 @@ def test_signoff_record_must_be_a_real_signoff_record(repo, tmp_path):
     assert not signed_off(repo)
 
 
+def test_upgrade_migration_canonicalizes_the_carried_pin(repo, tmp_path):
+    """The migration reads run.json — gitignored, per-worktree, ungoverned. A
+    value there can RESOLVE to a valid record while still being absolute
+    (machine-specific) or carrying quotes/newlines that inject YAML into
+    harness.yaml, so what gets persisted must be the canonical path (r4)."""
+    from importlib import import_module
+    import sys
+    sys.path.insert(0, str(repo / ".agents" / "scripts"))
+    for mod in ("factory_lib",):
+        sys.modules.pop(mod, None)
+    factory_lib = import_module("factory_lib")
+
+    record = repo / "docs" / "decisions" / "0007-client-signoff.md"
+    record.write_text('---\nstatus: accepted\nconfirmed_by: "PM"\n---\n')
+
+    # An absolute path resolves fine but must never be persisted.
+    assert factory_lib.canonical_signoff_path(repo, str(record)) == \
+        "docs/decisions/0007-client-signoff.md"
+    # A traversal that lands on the real record is normalised, not echoed back.
+    sneaky = 'docs/decisions/x"\nprecedence: []\n#/../0007-client-signoff.md'
+    assert factory_lib.canonical_signoff_path(repo, sneaky) in (
+        "", "docs/decisions/0007-client-signoff.md")
+    assert '"' not in factory_lib.canonical_signoff_path(repo, sneaky)
+    sys.path.remove(str(repo / ".agents" / "scripts"))
+    sys.modules.pop("factory_lib", None)
+
+
 def test_signoff_pin_cannot_escape_docs_decisions(repo, tmp_path):
     """The READER is authoritative: a correctly-named symlink pointing outside
     docs/decisions/ must not satisfy the gate, however it got pinned — glob
