@@ -61,8 +61,8 @@ something you type.
 ## The Lifecycle
 
 ```text
-0a discovery ──▶ 0b prototype ──[GRILL]──▶ CLIENT SIGN-OFF ──▶ scaffold (nx) ──[GRILL]──▶ epics OK'd ──▶ roadmap + team
-                                              (hard gate)                     (PM accept)                    │
+0a discovery ──▶ 0b prototype+specs ──[SPEC GRILLS]──▶ 0c derived roadmap ──[GRILL]──▶ CLIENT SIGN-OFF ──▶ roadmap + team
+                                                                                       (hard gate)                 │
       ┌───────────────────────────────────────────────────────────────────────────────────────────────────────┘
       ▼
   per feature (own branch):
@@ -70,7 +70,9 @@ something you type.
              (Claude)                     (+ surfaces)  (stages)          (Codex, attested)   (until clean)                  (ONE autoreview)     (ship gate)
 ```
 
-- **Before sign-off**: lightweight on purpose — no ceremony, no time-box. Discovery via gstack `/office-hours`; the prototype that earns sign-off is preserved in `prototype/` as the permanent UX reference.
+- **Before sign-off**: discovery and prototyping are lightweight; capability
+  specs are saved and grilled as they emerge, then the roadmap is derived from
+  the confirmed set. The prototype remains the permanent UX reference.
 - **After sign-off**: deterministic gates. Plans live in `plans/`, decisions in `docs/decisions/`, evidence in `.factory/`; the ship gate archives every shipped task's plan + proof to `plans/completed/` and `.factory/history/`.
 - **Continuously**: dump raw context (client emails, transcripts, notes) into `docs/context/` — dumping is free, tracking is automatic. Say *"process the context dump"* and an agent scans it into the ledger, harvests it into proposed decisions and BRIEF/architecture updates, and marks each file. You can't miss pending context: it greets every session start, tops every *"what now?"*, raises a daily `gardener` issue, and **blocks plan approval** until harvested or explicitly ignored. Dev corrections get mined into proposed skills that humans promote.
 - **The repo learns from itself**: review findings are structured and clustered across tasks — ask *"are we fixing the same thing again?"* and the agent shows which defect classes recur; the same class recurring 3+ times triggers a refactor story + invariant decision, never a fourth patch (decision 0005). Repeated failures become ledgered lessons that resurface before anyone touches the same paths again (decision 0006). Say *"this is out of scope for now"* and the parked scope keeps an explicit revisit trigger instead of vanishing.
@@ -86,16 +88,16 @@ column describes that machinery. In lifecycle order:
 
 | # | Gate | Refuses until | Enforced by |
 |---|---|---|---|
-| 1 | **Signoff grill** | an adversarial gaps/contradictions pass over DISCOVERY/BRIEF/decisions is recorded — fresh (docs unchanged since) and `pass` | `record_signoff.py` |
-| 2 | **Client sign-off** | an accepted `client-signoff` decision names a human | `record_signoff.py`; every later phase checks the flag |
-| 3 | **Epics grill + PM accept** | the epics/stories are grilled vs the BRIEF AND the PM accepts `epics-approved` | `forge roadmap import` (checks both, in order) |
+| 1 | **Specs + derived roadmap** | every capability spec has a digest-bound grill and confirmed status; every derived story links one | `forge spec confirm`; `forge roadmap derive` |
+| 2 | **Signoff grill** | an adversarial pass over DISCOVERY/BRIEF/specs/roadmap/decisions is fresh and `pass` | `record_signoff.py` |
+| 3 | **Client sign-off** | an accepted `client-signoff` decision names a human, all specs are confirmed, and the roadmap covers them | `record_signoff.py`; every later phase checks the flag |
 | 4 | **Roster check** | assignees exist on `plans/team.json` (when a roster is defined) | `forge roadmap assign` |
-| 5 | **Planning lock** | the active task has an approved, saved plan — until then product-code edits and writing Codex delegation are DENIED, with routing to PLAN MODE | PreToolUse hook (decision 0004 — the one sanctioned keystroke gate) |
+| 5 | **Planning lock** | product writes have an approved plan or a bounded, ledgered quickfix window | PreToolUse hook (decision 0013) |
 | 6 | **Rescue-only invocation** | always: raw `codex exec` is denied in every phase, no escape hatch — `/codex:rescue` is the runtime | PreToolUse hook |
 | 7 | **Plan grill** | the draft plan survives `/grill-me` vs the story's acceptance criteria + active decisions — same-issue, fresh, `pass` | `forge plan save` |
 | 8 | **Surface Impact** | the plan classifies every surface (runtime/API/data/CLI/UI/docs/tests) — Deferred and Unchanged-by-design rows carry reasons | `forge plan save` |
 | 9 | **Pending context** | every `docs/context/` dump is harvested or explicitly ignored (and scans REFUSE secrets/oversize files outright) | `forge plan save`; `context scan` |
-| 10 | **Schema + generator + skill attestation** | every evidence payload matches its `.agents/schemas/` file: `generated_by` on the allowlist, mandatory design skills attested in `skills_used` on user-facing artifacts | every `record_*` script |
+| 10 | **Schema + generator + skill attestation** | every evidence payload matches its `factory/schemas/` file: `generated_by` on the allowlist, mandatory design skills attested in `skills_used` on user-facing artifacts | every `record_*` script |
 | 11 | **Stage loop** | every decomposition stage ran its loop — order-enforced start, LOCAL autoreview until clean, commit, done | `forge stage start/done`; `pr_ready.py` refuses open stages (decision 0007) |
 | 12 | **Assumptions guided** | every `forge plan assume` row for the task is confirmed/promoted by the orchestrator (`fix-needed` keeps blocking) | `pr_ready.py` |
 | 13 | **Refactor ratchet** | a `kind: refactor` story shows non-positive net product-source line delta — refactors shrink or hold the line | `check_refactor_delta.py` in `pr_ready.py` |
@@ -121,7 +123,7 @@ relays the accept command, and waits; it never runs it.
 
 `harness.yaml` is the ALLOWLIST — these are the only pinned tools per stage,
 and recorders refuse evidence from anything else (`generated_by` is checked
-against `.agents/schemas/`). Adopting a new tool = a PR here, never a local
+against `factory/schemas/`). Adopting a new tool = a PR here, never a local
 choice.
 
 **Devs only ever say the "You say" column.** The other columns are what the
@@ -135,12 +137,12 @@ your behalf, not for you to type.
 | existing repo | "Migrate this repo into the harness" | `knacklabs-migrate-project` skill → `./forge adopt` | vendored machinery; old context → `docs/context/` |
 | any phase, lost | "What now?" | `/forge` skill → `./forge next` | — |
 | 0a discovery | "Let's run office hours" | gstack `/office-hours` | `docs/product/DISCOVERY.md`, `BRIEF.md`; design docs + decisions in `.gstack/projects/` (in-repo via `.envrc`) |
-| 0b prototype | build freely | ponytail (lite) allowed | preserved under `prototype/` |
-| grills (every gate) | "Grill the handover" / "Grill the epics" / "Grill me on this plan" | `griller` contract; `/grill-me` satisfies the plan gate | `record_grill_from_json.py` → `.factory/grills/`; sign-off, roadmap import, AND plan save refuse without a fresh pass |
+| 0b prototype | build freely; save/confirm specs as capabilities emerge | ponytail (lite) allowed | `prototype/` + `docs/specs/` |
+| 0c roadmap | "Derive the roadmap" | `docs-decomposer` | `./forge roadmap derive` → spec-linked `plans/roadmap.json` |
+| grills (every gate) | "Grill this spec" / "Grill the handover" / "Grill me on this plan" | `griller` contract; `/grill-me` satisfies the plan gate | digest-bound `.factory/grills/` records |
 | sign-off | "The client signed off" | none — human confirms `decision accept` (chat confirmation suffices; agent may run it with their name) | `record_signoff.py` → `run.json` |
 | workspace | "Scaffold the workspace" | Codex `/codex:rescue` + `SCAFFOLD_PROMPT.md` | nx workspace |
-| epics (PM) | "Build the project roadmap" | `docs-decomposer` proposes; PM accepts `epics-approved` | epics in `plans/roadmap.json`; import gated on the accept |
-| stories + distribution (EM) | "Record the backlog", "assign ENG-101 to alice" | `./forge roadmap import` / `assign` / `team set` | stories w/ acceptance criteria, `@assignee` (roster-checked) |
+| stories + distribution (PM/EM) | "Review the roadmap", "assign ENG-101 to alice" | `./forge roadmap list` / `assign` / `team set` | derived stories with spec links, criteria, and `@assignee` |
 | intake | "Start the next task on the roadmap" | `/forge` → `intake.py` | `.factory/run.json` |
 | plan | "Plan this task" | Claude PLAN MODE — forced by the hook (or Codex `planner-high`); exploration ONLY via `/codex:rescue --model gpt-5.6-terra --effort high`, read-only | grilled plan → `./forge plan save` → `plans/active/` |
 | decompose | "Decompose it" | `docs-decomposer` | `record_decomposition_from_json.py` (incl. `user_facing`) |
@@ -153,14 +155,14 @@ your behalf, not for you to type.
 | guide assumptions (orchestrator) | "review the assumptions" | `./forge assumptions list --open` / `resolve` | `plans/assumptions.md` — ship gate reads it |
 | context dump | drop files in `docs/context/`, then "scan the context" | `/forge` → `./forge context scan` | `docs/context/ledger.json` |
 | context harvest | "Process the context dump" | agent per `harvester.md` → proposed decisions + BRIEF edits | `./forge context mark --harvested\|--ignored` |
-| retro / evolution | "Mine for skills" / "are we fixing the same thing again?" | agent per `skill-miner.md` (incl. lessons curation) + daily `gardener` workflow; `./forge findings patterns` flags recurring classes | proposals in `.agents/skills/proposed/`; refactor stories (`kind: refactor`, delta-ratcheted) on the roadmap |
+| retro / evolution | "Mine for skills" / "are we fixing the same thing again?" | agent per `skill-miner.md` (incl. lessons curation) + daily `gardener` workflow; `./forge findings patterns` flags recurring classes | proposals in `factory/skills/proposed/`; refactor stories (`kind: refactor`, delta-ratcheted) on the roadmap |
 | park scope | "this is out of scope for now" | none — deterministic ledger | `./forge defer add --why --trigger` → `plans/deferrals.md`; `forge next` surfaces open triggers |
 
 ## Structure
 
 ```text
 symphony-forge/
-├── .agents/                        # Shared substance: prompts, deterministic scripts, proposed skills
+├── factory/                        # Shared substance: prompts, deterministic scripts, proposed skills
 ├── .claude/                        # Claude Code adapter + /forge skill (thin, linter-enforced)
 ├── .codex/                         # Codex adapter: config, hooks, agent registrations (thin)
 ├── .factory/                       # Run state + per-task history archive

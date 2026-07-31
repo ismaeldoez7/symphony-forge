@@ -39,7 +39,7 @@ confirm it in one breath with the prototype-or-production question below.
      || git clone git@github.com:knacklabs/symphony-forge.git "$HARNESS"
    ```
 
-2. **Doctor.** `python3 "$HARNESS/.agents/scripts/forge.py" doctor` — rerun
+2. **Doctor.** `python3 "$HARNESS/factory/scripts/forge.py" doctor` — rerun
    with `--fix` (user approves) on misses; only logins stay manual.
 
 3. **Precondition the target repo.** It must be a git repo with a CLEAN tree
@@ -50,7 +50,7 @@ confirm it in one breath with the prototype-or-production question below.
 
 4. **Adopt (deterministic).**
    ```bash
-   python3 "$HARNESS/.agents/scripts/forge.py" adopt --target <repo> --name <project>
+   python3 "$HARNESS/factory/scripts/forge.py" adopt --target <repo> --name <project>
    ```
    This vendors the machinery, preserves any pre-existing `AGENTS.md` /
    `CLAUDE.md` into `docs/context/migrated-*`, and creates project-owned
@@ -72,7 +72,7 @@ confirm it in one breath with the prototype-or-production question below.
 5b. **Activate the project-local gstack store and pull in personal history.**
    ```bash
    direnv allow
-   python3 "$HARNESS/.agents/scripts/forge.py" gstack migrate --repo <repo>
+   python3 "$HARNESS/factory/scripts/forge.py" gstack migrate --repo <repo>
    ```
    From now on gstack writes into `<repo>/.gstack/` (committed, shared);
    `gstack migrate` union-merges whatever this dev already accumulated in
@@ -92,7 +92,7 @@ confirm it in one breath with the prototype-or-production question below.
    ./forge context scan
    ```
 
-7. **Harvest** (`.agents/prompts/harvester.md`): distill
+7. **Harvest** (`factory/prompts/harvester.md`): distill
    `docs/product/DISCOVERY.md` and `BRIEF.md` from the context; propose a
    `./forge decision new <slug>` record for every client decision already
    made. The HUMAN decides acceptance (`./forge decision accept`) — an explicit
@@ -122,11 +122,11 @@ confirm it in one breath with the prototype-or-production question below.
    `client-signoff` decision → human accept → `record_signoff.py`. Otherwise
    the repo correctly sits pre-sign-off.
 
-9. **Verify and land.** Run `python3 .agents/scripts/check_dual_runtime.py`,
+9. **Verify and land.** Run `python3 factory/scripts/check_dual_runtime.py`,
    `check_factory_scaffold.py`, and the gate tests; commit the branch and
    open the PR for review.
 
-10. **Hand off.** Run `python3 .agents/scripts/forge.py next`, relay the
+10. **Hand off.** Run `python3 factory/scripts/forge.py next`, relay the
     output — from here the repo's own `/forge` skill drives every phase
     (roadmap next, if features are already known). Tell the user what
     adoption armed, in their words: every feature now starts with a grilled

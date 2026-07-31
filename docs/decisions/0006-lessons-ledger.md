@@ -2,6 +2,7 @@
 status: accepted
 confirmed_by: "Ravi"
 date: 2026-07-21
+stories: []
 ---
 
 # Committed lessons ledger with schema-validated recording and pre-work relevance injection

@@ -57,3 +57,7 @@ pino-*.log
 .gstack/**/brain-cache/
 .gstack/**/timeline.jsonl
 .gstack/slug-cache/
+
+# transitional: machinery moved to factory/; on-disk copy only serves already-running sessions' hooks
+.agents/
+.gstack/

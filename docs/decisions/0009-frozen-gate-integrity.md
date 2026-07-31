@@ -2,6 +2,7 @@
 status: accepted
 confirmed_by: "Ravi"
 date: 2026-07-22
+stories: []
 ---
 
 # The vendored gate surface is frozen between vendorings

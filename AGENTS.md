@@ -12,8 +12,6 @@ It provides:
 - autoreview-owned review
 - PR-ready proof artifacts
 
-`AGENTS.md` stays short on purpose. Use it as a map.
-
 ## Mandatory Read Order
 
 1. `WORKFLOW.md`
@@ -22,9 +20,9 @@ It provides:
 4. `harness.yaml`
 5. `constitution/README.md`
 6. `docs/product/BRIEF.md`
-7. `docs/architecture/`
+7. `docs/architecture/` and confirmed capability specs under `docs/specs/`
 8. active decisions — `./forge decision list --active`, not raw `docs/decisions/`
-9. the active plan and decomposition artifacts under `.factory/`
+9. the derived roadmap, active plan, and decomposition artifacts
 
 ## Runtime Modes
 
@@ -35,23 +33,23 @@ Codex executes exploration, implementation, testing, and review. The `.factory` 
 ## Phase Contract
 
 0a. run lightweight discovery without `.factory` ceremony
-0b. build a lightweight prototype without `.factory` ceremony
-1. record client sign-off before planning
-2. create or update the plan
-3. generate decomposition
-4. wait for approval
-5. implement one bounded task (the implementer writes and records the tests)
-6. run deterministic verify
-7. run one autoreview pass (three lenses: quality, performance, security)
-8. run the functional check when the decomposition says `user_facing: true`
-9. mark PR ready
+0b. prototype freely; save and confirm specs as capabilities emerge
+0c. derive the roadmap from confirmed specs
+1. record client sign-off (the spec/roadmap gate is checked now)
+2. plan one roadmap story and generate its decomposition
+3. wait for approval
+4. implement one bounded task via `./forge delegate`; measure under decision 0018
+5. run deterministic verify
+6. run one autoreview pass (three lenses: quality, performance, security)
+7. run the functional check when the decomposition says `user_facing: true`
+8. record the shipped outcome, then mark PR ready
 
-Phases at `planning` or later are refused until `client_signoff` is true in `.factory/run.json`.
-Implementation never starts before plan approval and recorded decomposition.
+Recording sign-off requires confirmed specs plus a derived roadmap. Later
+phases require sign-off; implementation also requires a plan and decomposition.
 
 ## Prompt and Agent Use
 
-Prompt files under `.agents/prompts/` are phase contracts. They are invoked explicitly by the parent session; hooks only load context and enforce gates.
+Prompt files under `factory/prompts/` are phase contracts. They are invoked explicitly by the parent session; hooks only load context and enforce gates.
 
 Default specialist set:
 - `planner-high`
@@ -76,13 +74,14 @@ Devs speak intents; the `/forge` skill maps them to these commands.
 Lost? `./forge next` prints the current phase and exact next actions.
 
 ```bash
-python3 .agents/scripts/intake.py --issue ENG-123 --title "Feature title"
-python3 .agents/scripts/record_decomposition_from_json.py --input /tmp/decomposition.json
-python3 .agents/scripts/update_run.py --phase awaiting-approval --plan-status awaiting-approval
-python3 .agents/scripts/verify.py
-python3 .agents/scripts/record_test_from_json.py --kind automated --input /tmp/automated.json
-python3 .agents/scripts/record_review_from_json.py --aspect quality --input /tmp/quality.json
-python3 .agents/scripts/pr_ready.py
+python3 factory/scripts/intake.py --issue ENG-123 --title "Feature title"
+python3 factory/scripts/record_decomposition_from_json.py --input /tmp/decomposition.json
+python3 factory/scripts/update_run.py --phase awaiting-approval --plan-status awaiting-approval
+python3 factory/scripts/verify.py
+python3 factory/scripts/record_test_from_json.py --kind automated --input /tmp/automated.json
+python3 factory/scripts/record_review_from_json.py --aspect quality --input /tmp/quality.json
+./forge outcome set "<what changed and what someone can now do>"
+python3 factory/scripts/pr_ready.py
 ```
 
 ## Hard Gates
@@ -93,18 +92,19 @@ A task is not PR-ready until all of these exist:
 - `.factory/decomposition.json`
 - `.factory/verify.json`
 - `.factory/tests.json`
-- `.factory/reviews/quality.json`
-- `.factory/reviews/performance.json`
-- `.factory/reviews/security.json`
+- `.factory/reviews/{quality,performance,security}.json`
+- `.factory/outcome.json` (what the story delivered — `./forge outcome set`)
 
 ## Non-Negotiables
 
-- Keep tasks bounded and capability-driven.
+- Keep tasks bounded and capability-driven; plans bind one roadmap story and attest all active decisions.
+- The planning lock is always armed: use plan mode or a bounded, ledgered quickfix.
 - Do not decompose by document file or arbitrary file count.
 - Do not bypass `verify.py` with ad hoc validation commands.
-- Evidence enters `.factory/` only via `record_*` scripts validating
-  `.agents/schemas/` (incl. a pinned `generated_by`) — never hand-written.
-- Review runs as ONE autoreview pass in Codex — never inline in the
-  coordinating session, never nested reviewers.
+- Evidence enters `.factory/` only via a recording command validating
+  `factory/schemas/` (incl. a pinned `generated_by`) — never by hand.
+- Review = ONE autoreview pass run by the orchestrating session directly —
+  never a Codex review job (decision 0011), never nested reviewers.
+- One worktree/story; sequential tasks; dependency-ready stories may parallelize (0002). Delegation/proof commands are trusted inputs; observed descendant cleanup is not hostile-code containment.
 - Keep the template repo independent of any client-specific source repo.
 - Do not keep long policy blocks in `AGENTS.md`; move them into docs.

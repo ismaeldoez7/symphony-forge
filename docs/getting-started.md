@@ -20,20 +20,23 @@ You never memorize these — the command you're about to run refuses and tells
 you what's missing. But this is the shape of the whole system:
 
 ```text
-grill ▶ SIGN-OFF ▶ grill ▶ EPICS ACCEPTED ▶ roadmap+team ▶ per task:
+prototype ▶ spec grills ▶ CONFIRMED SPECS ▶ derived roadmap ▶ sign-off grill
+  ▶ SIGN-OFF ▶ roadmap+team ▶ per task:
   PLAN MODE (hook-forced) ▶ grill ▶ plan saved (incl. Surface Impact) ▶
-  decompose (creates the stage tracker) ▶ per stage: implement (rescue-only)
+  decompose (creates the stage tracker) ▶ per stage: implement (`forge delegate`)
   ▶ LOCAL autoreview until clean ▶ commit ▶ stage done ▶ … ▶ verify ▶
   ONE branch autoreview ▶ functional (if user-facing) ▶ assumptions guided ▶
   pr_ready (stages done + refactor ratchet) ▶ archive
 ```
 
-- Three **grills** (adversarial gaps/contradictions passes): before sign-off,
-  before the epics handoff, before every plan approval (`/grill-me`). Stale
-  or blocked verdicts don't open gates.
-- One **keystroke gate**: unplanned task → product-code edits and writing
-  Codex delegation are denied until the plan is saved. And `/codex:rescue`
-  is the ONLY Codex invocation — raw `codex exec` is always denied.
+- **Grills** are adversarial gaps/contradictions passes: each spec
+  confirmation, sign-off, and every plan approval (`/grill-me`) require the
+  relevant fresh pass.
+- One **write gate** is always armed: product edits are denied until the plan
+  is saved, unless a bounded `forge quickfix start` window is open.
+  `forge delegate` is the only implementation boundary; `/codex:rescue`
+  remains the sanctioned read-only planning explorer. Raw `codex exec` is
+  always denied.
 - Every artifact is **attested**: `generated_by` on the allowlist,
   `skills_used` mandatory on user-facing work, commit-stamped and fresh.
 - The **ship gate** additionally demands orchestrator guidance on every
@@ -85,8 +88,8 @@ cd ../my-app
 ```
 
 This scaffolds a complete, git-initialized repo: dual-runtime adapters
-(`.claude/`, `.codex/`), shared agent assets (`.agents/`, including the
-artifact schemas under `.agents/schemas/`), the vendored engineering
+(`.claude/`, `.codex/`), shared agent assets (`factory/`, including the
+artifact schemas under `factory/schemas/`), the vendored engineering
 constitution, the phase manifest + skill allowlist (`harness.yaml`), doc
 contracts, and an armed sign-off gate. It refuses a target containing files
 it would overwrite (listing them); a non-empty target with no collisions is fine.
@@ -122,6 +125,16 @@ fill `docs/product/DISCOVERY.md` and `docs/product/BRIEF.md` from it.
 Prototype freely — no `.factory` ceremony before sign-off; the prototype is
 preserved under `prototype/` afterwards as the forever UX reference.
 
+As capabilities emerge, save each one as a draft spec, grill the exact file,
+then confirm it:
+
+```bash
+./forge spec save billing --from /tmp/billing.md
+python3 factory/scripts/record_grill_from_json.py --gate spec \
+  --input /tmp/spec-grill.json --input-digest docs/specs/billing.md
+./forge spec confirm billing
+```
+
 Capture every client decision as you go — say: **"Record that as a
 decision."**
 
@@ -129,10 +142,17 @@ decision."**
 ./forge decision new <slug>
 ```
 
-## 5. Grill, then record client sign-off (the gate)
+## 5. Derive the roadmap, grill, then record client sign-off
+
+After every spec is confirmed, say **"Build the project roadmap."** The
+docs-decomposer derives spec-linked epics and stories:
+
+```bash
+./forge roadmap derive --input /tmp/roadmap.json
+```
 
 First say: **"Grill the handover."** The agent interrogates DISCOVERY, BRIEF,
-decisions, and prototype notes for gaps and contradictions — one question at
+confirmed specs, the derived roadmap, decisions, and prototype notes — one question at
 a time, findings resolved into doc edits or decision records — and records
 the verdict (`record_grill_from_json.py --gate signoff`).
 **`record_signoff.py` refuses without a fresh, passing grill** (fresh =
@@ -145,7 +165,7 @@ is the human's decision, not their keystroke — an explicit chat confirmation
 ```bash
 ./forge decision new client-signoff
 ./forge decision accept client-signoff --by "<human name>"   # human-confirmed
-python3 .agents/scripts/record_signoff.py
+python3 factory/scripts/record_signoff.py
 ```
 
 Every phase from `planning` onward is refused until this is recorded.
@@ -156,33 +176,17 @@ Say: **"Scaffold the workspace."** The agent hands
 `harness/nestjs-react/SCAFFOLD_PROMPT.md` to Codex to generate the nx
 workspace per `harness/nestjs-react/conventions/` and `constitution/`.
 
-## 7. Epics, stories, and the team (the role handoffs — see docs/ROLES.md)
+## 7. Review, assign, and view the derived roadmap
 
-Say: **"Build the project roadmap."** The agent runs the project-level
-decomposition (`docs-decomposer`) against the BRIEF and architecture docs,
-producing **epics** (for the PM) and **stories** with acceptance criteria and
-a `skill` tag (for the EM). Then the handoffs, each an artifact plus a gate:
-
-1. **Grill the epics handover, then PM approves** (import is refused without
-   both — a passing `epics` grill AND the accepted decision). Say: **"Grill
-   the epics"** — coverage vs the BRIEF, criteria vs decisions, order sanity:
-
-```bash
-python3 .agents/scripts/record_grill_from_json.py --gate epics --input <json>
-./forge decision new epics-approved
-./forge decision accept epics-approved --by "<PM name>"   # human-typed
-```
-
-2. **EM records and distributes the backlog** — optionally defining the team
-   first so assignment is checked and skill-matched (full-stack devs take
-   anything; specialists take their lane):
+The PM reviews coverage and the EM distributes the already-derived stories.
+Optionally define the team first so assignment is checked and skill-matched:
 
 ```bash
 ./forge team set alice --role dev --skills frontend
 ./forge team set bob --role dev --skills fullstack
-./forge roadmap import --input /tmp/roadmap.json   # epics + stories, execution order
 ./forge roadmap assign ENG-101 --to alice
 ./forge roadmap list                               # grouped by epic, shows @assignee
+./forge board                                      # read-only live lifecycle view
 ```
 
 `plans/roadmap.json` is the durable backlog: intake marks items active,
@@ -192,21 +196,23 @@ about unassigned ones). Refine it by PR as planning teaches you more.
 
 ## 8. The feature loop
 
-Start each feature with: **"Start the next task on the roadmap."**
+Start each feature with: **"Start the next story on the roadmap."**
 
 ```bash
-python3 .agents/scripts/intake.py --issue ENG-123 --title "Build billing dashboard"
-git checkout -b feat/ENG-123-build-billing-dashboard   # one task per branch (WORKFLOW.md Concurrency)
+git worktree add ../ENG-123 -b feat/ENG-123-build-billing-dashboard
+cd ../ENG-123
+python3 factory/scripts/intake.py --issue ENG-123 --title "Build billing dashboard"
 ```
 
-Each story lives on its own branch with its own committed `.factory/` state —
-parallel devs are parallel branches; `pr_ready.py` archives evidence before
-merge.
+Each story lives in its own isolated worktree and branch with its own committed
+`.factory/` state. Tasks inside that story run sequentially. Stories whose
+roadmap dependencies are done may run in parallel worktrees; `pr_ready.py`
+archives evidence before merge.
 
 1. **Plan (mandatory — enforced)** — say: **"Plan this task."** and switch to
    PLAN MODE (shift+tab). While the task is unplanned, the hook blocks
    product-code edits and writing Codex delegation, so there is no way to
-   "just start coding". Plan per `.agents/prompts/planner.md`; exploration is
+   "just start coding". Plan per `factory/prompts/planner.md`; exploration is
    delegated, never done by Claude Code itself:
    `/codex:rescue --model gpt-5.6-terra --effort high` (read-only by default;
    raw `codex exec` is hook-blocked, no exceptions).
@@ -221,17 +227,19 @@ merge.
 ```
 
 2. **Decompose** — say: **"Decompose it."** (`docs-decomposer`; the recorded
-   JSON must match `.agents/schemas/decomposition.json`, incl. the
+   JSON must match `factory/schemas/decomposition.json`, incl. the
    `user_facing` flag):
 
 ```bash
-python3 .agents/scripts/record_decomposition_from_json.py --input /tmp/decomposition.json
-python3 .agents/scripts/update_run.py --phase implementing --plan-status approved --decomposition-status recorded
+python3 factory/scripts/record_decomposition_from_json.py --input /tmp/decomposition.json
+python3 factory/scripts/update_run.py --phase implementing --plan-status approved --decomposition-status recorded
 ```
 
-3. **Implement** — say: **"Implement it."** (Codex,
-   `/codex:rescue --background`, one bounded task at a time). Feature type
-   routes the design skills, ENFORCED at record time: `user_facing: true`
+3. **Implement** — say: **"Implement it."** The orchestrator runs
+   `./forge stage start <id>` and then `./forge delegate <id>` for one bounded
+   task at a time. Write delegations stay in the foreground so stage close
+   cannot race a worker that is still editing. Feature type routes the design
+   skills, ENFORCED at record time: `user_facing: true`
    tasks MUST load `emil-design-eng` + `frontend-design` and attest them in
    the artifact's `skills_used` — the recorder refuses otherwise
    (`apple-design`/`animation-vocabulary` advisory for motion work); backend
@@ -239,25 +247,25 @@ python3 .agents/scripts/update_run.py --phase implementing --plan-status approve
    records the artifact itself:
 
 ```bash
-python3 .agents/scripts/record_test_from_json.py --kind automated --input /tmp/automated-test.json
-python3 .agents/scripts/verify.py
+python3 factory/scripts/record_test_from_json.py --kind automated --input /tmp/automated-test.json
+python3 factory/scripts/verify.py
 ```
 
 4. **Review** — say: **"Review it."** ONE autoreview run in Codex, three
-   lenses (`.agents/prompts/reviewer.md`), three recorded artifacts:
+   lenses (`factory/prompts/reviewer.md`), three recorded artifacts:
 
 ```bash
-python3 .agents/scripts/record_review_from_json.py --aspect quality --input /tmp/quality-review.json
-python3 .agents/scripts/record_review_from_json.py --aspect performance --input /tmp/performance-review.json
-python3 .agents/scripts/record_review_from_json.py --aspect security --input /tmp/security-review.json
+python3 factory/scripts/record_review_from_json.py --aspect quality --input /tmp/quality-review.json
+python3 factory/scripts/record_review_from_json.py --aspect performance --input /tmp/performance-review.json
+python3 factory/scripts/record_review_from_json.py --aspect security --input /tmp/security-review.json
 ```
 
 5. **Functional check** — only when the decomposition says
    `user_facing: true`; then: **"Is this PR ready?"**
 
 ```bash
-python3 .agents/scripts/record_test_from_json.py --kind functional --input /tmp/functional-test.json
-python3 .agents/scripts/pr_ready.py
+python3 factory/scripts/record_test_from_json.py --kind functional --input /tmp/functional-test.json
+python3 factory/scripts/pr_ready.py
 ```
 
 `pr_ready.py` exits non-zero if any required artifact is missing, unstamped,
@@ -273,7 +281,7 @@ automatic. Then say: **"Process the context dump."**
 
 ```bash
 ./forge context scan                 # register files in docs/context/ledger.json
-# agent harvests per .agents/prompts/harvester.md:
+# agent harvests per factory/prompts/harvester.md:
 #   pending file -> proposed decision records + DISCOVERY/BRIEF/architecture edits
 ./forge context mark <file> --harvested --outputs <paths>   # or --ignored --notes "why"
 ./forge context list --pending
@@ -293,16 +301,16 @@ Decisions proposed by a harvest still need a HUMAN accept
 ## Keeping your repo honest
 
 Recorders refuse any artifact that does not match its schema in
-`.agents/schemas/` — wrong shape, wrong types, or a `generated_by` outside
+`factory/schemas/` — wrong shape, wrong types, or a `generated_by` outside
 the `harness.yaml` allowlist. Adopting a new tool is a harness PR, never a
 local choice (see WORKFLOW.md "Determinism Contract").
 
 CI runs these on every PR (and you can run them any time):
 
 ```bash
-python3 .agents/scripts/check_dual_runtime.py   # reference-not-duplicate + schema/allowlist parity
-python3 .agents/scripts/check_agents_hygiene.py # AGENTS.md size + links
-python3 .agents/scripts/check_factory_scaffold.py
+python3 factory/scripts/check_dual_runtime.py   # reference-not-duplicate + schema/allowlist parity
+python3 factory/scripts/check_agents_hygiene.py # AGENTS.md size + links
+python3 factory/scripts/check_factory_scaffold.py
 ```
 
 If codex-plugin-cc is unavailable, see `docs/degraded-mode.md` — same phase
@@ -339,8 +347,8 @@ Say: **"Upgrade this repo to the latest harness."** From the harness clone
 ./forge upgrade --target ../my-app
 ```
 
-Harness-owned machinery (`.agents/` incl. schemas, adapters, `constitution/`,
+Harness-owned machinery (`factory/` incl. schemas, adapters, `constitution/`,
 contracts) is replaced; project-owned content (`harness.yaml`, `AGENTS.md`,
 plans incl. the roadmap, decisions, context, prototype, `.factory/`) is never
-touched, and `.agents/skills/proposed/` survives the swap. Review the diff,
+touched, and `factory/skills/proposed/` survives the swap. Review the diff,
 run the checks, commit.

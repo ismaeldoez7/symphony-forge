@@ -13,7 +13,7 @@
 set -eu
 
 HERE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-FORGE_SCRIPT="$HERE/.agents/scripts/forge.py"
+FORGE_SCRIPT="$HERE/factory/scripts/forge.py"
 
 fail() {
   echo "[FAIL] $*" >&2

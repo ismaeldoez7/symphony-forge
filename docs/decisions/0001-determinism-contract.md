@@ -2,6 +2,7 @@
 status: accepted
 confirmed_by: "Ravi"
 date: 2026-07-10
+stories: []
 ---
 
 # Determinism contract: pinned skills, schema-validated recorders
