@@ -15,18 +15,11 @@ import re
 import sys
 from pathlib import Path
 
-from factory_lib import parse_frontmatter, repo_root, require_grill, signoff_pin
+from factory_lib import (
+    parse_frontmatter, repo_root, require_grill, signoff_pin, valid_signoff_path,
+)
 
 
-# Deliberately a SAFE SLUG, not just "ends in client-signoff.md": the pin is
-# read back by a stdlib regex that stops at whitespace, quotes and `#`, so a
-# name containing any of those would write a pin that reads back TRUNCATED —
-# reporting success while leaving every gate locked and the repair path refusing
-# because the pin is non-empty. Restricting the grammar makes the round-trip
-# total, which is cheaper than a quoted-scalar YAML serializer here.
-# `forge decision new <slug>` already slugifies, so this rejects nothing the
-# harness itself produces.
-CLIENT_SIGNOFF_NAME = re.compile(r"^[0-9]{4}-[a-z0-9-]*client-signoff\.md$")
 
 
 def pin_into_harness(manifest: Path, relative: str) -> None:
@@ -84,14 +77,7 @@ def main() -> int:
         # pinned as the project's sign-off, and `../` would persist a traversal
         # into harness.yaml.
         record = (root / args.record).resolve()
-        try:
-            inside = record.relative_to(decisions.resolve()).parts
-        except ValueError:
-            inside = ()
-        if not record.is_file():
-            print(f"VIOLATION: --record {args.record} does not exist.")
-            return 1
-        if len(inside) != 1 or not CLIENT_SIGNOFF_NAME.match(record.name):
+        if not valid_signoff_path(root, args.record):
             print(
                 f"VIOLATION: --record {args.record} is not a client sign-off record.\n"
                 "  Expected docs/decisions/NNNN-<slug>client-signoff.md directly under "
@@ -101,7 +87,7 @@ def main() -> int:
     else:
         candidates = sorted(
             c for c in decisions.glob("[0-9][0-9][0-9][0-9]-*client-signoff.md")
-            if CLIENT_SIGNOFF_NAME.match(c.name)
+            if valid_signoff_path(root, c.relative_to(root).as_posix())
         )
         if not candidates:
             print(

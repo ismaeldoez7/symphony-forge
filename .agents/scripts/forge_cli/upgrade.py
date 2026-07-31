@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from factory_lib import head_sha, load_json, repo_root
+from factory_lib import head_sha, load_json, repo_root, valid_signoff_path
 
 from .common import fail
 from .scaffold import COPY_CODEX, COPY_WORKFLOWS, DOC_CONTRACTS
@@ -174,8 +174,11 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     if manifest_yaml.exists() and "signoff_record:" not in manifest_yaml.read_text():
         legacy = load_json(target / ".factory" / "run.json", default={})
         carried = legacy.get("client_signoff_record", "") if legacy.get("client_signoff") else ""
-        if carried and not (target / carried).is_file():
-            carried = ""  # never pin a record that is not there to read
+        # Held to the same contract as any other pin: run.json is gitignored,
+        # per-worktree, ungoverned state, so an unvalidated path from it must
+        # never become the project's attestation.
+        if carried and not valid_signoff_path(target, carried):
+            carried = ""
         manifest_yaml.write_text(
             f'signoff_record: "{carried}"\n' + manifest_yaml.read_text()
         )

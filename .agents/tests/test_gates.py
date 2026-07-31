@@ -300,6 +300,34 @@ def test_signoff_record_must_be_a_real_signoff_record(repo, tmp_path):
     assert not signed_off(repo)
 
 
+def test_signoff_pin_cannot_escape_docs_decisions(repo, tmp_path):
+    """The READER is authoritative: a correctly-named symlink pointing outside
+    docs/decisions/ must not satisfy the gate, however it got pinned — glob
+    discovery matches symlinks, and the upgrade migration carries a path out of
+    gitignored run.json (autoreview r3)."""
+    # Named VALIDLY on purpose: resolve() follows the link, so a badly-named
+    # target would be caught by the name rule and prove nothing about
+    # containment.
+    outside = tmp_path / "0001-client-signoff.md"
+    outside.write_text('---\nstatus: accepted\nconfirmed_by: "Nobody"\n---\n')
+    link = repo / "docs" / "decisions" / "0001-escape-client-signoff.md"
+    link.symlink_to(outside)
+
+    # Pinned by hand, as a hostile or mistaken edit would.
+    harness_yaml = repo / "harness.yaml"
+    harness_yaml.write_text(
+        re.sub(r'^signoff_record:.*$',
+               'signoff_record: "docs/decisions/0001-escape-client-signoff.md"',
+               harness_yaml.read_text(), count=1, flags=re.MULTILINE)
+    )
+    plan = tmp_path / "plan.md"
+    plan.write_text(PLAN_BODY)
+    code, out = run(repo, "forge.py", "plan", "save", "--issue", "ENG-9", "--from", str(plan))
+    # The invariant's OWN message: asserting a loose "sign-off" would also match
+    # unrelated refusals and the control would pass with the check removed.
+    assert code != 0 and "not a readable client sign-off record" in out, out
+
+
 def test_signoff_pin_round_trips_or_is_refused(repo):
     """The writer must not accept a name the stdlib pin reader truncates: that
     combination reports success while leaving every gate locked, and the repair

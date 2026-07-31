@@ -58,6 +58,32 @@ def parse_frontmatter(text: str) -> dict[str, str]:
     return fields
 
 
+# A safe slug, deliberately: the pin is read back by the stdlib regex above,
+# which stops at whitespace, quotes and `#`, so any other name would read back
+# TRUNCATED. `forge decision new <slug>` already slugifies.
+CLIENT_SIGNOFF_NAME = re.compile(r"^[0-9]{4}-[a-z0-9-]*client-signoff\.md$")
+
+
+def valid_signoff_path(root: Path, relative: str) -> bool:
+    """Is `relative` a client-signoff record DIRECTLY under docs/decisions?
+
+    Enforced at the READER, which is authoritative, not only where a path is
+    written: auto-discovery can glob a symlink whose target lies outside, and
+    the upgrade migration carries a path out of gitignored run.json. Without
+    this, any file with `status: accepted` and a `confirmed_by` satisfies every
+    sign-off gate. resolve() collapses symlinks and `..` before the check.
+    """
+    if not relative:
+        return False
+    decisions = (root / "docs" / "decisions").resolve()
+    target = (root / relative).resolve()
+    if not target.is_file():
+        return False
+    if target.parent != decisions:
+        return False
+    return bool(CLIENT_SIGNOFF_NAME.match(target.name))
+
+
 def signoff_pin(root: Path) -> str:
     """The decision record harness.yaml pins as THE project sign-off, or ''."""
     manifest = root / "harness.yaml"
@@ -84,12 +110,14 @@ def client_signoff(root: Path) -> tuple[bool, str]:
             "accepted (non-empty confirmed_by), then run "
             "`python3 .agents/scripts/record_signoff.py` to pin it in harness.yaml."
         )
-    record = root / pinned
-    if not record.is_file():
+    if not valid_signoff_path(root, pinned):
         return False, (
-            f"harness.yaml pins signoff_record: {pinned}, which does not exist. "
-            "Restore that record or re-pin harness.yaml to the accepted one."
+            f"harness.yaml pins signoff_record: {pinned}, which is not a readable "
+            "client sign-off record directly under docs/decisions/ "
+            "(NNNN-<slug>client-signoff.md, no symlink out of the directory). "
+            "Re-pin harness.yaml to the accepted record."
         )
+    record = root / pinned
     fields = parse_frontmatter(record.read_text())
     if fields.get("status") != "accepted" or not fields.get("confirmed_by"):
         return False, (
