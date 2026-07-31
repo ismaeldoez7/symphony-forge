@@ -41,11 +41,11 @@ Hooks are not the workflow engine. They only add guardrails and continuation log
 8. `pr-ready`
 9. `done` or `blocked`
 
-The sign-off gate sits between roadmap derivation and planning.
-`record_signoff.py` requires at least one confirmed spec, a derived roadmap
-with at least one story, and coverage of every confirmed spec. It then records
-the accepted client sign-off decision by setting `client_signoff: true` in
-`.factory/run.json`.
+The sign-off gate sits between roadmap derivation and planning, and fires ONCE
+for the project. `record_signoff.py` requires at least one confirmed spec, a
+derived roadmap with at least one story, and coverage of every confirmed spec.
+It then pins that record in `harness.yaml` (`signoff_record:`); the gate is
+derived from that committed pin rather than stored in `.factory/run.json`.
 
 Phases at `planning` or later are refused by `update_run.py` and `pre_tool_use.py` until `client_signoff` is true.
 

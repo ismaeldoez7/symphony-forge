@@ -6,7 +6,9 @@ import re
 import shlex
 from pathlib import Path
 
-from factory_lib import load_json, read_hook_input, repo_root, run_state_path
+from factory_lib import (
+    client_signoff, load_json, read_hook_input, repo_root, run_state_path,
+)
 from forge_cli.quickfix import claim_files, load_active
 
 payload = read_hook_input()
@@ -347,7 +349,7 @@ if tool_name == "Bash" and has_companion:
          "`./forge delegate <task-id>`; it owns the argv launch and records "
          "evidence that `forge stage done` can verify.")
 
-if run_state and not run_state.get("client_signoff"):
+if run_state and not client_signoff(root)[0]:
     advancing = any(script in command for script in PHASE_ADVANCING)
     if "update_run.py" in command and "--phase" in command:
         advancing = advancing or any(phase in command for phase in GATED_PHASES)

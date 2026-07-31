@@ -54,6 +54,165 @@ def review_dir(root: Path | None = None) -> Path:
     return factory_dir(root) / "reviews"
 
 
+FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.DOTALL)
+# Substring match, not a YAML parse: these scripts are stdlib-only by design
+# (see check_dual_runtime.py's harness.yaml allowlist reader).
+# [ \t]* deliberately, NOT \s*: \s crosses newlines, so an empty
+# `signoff_record:` would capture the NEXT top-level key as the pin.
+SIGNOFF_PIN = re.compile(r"^signoff_record:[ \t]*[\"']?([^\"'\s#]+)", re.MULTILINE)
+# "is the key present at top level", as distinct from "does it have a value" —
+# a substring test would also match the key inside a comment or an indented
+# mapping, which a project-owned harness.yaml may legitimately contain.
+SIGNOFF_KEY = re.compile(r"^signoff_record:", re.MULTILINE)
+
+
+def parse_frontmatter(text: str) -> dict[str, str]:
+    match = FRONTMATTER.match(text)
+    if not match:
+        return {}
+    fields: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        if ":" in line:
+            key, _, value = line.partition(":")
+            fields[key.strip()] = value.strip().strip('"').strip("'")
+    return fields
+
+
+# A safe slug, deliberately: the pin is read back by the stdlib regex above,
+# which stops at whitespace, quotes and `#`, so any other name would read back
+# TRUNCATED. `forge decision new <slug>` already slugifies.
+CLIENT_SIGNOFF_NAME = re.compile(r"[0-9]{4}-[a-z0-9-]*client-signoff\.md")
+
+
+def insert_signoff_pin(text: str, relative: str) -> str:
+    """Set the top-level signoff_record key, preserving any YAML prologue.
+
+    ponytail: a targeted line edit, not a YAML rewrite — these scripts are
+    stdlib-only, so there is no parser to round-trip through. Replacing an
+    existing key is a line substitution; ADDING one must land after any
+    directives and document marker, since prepending before `---` would turn a
+    single mapping into a two-document stream that consumers cannot read.
+    """
+    updated, count = re.subn(
+        r"^signoff_record:.*$", f'signoff_record: "{relative}"', text,
+        count=1, flags=re.MULTILINE,
+    )
+    if count:
+        return updated
+    lines = text.splitlines(keepends=True)
+    cut = 0
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("%") or not stripped or stripped.startswith("#"):
+            continue
+        # `--- # comment` is a valid document-start marker too; missing it
+        # would insert the key BEFORE the marker, making a second document.
+        if stripped == "---" or stripped.startswith("---#") or stripped.startswith("--- "):
+            cut = index + 1
+        break
+    return "".join(lines[:cut]) + f'signoff_record: "{relative}"\n' + "".join(lines[cut:])
+
+
+def canonical_signoff_path(root: Path, relative: str) -> str:
+    """The canonical repo-relative path of a valid sign-off record, or ''.
+
+    Returns the CANONICAL form, never the caller's spelling: a value that
+    resolves to a valid record can still be absolute (machine-specific, broken
+    in every other clone) or carry quotes and newlines that inject YAML when
+    written into harness.yaml. Callers must persist what this returns.
+
+    Enforced at the READER, which is authoritative, not only where a path is
+    written: auto-discovery can glob a symlink whose target lies outside, and
+    the upgrade migration carries a path out of gitignored run.json. Without
+    this, any file with `status: accepted` and a `confirmed_by` satisfies every
+    sign-off gate. resolve() collapses symlinks and `..` before the check.
+    """
+    if not relative:
+        return ""
+    try:
+        decisions = (root / "docs" / "decisions").resolve()
+        target = (root / relative).resolve()
+        if not target.is_file():
+            return ""
+    except (OSError, RuntimeError):
+        # A malformed symlink chain must read as "invalid pin" with the normal
+        # actionable message, never a traceback out of a hook or pr_ready.
+        # RuntimeError too: non-strict resolve() raises it for a symlink LOOP on
+        # Python 3.10-3.12, which is what CI runs.
+        return ""
+    if target.parent != decisions:
+        return ""
+    # fullmatch, not match: `$` also matches before a trailing newline, so a
+    # file named "0001-client-signoff.md\n" would validate and then write a
+    # multi-line pin that the reader truncates.
+    if not CLIENT_SIGNOFF_NAME.fullmatch(target.name):
+        return ""
+    try:
+        return target.relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return ""
+
+
+def valid_signoff_path(root: Path, relative: str) -> bool:
+    """Is `relative` a client-signoff record DIRECTLY under docs/decisions?
+
+    Enforced at the READER, which is authoritative, not only where a path is
+    written: auto-discovery can glob a symlink whose target lies outside, and
+    the upgrade migration carries a path out of gitignored run.json.
+    """
+    return bool(canonical_signoff_path(root, relative))
+
+
+def signoff_pin(root: Path) -> str:
+    """The decision record harness.yaml pins as THE project sign-off, or ''."""
+    manifest = root / "harness.yaml"
+    # A symlinked manifest would let reads (and record_signoff's write) escape
+    # the repo, so the committed, clone-stable answer would not be committed at
+    # all. is_file() follows links; is_symlink() is the check that matters.
+    if manifest.is_symlink() or not manifest.is_file():
+        return ""
+    match = SIGNOFF_PIN.search(manifest.read_text())
+    return match.group(1) if match else ""
+
+
+def client_signoff(root: Path) -> tuple[bool, str]:
+    """Is the project signed off, and if not, why not?
+
+    DERIVED, never recorded. The pin lives in committed harness.yaml and the
+    proof lives in the committed decision record, so a fresh worktree reads the
+    same answer as every other: there is no per-worktree state to re-establish,
+    and no later record can displace the pinned one. Sign-off is ONE gate for
+    the project (WORKFLOW.md), not one per task — the per-task human gate is
+    plan approval, which is grilled and enforced against the same issue.
+    """
+    pinned = signoff_pin(root)
+    if not pinned:
+        return False, (
+            "Client sign-off required first. Get docs/decisions/NNNN-client-signoff.md "
+            "accepted (non-empty confirmed_by), then run "
+            "`python3 factory/scripts/record_signoff.py` to pin it in harness.yaml."
+        )
+    # Require the pin to BE canonical, not merely to resolve: the recovery path
+    # is a hand edit to harness.yaml, and an absolute path would resolve here
+    # while failing in every differently-located clone — exactly the
+    # same-answer-everywhere guarantee this pin exists to provide.
+    if canonical_signoff_path(root, pinned) != pinned:
+        return False, (
+            f"harness.yaml pins signoff_record: {pinned}, which is not a readable "
+            "client sign-off record directly under docs/decisions/ "
+            "(NNNN-<slug>client-signoff.md, no symlink out of the directory). "
+            "Re-pin harness.yaml to the accepted record."
+        )
+    record = root / pinned
+    fields = parse_frontmatter(record.read_text())
+    if fields.get("status") != "accepted" or not fields.get("confirmed_by"):
+        return False, (
+            f"{pinned} is pinned as the project sign-off but is not an accepted, "
+            "human-confirmed record (needs status: accepted and a non-empty confirmed_by)."
+        )
+    return True, ""
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
@@ -233,12 +392,10 @@ def gate(
     state = load_json(run_state_path(root), default={})
     if not state:
         raise SystemExit("Missing .factory/run.json. Run intake first.")
-    if signoff and not state.get("client_signoff"):
-        raise SystemExit(
-            "Client sign-off required first. Get docs/decisions/NNNN-client-signoff.md "
-            "accepted (non-empty confirmed_by), then run "
-            "`python3 factory/scripts/record_signoff.py`."
-        )
+    if signoff:
+        ok, why = client_signoff(root)
+        if not ok:
+            raise SystemExit(why)
     issue = state.get("issue_key", "")
     if approved_plan:
         plan_files = list((root / "plans" / "active").glob(f"{issue}-*.md")) if issue else []
