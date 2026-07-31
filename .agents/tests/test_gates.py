@@ -323,6 +323,19 @@ def test_upgrade_migration_canonicalizes_the_carried_pin(repo, tmp_path):
     assert factory_lib.canonical_signoff_path(repo, sneaky) in (
         "", "docs/decisions/0007-client-signoff.md")
     assert '"' not in factory_lib.canonical_signoff_path(repo, sneaky)
+    # `$` also matches before a trailing newline, so a file named
+    # "...client-signoff.md\n" would validate and then write a multi-line pin
+    # that the reader truncates — success reported, every gate locked (r5).
+    newline_named = repo / "docs" / "decisions" / "0008-client-signoff.md\n"
+    try:
+        newline_named.write_text('---\nstatus: accepted\nconfirmed_by: "PM"\n---\n')
+    except OSError:  # filesystem refuses the name; the guard is then moot
+        newline_named = None
+    if newline_named is not None:
+        assert factory_lib.canonical_signoff_path(
+            repo, newline_named.relative_to(repo).as_posix()) == ""
+        newline_named.unlink()
+
     sys.path.remove(str(repo / ".agents" / "scripts"))
     sys.modules.pop("factory_lib", None)
 

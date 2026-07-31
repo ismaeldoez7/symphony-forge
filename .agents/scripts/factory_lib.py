@@ -61,7 +61,7 @@ def parse_frontmatter(text: str) -> dict[str, str]:
 # A safe slug, deliberately: the pin is read back by the stdlib regex above,
 # which stops at whitespace, quotes and `#`, so any other name would read back
 # TRUNCATED. `forge decision new <slug>` already slugifies.
-CLIENT_SIGNOFF_NAME = re.compile(r"^[0-9]{4}-[a-z0-9-]*client-signoff\.md$")
+CLIENT_SIGNOFF_NAME = re.compile(r"[0-9]{4}-[a-z0-9-]*client-signoff\.md")
 
 
 def canonical_signoff_path(root: Path, relative: str) -> str:
@@ -86,7 +86,10 @@ def canonical_signoff_path(root: Path, relative: str) -> str:
         return ""
     if target.parent != decisions:
         return ""
-    if not CLIENT_SIGNOFF_NAME.match(target.name):
+    # fullmatch, not match: `$` also matches before a trailing newline, so a
+    # file named "0001-client-signoff.md\n" would validate and then write a
+    # multi-line pin that the reader truncates.
+    if not CLIENT_SIGNOFF_NAME.fullmatch(target.name):
         return ""
     try:
         return target.relative_to(root.resolve()).as_posix()
