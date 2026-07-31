@@ -44,6 +44,10 @@ FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 # Substring match, not a YAML parse: these scripts are stdlib-only by design
 # (see check_dual_runtime.py's harness.yaml allowlist reader).
 SIGNOFF_PIN = re.compile(r"^signoff_record:\s*[\"']?([^\"'\s#]+)", re.MULTILINE)
+# "is the key present at top level", as distinct from "does it have a value" —
+# a substring test would also match the key inside a comment or an indented
+# mapping, which a project-owned harness.yaml may legitimately contain.
+SIGNOFF_KEY = re.compile(r"^signoff_record:", re.MULTILINE)
 
 
 def parse_frontmatter(text: str) -> dict[str, str]:
@@ -110,7 +114,10 @@ def valid_signoff_path(root: Path, relative: str) -> bool:
 def signoff_pin(root: Path) -> str:
     """The decision record harness.yaml pins as THE project sign-off, or ''."""
     manifest = root / "harness.yaml"
-    if not manifest.is_file():
+    # A symlinked manifest would let reads (and record_signoff's write) escape
+    # the repo, so the committed, clone-stable answer would not be committed at
+    # all. is_file() follows links; is_symlink() is the check that matters.
+    if manifest.is_symlink() or not manifest.is_file():
         return ""
     match = SIGNOFF_PIN.search(manifest.read_text())
     return match.group(1) if match else ""

@@ -23,6 +23,12 @@ from factory_lib import (
 
 
 def pin_into_harness(manifest: Path, relative: str) -> None:
+    if manifest.is_symlink():
+        raise SystemExit(
+            f"VIOLATION: {manifest.name} is a symlink; refusing to write the sign-off "
+            "pin through it. The manifest must be a regular file in this repo, or the "
+            "gate's committed state is not committed here at all."
+        )
     text = manifest.read_text()
     updated, count = re.subn(
         r"^signoff_record:.*$",

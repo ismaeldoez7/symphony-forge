@@ -300,6 +300,44 @@ def test_signoff_record_must_be_a_real_signoff_record(repo, tmp_path):
     assert not signed_off(repo)
 
 
+def test_symlinked_manifest_is_refused(repo, tmp_path):
+    """A symlinked harness.yaml would let the gate's 'committed' state live
+    outside the repo, and write_text would follow the link (r6)."""
+    # Everything sign-off needs must be READY, or the command refuses for an
+    # unrelated reason and the control proves nothing.
+    record = repo / "docs" / "decisions" / "0001-client-signoff.md"
+    record.write_text('---\nstatus: accepted\nconfirmed_by: "PM"\n---\n')
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "signoff record")
+    code, out = record_grill(repo, "signoff")
+    assert code == 0, out
+
+    real = tmp_path / "elsewhere.yaml"
+    real.write_text((repo / "harness.yaml").read_text())
+    (repo / "harness.yaml").unlink()
+    (repo / "harness.yaml").symlink_to(real)
+
+    code, out = run(repo, "record_signoff.py")
+    assert code != 0 and "symlink" in out, out
+    assert 'signoff_record: ""' in real.read_text(), "wrote through the symlink"
+
+
+def test_migration_ignores_a_mentioned_but_unset_key(repo):
+    """The key must be detected as a real top-level assignment: a project-owned
+    harness.yaml may mention it in a comment, and a substring test would then
+    skip the migration and leave a legacy project silently unsigned (r6)."""
+    from importlib import import_module
+    import sys
+    sys.path.insert(0, str(repo / ".agents" / "scripts"))
+    sys.modules.pop("factory_lib", None)
+    factory_lib = import_module("factory_lib")
+    commented = "# signoff_record: docs/decisions/0001-client-signoff.md (example)\n"
+    assert not factory_lib.SIGNOFF_KEY.search(commented)
+    assert factory_lib.SIGNOFF_KEY.search('signoff_record: ""\n')
+    sys.path.remove(str(repo / ".agents" / "scripts"))
+    sys.modules.pop("factory_lib", None)
+
+
 def test_upgrade_migration_canonicalizes_the_carried_pin(repo, tmp_path):
     """The migration reads run.json — gitignored, per-worktree, ungoverned. A
     value there can RESOLVE to a valid record while still being absolute

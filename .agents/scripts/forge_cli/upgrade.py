@@ -11,7 +11,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from factory_lib import canonical_signoff_path, head_sha, load_json, repo_root
+from factory_lib import (
+    SIGNOFF_KEY, canonical_signoff_path, head_sha, load_json, repo_root,
+)
 
 from .common import fail
 from .scaffold import COPY_CODEX, COPY_WORKFLOWS, DOC_CONTRACTS
@@ -171,7 +173,8 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     # its project-owned harness.yaml (no key) and its old run.json, so carry
     # the attestation across rather than silently un-signing the project.
     manifest_yaml = target / "harness.yaml"
-    if manifest_yaml.exists() and "signoff_record:" not in manifest_yaml.read_text():
+    if (manifest_yaml.exists() and not manifest_yaml.is_symlink()
+            and not SIGNOFF_KEY.search(manifest_yaml.read_text())):
         legacy = load_json(target / ".factory" / "run.json", default={})
         carried = legacy.get("client_signoff_record", "") if legacy.get("client_signoff") else ""
         # Held to the same contract as any other pin: run.json is gitignored,
