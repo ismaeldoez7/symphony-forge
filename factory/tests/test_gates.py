@@ -2206,6 +2206,47 @@ def test_ship_archives_the_plan_grill_not_the_project_grills(repo, tmp_path):
     assert not (history / "grills" / "signoff.json").exists()
 
 
+def test_tagged_process_scan_skips_unreadable_environments(tmp_path):
+    """The /proc scan must SKIP a process whose environ it cannot read, not
+    abort the gate.
+
+    Linux refuses /proc/<pid>/environ for a zombie (ptrace_may_access fails on
+    an exited task) and for any process we do not own. Our own short-lived
+    proof children become zombies routinely, so raising there took down every
+    stage-done and delegate gate on Linux — while macOS, which has no /proc,
+    never ran the branch at all and stayed green. proc_root is injectable so
+    this case is reachable from either platform.
+    """
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.delegate import _tagged_processes
+
+    token = "gate-test-token"
+    fake_proc = tmp_path / "proc"
+    fake_proc.mkdir()
+
+    # Unreadable environ, exactly as Linux reports for a zombie or a process
+    # belonging to somebody else.
+    unreadable = fake_proc / "424242"
+    unreadable.mkdir()
+    (unreadable / "environ").write_bytes(b"")
+    (unreadable / "environ").chmod(0o000)
+
+    # A readable, genuinely live process carrying the marker: this one must
+    # still be found, so the skip above cannot be hiding real work.
+    mine = fake_proc / str(os.getpid())
+    mine.mkdir()
+    (mine / "environ").write_bytes(
+        b"PATH=/usr/bin\0FORGE_PROCESS_TOKEN=" + token.encode() + b"\0")
+
+    table = {424242: (1, "start-a"), os.getpid(): (1, "start-b")}
+    found = _tagged_processes(token, current=table, proc_root=fake_proc)
+
+    assert os.getpid() in found, "a readable tagged process must still be found"
+    assert 424242 not in found
+
+    (unreadable / "environ").chmod(0o600)  # let tmp_path clean up
+
+
 def test_frontier_is_ranked_by_what_it_unblocks(repo, tmp_path):
     """The frontier answers "what CAN I start"; without leverage it reads the
     same for a story that frees three others and one that frees none."""
