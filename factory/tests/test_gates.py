@@ -440,7 +440,14 @@ def test_pin_insertion_preserves_a_yaml_prologue(repo):
     assert out.count("---") == 1, out
     assert out.splitlines()[2] == 'signoff_record: "docs/decisions/0001-client-signoff.md"'
 
-    # A document-start marker carrying an inline comment is still a marker.
+    # A document-start marker carrying an inline comment is still a marker,
+    # after a space OR a tab (both valid YAML separation).
+    for marker in ("--- # main document", "---\t# main document"):
+        out_t = factory_lib.insert_signoff_pin(
+            marker + "\nversion: 1\n", "docs/decisions/0001-client-signoff.md")
+        assert out_t.startswith(marker + "\n"), out_t
+        assert out_t.splitlines()[1].startswith('signoff_record: "')
+
     commented_marker = "--- # main document\nversion: 1\n"
     out3 = factory_lib.insert_signoff_pin(commented_marker, "docs/decisions/0001-client-signoff.md")
     assert out3.startswith("--- # main document\n"), out3

@@ -64,6 +64,7 @@ SIGNOFF_PIN = re.compile(r"^signoff_record:[ \t]*[\"']?([^\"'\s#]+)", re.MULTILI
 # a substring test would also match the key inside a comment or an indented
 # mapping, which a project-owned harness.yaml may legitimately contain.
 SIGNOFF_KEY = re.compile(r"^signoff_record:", re.MULTILINE)
+DOC_START = re.compile(r"---(?:[\s#]|\Z)")
 
 
 def parse_frontmatter(text: str) -> dict[str, str]:
@@ -105,9 +106,10 @@ def insert_signoff_pin(text: str, relative: str) -> str:
         stripped = line.strip()
         if stripped.startswith("%") or not stripped or stripped.startswith("#"):
             continue
-        # `--- # comment` is a valid document-start marker too; missing it
-        # would insert the key BEFORE the marker, making a second document.
-        if stripped == "---" or stripped.startswith("---#") or stripped.startswith("--- "):
+        # A document-start marker may carry an inline comment after ANY YAML
+        # whitespace (`--- # doc`, `---\t# doc`) or none at all. Missing a form
+        # inserts the key BEFORE the marker, making a second document.
+        if DOC_START.match(stripped):
             cut = index + 1
         break
     return "".join(lines[:cut]) + f'signoff_record: "{relative}"\n' + "".join(lines[cut:])
