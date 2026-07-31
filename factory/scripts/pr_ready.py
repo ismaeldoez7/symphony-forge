@@ -6,6 +6,7 @@ import shutil
 import subprocess
 
 from factory_lib import (
+    client_signoff,
     decomposition_state_path,
     dump_json,
     head_sha,
@@ -46,7 +47,7 @@ run_state = load_json(run_state_path(root), default={})
 # is reduced to STABLE project fields — identical across branches, so merges
 # collide on nothing. "Shipped before" is evidenced by the history archive.
 _history_root = root / ".factory" / "history"
-if run_state and not run_state.get("issue_key") and run_state.get("client_signoff") \
+if run_state and not run_state.get("issue_key") and client_signoff(root)[0] \
         and _history_root.is_dir() and any(_history_root.iterdir()):
     shipped = ", ".join(sorted(p.name for p in _history_root.iterdir() if p.is_dir()))
     print(f"PR_READY (nothing active; shipped so far: {shipped} — "
@@ -59,9 +60,10 @@ missing: list[str] = []
 if not run_state:
     missing.append(".factory/run.json")
 else:
-    if not run_state.get("client_signoff"):
+    if not client_signoff(root)[0]:
         missing.append(
-            "client sign-off (accepted docs/decisions/NNNN-client-signoff.md + record_signoff.py)"
+            "client sign-off (accepted docs/decisions/NNNN-client-signoff.md pinned as "
+            "signoff_record in harness.yaml via record_signoff.py)"
         )
     if run_state.get("plan_status") != "approved":
         missing.append("approved plan status in .factory/run.json")
@@ -323,7 +325,7 @@ if review_dir(root).is_dir():
 # branches shipping in parallel write byte-identical run.json.
 project_state = {
     k: run_state[k]
-    for k in ("project", "client_signoff", "client_signoff_record", "client_signoff_at")
+    for k in ("project",)
     if k in run_state
 }
 project_state["phase"] = "shipped"

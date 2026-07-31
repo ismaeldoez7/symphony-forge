@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from factory_lib import load_json, repo_root, run_state_path
+from factory_lib import client_signoff, load_json, repo_root, run_state_path
 
 from .context import pending_context
 from .roadmap import leverage, load_items, ready_pending
@@ -47,7 +47,7 @@ def cmd_next(args: argparse.Namespace) -> None:
         steps.append("New project? scaffold with: forge.py init --name <project> --target <dir>")
         steps.append("Existing project, new feature? this repo has no .factory/run.json — "
                      "run: python3 factory/scripts/intake.py --issue <KEY> --title \"<title>\"")
-    elif not state.get("client_signoff"):
+    elif not client_signoff(base)[0]:
         phase("discovery/prototype/specs/roadmap (0a/0b/0c)")
         steps.append("[PM] Fill docs/product/DISCOVERY.md and BRIEF.md; prototype freely (no ceremony)")
         steps.append("[PM] Capture client decisions: forge.py decision new <slug>")

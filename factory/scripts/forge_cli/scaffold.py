@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -275,6 +276,18 @@ def cmd_init(args: argparse.Namespace) -> None:
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
 
+    # A new client has signed nothing off: clear the harness's own sign-off pin
+    # so a scaffold cannot inherit THIS project's gate. (harness.yaml is
+    # project-owned and deliberately OUTSIDE the frozen-gate manifest, which
+    # covers factory/{scripts,schemas,prompts} + forge + .claude/settings.json,
+    # so signing off later never shows up as gate drift.)
+    manifest_yaml = target / "harness.yaml"
+    if manifest_yaml.exists():
+        manifest_yaml.write_text(
+            re.sub(r"^signoff_record:.*$", 'signoff_record: ""',
+                   manifest_yaml.read_text(), count=1, flags=re.MULTILINE)
+        )
+
     # Pin the vendored constitution to its source commit.
     try:
         commit = subprocess.run(
@@ -310,7 +323,7 @@ def cmd_init(args: argparse.Namespace) -> None:
     (target / ".factory" / "reviews").mkdir(parents=True, exist_ok=True)
     dump_json(
         target / ".factory" / "run.json",
-        {"project": args.name, "client_signoff": False, "created_at": now_iso()},
+        {"project": args.name, "created_at": now_iso()},
     )
 
     agents_md = (root / "AGENTS.md").read_text().replace("Symphony Forge", args.name, 1)

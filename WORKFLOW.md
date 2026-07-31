@@ -40,13 +40,18 @@ orchestration must produce the same `.factory` artifacts.
 8. `pr-ready`
 9. `done` or `blocked`
 
-The sign-off gate sits between roadmap derivation and planning. Recording
-accepted client sign-off with `python3 factory/scripts/record_signoff.py`
-requires at least one confirmed spec, a derived roadmap with at least one
-story, and every confirmed spec referenced by a story. It then sets
-`client_signoff` in `.factory/run.json`; already-recorded sign-offs remain
-valid. `update_run.py` refuses phases at `planning` or later until that field
-is true.
+The sign-off gate sits between roadmap derivation and planning, and it fires
+ONCE for the project — not once per task. Recording accepted client sign-off
+with `python3 factory/scripts/record_signoff.py` requires at least one
+confirmed spec, a derived roadmap with at least one story, and every confirmed
+spec referenced by a story. It then PINS that record in `harness.yaml`
+(`signoff_record:`), and every gate DERIVES sign-off from the committed pin —
+so a fresh worktree with no `.factory/` reads the same answer, and nothing
+per-task can re-point it. Re-running on a signed-off project is refused;
+changing the pin is a reviewed edit. `update_run.py` and `pre_tool_use.py`
+refuse phases at `planning` or later until the pin resolves to an accepted,
+human-confirmed record. The per-task human gate is plan approval, not a second
+sign-off.
 
 Every handover gate is preceded by a recorded GRILL
 (`factory/prompts/griller.md`): an adversarial gaps-and-contradictions

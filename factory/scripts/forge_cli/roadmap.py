@@ -221,10 +221,10 @@ def ready_pending(items: list[dict]) -> tuple[list[dict], list[tuple[dict, list[
 
 
 def require_signoff(base: Path, action: str) -> None:
-    from factory_lib import load_json as _lj, run_state_path as _rsp
-    if not _lj(_rsp(base), default={}).get("client_signoff"):
-        fail(f"{action} is a post-sign-off activity — record client sign-off first "
-             "(record_signoff.py).")
+    from factory_lib import client_signoff as _cs
+    ok, why = _cs(base)
+    if not ok:
+        fail(f"{action} is a post-sign-off activity. {why}")
 
 
 def cmd_derive(args: argparse.Namespace) -> None:
