@@ -176,8 +176,11 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     manifest_yaml = target / "harness.yaml"
     if (manifest_yaml.exists() and not manifest_yaml.is_symlink()
             and not SIGNOFF_KEY.search(manifest_yaml.read_text())):
-        legacy = load_json(target / ".factory" / "run.json", default={})
-        carried = legacy.get("client_signoff_record", "") if legacy.get("client_signoff") else ""
+        legacy_state = target / ".factory" / "run.json"
+        legacy_present = legacy_state.is_file()
+        legacy = load_json(legacy_state, default={})
+        signed_legacy = bool(legacy.get("client_signoff"))
+        carried = legacy.get("client_signoff_record", "") if signed_legacy else ""
         # Held to the same contract as any other pin: run.json is gitignored,
         # per-worktree, ungoverned state, so an unvalidated path from it must
         # never become the project's attestation.
@@ -185,11 +188,12 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         # resolve to a valid record yet be absolute (machine-specific) or carry
         # quotes/newlines that inject YAML into harness.yaml.
         carried = canonical_signoff_path(target, carried) if carried else ""
-        if not carried:
-            # run.json is gitignored, so a fresh clone of an ALREADY SIGNED-OFF
-            # project has none — the very situation this pin exists to fix.
-            # Fall back to the committed evidence, but only when it is
-            # unambiguous; guessing between records is the original bug.
+        # Discovery ONLY when the legacy state is genuinely absent — a fresh
+        # clone of an already-signed project, which is the situation this pin
+        # exists to fix. A run.json that says client_signoff: false is an
+        # explicit answer: an accepted-looking record may never have passed the
+        # grill, and upgrading must not promote an unsigned project.
+        if not carried and (not legacy_present or signed_legacy):
             accepted = accepted_signoff_records(target)
             carried = accepted[0] if len(accepted) == 1 else ""
         manifest_yaml.write_text(

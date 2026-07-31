@@ -803,6 +803,50 @@ def test_upgrade_replaces_machinery_preserves_project(repo, tmp_path):
         "symphony-forge @" in (repo / "constitution" / "VENDORED_FROM").read_text()
 
 
+def upgrade_into(repo: Path):
+    return subprocess.run(
+        [sys.executable, str(HARNESS / ".agents" / "scripts" / "forge.py"),
+         "upgrade", "--target", str(repo)],
+        cwd=HARNESS, capture_output=True, text=True,
+    )
+
+
+def strip_pin(repo: Path) -> None:
+    """A project vendored before the pin key existed."""
+    harness_yaml = repo / "harness.yaml"
+    harness_yaml.write_text(
+        re.sub(r'^signoff_record:.*$\n', '', harness_yaml.read_text(),
+               count=1, flags=re.MULTILINE)
+    )
+
+
+def test_upgrade_migration_promotes_and_refuses_correctly(repo, tmp_path):
+    """The migration must carry a legacy sign-off across, recover it from
+    committed evidence when the gitignored run state is absent, and NEVER
+    promote a project whose run state explicitly says unsigned (r8, r9)."""
+    record = repo / "docs" / "decisions" / "0005-client-signoff.md"
+    record.write_text('---\nstatus: accepted\nconfirmed_by: "Client PM"\n---\n')
+    strip_pin(repo)
+    # Explicitly UNSIGNED legacy state, with an accepted-looking record present.
+    (repo / ".factory").mkdir(exist_ok=True)
+    (repo / ".factory" / "run.json").write_text(json.dumps({"client_signoff": False}))
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "legacy project, unsigned")
+    proc = upgrade_into(repo)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not signed_off(repo), "an explicitly unsigned project was promoted"
+
+    # Same project, but the gitignored run state is simply GONE (fresh clone).
+    strip_pin(repo)
+    (repo / ".factory" / "run.json").unlink()
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "no run state")
+    proc = upgrade_into(repo)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert signed_off(repo), "a signed project was silently un-signed by upgrade"
+    assert "0005-client-signoff.md" in (repo / "harness.yaml").read_text()
+
+
 def test_upgrade_refreshes_factory_workflows_and_keeps_project_ones(repo):
     # .github/workflows/ is mixed ownership: upgrade must refresh the harness
     # factory workflows without deleting the project's own (deployment/release).
