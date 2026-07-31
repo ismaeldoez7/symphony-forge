@@ -585,6 +585,29 @@ def test_signoff_pin_cannot_escape_docs_decisions(repo, tmp_path):
     assert code != 0 and "not a readable client sign-off record" in out, out
 
 
+def test_discovery_pins_the_canonical_path_not_a_symlink(repo):
+    """A correctly named symlink beside its target passes the path check, but
+    persisting the LINK's spelling writes a pin the reader rejects: success
+    reported, every gate locked, repair refused because the pin is non-empty.
+    The two also have to count as ONE record, not an ambiguous two."""
+    seed_signoff_inputs(repo)
+    real = repo / "docs" / "decisions" / "0001-client-signoff.md"
+    real.write_text('---\nstatus: accepted\nconfirmed_by: "Client PM"\n---\n')
+    link = repo / "docs" / "decisions" / "0002-alias-client-signoff.md"
+    link.symlink_to(real)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "record plus alias")
+    code, out = record_grill(repo, "signoff")
+    assert code == 0, out
+
+    code, out = run(repo, "record_signoff.py")
+    assert code == 0, out  # one record, not "several ... use --record"
+    pinned = re.search(r'^signoff_record:\s*"([^"]*)"',
+                       (repo / "harness.yaml").read_text(), re.MULTILINE).group(1)
+    assert pinned == "docs/decisions/0001-client-signoff.md", pinned
+    assert signed_off(repo), "the pin the writer chose must satisfy the reader"
+
+
 def test_signoff_pin_round_trips_or_is_refused(repo):
     """The writer must not accept a name the stdlib pin reader truncates: that
     combination reports success while leaving every gate locked, and the repair

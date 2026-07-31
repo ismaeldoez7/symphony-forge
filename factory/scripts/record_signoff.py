@@ -16,7 +16,7 @@ from pathlib import Path
 
 from factory_lib import (
     canonical_signoff_path, insert_signoff_pin, load_json, parse_frontmatter,
-    repo_root, require_grill, signoff_pin, valid_signoff_path,
+    repo_root, require_grill, signoff_pin,
 )
 from forge_cli.events import append_event
 from forge_cli.specs import spec_records
@@ -119,10 +119,19 @@ def main() -> int:
             return 1
         record = root / canonical
     else:
-        candidates = sorted(
-            c for c in decisions.glob("[0-9][0-9][0-9][0-9]-*client-signoff.md")
-            if valid_signoff_path(root, c.relative_to(root).as_posix())
-        )
+        # Canonicalise each candidate, do not merely test it: a correctly named
+        # SYMLINK beside its target passes the check, and persisting the link's
+        # own spelling would write a pin the reader then rejects — success
+        # reported, every gate locked, and repair refused because the pin is
+        # non-empty. Deduplicating on the canonical path also means a symlink
+        # and its target count as ONE record, not an ambiguous two.
+        canonical_candidates = {
+            canonical
+            for c in decisions.glob("[0-9][0-9][0-9][0-9]-*client-signoff.md")
+            if (canonical := canonical_signoff_path(
+                root, c.relative_to(root).as_posix()))
+        }
+        candidates = sorted(root / c for c in canonical_candidates)
         if not candidates:
             print(
                 "VIOLATION: no client sign-off decision record found.\n"
