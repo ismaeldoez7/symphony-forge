@@ -6,6 +6,14 @@
 # dev choice. Changes land by PR only.
 version: 1
 
+# The project's client sign-off, pinned to the ONE decision record that carries
+# it. Sign-off happens once for the project (WORKFLOW.md: the gate sits between
+# prototype and planning), so this is an identity, not a convention — every
+# worktree reads the same committed line, and no later record can displace it.
+# Empty until sign-off: `python3 .agents/scripts/record_signoff.py` writes it
+# after checking the record is accepted, names a human, and has a fresh grill.
+signoff_record: ""
+
 # When guidance conflicts, earlier wins.
 precedence:
   - constitution

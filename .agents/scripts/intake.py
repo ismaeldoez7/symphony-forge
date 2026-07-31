@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from factory_lib import dump_json, ensure_issue_key, load_json, now_iso, repo_root, run_state_path, slugify
+from factory_lib import client_signoff, dump_json, ensure_issue_key, load_json, now_iso, repo_root, run_state_path, slugify
 from forge_cli.roadmap import activation_state, mark_status
 
 parser = argparse.ArgumentParser(description="Initialize factory run state")
@@ -25,7 +25,7 @@ if outcome == "blocked":
     )
 branch = args.branch or f"feat/{issue_key}-{slugify(args.title)}"
 previous = load_json(run_state_path(root), default={})
-signed_off = bool(previous.get("client_signoff"))
+signed_off = client_signoff(root)[0]
 state = {
     "issue_key": issue_key,
     "title": args.title,
@@ -42,9 +42,8 @@ state = {
     "created_at": now_iso(),
     "updated_at": now_iso(),
 }
-for key in ("project", "client_signoff", "client_signoff_record", "client_signoff_at"):
-    if key in previous:
-        state[key] = previous[key]
+if "project" in previous:
+    state["project"] = previous["project"]
 # Task-scoped artifacts belong to the previous task. Clear them only when that
 # task was archived (pr_ready/done); otherwise they are unrecovered evidence.
 # The approved plan in plans/active/ is an artifact too — abandonment moves it

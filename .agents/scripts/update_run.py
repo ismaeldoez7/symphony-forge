@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from factory_lib import dump_json, load_json, now_iso, repo_root, run_state_path
+from factory_lib import client_signoff, dump_json, load_json, now_iso, repo_root, run_state_path
 
 parser = argparse.ArgumentParser(description="Update factory run state")
 parser.add_argument("--phase")
@@ -31,12 +31,10 @@ path = run_state_path(root)
 state = load_json(path, default={})
 if not state:
     raise SystemExit("Missing .factory/run.json. Run intake first.")
-if args.phase in GATED_PHASES and not state.get("client_signoff"):
-    raise SystemExit(
-        f"Phase '{args.phase}' requires client sign-off. Get "
-        "docs/decisions/NNNN-client-signoff.md accepted (non-empty confirmed_by), "
-        "then run `python3 .agents/scripts/record_signoff.py` first."
-    )
+if args.phase in GATED_PHASES:
+    ok, why = client_signoff(root)
+    if not ok:
+        raise SystemExit(f"Phase '{args.phase}' requires client sign-off. {why}")
 IMPL_PHASES = {"implementing", "testing", "reviewing", "functional-check", "pr-ready"}
 
 issue = state.get("issue_key", "")

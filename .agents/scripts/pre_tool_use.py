@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import re
 
-from factory_lib import load_json, read_hook_input, repo_root, run_state_path
+from factory_lib import client_signoff, load_json, read_hook_input, repo_root, run_state_path
 
 payload = read_hook_input()
 tool_name = payload.get("tool_name", "")
@@ -45,10 +45,10 @@ PLAN_MODE_MSG = (
 )
 
 
-def planning_locked(state: dict) -> bool:
+def planning_locked(state: dict, signed_off: bool) -> bool:
     return bool(
         state.get("issue_key")
-        and state.get("client_signoff")
+        and signed_off
         and state.get("plan_status") != "approved"
     )
 
@@ -110,7 +110,7 @@ GATED_PHASES = (
 root = repo_root()
 run_state = load_json(run_state_path(root), default={})
 
-if run_state and planning_locked(run_state) and permission_mode != "plan":
+if run_state and planning_locked(run_state, client_signoff(root)[0]) and permission_mode != "plan":
     issue = run_state.get("issue_key", "?")
     if tool_name in EDIT_TOOLS:
         target = (tool_input.get("file_path") or tool_input.get("notebook_path") or "")
@@ -132,7 +132,7 @@ if run_state and planning_locked(run_state) and permission_mode != "plan":
         # Writing delegation during planning = implementation before a plan.
         deny(PLAN_MODE_MSG.format(issue=issue))
 
-if run_state and not run_state.get("client_signoff"):
+if run_state and not client_signoff(root)[0]:
     advancing = any(script in command for script in PHASE_ADVANCING)
     if "update_run.py" in command and "--phase" in command:
         advancing = advancing or any(phase in command for phase in GATED_PHASES)

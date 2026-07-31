@@ -6,7 +6,8 @@ import datetime
 from pathlib import Path
 
 from factory_lib import (
-    dump_json, load_json, now_iso, repo_root, require_grill, run_state_path, slugify,
+    client_signoff, dump_json, load_json, now_iso, repo_root, require_grill,
+    run_state_path, slugify,
 )
 
 from .common import fail
@@ -16,12 +17,14 @@ from .context import pending_context
 def cmd_save(args: argparse.Namespace) -> None:
     base = Path(args.repo).resolve() if args.repo else repo_root()
     state = load_json(run_state_path(base), default={})
-    if not state or not state.get("client_signoff"):
-        fail(
-            "plan approval requires an initialized run with client sign-off. Run "
-            "intake, get docs/decisions/NNNN-client-signoff.md accepted, run "
-            "record_signoff.py, then save the plan."
-        )
+    # Sign-off FIRST, and deliberately: it is derived from committed
+    # harness.yaml, so it holds even with no run state at all — deleting
+    # .factory/run.json cannot bypass the gate (autoreview r6).
+    ok, why = client_signoff(base)
+    if not ok:
+        fail(f"plan approval requires client sign-off. {why}")
+    if not state:
+        fail("plan approval requires an initialized run. Run intake first.")
     pending = pending_context(base)
     if pending:
         fail(

@@ -5,7 +5,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from factory_lib import load_json, read_hook_input, repo_root, run_state_path
+from factory_lib import client_signoff, load_json, read_hook_input, repo_root, run_state_path
 
 payload = read_hook_input()
 root = repo_root()
@@ -61,9 +61,9 @@ if run_state.get("issue_key"):
         f"Current phase: {run_state.get('phase')}",
         f"Plan status: {run_state.get('plan_status')}",
         f"Decomposition status: {run_state.get('decomposition_status')}",
-        f"Client sign-off: {run_state.get('client_signoff', False)}",
+        f"Client sign-off: {client_signoff(root)[0]}",
     ]
-    if run_state.get("client_signoff") and run_state.get("plan_status") != "approved":
+    if client_signoff(root)[0] and run_state.get("plan_status") != "approved":
         context.append(
             "PLANNING IS MANDATORY: enter PLAN MODE now (shift+tab) and plan per "
             ".agents/prompts/planner.md — the PreToolUse hook blocks product-code "

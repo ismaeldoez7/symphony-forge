@@ -12,6 +12,7 @@ drives that afterwards.
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -158,7 +159,12 @@ def cmd_adopt(args: argparse.Namespace) -> None:
             created.append(rel)
 
     if not (target / "harness.yaml").exists():
-        shutil.copy2(harness / "harness.yaml", target / "harness.yaml")
+        # Blank the sign-off pin: the adopting project has signed nothing off,
+        # and must not inherit the harness repo's own gate.
+        (target / "harness.yaml").write_text(
+            re.sub(r"^signoff_record:.*$", 'signoff_record: ""',
+                   (harness / "harness.yaml").read_text(), count=1, flags=re.MULTILINE)
+        )
         created.append("harness.yaml")
     if not (target / ".gitignore").exists():
         shutil.copy2(harness / ".gitignore", target / ".gitignore")
@@ -212,7 +218,7 @@ def cmd_adopt(args: argparse.Namespace) -> None:
         (target / ".factory" / "reviews").mkdir(parents=True, exist_ok=True)
         dump_json(
             target / ".factory" / "run.json",
-            {"project": name, "client_signoff": False, "created_at": now_iso()},
+            {"project": name, "created_at": now_iso()},
         )
         created.append(".factory/run.json")
 

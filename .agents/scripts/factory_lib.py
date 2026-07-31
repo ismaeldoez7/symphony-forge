@@ -40,6 +40,65 @@ def review_dir(root: Path | None = None) -> Path:
     return factory_dir(root) / "reviews"
 
 
+FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
+# Substring match, not a YAML parse: these scripts are stdlib-only by design
+# (see check_dual_runtime.py's harness.yaml allowlist reader).
+SIGNOFF_PIN = re.compile(r"^signoff_record:\s*[\"']?([^\"'\s#]+)", re.MULTILINE)
+
+
+def parse_frontmatter(text: str) -> dict[str, str]:
+    match = FRONTMATTER.match(text)
+    if not match:
+        return {}
+    fields: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        if ":" in line:
+            key, _, value = line.partition(":")
+            fields[key.strip()] = value.strip().strip('"').strip("'")
+    return fields
+
+
+def signoff_pin(root: Path) -> str:
+    """The decision record harness.yaml pins as THE project sign-off, or ''."""
+    manifest = root / "harness.yaml"
+    if not manifest.is_file():
+        return ""
+    match = SIGNOFF_PIN.search(manifest.read_text())
+    return match.group(1) if match else ""
+
+
+def client_signoff(root: Path) -> tuple[bool, str]:
+    """Is the project signed off, and if not, why not?
+
+    DERIVED, never recorded. The pin lives in committed harness.yaml and the
+    proof lives in the committed decision record, so a fresh worktree reads the
+    same answer as every other: there is no per-worktree state to re-establish,
+    and no later record can displace the pinned one. Sign-off is ONE gate for
+    the project (WORKFLOW.md), not one per task — the per-task human gate is
+    plan approval, which is grilled and enforced against the same issue.
+    """
+    pinned = signoff_pin(root)
+    if not pinned:
+        return False, (
+            "Client sign-off required first. Get docs/decisions/NNNN-client-signoff.md "
+            "accepted (non-empty confirmed_by), then run "
+            "`python3 .agents/scripts/record_signoff.py` to pin it in harness.yaml."
+        )
+    record = root / pinned
+    if not record.is_file():
+        return False, (
+            f"harness.yaml pins signoff_record: {pinned}, which does not exist. "
+            "Restore that record or re-pin harness.yaml to the accepted one."
+        )
+    fields = parse_frontmatter(record.read_text())
+    if fields.get("status") != "accepted" or not fields.get("confirmed_by"):
+        return False, (
+            f"{pinned} is pinned as the project sign-off but is not an accepted, "
+            "human-confirmed record (needs status: accepted and a non-empty confirmed_by)."
+        )
+    return True, ""
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
@@ -71,12 +130,10 @@ def gate(
     state = load_json(run_state_path(root), default={})
     if not state:
         raise SystemExit("Missing .factory/run.json. Run intake first.")
-    if signoff and not state.get("client_signoff"):
-        raise SystemExit(
-            "Client sign-off required first. Get docs/decisions/NNNN-client-signoff.md "
-            "accepted (non-empty confirmed_by), then run "
-            "`python3 .agents/scripts/record_signoff.py`."
-        )
+    if signoff:
+        ok, why = client_signoff(root)
+        if not ok:
+            raise SystemExit(why)
     issue = state.get("issue_key", "")
     if approved_plan:
         plan_files = list((root / "plans" / "active").glob(f"{issue}-*.md")) if issue else []

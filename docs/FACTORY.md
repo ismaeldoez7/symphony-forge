@@ -40,7 +40,7 @@ Hooks are not the workflow engine. They only add guardrails and continuation log
 8. `pr-ready`
 9. `done` or `blocked`
 
-The sign-off gate sits between `prototype` and `planning`. `python3 .agents/scripts/record_signoff.py` records an accepted client sign-off decision by setting `client_signoff: true` in `.factory/run.json`.
+The sign-off gate sits between `prototype` and `planning` and fires ONCE for the project. `python3 .agents/scripts/record_signoff.py` pins the accepted record in `harness.yaml` (`signoff_record:`); the gate is derived from that committed pin rather than stored in `.factory/run.json` (decision 0093).
 
 Phases at `planning` or later are refused by `update_run.py` and `pre_tool_use.py` until `client_signoff` is true.
 

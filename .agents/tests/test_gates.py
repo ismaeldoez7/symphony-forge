@@ -9,6 +9,8 @@ exercised through their real CLI surface.
 from __future__ import annotations
 
 import json
+import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -73,7 +75,7 @@ def record_grill(repo: Path, gate: str, verdict: str = "pass",
 
 
 def sign_off(repo: Path) -> None:
-    if json.loads((repo / ".factory" / "run.json").read_text()).get("client_signoff"):
+    if signed_off(repo):
         return  # idempotent: already signed off
     code, out = record_grill(repo, "signoff")
     assert code == 0, out
@@ -135,6 +137,14 @@ def run_state(repo: Path) -> dict:
     return json.loads((repo / ".factory" / "run.json").read_text())
 
 
+def signed_off(repo: Path) -> bool:
+    """Sign-off is DERIVED from the committed harness.yaml pin, never from
+    per-worktree run.json — that is the whole point of the pin."""
+    match = re.search(r'^signoff_record:\s*"([^"]*)"', (repo / "harness.yaml").read_text(),
+                      re.MULTILINE)
+    return bool(match and match.group(1))
+
+
 def refresh_manifest(repo: Path) -> None:
     """What a real forge upgrade does after touching the gate surface."""
     proc = subprocess.run(
@@ -152,7 +162,7 @@ def refresh_manifest(repo: Path) -> None:
 
 def test_full_lifecycle_and_archive(repo, tmp_path):
     sign_off(repo)
-    assert run_state(repo)["client_signoff"] is True
+    assert signed_off(repo)
     code, _ = intake(repo)
     assert code == 0
     code, out = save_plan(repo, tmp_path)
@@ -183,7 +193,8 @@ def test_full_lifecycle_and_archive(repo, tmp_path):
     assert not (repo / ".factory" / "reviews").exists()
     assert not (repo / ".factory" / "grills" / "plan.json").exists()
     live = run_state(repo)
-    assert live["phase"] == "shipped" and live["client_signoff"] is True
+    assert live["phase"] == "shipped" and signed_off(repo)
+    assert "client_signoff" not in live  # derived from harness.yaml, never stored
     assert "issue_key" not in live and "last_shipped" not in live
     assert "updated_at" not in live  # byte-stable across parallel branches
     # Idempotent rerun (autoreview r2)
@@ -240,7 +251,58 @@ def test_intake_starts_discovery_before_signoff_and_planning_after(repo, tmp_pat
     sign_off(repo)
     intake(repo, "ENG-2", "Refunds")
     state = run_state(repo)
-    assert state["phase"] == "planning" and state["client_signoff"] is True
+    assert state["phase"] == "planning" and signed_off(repo)
+
+
+def test_signoff_is_pinned_and_cannot_be_repointed(repo, tmp_path):
+    """The D-0032 bug: sign-off picked the highest-numbered client-signoff
+    record, whatever task it belonged to, so a later unrelated record silently
+    became the project's attestation — confirmed by the wrong human."""
+    sign_off(repo)
+    pinned = re.search(r'^signoff_record:\s*"([^"]*)"',
+                       (repo / "harness.yaml").read_text(), re.MULTILINE).group(1)
+
+    # A LATER, higher-numbered record for some other task shows up.
+    later = repo / "docs" / "decisions" / "9999-client-signoff.md"
+    later.write_text('---\nstatus: accepted\nconfirmed_by: "Someone Else"\n---\n\n# Other task\n')
+
+    # Re-running refuses outright rather than re-pointing the attestation.
+    code, out = run(repo, "record_signoff.py")
+    assert code != 0 and "already signed off" in out, out
+    still = re.search(r'^signoff_record:\s*"([^"]*)"',
+                      (repo / "harness.yaml").read_text(), re.MULTILINE).group(1)
+    assert still == pinned, "the pin moved to an unrelated record"
+
+    # And unknown flags are rejected, not silently swallowed (--notes used to be).
+    code, out = run(repo, "record_signoff.py", "--notes", "hi")
+    assert code != 0, out
+
+
+def test_signoff_survives_a_wiped_factory_dir(repo, tmp_path):
+    """Every task runs in a fresh worktree where .factory/ is gitignored and
+    absent. The gate must still hold there — that is why the pin is committed
+    rather than recorded in run.json."""
+    sign_off(repo)
+    shutil.rmtree(repo / ".factory")
+    code, out = run(repo, "forge.py", "next", "--repo", str(repo))
+    assert code == 0, out
+    assert signed_off(repo)
+    # NEGATIVE CONTROL: with the pin cleared, the same repo is NOT signed off.
+    (repo / "harness.yaml").write_text(
+        re.sub(r'^signoff_record:.*$', 'signoff_record: ""',
+               (repo / "harness.yaml").read_text(), count=1, flags=re.MULTILINE)
+    )
+    assert not signed_off(repo)
+    plan = tmp_path / "plan.md"
+    plan.write_text(PLAN_BODY)
+    code, out = run(repo, "forge.py", "plan", "save", "--issue", "ENG-9", "--from", str(plan))
+    assert code != 0 and "sign-off" in out, out
+
+
+def test_scaffold_does_not_inherit_the_harness_signoff(repo):
+    """A new client repo has signed nothing off. Scaffolding must clear the
+    harness's own pin, or every fresh project starts past its own gate."""
+    assert not signed_off(repo)
 
 
 def test_record_signoff_requires_accepted_and_confirmed(repo):
@@ -379,7 +441,7 @@ def test_intake_preserves_signoff_and_refuses_to_clobber_evidence(repo, tmp_path
     code, out = intake(repo, "ENG-2", "Refunds", "--discard-active")
     assert code == 0, out
     state = run_state(repo)
-    assert state["client_signoff"] is True and state["phase"] == "planning"
+    assert signed_off(repo) and state["phase"] == "planning"
     assert not (repo / ".factory" / "decomposition.json").exists()
 
 
@@ -630,7 +692,7 @@ def approve_epics(repo: Path, src: Path) -> None:
 
 
 def import_roadmap(repo: Path, tmp_path: Path, payload=None) -> tuple[int, str]:
-    if not json.loads((repo / ".factory" / "run.json").read_text()).get("client_signoff"):
+    if not signed_off(repo):
         sign_off(repo)  # roadmap mutations are post-sign-off
     src = tmp_path / "roadmap-input.json"
     src.write_text(json.dumps(payload if payload is not None else ROADMAP))
@@ -839,8 +901,7 @@ def test_adopt_vendors_harness_and_preserves_project(tmp_path):
     assert kept.exists() and "tabs" in kept.read_text()
     assert "@AGENTS.md" in (repo / "CLAUDE.md").read_text()
     # sign-off gate armed, project-owned files created
-    state = json.loads((repo / ".factory" / "run.json").read_text())
-    assert state["client_signoff"] is False
+    assert not signed_off(repo)  # an adopted repo inherits no sign-off
     assert (repo / "harness.yaml").exists()
     # the adopted repo passes the same checks as a scaffold
     code, out = run(repo, "check_dual_runtime.py", str(repo))
