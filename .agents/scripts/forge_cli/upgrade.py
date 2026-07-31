@@ -12,7 +12,8 @@ import tempfile
 from pathlib import Path
 
 from factory_lib import (
-    SIGNOFF_KEY, canonical_signoff_path, head_sha, load_json, repo_root,
+    SIGNOFF_KEY, canonical_signoff_path, head_sha, insert_signoff_pin, load_json,
+    repo_root,
 )
 
 from .common import fail
@@ -194,7 +195,7 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         # (`if not state ... fail`), so nothing is lost here that a project
         # previously had.
         manifest_yaml.write_text(
-            f'signoff_record: "{carried}"\n' + manifest_yaml.read_text()
+            insert_signoff_pin(manifest_yaml.read_text(), carried)
         )
         ensured.append(
             "harness.yaml signoff_record pin ("

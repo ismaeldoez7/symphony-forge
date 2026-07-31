@@ -11,12 +11,12 @@ silently re-pointing the attestation at whatever record happens to be newest.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
 from factory_lib import (
-    parse_frontmatter, repo_root, require_grill, signoff_pin, valid_signoff_path,
+    insert_signoff_pin, parse_frontmatter, repo_root, require_grill, signoff_pin,
+    valid_signoff_path,
 )
 
 
@@ -29,21 +29,11 @@ def pin_into_harness(manifest: Path, relative: str) -> None:
             "pin through it. The manifest must be a regular file in this repo, or the "
             "gate's committed state is not committed here at all."
         )
-    text = manifest.read_text()
-    updated, count = re.subn(
-        r"^signoff_record:.*$",
-        f'signoff_record: "{relative}"',
-        text,
-        count=1,
-        flags=re.MULTILINE,
-    )
-    if count != 1:
-        # A project vendored before this key existed keeps its own harness.yaml
-        # through `forge upgrade` (it is project-owned), so the key is simply
-        # absent. Add it rather than refusing — otherwise the gate is
-        # unreachable in exactly the repos that predate it.
-        updated = f'signoff_record: "{relative}"\n' + text
-    manifest.write_text(updated)
+    # A project vendored before this key existed keeps its own harness.yaml
+    # through `forge upgrade` (it is project-owned), so the key may simply be
+    # absent; insert_signoff_pin adds it rather than refusing, or the gate would
+    # be unreachable in exactly the repos that predate it.
+    manifest.write_text(insert_signoff_pin(manifest.read_text(), relative))
 
 
 def main() -> int:

@@ -300,6 +300,36 @@ def test_signoff_record_must_be_a_real_signoff_record(repo, tmp_path):
     assert not signed_off(repo)
 
 
+def test_pin_insertion_preserves_a_yaml_prologue(repo):
+    """Adding the key to a pre-pin manifest must land INSIDE the document:
+    prepending before a `---` marker makes a two-document stream that consumers
+    can no longer read as one mapping (r11)."""
+    from importlib import import_module
+    import sys
+    sys.path.insert(0, str(repo / ".agents" / "scripts"))
+    sys.modules.pop("factory_lib", None)
+    factory_lib = import_module("factory_lib")
+
+    doc = "%YAML 1.2\n---\nversion: 1\nprecedence:\n  - constitution\n"
+    out = factory_lib.insert_signoff_pin(doc, "docs/decisions/0001-client-signoff.md")
+    assert out.startswith("%YAML 1.2\n---\n"), out
+    assert out.count("---") == 1, out
+    assert out.splitlines()[2] == 'signoff_record: "docs/decisions/0001-client-signoff.md"'
+
+    # Replacing an existing key is still a plain line substitution.
+    again = factory_lib.insert_signoff_pin(out, "docs/decisions/0002-client-signoff.md")
+    assert again.count("signoff_record:") == 1
+    assert "0002-client-signoff.md" in again
+
+    # A leading comment block (this harness's own shape) is preserved too.
+    commented = "# header\n\nversion: 1\n"
+    out2 = factory_lib.insert_signoff_pin(commented, "docs/decisions/0001-client-signoff.md")
+    assert out2.startswith('signoff_record: "'), out2
+
+    sys.path.remove(str(repo / ".agents" / "scripts"))
+    sys.modules.pop("factory_lib", None)
+
+
 def test_symlinked_manifest_is_refused(repo, tmp_path):
     """A symlinked harness.yaml would let the gate's 'committed' state live
     outside the repo, and write_text would follow the link (r6)."""

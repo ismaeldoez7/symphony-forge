@@ -70,6 +70,33 @@ def parse_frontmatter(text: str) -> dict[str, str]:
 CLIENT_SIGNOFF_NAME = re.compile(r"[0-9]{4}-[a-z0-9-]*client-signoff\.md")
 
 
+def insert_signoff_pin(text: str, relative: str) -> str:
+    """Set the top-level signoff_record key, preserving any YAML prologue.
+
+    ponytail: a targeted line edit, not a YAML rewrite — these scripts are
+    stdlib-only, so there is no parser to round-trip through. Replacing an
+    existing key is a line substitution; ADDING one must land after any
+    directives and document marker, since prepending before `---` would turn a
+    single mapping into a two-document stream that consumers cannot read.
+    """
+    updated, count = re.subn(
+        r"^signoff_record:.*$", f'signoff_record: "{relative}"', text,
+        count=1, flags=re.MULTILINE,
+    )
+    if count:
+        return updated
+    lines = text.splitlines(keepends=True)
+    cut = 0
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("%") or not stripped or stripped.startswith("#"):
+            continue
+        if stripped == "---":
+            cut = index + 1
+        break
+    return "".join(lines[:cut]) + f'signoff_record: "{relative}"\n' + "".join(lines[cut:])
+
+
 def canonical_signoff_path(root: Path, relative: str) -> str:
     """The canonical repo-relative path of a valid sign-off record, or ''.
 
@@ -86,9 +113,14 @@ def canonical_signoff_path(root: Path, relative: str) -> str:
     """
     if not relative:
         return ""
-    decisions = (root / "docs" / "decisions").resolve()
-    target = (root / relative).resolve()
-    if not target.is_file():
+    try:
+        decisions = (root / "docs" / "decisions").resolve()
+        target = (root / relative).resolve()
+        if not target.is_file():
+            return ""
+    except OSError:
+        # A malformed symlink chain must read as "invalid pin" with the normal
+        # actionable message, never a traceback out of a hook or pr_ready.
         return ""
     if target.parent != decisions:
         return ""
