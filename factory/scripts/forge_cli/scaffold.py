@@ -242,7 +242,8 @@ def cmd_init(args: argparse.Namespace) -> None:
             )
     target.mkdir(parents=True, exist_ok=True)
 
-    ignore = shutil.ignore_patterns("__pycache__", "*.pyc")
+    # Same rule as upgrade's VENDOR_IGNORE: build and OS noise never vendors.
+    ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
     for tree in COPY_TREES:
         src = root / tree
         if src.exists():

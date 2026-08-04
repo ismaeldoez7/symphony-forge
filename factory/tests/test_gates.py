@@ -1450,6 +1450,46 @@ def test_upgrade_reports_a_client_skill_already_at_the_current_path(repo):
     assert "factory/skills/client-current-skill/SKILL.md" in proc.stdout
 
 
+def test_upgrade_does_not_vendor_os_noise(repo):
+    # .DS_Store is gitignored in the HARNESS, so it is invisible there while
+    # sitting on disk — and copytree walks the filesystem, not the index. A
+    # real upgrade shipped one into the client, where .claude/.DS_Store fails
+    # the thin-adapter linter.
+    noise = HARNESS / ".claude" / ".DS_Store"
+    created = not noise.exists()
+    if created:
+        noise.write_bytes(b"\x00finder\n")
+    try:
+        _make_legacy_upgrade_target(repo)
+        git(repo, "add", "-A", "-f")
+        git(repo, "commit", "-q", "-m", "pre-rename layout")
+
+        proc = _upgrade_target(repo)
+
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert not list(repo.rglob(".DS_Store"))
+    finally:
+        if created:
+            noise.unlink()
+
+
+def test_upgrade_report_ignores_names_that_merely_start_with_agents(repo):
+    # Found on the real target: agentstats' own sources carry
+    # `com.agentstats.push` and `day.agents`, and a bare-substring search
+    # reported three source files as stale machinery references.
+    _make_legacy_upgrade_target(repo)
+    src = repo / "src" / "scheduler.ts"
+    src.parent.mkdir(parents=True, exist_ok=True)
+    src.write_text('const LABEL = "com.agentstats.push";\nreturn day.agents;\n')
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "sources with agents-prefixed identifiers")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "src/scheduler.ts" not in proc.stdout
+
+
 def test_upgrade_reports_a_symlink_pointing_at_the_retired_root(repo):
     # `legacy-tools -> .agents` has no trailing slash and breaks just as
     # thoroughly as one naming a file inside it.
