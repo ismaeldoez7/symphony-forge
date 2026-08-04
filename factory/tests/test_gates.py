@@ -2471,11 +2471,15 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
                             "tool_input": {"command":
                                            "codex exec --profile explore -s read-only 'map it'"}})
     assert "deny" in out and "codex:rescue" in out
-    # Direct companion commands are always off-contract.
+    # Companion denial keys on WRITE INTENT, not on the companion itself: the
+    # codex-exec denial points at /codex:rescue, which runs the companion, so
+    # denying every invocation made exploration impossible from the
+    # orchestrator (0341332). A read-only rescue run passes; a write launch
+    # stays delegate-owned.
     companion = "node /x/codex-companion.mjs task --model gpt-5.6-terra 'map the module'"
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": companion}})
-    assert "deny" in out and "forge delegate" in out
+    assert "deny" not in out
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": companion + " --write"}})
     assert "deny" in out and "forge delegate" in out
