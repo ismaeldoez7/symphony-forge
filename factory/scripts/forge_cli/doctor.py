@@ -15,7 +15,7 @@ from pathlib import Path
 from factory_lib import decomposition_state_path, load_json, parse_sections, repo_root
 
 from .common import run_quiet
-from .specs import missing_required_content
+from .specs import missing_required_content, parse_frontmatter
 
 DIRENV_VERSION = "2.37.1"
 
@@ -130,19 +130,6 @@ def legacy_required_tests(base: Path) -> list[str]:
     return found
 
 
-def _frontmatter_status(document: str) -> str | None:
-    if not document.startswith("---"):
-        return None
-    parts = document.split("---", 2)
-    if len(parts) != 3:
-        return None
-    for line in parts[1].splitlines():
-        key, separator, value = line.partition(":")
-        if separator and key.strip() == "status":
-            return value.strip().strip("'\"")
-    return None
-
-
 def legacy_capture_gaps(base: Path) -> list[tuple[str, str]]:
     """Brief/spec capture gaps that predate the required-heading contract."""
     found = []
@@ -157,7 +144,7 @@ def legacy_capture_gaps(base: Path) -> list[tuple[str, str]]:
     specs = base / "docs" / "specs"
     for spec in sorted(specs.glob("*.md")) if specs.is_dir() else []:
         document = spec.read_text()
-        if _frontmatter_status(document) != "confirmed":
+        if parse_frontmatter(document).get("status") != "confirmed":
             continue
         missing = missing_required_content(document)
         if missing:

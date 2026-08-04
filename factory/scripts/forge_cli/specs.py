@@ -5,7 +5,9 @@ import argparse
 import re
 from pathlib import Path
 
-from factory_lib import now_iso, repo_root, require_grill
+from factory_lib import (
+    ATX_CLOSING_RUN, now_iso, parse_sections, repo_root, require_grill,
+)
 
 from .common import fail
 from .events import append_event
@@ -28,12 +30,9 @@ def parse_frontmatter(text: str) -> dict[str, str]:
     return fields
 
 
+# The H1 rule; the H2 rule lives in factory_lib.parse_sections and both strip
+# the same ATX closing run, so `# Billing #` and `## Why ##` mean what they say.
 ATX_TITLE = re.compile(r"^#[ \t]+(?P<title>.*)$", re.MULTILINE)
-# The optional ATX closing run: `# Billing #` titles Billing, and `# #` titles
-# nothing at all. Anchored to start-or-whitespace so a trailing hash that is
-# part of the title (`# Sharp C#`) survives, and stripped before asking whether
-# any title text remains.
-ATX_CLOSING_RUN = re.compile(r"(?:^|[ \t]+)#+[ \t]*\r?$")
 
 
 def document_structure(text: str) -> str:
@@ -67,16 +66,9 @@ def missing_required_content(text: str) -> list[str]:
         for match in ATX_TITLE.finditer(body)
     ):
         missing.append("H1 title")
+    sections = parse_sections(body)
     for title in REQUIRED_SECTIONS:
-        match = re.search(
-            # `## Why ##` is the same heading as `## Why`; refusing it would be
-            # the H1 rule contradicting the H2 rule in one file.
-            rf"^##[ \t]+{re.escape(title)}(?:[ \t]+#+)?[ \t]*\r?\n"
-            r"(?P<body>.*?)(?=^#{1,2}[ \t]+|\Z)",
-            body,
-            re.DOTALL | re.MULTILINE,
-        )
-        if not match or not match.group("body").strip():
+        if not sections.get(title, "").strip():
             missing.append(f"## {title}")
     return missing
 

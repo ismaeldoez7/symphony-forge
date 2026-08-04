@@ -81,15 +81,28 @@ def parse_frontmatter(text: str) -> dict[str, str]:
 
 # `\r?` before the anchor, matching FRONTMATTER above: multiline `$` sits before
 # the `\n` and cannot consume a `\r`, so without it every heading in a CRLF
-# document misses and sign-off refuses a brief whose headings are plainly there.
-SECTION_HEADING = re.compile(r"^## ([^\r\n]+?)[ \t]*\r?$", re.MULTILINE)
+# document misses and the gate refuses a document whose headings are plainly
+# there. `[ \t]+` after the hashes for the same reason a tab is not a typo.
+SECTION_HEADING = re.compile(r"^##[ \t]+([^\r\n]+?)[ \t]*\r?$", re.MULTILINE)
+# The optional ATX closing run: `## Why ##` names Why, `# #` names nothing.
+# Anchored to start-or-whitespace so a hash that belongs to the name survives
+# (`## Sharp C#`). Exported because the H1 check needs the same rule — one
+# answer to "what is this heading called", or the two drift.
+ATX_CLOSING_RUN = re.compile(r"(?:^|[ \t]+)#+[ \t]*\r?$")
 
 
 def parse_sections(text: str) -> dict[str, str]:
-    """Map level-two Markdown heading names to their stripped bodies."""
+    """Map level-two Markdown heading names to their stripped bodies.
+
+    The single answer to "does this document have this section, with content".
+    Sign-off, spec confirmation and doctor all ask it; when they each decided
+    separately, they disagreed — `##  Why` was a section to one and a section
+    named " Why" to another, so a lookup missed and a gate refused a document
+    that was complete.
+    """
     headings = list(SECTION_HEADING.finditer(text))
     return {
-        heading.group(1): text[
+        ATX_CLOSING_RUN.sub("", heading.group(1)).strip(): text[
             heading.end():headings[index + 1].start()
             if index + 1 < len(headings) else len(text)
         ].strip()
