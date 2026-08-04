@@ -58,6 +58,90 @@ def _replace_path(src: Path, dst: Path) -> None:
         shutil.copy2(src, dst)
 
 
+def _keep_path(src: Path, dst: Path) -> None:
+    """Copy project-owned state into the temporary preservation tree."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if src.is_dir():
+        shutil.copytree(src, dst, dirs_exist_ok=True)
+    else:
+        shutil.copy2(src, dst)
+
+
+def _retire_legacy_agents(target: Path) -> bool:
+    legacy = target / ".agents"
+    if not legacy.is_dir():
+        return False
+    missing = []
+    for path in sorted(legacy.rglob("*")):
+        if not (path.is_file() or path.is_symlink()):
+            continue
+        # Vendoring never shipped build noise (VENDOR_IGNORE), so a .pyc has no
+        # counterpart by construction — counting it would abort the upgrade on
+        # every real pre-rename repo, which all carry __pycache__ from having
+        # actually run the machinery.
+        if "__pycache__" in path.parts or path.suffix == ".pyc":
+            continue
+        rel = path.relative_to(legacy)
+        counterpart = target / "factory" / rel
+        if not (counterpart.is_file() or counterpart.is_symlink()):
+            missing.append(f".agents/{rel.as_posix()}")
+    if missing:
+        listing = "\n  ".join(missing[:10])
+        more = f"\n  ... and {len(missing) - 10} more" if len(missing) > 10 else ""
+        fail(
+            f"legacy .agents/ holds {len(missing)} path(s) with no counterpart in the "
+            f"vendored factory/ tree, so they cannot be shown to be the machinery "
+            f"being replaced:\n  {listing}{more}\n"
+            "Nothing under .agents/ was deleted. If this is retired machinery, delete "
+            "it and re-run; if it is yours, move it somewhere the harness does not own."
+        )
+    shutil.rmtree(legacy)
+    return True
+
+
+def _is_harness_owned(rel: str, harness: Path) -> bool:
+    def within(root: str) -> bool:
+        return rel == root or rel.startswith(root + "/")
+
+    if any(within(root) for root in UPGRADE_TREES + [".agents"]):
+        return True
+    if rel in UPGRADE_FILES or rel in COPY_WORKFLOWS:
+        return True
+    if rel in {dst for _, dst in DOC_CONTRACTS}:
+        return True
+    if any(within(f".claude/{path}") for path in CLAUDE_HARNESS_OWNED):
+        return True
+    if rel in {f".codex/{name}" for name in COPY_CODEX}:
+        return True
+    for sub in ("agents", "skills"):
+        shipped = harness / ".codex" / sub
+        if shipped.is_dir() and any(
+            within(f".codex/{sub}/{child.name}") for child in shipped.iterdir()
+        ):
+            return True
+    return False
+
+
+def _stale_agents_references(target: Path, harness: Path) -> list[str]:
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=target, capture_output=True, check=True
+    ).stdout.split(b"\0")
+    stale = []
+    for raw in tracked:
+        if not raw:
+            continue
+        rel = raw.decode("utf-8", errors="surrogateescape")
+        if rel.startswith(".factory/history/") or _is_harness_owned(rel, harness):
+            continue
+        path = target / rel
+        try:
+            if path.is_file() and b".agents/" in path.read_bytes():
+                stale.append(rel)
+        except OSError:
+            continue
+    return sorted(stale)
+
+
 def cmd_upgrade(args: argparse.Namespace) -> None:
     harness = repo_root()
     target = Path(args.target).resolve()
@@ -82,6 +166,7 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     # evolution dirs (proposed/rejected — client's version always wins).
     client_skill_dirs: list[str] = []
     target_skills = target / "factory" / "skills"
+    legacy_skills = target / ".agents" / "skills"
     harness_skill_names = {p.name for p in (harness / "factory" / "skills").iterdir()} \
         if (harness / "factory" / "skills").is_dir() else set()
     if target_skills.is_dir():
@@ -93,12 +178,15 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         src = target / rel
         if src.exists():
             dest = keep_root / rel
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            if src.is_dir():
-                shutil.copytree(src, dest)
-            else:
-                shutil.copy2(src, dest)
+            _keep_path(src, dest)
             preserved[rel] = dest
+    if legacy_skills.is_dir():
+        for child in legacy_skills.iterdir():
+            rel = f"factory/skills/{child.name}"
+            if child.name not in harness_skill_names or rel in PRESERVE_IN_AGENTS:
+                dest = keep_root / rel
+                _keep_path(child, dest)
+                preserved[rel] = dest
 
     for tree in UPGRADE_TREES:
         src = harness / tree
@@ -156,6 +244,8 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
             shutil.copy2(kept, dst)
     shutil.rmtree(keep_root, ignore_errors=True)
 
+    retired_legacy = _retire_legacy_agents(target)
+
     # Newer harness additions that older scaffolds predate: create-if-missing /
     # append-if-missing (never overwrite — projects may extend these files).
     ensured: list[str] = []
@@ -200,5 +290,14 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     if ensured:
         print("Added (missing on this older scaffold): " + ", ".join(ensured))
     print("Untouched (project-owned): " + ", ".join(PROJECT_OWNED) + drift)
+    if retired_legacy:
+        print("Retired legacy machinery: .agents/")
+    stale_references = _stale_agents_references(target, harness)
+    if stale_references:
+        print("Project-owned files still referencing .agents/:")
+        for rel in stale_references:
+            print(f"  {rel}")
+    else:
+        print("Project-owned files still referencing .agents/: none")
     print("Next: review with `git diff`, run `python3 factory/scripts/check_dual_runtime.py` "
           "and the gate tests, then commit.")

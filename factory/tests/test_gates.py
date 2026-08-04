@@ -831,6 +831,113 @@ def test_upgrade_refuses_dirty_target(repo):
     assert proc.returncode != 0 and "uncommitted" in proc.stdout + proc.stderr
 
 
+def _make_legacy_upgrade_target(repo: Path) -> None:
+    shutil.copytree(repo / "factory", repo / ".agents")
+    shutil.rmtree(repo / "factory")
+
+
+def _upgrade_target(repo: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(HARNESS / "factory" / "scripts" / "forge.py"),
+         "upgrade", "--target", str(repo)],
+        cwd=HARNESS, capture_output=True, text=True,
+    )
+
+
+def test_upgrade_retires_the_legacy_agents_tree(repo):
+    _make_legacy_upgrade_target(repo)
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "pre-rename harness layout")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not (repo / ".agents").exists()
+    assert (repo / "factory" / "scripts" / "forge.py").exists()
+    assert (repo / "factory" / "schemas" / "decomposition.json").exists()
+
+
+def test_upgrade_carries_legacy_skills_into_factory(repo):
+    _make_legacy_upgrade_target(repo)
+    legacy_skills = repo / ".agents" / "skills"
+    (legacy_skills / "proposed" / "client-proposal.md").write_text("proposal\n")
+    (legacy_skills / "rejected" / "client-rejection.md").write_text("rejection\n")
+    custom = legacy_skills / "client-release-skill"
+    custom.mkdir()
+    (custom / "SKILL.md").write_text("client skill\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "legacy skill evolution state")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (repo / "factory" / "skills" / "proposed" /
+            "client-proposal.md").read_text() == "proposal\n"
+    assert (repo / "factory" / "skills" / "rejected" /
+            "client-rejection.md").read_text() == "rejection\n"
+    assert (repo / "factory" / "skills" / "client-release-skill" /
+            "SKILL.md").read_text() == "client skill\n"
+    assert not (repo / ".agents").exists()
+
+
+def test_upgrade_refuses_an_unrecognized_path_under_agents(repo):
+    _make_legacy_upgrade_target(repo)
+    orphan = repo / ".agents" / "client-private" / "keep.txt"
+    orphan.parent.mkdir()
+    orphan.write_text("must survive\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "legacy tree with unrecognized content")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert ".agents/client-private/keep.txt" in proc.stdout + proc.stderr
+    assert orphan.read_text() == "must survive\n"
+    assert (repo / ".agents").exists()
+
+
+def test_upgrade_retires_a_legacy_tree_carrying_pycache(repo):
+    # Every repo that actually RAN the old machinery carries __pycache__ under
+    # it, and vendoring never shipped build noise — so a .pyc has no factory/
+    # counterpart by construction. Counting it would abort the upgrade on
+    # exactly the repos this migration exists for.
+    _make_legacy_upgrade_target(repo)
+    cached = repo / ".agents" / "scripts" / "__pycache__" / "forge.cpython-313.pyc"
+    cached.parent.mkdir(parents=True)
+    cached.write_bytes(b"\x00compiled\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "legacy tree with compiled artifacts")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not (repo / ".agents").exists()
+
+
+def test_upgrade_reports_stale_agents_references(repo):
+    _make_legacy_upgrade_target(repo)
+    project_file = repo / "docs" / "context" / "legacy-path.md"
+    project_file.write_text("Run .agents/scripts/verify.py after changes.\n")
+    archived = repo / ".factory" / "history" / "OLD-1" / "notes.md"
+    archived.parent.mkdir(parents=True)
+    archived.write_text("Archived .agents/scripts/verify.py evidence.\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "tracked legacy references")
+    dependency = repo / "node_modules" / "example" / "index.js"
+    dependency.parent.mkdir(parents=True)
+    dependency.write_text("require('.agents/scripts/verify.py')\n")
+    assert not git(repo, "ls-files", "node_modules")
+    before = project_file.read_bytes()
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "docs/context/legacy-path.md" in proc.stdout
+    assert ".factory/history/OLD-1/notes.md" not in proc.stdout
+    assert "node_modules/example/index.js" not in proc.stdout
+    assert project_file.read_bytes() == before
+
+
 # --------------------------------------------------------- misc deterministic
 
 def test_decision_accept_and_plain_issue_keys(repo):
