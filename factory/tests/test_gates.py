@@ -949,9 +949,26 @@ def test_upgrade_refuses_a_symlinked_legacy_skills_root(repo, tmp_path):
     proc = _upgrade_target(repo)
 
     assert proc.returncode != 0
-    assert ".agents/skills is a symlink" in proc.stdout + proc.stderr
+    assert ".agents/skills is not a directory" in proc.stdout + proc.stderr
     assert (repo / ".agents" / "skills").is_symlink()
     assert (external / "vendor-skill" / "SKILL.md").read_text() == "external\n"
+
+
+def test_upgrade_refuses_a_legacy_skills_root_that_is_a_file(repo):
+    # The counterpart check exempts everything under skills/ because a real
+    # directory there is shipped or preserved. A regular FILE at that path is
+    # neither — it would be deleted with the tree, unchecked and unpreserved.
+    _make_legacy_upgrade_target(repo)
+    shutil.rmtree(repo / ".agents" / "skills")
+    (repo / ".agents" / "skills").write_text("client notes, not a skills dir\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "skills root replaced by a file")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert ".agents/skills is not a directory" in proc.stdout + proc.stderr
+    assert (repo / ".agents" / "skills").read_text() == "client notes, not a skills dir\n"
 
 
 def test_upgrade_reports_a_migrated_client_skill_naming_the_old_tree(repo):

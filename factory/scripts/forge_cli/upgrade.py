@@ -98,16 +98,21 @@ def _check_legacy_retirable(target: Path, harness: Path) -> None:
         )
     if not legacy.is_dir():
         return
-    # A symlinked skills root cannot be traversed (iterdir() would walk the
-    # referent) and cannot be merged into the real factory/skills without a
-    # policy for it — and retirement would then delete the link, silently
-    # dropping every client skill it stood for. Refuse the topology instead.
-    if (legacy / "skills").is_symlink():
+    # The whole skills/ subtree is exempt from the counterpart check below
+    # because a real directory there is either shipped or preserved. Anything
+    # ELSE at that path is neither: a symlink cannot be traversed (iterdir()
+    # would walk the referent) and a regular file is never preserved at all,
+    # so retirement would delete tracked client content that nothing checked.
+    # Refuse the topology before any write rather than exempting it.
+    skills_root = legacy / "skills"
+    if skills_root.is_symlink() or (
+            skills_root.exists() and not skills_root.is_dir()):
         fail(
-            ".agents/skills is a symlink. The upgrade cannot migrate client skills "
-            "through it without dereferencing content that lives outside the "
-            "machinery tree, and retiring .agents/ would drop the link. Replace it "
-            "with a real directory (or move it out of .agents/) and re-run."
+            ".agents/skills is not a directory. The upgrade preserves client "
+            "skills only from a real directory there, so retiring .agents/ would "
+            "delete this without it ever being checked — and a symlink would be "
+            "migrated by reading through it. Replace it with a real directory "
+            "(or move it out of .agents/) and re-run. Nothing was written."
         )
     # A legacy skills entry whose name the harness also ships is treated as the
     # machinery being replaced. That cannot be decided from the paths: an older
