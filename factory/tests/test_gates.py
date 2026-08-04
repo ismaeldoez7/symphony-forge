@@ -4055,6 +4055,34 @@ def test_stage_done_termination_signal_reaps_active_proof(
         os.kill(child_pid, 0)
 
 
+def test_process_identity_matches_the_process_table_on_single_digit_days(repo):
+    # `ps -o lstart=` pads the day of month to width two ("Aug  4"), while
+    # _process_table rebuilds identity with " ".join(fields) and collapses it.
+    # Every identity comparison in the module pits one form against the other,
+    # so an unnormalized probe matches nothing on days 1-9 — no observed
+    # process is recognized as live, none is signalled, and proof trees
+    # survive. It passed on 2026-07-30 and failed on 2026-08-04 for that
+    # reason alone. Assert the two forms agree for a live process.
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+
+        proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(5)"])
+        try:
+            probed = delegate._process_start_identity(proc.pid)
+            tabled = delegate._process_table().get(proc.pid)
+            assert probed is not None and tabled is not None
+            assert probed == tabled[1], (
+                f"identity forms disagree: probe={probed!r} table={tabled[1]!r}")
+            assert "  " not in probed
+        finally:
+            proc.kill()
+            proc.wait(timeout=5)
+    finally:
+        sys.path.remove(str(repo / "factory" / "scripts"))
+        sys.modules.pop("forge_cli.delegate", None)
+
+
 @pytest.mark.parametrize("proof_kind", ["verify-command", "required-test"])
 def test_proof_reaps_spawn_when_process_identity_probe_fails(
         repo, monkeypatch, proof_kind):
