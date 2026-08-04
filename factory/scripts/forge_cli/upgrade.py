@@ -199,7 +199,8 @@ def _indexed_symlinks_naming_legacy(target: Path) -> list[str]:
 
 
 def _stale_agents_references(
-    target: Path, harness: Path, migrated: list[str] | None = None
+    target: Path, harness: Path, migrated: list[str] | None = None,
+    from_legacy: set[str] | None = None,
 ) -> list[str]:
     """Project-owned files that still name the retired tree.
 
@@ -227,14 +228,18 @@ def _stale_agents_references(
     # untracked until the human stages the upgrade. Their INDEXED source is the
     # .agents/skills/ path, so translate the hit to where the file now lives
     # rather than walking the freshly copied tree.
-    carried = {
-        rel[len("factory/skills/"):].split("/", 1)[0]
-        for rel in migrated or [] if rel.startswith("factory/skills/")
-    }
+    # ONLY names actually carried out of the legacy tree. A name preserved from
+    # the CURRENT location had its legacy twin deliberately skipped (the
+    # current location wins), so translating that discarded copy's hits would
+    # name a current file that has no stale reference — or none at all.
+    carried = from_legacy or set()
     # A client skill ALREADY at factory/skills/<name> is preserved, not
     # replaced — so it is project-owned even though _is_harness_owned sees it
-    # inside an UPGRADE_TREES entry and would otherwise discard it.
-    preserved = tuple(f"{rel}/" for rel in migrated or [])
+    # inside an UPGRADE_TREES entry and would otherwise discard it. Match the
+    # path itself as well as its descendants: a skill can be a single file
+    # (factory/skills/client.md) or a symlink, preserved at that exact path.
+    owned = set(migrated or [])
+    preserved = tuple(f"{rel}/" for rel in owned)
     stale = set()
     for rel in hits:
         if rel.startswith(".factory/history/"):
@@ -244,7 +249,8 @@ def _stale_agents_references(
             if len(parts) > 2 and parts[1] == "skills" and parts[2] in carried:
                 stale.add("factory/skills/" + "/".join(parts[2:]))
             continue
-        if not rel.startswith(preserved) and _is_harness_owned(rel, harness):
+        if rel not in owned and not rel.startswith(preserved) \
+                and _is_harness_owned(rel, harness):
             continue
         stale.add(rel)
     return sorted(stale)
@@ -274,6 +280,7 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     # a dozen). Preserve every child the harness does not ship, plus the
     # evolution dirs (proposed/rejected — client's version always wins).
     client_skill_dirs: list[str] = []
+    carried_from_legacy: set[str] = set()
     target_skills = target / "factory" / "skills"
     legacy_skills = target / ".agents" / "skills"
     harness_skill_names = {p.name for p in (harness / "factory" / "skills").iterdir()} \
@@ -303,6 +310,7 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
                 dest = keep_root / rel
                 _keep_path(child, dest)
                 preserved[rel] = dest
+                carried_from_legacy.add(child.name)
 
     for tree in UPGRADE_TREES:
         src = harness / tree
@@ -410,7 +418,8 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     print("Untouched (project-owned): " + ", ".join(PROJECT_OWNED) + drift)
     if retired_legacy:
         print("Retired legacy machinery: .agents/")
-    stale_references = _stale_agents_references(target, harness, sorted(preserved))
+    stale_references = _stale_agents_references(
+        target, harness, sorted(preserved), carried_from_legacy)
     # The scan reads the index, which equals the working tree only because the
     # dirty-target gate held. --force bypasses that gate, so uncommitted edits
     # and untracked files are outside what was searched — say so rather than
