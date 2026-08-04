@@ -1450,6 +1450,20 @@ def test_upgrade_reports_a_client_skill_already_at_the_current_path(repo):
     assert "factory/skills/client-current-skill/SKILL.md" in proc.stdout
 
 
+def test_adapter_check_tolerates_os_artifacts(repo):
+    # A structural gate must not depend on whether someone opened the folder
+    # in Finder. These are gitignored everywhere and recreated by the desktop;
+    # failing on them took check_dual_runtime — and verify.py with it — red in
+    # a freshly upgraded client repo.
+    for adapter in (".claude", ".codex"):
+        (repo / adapter).mkdir(parents=True, exist_ok=True)
+        (repo / adapter / ".DS_Store").write_bytes(b"\x00finder\n")
+    proc = subprocess.run(
+        [sys.executable, str(repo / "factory/scripts/check_dual_runtime.py")],
+        cwd=repo, capture_output=True, text=True)
+    assert ".DS_Store" not in proc.stdout + proc.stderr
+
+
 def test_upgrade_does_not_vendor_os_noise(repo):
     # .DS_Store is gitignored in the HARNESS, so it is invisible there while
     # sitting on disk — and copytree walks the filesystem, not the index. A
