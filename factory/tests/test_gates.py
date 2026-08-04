@@ -811,6 +811,31 @@ def test_parse_sections_reads_examples_as_examples():
     assert set(factory_lib.parse_sections(
         "- example:\n  ```\n\n  ## Hidden\n  ```\n\n## Why\n\nreal\n"
     )) == {"Why"}
+    # Indentation alone is not list membership: a TOP-LEVEL fence may indent up
+    # to three spaces, and closing that one early hands its headings over.
+    assert factory_lib.parse_sections(
+        "# S\n\n   ```md\n## Why\n\nw\n\n## Behaviour\n\nb\n   ```\n"
+    ) == {}
+    assert set(factory_lib.parse_sections(
+        "- item\n\ntext\n\n  ```\n## Hidden\n  ```\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+    # `<pre>` and friends hold their content verbatim to a closing tag, in any
+    # case. A `<div>` does NOT: that block ends at the blank line, so the
+    # heading after it is the document's own and masking to `</div>` would
+    # refuse a complete spec.
+    assert factory_lib.parse_sections(
+        "# S\n\n<pre>\n## Why\n\nw\n\n## Behaviour\n\nb\n</pre>\n"
+    ) == {}
+    assert set(factory_lib.parse_sections(
+        "# S\n\n<PRE>\n## Hidden\n</PRE>\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+    assert set(factory_lib.parse_sections(
+        "# S\n\n<div>\n\n## Why\n\nreal\n\n</div>\n"
+    )) == {"Why"}
+    assert set(factory_lib.parse_sections(
+        "# S\n\n<pre>\n\n## Why\n\nreal\n"
+    )) == {"Why"}
 
 
 def test_spec_confirm_refuses_headings_that_only_exist_in_an_example(repo):
@@ -4583,6 +4608,14 @@ def test_doctor_reports_legacy_capture_without_blocking(repo, capsys):
     assert ("[opt ] capture/spec  docs/specs/legacy-two.md: "
             "## Acceptance criteria") in out
     assert "draft.md" not in out
+
+    # A brief that does not exist is the most incomplete a brief can be, and a
+    # project with no brief is exactly the one that needs to be told.
+    brief.unlink()
+    report_legacy_capture_gaps(repo)
+    out = capsys.readouterr().out
+    assert all(f"{heading}" in out for heading in BRIEF_HEADINGS)
+    assert out.startswith("[opt ] capture/brief docs/product/BRIEF.md:")
 
     brief.write_text("\n".join(
         f"## {heading}\n\nCaptured." for heading in BRIEF_HEADINGS

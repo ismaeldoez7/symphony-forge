@@ -97,6 +97,16 @@ FENCE_LINE = re.compile(r"^ {0,3}(?P<run>`{3,}|~{3,})(?P<info>[^\r\n]*)$")
 # appears inside inline code (`` `<!--` ``) and prose about comments, and an
 # opener taken from there swallows every heading after it.
 COMMENT_OPEN = re.compile(r" {0,3}<!--")
+# A list marker, because a fence's indentation alone does not say whether it
+# belongs to a list item: CommonMark lets a TOP-LEVEL fence indent up to three
+# spaces too, and closing that one early hands the example's headings to the
+# document.
+LIST_ITEM = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])[ \t]")
+# The raw HTML blocks that hold their content VERBATIM until a closing tag.
+# Deliberately not every block tag: a `<div>` block ends at a blank line, so a
+# heading after that blank line really is the document's own, and masking to
+# `</div>` would refuse a complete spec.
+RAW_BLOCK_OPEN = re.compile(r" {0,3}<(pre|script|style|textarea)[ \t>]", re.I)
 
 
 def _indent(line: str) -> int:
@@ -104,8 +114,8 @@ def _indent(line: str) -> int:
 
 
 def example_ranges(text: str) -> list[tuple[int, int]]:
-    """Character spans holding fenced blocks and HTML comments — illustration,
-    not document structure.
+    """Character spans holding fenced blocks, HTML comments and raw HTML —
+    illustration, not document structure.
 
     A `## Why` inside an example is an example of a heading, so counting it lets
     a spec satisfy the capture gate without ever stating why. Both constructs
@@ -127,23 +137,31 @@ def example_ranges(text: str) -> list[tuple[int, int]]:
     """
     ranges: list[tuple[int, int]] = []
     fence: tuple[str, int, int] | None = None
-    comment_at: int | None = None
+    # (closing marker, start offset) for the constructs that run verbatim to a
+    # marker rather than to a matching fence line: HTML comments and raw blocks.
+    verbatim: tuple[str, int] | None = None
     opened_at = 0
     offset = 0
+    in_list = False
     for line in text.splitlines(keepends=True):
         match = FENCE_LINE.match(line.rstrip("\r\n"))
         if fence is not None and line.strip() and _indent(line) < fence[2]:
             # A fence opened inside a list item ends when the item does, so an
-            # outdented line closes it. Without this the nested fence stays
-            # open and pairs with a later top-level one, masking the real
-            # headings between them. Top-level fences open at column zero and
-            # nothing outdents past that, so only nested fences change here.
+            # outdented line closes it. Only fences opened inside a list carry
+            # a non-zero guard (see below), so a top-level fence — which may
+            # itself be indented up to three spaces — is never closed early.
             ranges.append((opened_at, offset))
             fence = None
-        if comment_at is not None:
-            if (closes := line.find("-->")) != -1:
-                ranges.append((comment_at, offset + closes + 3))
-                comment_at = None
+        if fence is None and verbatim is None:
+            if LIST_ITEM.match(line):
+                in_list = True
+            elif line.strip() and _indent(line) == 0:
+                in_list = False
+        if verbatim is not None:
+            marker, started = verbatim
+            if (closes := line.lower().find(marker)) != -1:
+                ranges.append((started, offset + closes + len(marker)))
+                verbatim = None
         elif fence is not None:
             # CommonMark allows only spaces and tabs after a closing fence, so
             # `strip()` — which also eats NBSP and every other Unicode space —
@@ -156,20 +174,34 @@ def example_ranges(text: str) -> list[tuple[int, int]]:
                 fence = None
         elif match and (match.group("run")[0] == "~"
                         or "`" not in match.group("info")):
+            # The outdent guard is the fence's own indentation ONLY inside a
+            # list; at top level it is 0, which no line can undercut.
             fence = (match.group("run")[0], len(match.group("run")),
-                     match.start("run"))
+                     match.start("run") if in_list else 0)
             opened_at = offset
         elif opener := COMMENT_OPEN.match(line):
-            if (closes := line.find("-->", opener.end())) != -1:
-                ranges.append((offset, offset + closes + 3))
-            else:
-                comment_at = offset
+            verbatim = _verbatim_span(ranges, line, offset, opener.end(), "-->")
+        elif opener := RAW_BLOCK_OPEN.match(line):
+            verbatim = _verbatim_span(
+                ranges, line, offset, opener.end(),
+                f"</{opener.group(1).lower()}>",
+            )
         offset += len(line)
     return ranges
 
 
+def _verbatim_span(
+    ranges: list[tuple[int, int]], line: str, offset: int, start: int, marker: str
+) -> tuple[str, int] | None:
+    """Close the span on this line, or report it still open."""
+    if (closes := line.lower().find(marker, start)) == -1:
+        return marker, offset
+    ranges.append((offset, offset + closes + len(marker)))
+    return None
+
+
 def outside_examples(text: str, matches) -> list:
-    """The matches that start outside every fenced block and HTML comment."""
+    """The matches that start outside every example span (example_ranges)."""
     ranges = example_ranges(text)
     return [
         match for match in matches

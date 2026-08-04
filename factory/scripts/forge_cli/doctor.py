@@ -134,12 +134,14 @@ def legacy_capture_gaps(base: Path) -> list[tuple[str, str]]:
     """Brief/spec capture gaps that predate the required-heading contract."""
     found = []
     brief = base / "docs" / "product" / "BRIEF.md"
-    if brief.is_file():
-        sections = parse_sections(brief.read_text())
-        missing = [heading for heading in BRIEF_REQUIRED_HEADINGS
-                   if not sections.get(heading, "").strip()]
-        if missing:
-            found.append(("brief", f"docs/product/BRIEF.md: {', '.join(missing)}"))
+    # A missing brief is the most incomplete a brief can be. Reporting only
+    # briefs that exist made the one project that needs this line the one
+    # project that never sees it, while sign-off refuses it either way.
+    sections = parse_sections(brief.read_text()) if brief.is_file() else {}
+    missing = [heading for heading in BRIEF_REQUIRED_HEADINGS
+               if not sections.get(heading, "").strip()]
+    if missing:
+        found.append(("brief", f"docs/product/BRIEF.md: {', '.join(missing)}"))
 
     specs = base / "docs" / "specs"
     for spec in sorted(specs.glob("*.md")) if specs.is_dir() else []:
