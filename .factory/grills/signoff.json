@@ -20,6 +20,6 @@
     "Non-blocking: 0004-mandatory-plan-mode is superseded by 0013 and correctly inactive.",
     "Non-blocking: the harness repo is its own client (0010). Stakeholder, constraint and non-functional questions that a client project's sign-off would hunt are answered by that decision rather than re-elicited."
   ],
-  "recorded_at": "2026-08-04T15:17:59+00:00",
-  "commit": "27da2928ae27b3d9e2cf79b96c885e72998ad21c"
+  "recorded_at": "2026-08-04T15:18:15+00:00",
+  "commit": "ea653d06601ff8520aebd69ee26c294cf0171b1e"
 }
