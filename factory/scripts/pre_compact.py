@@ -15,7 +15,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from factory_lib import load_json, now_iso, read_hook_input, repo_root, run_state_path
+from factory_lib import (
+    client_signoff, load_json, now_iso, read_hook_input, repo_root,
+    run_state_path,
+)
 
 
 def snapshot(root: Path, trigger: str) -> str:
@@ -44,7 +47,7 @@ def snapshot(root: Path, trigger: str) -> str:
         ]
     else:
         lines += ["## Active task", f"- none (phase: {state.get('phase', 'uninitialized')}, "
-                  f"client_signoff: {state.get('client_signoff', False)})"]
+                  f"client_signoff: {client_signoff(root)[0]})"]
     stages = load_stages(root).get("stages", [])
     if stages:
         done = sum(1 for s in stages if s.get("status") == "done")

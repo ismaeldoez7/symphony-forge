@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 from factory_lib import (
-    dump_json, load_json, now_iso, repo_root, review_dir, run_state_path,
+    client_signoff, dump_json, load_json, now_iso, repo_root, review_dir, run_state_path,
     tests_state_path, verify_state_path,
 )
 
@@ -52,12 +52,10 @@ if args.phase == "pr-ready":
         "Phase 'pr-ready' is reachable only through "
         "`python3 factory/scripts/pr_ready.py`; update_run.py cannot set it directly."
     )
-if args.phase in GATED_PHASES and not state.get("client_signoff"):
-    raise SystemExit(
-        f"Phase '{args.phase}' requires client sign-off. Get "
-        "docs/decisions/NNNN-client-signoff.md accepted (non-empty confirmed_by), "
-        "then run `python3 factory/scripts/record_signoff.py` first."
-    )
+if args.phase in GATED_PHASES:
+    ok, why = client_signoff(root)
+    if not ok:
+        raise SystemExit(f"Phase '{args.phase}' requires client sign-off. {why}")
 IMPL_PHASES = {"implementing", "testing", "reviewing", "functional-check", "pr-ready"}
 
 issue = state.get("issue_key", "")

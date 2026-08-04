@@ -11,7 +11,10 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from factory_lib import head_sha, repo_root
+from factory_lib import (
+    SIGNOFF_KEY, canonical_signoff_path, head_sha, insert_signoff_pin,
+    load_json, repo_root,
+)
 
 from .common import fail
 from .scaffold import (
@@ -413,6 +416,36 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         ensured.append(".envrc (run `direnv allow` in the repo)")
     if ensure_jsonl_attributes(target, harness):
         ensured.append(".gitattributes (missing JSONL merge rules added)")
+
+    # Sign-off moved from a per-worktree run.json flag to a committed
+    # harness.yaml pin. A project that signed off under the old scheme keeps
+    # its project-owned harness.yaml (no key) and its old run.json, so carry
+    # the attestation across rather than silently un-signing the project.
+    manifest_yaml = target / "harness.yaml"
+    if (manifest_yaml.exists() and not manifest_yaml.is_symlink()
+            and not SIGNOFF_KEY.search(manifest_yaml.read_text())):
+        legacy = load_json(target / ".factory" / "run.json", default={})
+        carried = (legacy.get("client_signoff_record", "")
+                   if legacy.get("client_signoff") else "")
+        # Persist the CANONICAL path, never run.json's spelling: run.json is
+        # gitignored, per-worktree, ungoverned state, and a value there can
+        # resolve to a valid record yet be absolute (machine-specific) or carry
+        # quotes/newlines that inject YAML into harness.yaml.
+        #
+        # NO inference from the decision corpus when it is missing: an accepted
+        # client-signoff record is not evidence that sign-off HAPPENED (it can
+        # be committed before record_signoff.py ever succeeds, and the required
+        # grill leaves no committed trace). Absent legacy state stays unsigned,
+        # which is exactly what the old scheme did in a fresh clone.
+        carried = canonical_signoff_path(target, carried) if carried else ""
+        manifest_yaml.write_text(
+            insert_signoff_pin(manifest_yaml.read_text(), carried)
+        )
+        ensured.append(
+            "harness.yaml signoff_record pin ("
+            + (carried or "EMPTY — pin it with record_signoff.py [--record <path>]")
+            + ")"
+        )
     from .scaffold import ensure_onboarding
     if ensure_onboarding(target, target.name):
         ensured.append("README.md ('Working in this repo' onboarding section appended)")

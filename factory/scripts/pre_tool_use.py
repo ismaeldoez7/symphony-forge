@@ -6,7 +6,9 @@ import re
 import shlex
 from pathlib import Path
 
-from factory_lib import load_json, read_hook_input, repo_root, run_state_path
+from factory_lib import (
+    client_signoff, load_json, read_hook_input, repo_root, run_state_path,
+)
 from forge_cli.quickfix import claim_files, load_active
 
 payload = read_hook_input()
@@ -342,12 +344,23 @@ has_companion = (
            for token in shell_tokens)
     or "codexcompanion" in compact_command
 )
-if tool_name == "Bash" and has_companion:
-    deny("Direct Codex companion commands are off-contract. Use "
+# Read-only companion runs are the /codex:rescue exploration lane and
+# pass. Only write launches must route through the canonical executor,
+# which owns the argv and records evidence `forge stage done` can verify.
+COMPANION_WRITE_FLAGS = {
+    "--write", "--full-auto", "--dangerously-bypass-approvals-and-sandbox",
+}
+has_companion_write = (
+    any(token in COMPANION_WRITE_FLAGS for token in shell_tokens)
+    or "--write" in shell_shape
+)
+if tool_name == "Bash" and has_companion and has_companion_write:
+    deny("Companion write launches are off-contract. Use "
          "`./forge delegate <task-id>`; it owns the argv launch and records "
-         "evidence that `forge stage done` can verify.")
+         "evidence that `forge stage done` can verify. Read-only companion "
+         "runs (/codex:rescue exploration) are allowed.")
 
-if run_state and not run_state.get("client_signoff"):
+if run_state and not client_signoff(root)[0]:
     advancing = any(script in command for script in PHASE_ADVANCING)
     if "update_run.py" in command and "--phase" in command:
         advancing = advancing or any(phase in command for phase in GATED_PHASES)

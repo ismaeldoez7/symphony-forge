@@ -163,7 +163,7 @@ def seed_signoff_inputs(repo: Path) -> None:
 
 
 def sign_off(repo: Path) -> None:
-    if json.loads((repo / ".factory" / "run.json").read_text()).get("client_signoff"):
+    if signed_off(repo):
         return  # idempotent: already signed off
     seed_signoff_inputs(repo)
     code, out = record_grill(repo, "signoff")
@@ -250,6 +250,14 @@ def run_state(repo: Path) -> dict:
     return json.loads((repo / ".factory" / "run.json").read_text())
 
 
+def signed_off(repo: Path) -> bool:
+    """Sign-off is DERIVED from the committed harness.yaml pin, never from
+    per-worktree run.json — that is the whole point of the pin."""
+    match = re.search(r'^signoff_record:\s*"([^"]*)"', (repo / "harness.yaml").read_text(),
+                      re.MULTILINE)
+    return bool(match and match.group(1))
+
+
 def refresh_manifest(repo: Path) -> None:
     """What a real forge upgrade does after touching the gate surface."""
     proc = subprocess.run(
@@ -267,7 +275,7 @@ def refresh_manifest(repo: Path) -> None:
 
 def test_full_lifecycle_and_archive(repo, tmp_path):
     sign_off(repo)
-    assert run_state(repo)["client_signoff"] is True
+    assert signed_off(repo)
     code, _ = intake(repo)
     assert code == 0
     code, out = save_plan(repo, tmp_path)
@@ -298,7 +306,8 @@ def test_full_lifecycle_and_archive(repo, tmp_path):
     assert not (repo / ".factory" / "reviews").exists()
     assert not (repo / ".factory" / "grills" / "plan.json").exists()
     live = run_state(repo)
-    assert live["phase"] == "shipped" and live["client_signoff"] is True
+    assert live["phase"] == "shipped" and signed_off(repo)
+    assert "client_signoff" not in live  # derived from harness.yaml, never stored
     assert "issue_key" not in live and "last_shipped" not in live
     assert "updated_at" not in live  # byte-stable across parallel branches
     # Idempotent rerun (autoreview r2)
@@ -355,7 +364,318 @@ def test_intake_starts_discovery_before_signoff_and_planning_after(repo, tmp_pat
     sign_off(repo)
     intake(repo, "ENG-2", "Refunds")
     state = run_state(repo)
-    assert state["phase"] == "planning" and state["client_signoff"] is True
+    assert state["phase"] == "planning" and signed_off(repo)
+
+
+def test_signoff_is_pinned_and_cannot_be_repointed(repo, tmp_path):
+    """The D-0032 bug: sign-off picked the highest-numbered client-signoff
+    record, whatever task it belonged to, so a later unrelated record silently
+    became the project's attestation — confirmed by the wrong human."""
+    sign_off(repo)
+    pinned = re.search(r'^signoff_record:\s*"([^"]*)"',
+                       (repo / "harness.yaml").read_text(), re.MULTILINE).group(1)
+
+    # A LATER, higher-numbered record for some other task shows up.
+    later = repo / "docs" / "decisions" / "9999-client-signoff.md"
+    later.write_text('---\nstatus: accepted\nconfirmed_by: "Someone Else"\n---\n\n# Other task\n')
+
+    # Re-running refuses outright rather than re-pointing the attestation.
+    code, out = run(repo, "record_signoff.py")
+    assert code != 0 and "already signed off" in out, out
+    still = re.search(r'^signoff_record:\s*"([^"]*)"',
+                      (repo / "harness.yaml").read_text(), re.MULTILINE).group(1)
+    assert still == pinned, "the pin moved to an unrelated record"
+
+    # And unknown flags are rejected, not silently swallowed (--notes used to be).
+    code, out = run(repo, "record_signoff.py", "--notes", "hi")
+    assert code != 0, out
+
+
+def test_signoff_record_must_be_a_real_signoff_record(repo, tmp_path):
+    """--record pinned any file that merely carried `status: accepted` and a
+    confirmed_by, including one outside docs/decisions (autoreview P1)."""
+    seed_signoff_inputs(repo)  # sign-off now requires confirmed specs + roadmap
+    # Written BEFORE the grill: creating it after would trip the (separate,
+    # also correct) grill-staleness gate and prove nothing about --record.
+    impostor = repo / "docs" / "decisions" / "0001-some-other-decision.md"
+    impostor.write_text('---\nstatus: accepted\nconfirmed_by: "Nobody"\n---\n\n# Unrelated\n')
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "unrelated decision")
+    code, out = record_grill(repo, "signoff")
+    assert code == 0, out
+    code, out = run(repo, "record_signoff.py", "--record", str(impostor.relative_to(repo)))
+    assert code != 0 and "not a client sign-off record" in out, out
+
+    outside = tmp_path / "elsewhere" / "0001-client-signoff.md"
+    outside.parent.mkdir(parents=True, exist_ok=True)
+    outside.write_text('---\nstatus: accepted\nconfirmed_by: "Nobody"\n---\n')
+    code, out = run(repo, "record_signoff.py", "--record", str(outside))
+    assert code != 0 and "not a client sign-off record" in out, out
+    assert not signed_off(repo)
+
+
+def test_pin_insertion_preserves_a_yaml_prologue(repo):
+    """Adding the key to a pre-pin manifest must land INSIDE the document:
+    prepending before a `---` marker makes a two-document stream that consumers
+    can no longer read as one mapping (r11)."""
+    from importlib import import_module
+    import sys
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    sys.modules.pop("factory_lib", None)
+    factory_lib = import_module("factory_lib")
+
+    # A symlink LOOP must read as an invalid pin, not a traceback: non-strict
+    # resolve() raises RuntimeError for loops on Python 3.10-3.12 (CI's) and
+    # OSError elsewhere (r11/r12).
+    loop = repo / "docs" / "decisions" / "0001-loop-client-signoff.md"
+    loop.symlink_to(loop)
+    assert factory_lib.canonical_signoff_path(
+        repo, "docs/decisions/0001-loop-client-signoff.md") == ""
+    assert factory_lib.client_signoff(repo)[0] is False
+    loop.unlink()
+
+    doc = "%YAML 1.2\n---\nversion: 1\nprecedence:\n  - constitution\n"
+    out = factory_lib.insert_signoff_pin(doc, "docs/decisions/0001-client-signoff.md")
+    assert out.startswith("%YAML 1.2\n---\n"), out
+    assert out.count("---") == 1, out
+    assert out.splitlines()[2] == 'signoff_record: "docs/decisions/0001-client-signoff.md"'
+
+    # A document-start marker carrying an inline comment is still a marker,
+    # after a space OR a tab (both valid YAML separation).
+    for marker in ("--- # main document", "---\t# main document"):
+        out_t = factory_lib.insert_signoff_pin(
+            marker + "\nversion: 1\n", "docs/decisions/0001-client-signoff.md")
+        assert out_t.startswith(marker + "\n"), out_t
+        assert out_t.splitlines()[1].startswith('signoff_record: "')
+
+    commented_marker = "--- # main document\nversion: 1\n"
+    out3 = factory_lib.insert_signoff_pin(commented_marker, "docs/decisions/0001-client-signoff.md")
+    assert out3.startswith("--- # main document\n"), out3
+    assert out3.splitlines()[1].startswith('signoff_record: "')
+
+    # Replacing an existing key is still a plain line substitution.
+    again = factory_lib.insert_signoff_pin(out, "docs/decisions/0002-client-signoff.md")
+    assert again.count("signoff_record:") == 1
+    assert "0002-client-signoff.md" in again
+
+    # A leading comment block (this harness's own shape) is preserved too.
+    commented = "# header\n\nversion: 1\n"
+    out2 = factory_lib.insert_signoff_pin(commented, "docs/decisions/0001-client-signoff.md")
+    assert out2.startswith('signoff_record: "'), out2
+
+    sys.path.remove(str(repo / "factory" / "scripts"))
+    sys.modules.pop("factory_lib", None)
+
+
+def test_symlinked_manifest_is_refused(repo, tmp_path):
+    """A symlinked harness.yaml would let the gate's 'committed' state live
+    outside the repo, and write_text would follow the link (r6)."""
+    seed_signoff_inputs(repo)  # sign-off now requires confirmed specs + roadmap
+    # Everything sign-off needs must be READY, or the command refuses for an
+    # unrelated reason and the control proves nothing.
+    record = repo / "docs" / "decisions" / "0001-client-signoff.md"
+    record.write_text('---\nstatus: accepted\nconfirmed_by: "PM"\n---\n')
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "signoff record")
+    code, out = record_grill(repo, "signoff")
+    assert code == 0, out
+
+    real = tmp_path / "elsewhere.yaml"
+    real.write_text((repo / "harness.yaml").read_text())
+    (repo / "harness.yaml").unlink()
+    (repo / "harness.yaml").symlink_to(real)
+
+    code, out = run(repo, "record_signoff.py")
+    assert code != 0 and "symlink" in out, out
+    assert 'signoff_record: ""' in real.read_text(), "wrote through the symlink"
+
+
+def test_migration_ignores_a_mentioned_but_unset_key(repo):
+    """The key must be detected as a real top-level assignment: a project-owned
+    harness.yaml may mention it in a comment, and a substring test would then
+    skip the migration and leave a legacy project silently unsigned (r6)."""
+    from importlib import import_module
+    import sys
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    sys.modules.pop("factory_lib", None)
+    factory_lib = import_module("factory_lib")
+    commented = "# signoff_record: docs/decisions/0001-client-signoff.md (example)\n"
+    assert not factory_lib.SIGNOFF_KEY.search(commented)
+    assert factory_lib.SIGNOFF_KEY.search('signoff_record: ""\n')
+
+    # A bare `signoff_record:` is valid YAML for "no value". The reader must not
+    # swallow the following top-level key as the pin (r7).
+    manifest = repo / "harness.yaml"
+    manifest.write_text("signoff_record:\nprecedence:\n  - constitution\n")
+    assert factory_lib.signoff_pin(repo) == ""
+    assert factory_lib.client_signoff(repo)[0] is False
+    sys.path.remove(str(repo / "factory" / "scripts"))
+    sys.modules.pop("factory_lib", None)
+
+
+def test_upgrade_migration_canonicalizes_the_carried_pin(repo, tmp_path):
+    """The migration reads run.json — gitignored, per-worktree, ungoverned. A
+    value there can RESOLVE to a valid record while still being absolute
+    (machine-specific) or carrying quotes/newlines that inject YAML into
+    harness.yaml, so what gets persisted must be the canonical path (r4)."""
+    from importlib import import_module
+    import sys
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    for mod in ("factory_lib",):
+        sys.modules.pop(mod, None)
+    factory_lib = import_module("factory_lib")
+
+    record = repo / "docs" / "decisions" / "0007-client-signoff.md"
+    record.write_text('---\nstatus: accepted\nconfirmed_by: "PM"\n---\n')
+
+    # An absolute path resolves fine but must never be persisted.
+    assert factory_lib.canonical_signoff_path(repo, str(record)) == \
+        "docs/decisions/0007-client-signoff.md"
+    # A traversal that lands on the real record is normalised, not echoed back.
+    sneaky = 'docs/decisions/x"\nprecedence: []\n#/../0007-client-signoff.md'
+    assert factory_lib.canonical_signoff_path(repo, sneaky) in (
+        "", "docs/decisions/0007-client-signoff.md")
+    assert '"' not in factory_lib.canonical_signoff_path(repo, sneaky)
+    # `$` also matches before a trailing newline, so a file named
+    # "...client-signoff.md\n" would validate and then write a multi-line pin
+    # that the reader truncates — success reported, every gate locked (r5).
+    newline_named = repo / "docs" / "decisions" / "0008-client-signoff.md\n"
+    try:
+        newline_named.write_text('---\nstatus: accepted\nconfirmed_by: "PM"\n---\n')
+    except OSError:  # filesystem refuses the name; the guard is then moot
+        newline_named = None
+    if newline_named is not None:
+        assert factory_lib.canonical_signoff_path(
+            repo, newline_named.relative_to(repo).as_posix()) == ""
+        newline_named.unlink()
+
+    sys.path.remove(str(repo / "factory" / "scripts"))
+    sys.modules.pop("factory_lib", None)
+
+
+def test_signoff_pin_cannot_escape_docs_decisions(repo, tmp_path):
+    """The READER is authoritative: a correctly-named symlink pointing outside
+    docs/decisions/ must not satisfy the gate, however it got pinned — glob
+    discovery matches symlinks, and the upgrade migration carries a path out of
+    gitignored run.json (autoreview r3)."""
+    # Named VALIDLY on purpose: resolve() follows the link, so a badly-named
+    # target would be caught by the name rule and prove nothing about
+    # containment.
+    outside = tmp_path / "0001-client-signoff.md"
+    outside.write_text('---\nstatus: accepted\nconfirmed_by: "Nobody"\n---\n')
+    link = repo / "docs" / "decisions" / "0001-escape-client-signoff.md"
+    link.symlink_to(outside)
+
+    # Pinned by hand, as a hostile or mistaken edit would.
+    harness_yaml = repo / "harness.yaml"
+    harness_yaml.write_text(
+        re.sub(r'^signoff_record:.*$',
+               'signoff_record: "docs/decisions/0001-escape-client-signoff.md"',
+               harness_yaml.read_text(), count=1, flags=re.MULTILINE)
+    )
+    plan = tmp_path / "plan.md"
+    plan.write_text(PLAN_BODY)
+    code, out = run(repo, "forge.py", "plan", "save", "--issue", "ENG-9", "--from", str(plan))
+    # The invariant's OWN message: asserting a loose "sign-off" would also match
+    # unrelated refusals and the control would pass with the check removed.
+    assert code != 0 and "not a readable client sign-off record" in out, out
+
+    # An ABSOLUTE pin resolves here but breaks in every other clone, so the
+    # reader requires the pin to be canonical, not merely resolvable.
+    real = repo / "docs" / "decisions" / "0009-client-signoff.md"
+    real.write_text('---\nstatus: accepted\nconfirmed_by: "PM"\n---\n')
+    harness_yaml.write_text(
+        re.sub(r'^signoff_record:.*$', f'signoff_record: "{real}"',
+               harness_yaml.read_text(), count=1, flags=re.MULTILINE)
+    )
+    code, out = run(repo, "forge.py", "plan", "save", "--issue", "ENG-9", "--from", str(plan))
+    assert code != 0 and "not a readable client sign-off record" in out, out
+
+
+def test_discovery_pins_the_canonical_path_not_a_symlink(repo):
+    """A correctly named symlink beside its target passes the path check, but
+    persisting the LINK's spelling writes a pin the reader rejects: success
+    reported, every gate locked, repair refused because the pin is non-empty.
+    The two also have to count as ONE record, not an ambiguous two."""
+    seed_signoff_inputs(repo)
+    real = repo / "docs" / "decisions" / "0001-client-signoff.md"
+    real.write_text('---\nstatus: accepted\nconfirmed_by: "Client PM"\n---\n')
+    link = repo / "docs" / "decisions" / "0002-alias-client-signoff.md"
+    link.symlink_to(real)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "record plus alias")
+    code, out = record_grill(repo, "signoff")
+    assert code == 0, out
+
+    code, out = run(repo, "record_signoff.py")
+    assert code == 0, out  # one record, not "several ... use --record"
+    pinned = re.search(r'^signoff_record:\s*"([^"]*)"',
+                       (repo / "harness.yaml").read_text(), re.MULTILINE).group(1)
+    assert pinned == "docs/decisions/0001-client-signoff.md", pinned
+    assert signed_off(repo), "the pin the writer chose must satisfy the reader"
+
+
+def test_signoff_pin_round_trips_or_is_refused(repo):
+    """The writer must not accept a name the stdlib pin reader truncates: that
+    combination reports success while leaving every gate locked, and the repair
+    path then refuses because the pin is non-empty (autoreview r2)."""
+    seed_signoff_inputs(repo)  # sign-off now requires confirmed specs + roadmap
+    odd = repo / "docs" / "decisions" / "0001-acme co client-signoff.md"
+    odd.write_text('---\nstatus: accepted\nconfirmed_by: "PM"\n---\n')
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "oddly named record")
+    code, out = record_grill(repo, "signoff")
+    assert code == 0, out
+
+    code, out = run(repo, "record_signoff.py", "--record", str(odd.relative_to(repo)))
+    assert code != 0, out
+    assert not signed_off(repo)
+    # And it is not silently chosen by auto-discovery either. This test
+    # deliberately never calls sign_off(), so the fresh `forge init` fixture
+    # holds no valid record and the odd one is the ONLY candidate.
+    code, out = run(repo, "record_signoff.py")
+    assert not signed_off(repo), out
+
+
+def test_signoff_pin_is_added_to_a_manifest_that_predates_it(repo):
+    """A project vendored before the key existed keeps its project-owned
+    harness.yaml through upgrade, so the key is simply absent. Refusing there
+    would make the gate unreachable in exactly those repos (autoreview P1)."""
+    harness_yaml = repo / "harness.yaml"
+    harness_yaml.write_text(
+        re.sub(r'^signoff_record:.*$\n', '', harness_yaml.read_text(),
+               count=1, flags=re.MULTILINE)
+    )
+    assert "signoff_record:" not in harness_yaml.read_text()
+    sign_off(repo)
+    assert signed_off(repo)
+
+
+def test_signoff_survives_a_wiped_factory_dir(repo, tmp_path):
+    """Every task runs in a fresh worktree where .factory/ is gitignored and
+    absent. The gate must still hold there — that is why the pin is committed
+    rather than recorded in run.json."""
+    sign_off(repo)
+    shutil.rmtree(repo / ".factory")
+    code, out = run(repo, "forge.py", "next", "--repo", str(repo))
+    assert code == 0, out
+    assert signed_off(repo)
+    # NEGATIVE CONTROL: with the pin cleared, the same repo is NOT signed off.
+    (repo / "harness.yaml").write_text(
+        re.sub(r'^signoff_record:.*$', 'signoff_record: ""',
+               (repo / "harness.yaml").read_text(), count=1, flags=re.MULTILINE)
+    )
+    assert not signed_off(repo)
+    plan = tmp_path / "plan.md"
+    plan.write_text(PLAN_BODY)
+    code, out = run(repo, "forge.py", "plan", "save", "--issue", "ENG-9", "--from", str(plan))
+    assert code != 0 and "sign-off" in out, out
+
+
+def test_scaffold_does_not_inherit_the_harness_signoff(repo):
+    """A new client repo has signed nothing off. Scaffolding must clear the
+    harness's own pin, or every fresh project starts past its own gate."""
+    assert not signed_off(repo)
 
 
 def test_record_signoff_requires_accepted_and_confirmed(repo):
@@ -432,7 +752,9 @@ def test_spec_confirm_roadmap_derive_and_signoff_gate(repo, tmp_path):
         .replace("status: proposed", "status: accepted")
         .replace('confirmed_by: ""', 'confirmed_by: "Client PM"'))
     code, out = run(repo, "record_signoff.py")
-    assert code == 0 and "client_signoff recorded" in out, out
+    assert code == 0 and "pinned to" in out, out
+    # Sign-off is DERIVED from the committed harness.yaml pin, not a run.json flag.
+    assert signed_off(repo)
 
 
 # ------------------------------------------------------- plan approval gates
@@ -601,7 +923,7 @@ def test_intake_preserves_signoff_and_refuses_to_clobber_evidence(repo, tmp_path
     code, out = intake(repo, "ENG-2", "Refunds", "--discard-active")
     assert code == 0, out
     state = run_state(repo)
-    assert state["client_signoff"] is True and state["phase"] == "planning"
+    assert signed_off(repo) and state["phase"] == "planning"
     assert not (repo / ".factory" / "decomposition.json").exists()
 
 
@@ -798,6 +1120,73 @@ def test_upgrade_replaces_machinery_preserves_project(repo, tmp_path):
     assert list((repo / "docs" / "decisions").glob("*keep-decision.md"))  # project-owned untouched
     assert head(repo) in (repo / "constitution" / "VENDORED_FROM").read_text() or \
         "symphony-forge @" in (repo / "constitution" / "VENDORED_FROM").read_text()
+
+
+def upgrade_into(repo: Path):
+    return subprocess.run(
+        [sys.executable, str(HARNESS / "factory" / "scripts" / "forge.py"),
+         "upgrade", "--target", str(repo)],
+        cwd=HARNESS, capture_output=True, text=True,
+    )
+
+
+def strip_pin(repo: Path) -> None:
+    """A project vendored before the pin key existed."""
+    harness_yaml = repo / "harness.yaml"
+    harness_yaml.write_text(
+        re.sub(r'^signoff_record:.*$\n', '', harness_yaml.read_text(),
+               count=1, flags=re.MULTILINE)
+    )
+
+
+def test_upgrade_migration_promotes_and_refuses_correctly(repo, tmp_path):
+    """The migration must carry a legacy sign-off across, recover it from
+    committed evidence when the gitignored run state is absent, and NEVER
+    promote a project whose run state explicitly says unsigned (r8, r9)."""
+    record = repo / "docs" / "decisions" / "0005-client-signoff.md"
+    record.write_text('---\nstatus: accepted\nconfirmed_by: "Client PM"\n---\n')
+    strip_pin(repo)
+    # Explicitly UNSIGNED legacy state, with an accepted-looking record present.
+    (repo / ".factory").mkdir(exist_ok=True)
+    # The record path is present but the FLAG says unsigned, so only the flag
+    # check can refuse — otherwise the control below proves nothing.
+    (repo / ".factory" / "run.json").write_text(json.dumps({
+        "client_signoff": False,
+        "client_signoff_record": "docs/decisions/0005-client-signoff.md",
+    }))
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "legacy project, unsigned")
+    proc = upgrade_into(repo)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not signed_off(repo), "an explicitly unsigned project was promoted"
+
+    # Run state simply GONE (fresh clone). An accepted record is NOT evidence
+    # that sign-off happened — it can be committed before record_signoff.py ever
+    # succeeds, and the required grill leaves no committed trace. The old scheme
+    # also refused here (`if not state ... fail`), so nothing is lost.
+    strip_pin(repo)
+    (repo / ".factory" / "run.json").unlink()
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "no run state")
+    proc = upgrade_into(repo)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not signed_off(repo), "absent run state was treated as prior sign-off"
+    assert "record_signoff.py" in proc.stdout + proc.stderr
+
+    # An explicitly SIGNED legacy state is carried across, which is the one
+    # case with real evidence.
+    strip_pin(repo)
+    (repo / ".factory").mkdir(exist_ok=True)
+    (repo / ".factory" / "run.json").write_text(json.dumps({
+        "client_signoff": True,
+        "client_signoff_record": "docs/decisions/0005-client-signoff.md",
+    }))
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "legacy signed")
+    proc = upgrade_into(repo)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert signed_off(repo), "a genuinely signed legacy project was un-signed"
+    assert "0005-client-signoff.md" in (repo / "harness.yaml").read_text()
 
 
 def test_upgrade_refreshes_factory_workflows_and_keeps_project_ones(repo):
@@ -1211,7 +1600,7 @@ def approve_epics(repo: Path, src: Path) -> None:
 
 
 def import_roadmap(repo: Path, tmp_path: Path, payload=None) -> tuple[int, str]:
-    if not json.loads((repo / ".factory" / "run.json").read_text()).get("client_signoff"):
+    if not signed_off(repo):
         sign_off(repo)  # roadmap mutations are post-sign-off
     src = tmp_path / "roadmap-input.json"
     src.write_text(json.dumps(payload if payload is not None else ROADMAP))
@@ -1448,8 +1837,7 @@ def test_adopt_vendors_harness_and_preserves_project(tmp_path):
     assert kept.exists() and "tabs" in kept.read_text()
     assert "@AGENTS.md" in (repo / "CLAUDE.md").read_text()
     # sign-off gate armed, project-owned files created
-    state = json.loads((repo / ".factory" / "run.json").read_text())
-    assert state["client_signoff"] is False
+    assert not signed_off(repo)  # an adopted repo inherits no sign-off
     assert (repo / "harness.yaml").exists()
     # the adopted repo passes the same checks as a scaffold
     code, out = run(repo, "check_dual_runtime.py", str(repo))
@@ -1912,7 +2300,8 @@ COMPANION_WRITE = (COMPANION + " --write --prompt-file .factory/briefs/T1.md "
 
 
 def test_hook_denies_unbriefed_write_delegation(repo, tmp_path):
-    """Every direct companion command is routed to the canonical executor."""
+    """Every companion WRITE launch is routed to the canonical executor;
+    read-only launches are the rescue exploration lane and pass."""
     start_stage(repo, tmp_path, DELEGATE_TASK, launch=False)
     for mode in ("default", "plan"):
         code, out = hook(repo, {"tool_name": "Bash", "permission_mode": mode,
@@ -1920,7 +2309,7 @@ def test_hook_denies_unbriefed_write_delegation(repo, tmp_path):
         assert "deny" in out and "forge delegate <task-id>" in out, mode
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": COMPANION + " 'map it'"}})
-    assert "deny" in out and "forge delegate" in out
+    assert code == 0 and "deny" not in out
 
 
 def test_hook_denies_write_delegation_hidden_by_quoting(repo, tmp_path):
@@ -1972,7 +2361,7 @@ def test_hook_denies_variable_hidden_companion_in_unparseable_bash(repo):
     assert "deny" in out and "could not be safely parsed" in out
 
 
-def test_hook_routes_every_literal_companion_token(repo):
+def test_hook_allows_readonly_companion_mentions(repo):
     for command in (
         "rg codex-companion factory",
         "cat /tmp/codex-companion.mjs",
@@ -1980,7 +2369,17 @@ def test_hook_routes_every_literal_companion_token(repo):
     ):
         code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                                 "tool_input": {"command": command}})
-        assert "deny" in out and "forge delegate" in out, command
+        assert code == 0 and "deny" not in out, command
+
+
+def test_hook_allows_readonly_companion_task_launch(repo):
+    for command in (
+        COMPANION + " --effort xhigh 'explore the sender chain'",
+        "node /x/codex-companion.mjs task-resume-candidate --json",
+    ):
+        code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                                "tool_input": {"command": command}})
+        assert code == 0 and "deny" not in out, command
 
 
 def test_hook_routes_absolute_and_quoted_node_companion_invocations(repo):
@@ -2513,6 +2912,47 @@ def test_ship_archives_the_plan_grill_not_the_project_grills(repo, tmp_path):
     assert json.loads((history / "grills" / "plan.json").read_text())["issue"] == "ENG-1"
     # project-level grills are not this story's evidence
     assert not (history / "grills" / "signoff.json").exists()
+
+
+def test_tagged_process_scan_skips_unreadable_environments(tmp_path):
+    """The /proc scan must SKIP a process whose environ it cannot read, not
+    abort the gate.
+
+    Linux refuses /proc/<pid>/environ for a zombie (ptrace_may_access fails on
+    an exited task) and for any process we do not own. Our own short-lived
+    proof children become zombies routinely, so raising there took down every
+    stage-done and delegate gate on Linux — while macOS, which has no /proc,
+    never ran the branch at all and stayed green. proc_root is injectable so
+    this case is reachable from either platform.
+    """
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.delegate import _tagged_processes
+
+    token = "gate-test-token"
+    fake_proc = tmp_path / "proc"
+    fake_proc.mkdir()
+
+    # Unreadable environ, exactly as Linux reports for a zombie or a process
+    # belonging to somebody else.
+    unreadable = fake_proc / "424242"
+    unreadable.mkdir()
+    (unreadable / "environ").write_bytes(b"")
+    (unreadable / "environ").chmod(0o000)
+
+    # A readable, genuinely live process carrying the marker: this one must
+    # still be found, so the skip above cannot be hiding real work.
+    mine = fake_proc / str(os.getpid())
+    mine.mkdir()
+    (mine / "environ").write_bytes(
+        b"PATH=/usr/bin\0FORGE_PROCESS_TOKEN=" + token.encode() + b"\0")
+
+    table = {424242: (1, "start-a"), os.getpid(): (1, "start-b")}
+    found = _tagged_processes(token, current=table, proc_root=fake_proc)
+
+    assert os.getpid() in found, "a readable tagged process must still be found"
+    assert 424242 not in found
+
+    (unreadable / "environ").chmod(0o600)  # let tmp_path clean up
 
 
 def test_frontier_is_ranked_by_what_it_unblocks(repo, tmp_path):

@@ -244,7 +244,8 @@ def _descendants(root_pid: int,
 def _tagged_processes(
         token: str,
         baseline: dict[int, tuple[int, str]] | None = None,
-        current: dict[int, tuple[int, str]] | None = None) -> dict[int, str]:
+        current: dict[int, tuple[int, str]] | None = None,
+        proc_root: Path | None = None) -> dict[int, str]:
     marker = f"FORGE_PROCESS_TOKEN={token}"
     current = current if current is not None else _process_table()
     candidates = set(current)
@@ -253,7 +254,10 @@ def _tagged_processes(
             pid for pid, details in current.items()
             if baseline.get(pid) != details
         }
-    proc_root = Path("/proc")
+    # Injectable so the Linux-only branch is reachable from a macOS dev box.
+    # It was not, which is why an unreadable-environ abort reached CI green
+    # locally and red on the runner.
+    proc_root = proc_root if proc_root is not None else Path("/proc")
     if proc_root.is_dir():
         found: dict[int, str] = {}
         marker_bytes = marker.encode()
@@ -266,10 +270,17 @@ def _tagged_processes(
             except (FileNotFoundError, ProcessLookupError):
                 continue
             except PermissionError:
-                # `/proc` can expose same-user or namespace-visible PIDs whose
-                # environments are intentionally unreadable. They cannot be
-                # attributed to this trusted launch, so ignore them; failure
-                # to read the process table itself remains fatal.
+                # Unreadable environ means the process cannot be SHOWN to carry
+                # our token, and cannot be one of ours: Linux refuses
+                # /proc/<pid>/environ for a ZOMBIE (ptrace_may_access fails on
+                # an exited task) and for any process we do not own. Our own
+                # short-lived proof children become zombies routinely, so
+                # raising here aborted the whole gate on Linux while macOS —
+                # which has no /proc — never ran this branch at all.
+                #
+                # Skipping also matches the portable `ps eww` fallback below,
+                # which simply cannot print an unreadable environment and so
+                # never matches the marker. The two paths now agree.
                 continue
             except OSError as exc:
                 raise ProcessDiscoveryError(
