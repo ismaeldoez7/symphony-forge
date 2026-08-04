@@ -1,0 +1,25 @@
+{
+  "issue": "PH-2",
+  "stages": [
+    {
+      "id": "PH-2.1",
+      "title": "The story and epic contracts, at the routes that author them",
+      "status": "pending"
+    },
+    {
+      "id": "PH-2.2",
+      "title": "Two epic routes, and --epic required on add",
+      "status": "pending"
+    },
+    {
+      "id": "PH-2.3",
+      "title": "Schema note, the ordering decision, and an advisory doctor report",
+      "status": "pending"
+    },
+    {
+      "id": "PH-2.4",
+      "title": "Backfill this repo's own roadmap through the new routes",
+      "status": "pending"
+    }
+  ]
+}
