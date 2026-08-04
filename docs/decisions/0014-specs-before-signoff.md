@@ -3,7 +3,7 @@ status: accepted
 confirmed_by: "vrknetha"
 date: 2026-07-24
 stories: []
-supersedes: 0010-client-signoff
+extends: 0010-client-signoff
 ---
 
 # Confirmed specs and derived roadmap gate client sign-off
