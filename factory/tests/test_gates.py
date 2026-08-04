@@ -1991,7 +1991,8 @@ COMPANION_WRITE = (COMPANION + " --write --prompt-file .factory/briefs/T1.md "
 
 
 def test_hook_denies_unbriefed_write_delegation(repo, tmp_path):
-    """Every direct companion command is routed to the canonical executor."""
+    """Every companion WRITE launch is routed to the canonical executor;
+    read-only launches are the rescue exploration lane and pass."""
     start_stage(repo, tmp_path, DELEGATE_TASK, launch=False)
     for mode in ("default", "plan"):
         code, out = hook(repo, {"tool_name": "Bash", "permission_mode": mode,
@@ -1999,7 +2000,7 @@ def test_hook_denies_unbriefed_write_delegation(repo, tmp_path):
         assert "deny" in out and "forge delegate <task-id>" in out, mode
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": COMPANION + " 'map it'"}})
-    assert "deny" in out and "forge delegate" in out
+    assert code == 0 and "deny" not in out
 
 
 def test_hook_denies_write_delegation_hidden_by_quoting(repo, tmp_path):
@@ -2051,7 +2052,7 @@ def test_hook_denies_variable_hidden_companion_in_unparseable_bash(repo):
     assert "deny" in out and "could not be safely parsed" in out
 
 
-def test_hook_routes_every_literal_companion_token(repo):
+def test_hook_allows_readonly_companion_mentions(repo):
     for command in (
         "rg codex-companion factory",
         "cat /tmp/codex-companion.mjs",
@@ -2059,7 +2060,17 @@ def test_hook_routes_every_literal_companion_token(repo):
     ):
         code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                                 "tool_input": {"command": command}})
-        assert "deny" in out and "forge delegate" in out, command
+        assert code == 0 and "deny" not in out, command
+
+
+def test_hook_allows_readonly_companion_task_launch(repo):
+    for command in (
+        COMPANION + " --effort xhigh 'explore the sender chain'",
+        "node /x/codex-companion.mjs task-resume-candidate --json",
+    ):
+        code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                                "tool_input": {"command": command}})
+        assert code == 0 and "deny" not in out, command
 
 
 def test_hook_routes_absolute_and_quoted_node_companion_invocations(repo):
