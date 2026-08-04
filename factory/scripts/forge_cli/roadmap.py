@@ -529,6 +529,45 @@ def cmd_add(args: argparse.Namespace) -> None:
               "--spec docs/specs/<slug>.md")
 
 
+def cmd_epic_add(args: argparse.Namespace) -> None:
+    """Append one epic after sign-off without invoking the import handoff gate."""
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    require_signoff(base, "roadmap epic grooming")
+    data = load_roadmap(base)
+    items = data.get("items", [])
+    epics = data.get("epics", [])
+    if any(epic.get("id") == args.id for epic in epics):
+        fail(f"epic '{args.id}' is already on the roadmap")
+    epic = {
+        "id": args.id,
+        "title": args.title,
+        "objective": args.objective,
+        "source_refs": args.source_ref,
+    }
+    check_epic_contract(epic, base)
+    epics.append(epic)
+    save_roadmap(base, items, epics=epics)
+    append_event(base, "roadmap-epic-add", actor="orchestrator", detail=args.id)
+    print(f"Added epic {args.id} to the roadmap")
+
+
+def cmd_set_epic(args: argparse.Namespace) -> None:
+    """Point an existing story at an epic already known to the roadmap."""
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    data = load_roadmap(base)
+    items = data.get("items", [])
+    item = next((entry for entry in items if entry.get("key") == args.key), None)
+    if item is None:
+        fail(f"{args.key} is not on the roadmap")
+    if args.epic not in {epic.get("id") for epic in data.get("epics", [])}:
+        fail(f"epic '{args.epic}' is not a known epic")
+    item["epic"] = args.epic
+    save_roadmap(base, items)
+    append_event(base, "roadmap-set-epic", actor="orchestrator", story=args.key,
+                 detail=args.epic)
+    print(f"{args.key} -> epic {args.epic}")
+
+
 def cmd_link_spec(args: argparse.Namespace) -> None:
     """Clear a story's spec debt once the capability spec is confirmed."""
     base = Path(args.repo).resolve() if args.repo else repo_root()

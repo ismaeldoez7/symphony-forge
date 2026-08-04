@@ -106,3 +106,10 @@
 {"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-04T18:01:54+00:00", "story": "PH-2"}
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-04T18:02:54+00:00", "story": "PH-2", "detail": "PH-2.1 The story and epic contracts, at the routes that author them"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-04T18:18:41+00:00", "story": "PH-2", "detail": "PH-2.1 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-04T18:51:08+00:00", "story": "PH-2", "detail": "PH-2.1 The story and epic contracts, at the routes that author them"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-04T18:51:19+00:00", "story": "PH-2", "detail": "PH-2.2 Two epic routes, and --epic required on add"}
+{"event": "signal-scope-change", "generated_by": "implementer", "at": "2026-08-04T18:52:46+00:00", "story": "PH-2", "detail": "PH-2.2 requires new CLI routes, but argparse registration lives in factory/scripts/forge.py, which is outside the declared write scope; roadmap.py contains handlers only, so the acceptance criteria ca"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-04T18:53:30+00:00", "story": "PH-2", "detail": "PH-2.2 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-04T18:54:49+00:00", "story": "PH-2", "detail": "4 task(s)"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-04T18:55:08+00:00", "story": "PH-2", "detail": "S-0001-0b24: Correct, and the decomposition was wrong: factory/scripts/forge.py holds every subcommand's argparse wiring and roadmap.py has zero add_parser calls, so 'epic add' and 'set-epic' cannot exist within t"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-04T19:03:08+00:00", "story": "PH-2", "detail": "PH-2.2 (write)"}

@@ -1318,6 +1318,87 @@ def roadmap_items(repo: Path) -> dict:
     return {item["key"]: item for item in data["items"]}
 
 
+def add_epic(repo: Path, epic=ROADMAP_EPIC) -> tuple[int, str]:
+    source_args = [arg for ref in epic["source_refs"] for arg in ("--source-ref", ref)]
+    return run(repo, "forge.py", "roadmap", "epic", "add", epic["id"],
+               "--title", epic["title"], "--objective", epic["objective"],
+               *source_args)
+
+
+def test_epic_add_refuses_a_duplicate_id(repo):
+    epic = {**ROADMAP_EPIC,
+            "source_refs": ["docs/product/BRIEF.md", "docs/FACTORY.md"]}
+    code, out = add_epic(repo, epic)
+    assert code != 0 and "post-sign-off" in out, out
+
+    sign_off(repo)
+    code, out = add_epic(repo, epic)
+    assert code == 0, out
+    data = json.loads((repo / "plans" / "roadmap.json").read_text())
+    assert data["epics"] == [epic]
+    assert not list((repo / "docs" / "decisions").glob("*epics-approved*.md"))
+
+    code, out = add_epic(repo, epic)
+    assert code != 0 and "already" in out, out
+
+    code, out = run(repo, "forge.py", "roadmap", "epic", "add", "--help")
+    assert code == 0 and "does not require the epics-approved decision" in " ".join(
+        out.split()), out
+
+
+def test_set_epic_points_a_story_at_a_known_epic(repo):
+    sign_off(repo)
+    code, out = add_epic(repo)
+    assert code == 0, out
+
+    code, out = run(repo, "forge.py", "roadmap", "set-epic", "SIGNOFF-0",
+                    "--epic", "billing")
+    assert code == 0, out
+    assert roadmap_items(repo)["SIGNOFF-0"]["epic"] == "billing"
+
+    code, out = run(repo, "forge.py", "roadmap", "set-epic", "MISSING-1",
+                    "--epic", "billing")
+    assert code != 0 and "not on the roadmap" in out, out
+    code, out = run(repo, "forge.py", "roadmap", "set-epic", "SIGNOFF-0",
+                    "--epic", "missing")
+    assert code != 0 and "not a known epic" in out, out
+
+
+def test_roadmap_add_requires_a_known_epic(repo):
+    sign_off(repo)
+    code, out = add_epic(repo)
+    assert code == 0, out
+    story_flags = ("--story", "As a finance lead, I see monthly reports.",
+                   "--ac", "the report lists every invoice", "--skill", "backend")
+
+    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-9", "Reports",
+                    *story_flags, "--spec", "docs/specs/base.md")
+    assert code != 0 and "--epic" in out and "required" in out, out
+    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-9", "Reports",
+                    *story_flags, "--epic", "missing", "--spec", "docs/specs/base.md")
+    assert code != 0 and "not a known epic" in out, out
+    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-9", "Reports",
+                    *story_flags, "--epic", "billing", "--spec", "docs/specs/base.md")
+    assert code == 0 and roadmap_items(repo)["ENG-9"]["epic"] == "billing", out
+
+
+def test_roadmap_add_no_spec_still_records_spec_debt(repo):
+    sign_off(repo)
+    code, out = add_epic(repo)
+    assert code == 0, out
+    reason = "client asked mid-sprint"
+    code, out = run(
+        repo, "forge.py", "roadmap", "add", "ENG-9", "Reports",
+        "--story", "As a finance lead, I see monthly reports.",
+        "--ac", "the report lists every invoice", "--skill", "backend",
+        "--epic", "billing", "--no-spec", "--reason", reason,
+    )
+    assert code == 0, out
+    item = roadmap_items(repo)["ENG-9"]
+    assert item["origin"] == "adhoc"
+    assert item["spec_debt_reason"] == reason
+
+
 def test_roadmap_authoring_refuses_an_incomplete_story(repo, tmp_path):
     code, out = import_roadmap(repo, tmp_path, {
         "generated_by": "human", "epics": [ROADMAP_EPIC],
@@ -5520,7 +5601,8 @@ def test_refactor_ratchet_blocks_growing_refactors(repo, tmp_path):
         ]})
     # invalid kind refused at grooming time
     code, out = run(repo, "forge.py", "roadmap", "add", "X-1", "t", "--kind", "cleanup",
-                    "--story", "As a dev, I keep the api small.", "--ac", "smaller")
+                    "--story", "As a dev, I keep the api small.", "--ac", "smaller",
+                    "--epic", "billing")
     assert code != 0 and "kind" in out
     git(repo, "checkout", "-q", "-b", "feat/REF-1-shrink")
     intake(repo, "REF-1", "Shrink the api layer")

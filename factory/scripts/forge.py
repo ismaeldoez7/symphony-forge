@@ -140,7 +140,7 @@ def main() -> None:
                       help='the user-facing narrative: "As a <user>, I ... so that ..."')
     p_ra.add_argument("--ac", action="append", required=True, metavar="CRITERION",
                       help="acceptance criterion (repeat for each)")
-    p_ra.add_argument("--epic")
+    p_ra.add_argument("--epic", required=True)
     p_ra.add_argument("--skill", help="frontend | backend | fullstack")
     p_ra.add_argument("--kind", help="feature | refactor (refactor => source-delta ratchet at pr_ready)")
     p_ra.add_argument("--spec", help="confirmed docs/specs/<slug>.md source (required)")
@@ -152,6 +152,27 @@ def main() -> None:
     p_ra.add_argument("--reason", help="why this story is captured without a spec")
     p_ra.add_argument("--repo")
     p_ra.set_defaults(func=roadmap.cmd_add)
+    p_re = rm_sub.add_parser("epic", help="manage roadmap epics")
+    re_sub = p_re.add_subparsers(dest="roadmap_epic_command", required=True)
+    p_rea = re_sub.add_parser(
+        "add",
+        help="append one epic after sign-off without the epics-approved import gate",
+        description="Append one epic after sign-off. Unlike roadmap import, this does not "
+                    "require the epics-approved decision because it does not replace the "
+                    "whole epic list.",
+    )
+    p_rea.add_argument("id")
+    p_rea.add_argument("--title", required=True)
+    p_rea.add_argument("--objective", required=True)
+    p_rea.add_argument("--source-ref", action="append", required=True, metavar="PATH",
+                       help="repo-relative source path (repeat for each)")
+    p_rea.add_argument("--repo")
+    p_rea.set_defaults(func=roadmap.cmd_epic_add)
+    p_rse = rm_sub.add_parser("set-epic", help="point an existing story at a known epic")
+    p_rse.add_argument("key")
+    p_rse.add_argument("--epic", required=True)
+    p_rse.add_argument("--repo")
+    p_rse.set_defaults(func=roadmap.cmd_set_epic)
     p_rls = rm_sub.add_parser("link-spec", help="attach a confirmed spec to a story (clears spec debt)")
     p_rls.add_argument("key")
     p_rls.add_argument("--spec", required=True, help="confirmed docs/specs/<slug>.md")

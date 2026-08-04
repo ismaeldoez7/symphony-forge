@@ -58,6 +58,7 @@
         "PH-2.1"
       ],
       "write_scope": [
+        "factory/scripts/forge.py",
         "factory/scripts/forge_cli/roadmap.py",
         "factory/tests/test_gates.py"
       ],
@@ -67,7 +68,8 @@
         "roadmap set-epic <story-key> --epic <id> writes the epic field on an existing story, refusing an unknown story key and an unknown epic id.",
         "roadmap add requires --epic and refuses an unknown epic id.",
         "roadmap add --no-spec --reason still produces a story with origin: adhoc and spec_debt_reason set, and that path has a test it did not have before.",
-        "Duplicate story keys, self-dependencies and cycles remain refused at add."
+        "Duplicate story keys, self-dependencies and cycles remain refused at add.",
+        "The two commands are registered in factory/scripts/forge.py, where every forge subcommand's argparse wiring lives; roadmap.py holds handlers only."
       ],
       "verify_commands": [
         "uv run --with pytest python -m pytest factory/tests/test_gates.py -q -k \"epic_add or set_epic or roadmap_add or no_spec\""
@@ -159,5 +161,5 @@
       "reviewer_focus": "That the backfill went through the commands. A hand-edited roadmap would pass the same tests while proving nothing about the routes this story exists to add."
     }
   ],
-  "commit": "6651ebc0a284a2308a69f1bc635fdd79c80b2d96"
+  "commit": "d1d419377d7221b758b656c4cc3c908e6122a725"
 }
