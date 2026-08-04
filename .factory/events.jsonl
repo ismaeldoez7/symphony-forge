@@ -114,3 +114,5 @@
 {"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-04T13:49:04+00:00", "story": "FORGE-UPG-1"}
 {"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-04T13:49:04+00:00", "story": "FORGE-UPG-1"}
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-04T13:49:04+00:00", "story": "FORGE-UPG-1"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-04T15:16:13+00:00", "detail": "repo-system-of-record"}
+{"event": "roadmap-link-spec", "generated_by": "orchestrator", "at": "2026-08-04T15:17:11+00:00", "story": "FORGE-LOCK-1", "detail": "docs/specs/repo-system-of-record.md"}

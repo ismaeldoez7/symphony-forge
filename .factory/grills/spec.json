@@ -2,23 +2,23 @@
   "generated_by": "griller",
   "gate": "spec",
   "verdict": "pass",
-  "questions_asked": 2,
-  "summary": "Interrogated docs/specs/legacy-upgrade.md against decisions 0009 (frozen gate surface), 0016 (machinery dir rename), 0002 (one story per branch) and the mixed-ownership contract stated in upgrade.py. Two blocking findings, both resolved into the spec text.",
+  "questions_asked": 1,
+  "summary": "Retroactive confirmation of docs/specs/repo-system-of-record.md, whose capture and display work shipped before the spec was confirmed. The spec's own decision table was user-locked when written, so re-asking those would only restate the document. The grill instead hunted drift between the spec and the shipped system, and the scope of what a retroactive confirmation attests.",
   "gaps": [
-    "The spec said the base commit for a legacy stage is 'recorded' without saying where it comes from. A base is what decides which commits count as the story's work; inferring it from branch topology would make that decision silently, and agentstats has no remote from which a default branch could even be probed."
+    "Confirming a spec after its work shipped attests that it describes the system as built, but three of its verification items cannot be checked from a terminal: the light/dark/760px screenshot pass, the read-only filesystem-digest invariant, and the manual half of the parallel-merge check. Confirming without saying so would imply an attestation nobody made."
   ],
-  "contradictions": [
-    "The spec said the .agents/ tree 'is removed' \u2014 a wholesale delete written into the same file that promises never to delete client additions (upgrade.py:29) and enforced nowhere. A client repo that placed its own content under .agents/ would lose it with no refusal and no report."
-  ],
+  "contradictions": [],
   "resolutions": [
-    "Behaviour section rewritten: the legacy tree is retired by carry-then-verify. Skill-evolution dirs and client-added skills move from .agents/skills/ into factory/skills/ under the existing mixed-ownership rule; the remainder is deleted ONLY if every file left has a counterpart path in the newly vendored factory/ tree. Any unrecognized path aborts the upgrade and is named. Added as an acceptance criterion.",
-    "Behaviour section rewritten: `forge stage migrate --base <sha>` takes the base explicitly and validates that it resolves and is an ancestor of HEAD. Rationale recorded in the spec: migration is already a one-time act gated on --confirm-workspace-state, so the base belongs to the same human inspection. Acceptance criterion updated to name the flag and both refusals."
+    "Verified the substantive capture behaviour against the running system rather than taking it on faith: `forge outcome set` writing .factory/outcome.json and pr_ready checking it; the append-only .factory/events.jsonl; decision<->story links in frontmatter (0018 carries stories: [FORGE-DELEG-1]); `roadmap add --no-spec --reason` capturing spec debt; and the board's per-task disclosures. The spec matches what the system does.",
+    "Put the scope question to the maintainer, who chose to confirm as-is with the capture layer as what is attested, and to record the three unverifiable items as open items rather than silently folding them in."
   ],
   "open_items": [
-    "Non-blocking: archived evidence under .factory/history/ keeps its .agents/ paths and is excluded from the stale-reference report. Decision 0016 already designates itself the read-key for historical artifacts, so this is a restatement, not new scope.",
-    "Non-blocking: legacy prose verify_commands and opaque required_tests are not auto-converted. `forge doctor` already reports them (shipped in FORGE-DELEG-1) and the human re-records the decomposition."
+    "Not verified at confirmation: the light/dark/760px screenshot pass. Visual QA from the original round; no automated check exists.",
+    "Not verified at confirmation: the read-only invariant's before/after filesystem digest. The board server is GET-only by construction and the spec's automated tests cover the POST refusal.",
+    "Not verified at confirmation: the manual half of the parallel-merge check. The automated union-merge test for .factory/events.jsonl is in the suite and green.",
+    "Decision 0017-repo-as-system-of-record remains `proposed` while the capability it governs is live. Acceptance is human chat confirmation and is not part of this spec gate."
   ],
-  "input_sha256": "bf4c1b8b0664b2549836213e87b763952fd4204818bc0f41c654bd871d5cbfa9",
-  "recorded_at": "2026-08-04T10:01:18+00:00",
-  "commit": "006a23b4d66a70acc94d0f945ec3381a1c0f468e"
+  "input_sha256": "15553f2b3185fc244f5af7cfd3c4e8380bd844519fb592d8bce2481ec10d7bf8",
+  "recorded_at": "2026-08-04T15:16:13+00:00",
+  "commit": "27da2928ae27b3d9e2cf79b96c885e72998ad21c"
 }

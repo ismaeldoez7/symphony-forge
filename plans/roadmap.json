@@ -56,9 +56,9 @@
       "status": "pending",
       "skill": "backend",
       "origin": "adhoc",
-      "spec_debt_reason": "No confirmed spec covers the planning lock; decision 0013 defines it and stages.py:38-41 already documents the hazard for stage-scope measurement. The spec is written as part of the story."
+      "spec": "docs/specs/repo-system-of-record.md"
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-04T12:56:10+00:00"
+  "updated_at": "2026-08-04T15:17:11+00:00"
 }
