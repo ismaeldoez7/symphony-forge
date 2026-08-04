@@ -3639,7 +3639,8 @@ def test_stage_done_termination_signal_reaps_active_proof(
         os.kill(child_pid, 0)
 
 
-def test_process_identity_matches_the_process_table_on_single_digit_days(repo):
+def test_process_identity_matches_the_process_table_on_single_digit_days(
+        repo, monkeypatch):
     # `ps -o lstart=` pads the day of month to width two ("Aug  4"), while
     # _process_table rebuilds identity with " ".join(fields) and collapses it.
     # Every identity comparison in the module pits one form against the other,
@@ -3651,17 +3652,21 @@ def test_process_identity_matches_the_process_table_on_single_digit_days(repo):
     try:
         import forge_cli.delegate as delegate
 
-        proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(5)"])
-        try:
-            probed = delegate._process_start_identity(proc.pid)
-            tabled = delegate._process_table().get(proc.pid)
-            assert probed is not None and tabled is not None
-            assert probed == tabled[1], (
-                f"identity forms disagree: probe={probed!r} table={tabled[1]!r}")
-            assert "  " not in probed
-        finally:
-            proc.kill()
-            proc.wait(timeout=5)
+        def fake_ps(args, **_kwargs):
+            if args[1:3] == ["-o", "lstart="]:
+                return subprocess.CompletedProcess(
+                    args, 0, stdout="Mon Aug  4 10:11:12 2026\n", stderr="")
+            return subprocess.CompletedProcess(
+                args, 0,
+                stdout="101 1 Mon Aug 4 10:11:12 2026\n", stderr="")
+
+        monkeypatch.setattr(delegate.subprocess, "run", fake_ps)
+        probed = delegate._process_start_identity(101)
+        tabled = delegate._process_table().get(101)
+        assert probed is not None and tabled is not None
+        assert probed == tabled[1], (
+            f"identity forms disagree: probe={probed!r} table={tabled[1]!r}")
+        assert "  " not in probed
     finally:
         sys.path.remove(str(repo / "factory" / "scripts"))
         sys.modules.pop("forge_cli.delegate", None)
@@ -4741,6 +4746,45 @@ def test_process_cleanup_fails_when_discovery_is_unavailable(
     finally:
         sys.path.pop(0)
     assert stopped is False
+
+
+def test_process_cleanup_reaps_known_process_when_discovery_fails(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        clock = {"now": 0.0}
+        live = {101: "parent"}
+        signals = []
+
+        def unavailable():
+            raise delegate.ProcessDiscoveryError("ps unavailable")
+
+        def signal_processes(processes, signum=signal.SIGTERM):
+            signals.extend((pid, signum) for pid in processes)
+            if signum == signal.SIGKILL:
+                live.clear()
+            return dict(processes)
+
+        monkeypatch.setattr(
+            delegate, "_live_identified_processes",
+            lambda known: {
+                pid: identity for pid, identity in known.items()
+                if live.get(pid) == identity
+            })
+        monkeypatch.setattr(
+            delegate, "_signal_identified_processes", signal_processes)
+        monkeypatch.setattr(
+            delegate.time, "monotonic", lambda: clock["now"])
+        monkeypatch.setattr(
+            delegate.time, "sleep",
+            lambda _seconds: clock.__setitem__("now", clock["now"] + 1))
+        stopped = delegate._terminate_processes_until_quiet(
+            {101: "parent"}, unavailable)
+    finally:
+        sys.path.pop(0)
+    assert stopped is False
+    assert signals == [(101, signal.SIGTERM), (101, signal.SIGKILL)]
 
 
 def test_immediate_cleanup_signals_owned_group_before_discovery(
