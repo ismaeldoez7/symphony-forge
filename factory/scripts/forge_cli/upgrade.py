@@ -45,8 +45,12 @@ PROJECT_OWNED = [
 ]
 # Preserved across the factory replacement (project evolution state).
 PRESERVE_IN_AGENTS = ["factory/skills/proposed", "factory/skills/rejected"]
-# Vendoring never ships build noise.
-VENDOR_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc")
+# Vendoring never ships build or OS noise. .DS_Store is gitignored HERE, so it
+# is invisible in this repo while still sitting on disk — and copytree walks
+# the filesystem, not the index. It then lands in the client as untracked
+# clutter, and inside .claude/ the thin-adapter linter rejects it outright:
+# a real upgrade failed check_dual_runtime on a Finder artifact.
+VENDOR_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
 
 
 def _replace_path(src: Path, dst: Path) -> None:
@@ -238,8 +242,14 @@ def _stale_agents_references(
     look for a short marker. A symlink's blob is its target text, so a link
     that merely NAMES .agents is matched like any other content.
     """
+    # `.agents/` WITH the separator. A bare `.agents` is a substring of any
+    # identifier that merely starts that way — a real target reports
+    # `com.agentstats.push` and `day.agents` as stale machinery references,
+    # which is noise the human then has to re-triage by hand. A symlink whose
+    # target IS the bare root is caught by component match below, so the
+    # slashless form buys nothing here.
     search = subprocess.run(
-        ["git", "grep", "-l", "--cached", "-I", "-z", "-F", "-e", ".agents", "--"],
+        ["git", "grep", "-l", "--cached", "-I", "-z", "-F", "-e", ".agents/", "--"],
         cwd=target, capture_output=True,
     )
     # 0 = matches, 1 = none. Anything else is a real failure, but this report
