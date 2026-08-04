@@ -107,14 +107,20 @@ LIST_ITEM = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])[ \t]")
 # heading after that blank line really is the document's own, and masking to
 # `</div>` would refuse a complete spec.
 RAW_BLOCK_OPEN = re.compile(r" {0,3}<(pre|script|style|textarea)[ \t>]", re.I)
-# The container tags an author reaches for when wrapping an example. These end
-# at a blank line or the end of the document, so a heading after the blank line
-# IS the document's own — masking to `</div>` would refuse a complete spec.
-# A narrow list on purpose: every tag added here masks more, and masking more
-# is the direction that refuses documents whose sections are plainly present.
-HTML_BLOCK_OPEN = re.compile(
-    r" {0,3}</?(div|table|details|section|blockquote|figure|aside)[ \t>/]", re.I
+# CommonMark's type-6 block tags, verbatim from the spec rather than a list
+# someone picked: a hand-chosen subset invites "why not this one too" forever,
+# and every answer is an argument. These blocks end at a blank line or the end
+# of the document, so a heading after that blank line IS the document's own —
+# masking to `</div>` instead would refuse a complete spec.
+HTML_BLOCK_TAGS = (
+    "address|article|aside|base|basefont|blockquote|body|caption|center|col|"
+    "colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|"
+    "footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|"
+    "legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|"
+    "param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|"
+    "track|ul"
 )
+HTML_BLOCK_OPEN = re.compile(rf" {{0,3}}</?({HTML_BLOCK_TAGS})[ \t>/]", re.I)
 
 
 def _indent(line: str) -> int:

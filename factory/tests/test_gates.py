@@ -846,6 +846,14 @@ def test_parse_sections_reads_examples_as_examples():
     assert set(factory_lib.parse_sections(
         "# S\n\nuse a <div> for layout\n\n## Why\n\nreal\n"
     )) == {"Why"}
+    # The tag set is CommonMark's, not a hand-picked shortlist, so `<article>`
+    # and `<ul>` behave exactly as `<div>` does.
+    assert factory_lib.parse_sections(
+        "# S\n\n<article>\n## Why\nw\n## Behaviour\nb\n## Acceptance criteria\n- a\n</article>\n"
+    ) == {}
+    assert set(factory_lib.parse_sections(
+        "# S\n\n<ul>\n## Hidden\n</ul>\n\n## Why\n\nreal\n"
+    )) == {"Why"}
     assert set(factory_lib.parse_sections(
         "# S\n\n<pre>\n\n## Why\n\nreal\n"
     )) == {"Why"}
