@@ -79,6 +79,24 @@ def parse_frontmatter(text: str) -> dict[str, str]:
     return fields
 
 
+# `\r?` before the anchor, matching FRONTMATTER above: multiline `$` sits before
+# the `\n` and cannot consume a `\r`, so without it every heading in a CRLF
+# document misses and sign-off refuses a brief whose headings are plainly there.
+SECTION_HEADING = re.compile(r"^## ([^\r\n]+?)[ \t]*\r?$", re.MULTILINE)
+
+
+def parse_sections(text: str) -> dict[str, str]:
+    """Map level-two Markdown heading names to their stripped bodies."""
+    headings = list(SECTION_HEADING.finditer(text))
+    return {
+        heading.group(1): text[
+            heading.end():headings[index + 1].start()
+            if index + 1 < len(headings) else len(text)
+        ].strip()
+        for index, heading in enumerate(headings)
+    }
+
+
 # A safe slug, deliberately: the pin is read back by the stdlib regex above,
 # which stops at whitespace, quotes and `#`, so any other name would read back
 # TRUNCATED. `forge decision new <slug>` already slugifies.

@@ -4,7 +4,11 @@
     {
       "id": "PH-1.1",
       "title": "One heading parser, one canonical brief heading set",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-04T13:38:28+00:00",
+      "base_sha": "aea16c9c67f7450e675c1d973f9ff4ea62f51f03",
+      "dirty_at_start": {},
+      "task_sha256": "4fe710c9254b3b66940aecde0e85540c81e4fc39071c67621c586d54c0aff99f"
     },
     {
       "id": "PH-1.2",

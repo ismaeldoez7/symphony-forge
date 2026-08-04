@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -35,6 +36,15 @@ def run(repo: Path, script: str, *args: str, stdin: str | None = None,
         env={**os.environ, **(env or {})},
     )
     return proc.returncode, proc.stdout + proc.stderr
+
+
+def load_factory_lib(repo: Path):
+    path = repo / "factory" / "scripts" / "factory_lib.py"
+    spec = importlib.util.spec_from_file_location("factory_lib_under_test", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 GIT_ID = ["-c", "user.email=test@knacklabs.dev", "-c", "user.name=Gate Tests"]
@@ -676,6 +686,58 @@ def test_scaffold_does_not_inherit_the_harness_signoff(repo):
     """A new client repo has signed nothing off. Scaffolding must clear the
     harness's own pin, or every fresh project starts past its own gate."""
     assert not signed_off(repo)
+
+
+def test_parse_sections_maps_headings_to_bodies():
+    factory_lib = load_factory_lib(HARNESS)
+
+    assert factory_lib.parse_sections(
+        "# Brief\n\n## Summary\n\n A \n\n## Target Outcome\n \t\n"
+    ) == {
+        "Summary": "A",
+        "Target Outcome": "",
+    }
+
+    # A brief authored on Windows is ordinary input. Multiline `$` sits before
+    # the `\n` and cannot consume the `\r`, so an anchor without `\r?` misses
+    # every heading and the gate refuses a document that is actually complete.
+    assert factory_lib.parse_sections(
+        "# Brief\r\n\r\n## Summary\r\n\r\n A \r\n\r\n## Target Outcome\r\n \t\r\n"
+    ) == {
+        "Summary": "A",
+        "Target Outcome": "",
+    }
+
+
+def test_scaffolded_brief_carries_the_canonical_headings(repo):
+    factory_lib = load_factory_lib(HARNESS)
+    canonical = [
+        "Summary",
+        "Users",
+        "Target Outcome",
+        "Key Flows",
+        "Domain Concepts",
+        "Constraints",
+        "Out of Scope",
+    ]
+
+    scaffolded = factory_lib.parse_sections(
+        (repo / "docs" / "product" / "BRIEF.md").read_text()
+    )
+    live = factory_lib.parse_sections(
+        (HARNESS / "docs" / "product" / "BRIEF.md").read_text()
+    )
+    plan_headings = re.findall(
+        r"^- \*\*([^*]+)\*\* —",
+        (HARNESS / "harness" / "nestjs-react" / "conventions" / "plans.md").read_text(),
+        flags=re.MULTILINE,
+    )
+
+    assert list(scaffolded) == canonical
+    assert list(live) == canonical
+    assert plan_headings == canonical
+    sign_off(repo)
+    assert signed_off(repo)
 
 
 def test_record_signoff_requires_accepted_and_confirmed(repo):
