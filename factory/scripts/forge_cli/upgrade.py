@@ -121,19 +121,26 @@ def _check_legacy_retirable(target: Path, harness: Path) -> None:
     # refusing every collision would refuse every upgrade. It is not silent
     # either — upgrade refuses a dirty tree, so the replacement lands as a
     # reviewed deletion in the upgrade diff. Conflict policy is D-0002.
+    listing = subprocess.run(
+        ["git", "ls-files", "-z", "--", ".agents"],
+        cwd=target, capture_output=True)
+    tracked = {
+        raw.decode("utf-8", errors="surrogateescape")
+        for raw in listing.stdout.split(b"\0") if raw
+    }
     missing = []
     for path in sorted(legacy.rglob("*")):
         if not (path.is_file() or path.is_symlink()):
             continue
-        # Vendoring never shipped build noise (VENDOR_IGNORE), so a .pyc has no
-        # counterpart by construction — counting it would abort the upgrade on
-        # every real pre-rename repo, which all carry __pycache__ from having
-        # actually run the machinery. Exempt the bytecode itself and nothing
-        # else: exempting the whole directory would let anything parked under
-        # a __pycache__ name be deleted without ever being recognized.
-        if path.suffix == ".pyc":
-            continue
         rel = path.relative_to(legacy)
+        # Vendoring never shipped build noise (VENDOR_IGNORE), so an UNTRACKED
+        # .pyc has no counterpart by construction — counting it would abort the
+        # upgrade on every real pre-rename repo, which all carry __pycache__
+        # from having actually run the machinery. A TRACKED .pyc is committed
+        # content, not a build artifact, and gets checked like anything else:
+        # exempting by suffix alone would delete it on nothing but its name.
+        if path.suffix == ".pyc" and f".agents/{rel.as_posix()}" not in tracked:
+            continue
         if rel.parts and rel.parts[0] == "skills":
             continue
         counterpart = harness / "factory" / rel
@@ -263,6 +270,12 @@ def _stale_agents_references(
             continue
         parts = rel.split("/")
         if parts[0] == ".agents":
+            # A bare `.agents` path is a regular file or link at that name, not
+            # the machinery directory — retirement leaves it in place, so it is
+            # surviving project-owned content and belongs in the report.
+            if len(parts) == 1:
+                stale.add(rel)
+                continue
             if len(parts) > 2 and parts[1] == "skills" and parts[2] in carried:
                 stale.add("factory/skills/" + "/".join(parts[2:]))
             continue

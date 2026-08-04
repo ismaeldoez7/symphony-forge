@@ -902,11 +902,14 @@ def test_upgrade_retires_a_legacy_tree_carrying_pycache(repo):
     # counterpart by construction. Counting it would abort the upgrade on
     # exactly the repos this migration exists for.
     _make_legacy_upgrade_target(repo)
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "legacy tree with compiled artifacts")
+    # Written AFTER the commit: real repos gitignore bytecode, so the artifact
+    # that must not abort the upgrade is the UNTRACKED one. A tracked .pyc is
+    # committed content and is checked like anything else.
     cached = repo / ".agents" / "scripts" / "__pycache__" / "forge.cpython-313.pyc"
     cached.parent.mkdir(parents=True)
     cached.write_bytes(b"\x00compiled\n")
-    git(repo, "add", "-A", "-f")
-    git(repo, "commit", "-q", "-m", "legacy tree with compiled artifacts")
 
     proc = _upgrade_target(repo)
 
@@ -952,6 +955,24 @@ def test_upgrade_refuses_a_symlinked_legacy_skills_root(repo, tmp_path):
     assert ".agents/skills is not a directory" in proc.stdout + proc.stderr
     assert (repo / ".agents" / "skills").is_symlink()
     assert (external / "vendor-skill" / "SKILL.md").read_text() == "external\n"
+
+
+def test_upgrade_refuses_a_tracked_pyc_with_no_counterpart(repo):
+    # The .pyc exemption exists for build noise, which is untracked by
+    # definition. A COMMITTED .pyc is client content, and exempting it by
+    # suffix alone would delete it on nothing but its name.
+    _make_legacy_upgrade_target(repo)
+    committed = repo / ".agents" / "client" / "plugin.pyc"
+    committed.parent.mkdir(parents=True)
+    committed.write_bytes(b"\x00client bytecode\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "tracked client bytecode")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert ".agents/client/plugin.pyc" in proc.stdout + proc.stderr
+    assert committed.read_bytes() == b"\x00client bytecode\n"
 
 
 def test_upgrade_refuses_a_legacy_skills_root_that_is_a_file(repo):
