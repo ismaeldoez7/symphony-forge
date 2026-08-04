@@ -1,7 +1,8 @@
 ---
 issue: PH-2
 title: The roadmap hierarchy contract
-status: draft
+status: approved
+saved: 2026-08-04T17:51:45+00:00
 story: PH-2
 decisions_reviewed:
   - 0001-determinism-contract
@@ -22,6 +23,7 @@ decisions_reviewed:
 ---
 
 
+
 # PH-2 — The roadmap hierarchy contract
 
 ## Problem
@@ -39,16 +41,24 @@ and `forge roadmap parallel` recommends fanning out work that actually has an
 order. PH-4 then presents that as an epic map, which is how a missing field
 becomes a wrong answer on a screen.
 
-`roadmap import` is the only route that writes epics, and it requires an
-accepted `epics-approved` decision plus a digest-bound grill. So after sign-off
-there is no way to add an epic at all — which is why "every story names a known
-epic" cannot simply be switched on.
+Two routes write epics today and both are closed after sign-off. `cmd_derive`
+accepts an `epics` list and validates it with `check_epics`, but it is the
+pre-sign-off route and requires `generated_by: docs-decomposer`. `cmd_import`
+requires an accepted `epics-approved` decision plus a digest-bound grill. So
+once a project is signed off there is no way to add an epic, which is why
+"every story names a known epic" cannot simply be switched on.
+
+Worse for this repo specifically: `plans/roadmap.json` has no `epics` key at
+all and not one story carries an `epic` field. And no route sets one —
+`cmd_assign` writes an assignee, `cmd_link_spec` writes a spec, and nothing
+points an existing story at an epic. So the backfill this story needs is not
+just unwritten, it is currently unwritable.
 
 ## Scope / Non-goals
 
-In scope: field requirements at the three routes that author story content, a
-command to add an epic after sign-off, the schema note, and a doctor report for
-legacy roadmaps.
+In scope: field requirements at the three routes that author story content, the
+two routes needed to create an epic after sign-off and point a story at it, the
+schema note, and a doctor report for legacy roadmaps.
 
 Out of scope, deliberately:
 
@@ -73,13 +83,16 @@ Out of scope, deliberately:
    resolve to real repo-relative paths.
 3. `forge roadmap epic add <id> --title --objective --source-ref` creates an
    epic after sign-off and refuses a duplicate id.
-4. `roadmap add` requires `--epic`; `--no-spec --reason` still produces an
+4. `forge roadmap set-epic <story-key> --epic <id>` points an existing story at
+   a known epic and refuses an unknown one. Without it the backfill in PH-2.4
+   is impossible, because no route writes a story's `epic` field.
+5. `roadmap add` requires `--epic`; `--no-spec --reason` still produces an
    `origin: adhoc` story with a `spec_debt_reason`, covered by a test.
-5. Duplicate ids and keys, unknown epics, unknown and self dependencies, and
+6. Duplicate ids and keys, unknown epics, unknown and self dependencies, and
    cycles are all refused.
-6. A legacy roadmap with no epics still loads, still flips status, and is
+7. A legacy roadmap with no epics still loads, still flips status, and is
    reported by `forge doctor` without incrementing its failure count.
-7. This repo's own roadmap carries an epic and its stories point at it.
+8. This repo's own roadmap carries an epic and its stories point at it.
 
 ## Technical Approach
 
@@ -109,7 +122,7 @@ decision — that gate belongs to `import`, which replaces the whole list.
 One new decision: **story dependencies are the only authored ordering.** Epic
 order, the frontier, and leverage are derived, and no artifact may carry a
 second hand-written ordering of the same work. Recorded as
-`docs/decisions/00NN-derived-ordering.md` before decomposition; acceptance is
+`docs/decisions/0021-derived-ordering.md` before decomposition; acceptance is
 human confirmation.
 
 This is what makes `build_waves` removable in PH-3 rather than a coincidence —
@@ -122,7 +135,7 @@ a wave list is exactly the second ordering this decision forbids.
 | Runtime behavior | **Changed** — three authoring routes refuse incomplete stories |
 | API | **N/A** — no HTTP surface in this story; the projection is PH-4 |
 | Data / schema | **Changed** — `factory/schemas/roadmap.json` `item_fields_note` states the required fields |
-| CLI / ops | **Changed** — new `roadmap epic add`; `roadmap add` requires `--epic`; one advisory `doctor` check |
+| CLI / ops | **Changed** — new `roadmap epic add` and `roadmap set-epic`; `roadmap add` requires `--epic`; one advisory `doctor` check |
 | UI | **Unchanged by design** — the epic map that consumes this is PH-4; a projection with no consumer is not this story's scope |
 | Docs | **Changed** — the new decision record; `WORKFLOW.md` roadmap section |
 | Tests | **Changed** — refusal cases, the `--no-spec` carve-out, and a legacy epic-less roadmap that still works |
@@ -132,16 +145,19 @@ a wave list is exactly the second ordering this decision forbids.
 1. **PH-2.1 — the contract functions.** Extract `check_story_contract` and
    `check_epic_contract`; wire into `cmd_derive`, `cmd_import`, `cmd_add`;
    leave `save_roadmap` and the status routes untouched.
-2. **PH-2.2 — `roadmap epic add`, and `--epic` required.** Add the command;
-   require `--epic` on `add`; cover the `--no-spec` carve-out explicitly.
+2. **PH-2.2 — the two epic routes, and `--epic` required.** Add `epic add`
+   and `set-epic`; require `--epic` on `add`; cover the `--no-spec` carve-out
+   explicitly. Both land together because an epic nothing can point a story at
+   leaves the backfill exactly as blocked as it is now.
 3. **PH-2.3 — schema note, decision, doctor.** Update `item_fields_note`;
    record the derived-ordering decision; report legacy epic-less roadmaps
    advisory-only.
 4. **PH-2.4 — backfill this repo's roadmap.** One epic, its stories pointed at
-   it, through the new command rather than by hand.
+   it, through `epic add` and `set-epic` rather than by hand.
 
 Sequential in one worktree. PH-2.2 must follow PH-2.1, because requiring
-`--epic` without a way to create an epic locks the roadmap.
+`--epic` without a way to create an epic locks the roadmap, and PH-2.4 must
+follow PH-2.2 for the same reason in the other direction.
 
 ## Risks
 
@@ -149,8 +165,14 @@ Sequential in one worktree. PH-2.2 must follow PH-2.1, because requiring
   post-merge moment when a roadmap is least well-formed. Mitigated by scoping
   validation to the authoring routes, and by a test that heals a roadmap whose
   stories have no epic.
-- **Backfill by hand.** PH-2.4 through the new command, not an editor, or the
-  backfill proves nothing about the command.
+- **Backfill by hand.** PH-2.4 goes through `epic add` and `set-epic`, not an
+  editor, or it proves nothing about the routes it exercises.
+- **Tightening `check_epics` under existing callers.** Requiring `objective`
+  and `source_refs` changes a function `derive` and `import` already call. All
+  three routes author epics, so the requirement lands where epics are written;
+  a stored roadmap carrying bare epics is never revalidated, because
+  `save_roadmap` stays unvalidated by design. Covered by a test that re-saves
+  a legacy roadmap whose epics predate the contract.
 - **The `--no-spec` path quietly dying.** It is not covered today. PH-2.2 adds
   the test before touching `add`.
 
@@ -174,7 +196,8 @@ Deterministic tests, all in `factory/tests/test_gates.py`:
 - a story with no epic, no acceptance criteria, or no `depends_on` is refused
   at each of `derive`, `import` and `add`
 - an epic whose `source_refs` do not resolve is refused
-- `epic add` refuses a duplicate id
+- `epic add` refuses a duplicate id; `set-epic` refuses an unknown epic and an
+  unknown story, and points a real story at a real epic
 - `add --no-spec --reason` still produces `origin: adhoc` with the reason
 - a self-dependency and a cycle are both refused
 - a legacy epic-less roadmap loads, flips status, and heals
