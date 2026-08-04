@@ -231,6 +231,10 @@ def _stale_agents_references(
         rel[len("factory/skills/"):].split("/", 1)[0]
         for rel in migrated or [] if rel.startswith("factory/skills/")
     }
+    # A client skill ALREADY at factory/skills/<name> is preserved, not
+    # replaced — so it is project-owned even though _is_harness_owned sees it
+    # inside an UPGRADE_TREES entry and would otherwise discard it.
+    preserved = tuple(f"{rel}/" for rel in migrated or [])
     stale = set()
     for rel in hits:
         if rel.startswith(".factory/history/"):
@@ -240,7 +244,7 @@ def _stale_agents_references(
             if len(parts) > 2 and parts[1] == "skills" and parts[2] in carried:
                 stale.add("factory/skills/" + "/".join(parts[2:]))
             continue
-        if _is_harness_owned(rel, harness):
+        if not rel.startswith(preserved) and _is_harness_owned(rel, harness):
             continue
         stale.add(rel)
     return sorted(stale)
@@ -407,11 +411,17 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     if retired_legacy:
         print("Retired legacy machinery: .agents/")
     stale_references = _stale_agents_references(target, harness, sorted(preserved))
+    # The scan reads the index, which equals the working tree only because the
+    # dirty-target gate held. --force bypasses that gate, so uncommitted edits
+    # and untracked files are outside what was searched — say so rather than
+    # printing a definitive answer the scan cannot support.
+    caveat = " (index only — --force skipped the clean-tree check, so uncommitted " \
+             "and untracked files were not searched)" if args.force else ""
     if stale_references:
-        print("Project-owned files still referencing .agents/:")
+        print(f"Project-owned files still referencing .agents/{caveat}:")
         for rel in stale_references:
             print(f"  {rel}")
     else:
-        print("Project-owned files still referencing .agents/: none")
+        print(f"Project-owned files still referencing .agents/: none{caveat}")
     print("Next: review with `git diff`, run `python3 factory/scripts/check_dual_runtime.py` "
           "and the gate tests, then commit.")

@@ -971,6 +971,23 @@ def test_upgrade_reports_a_migrated_client_skill_naming_the_old_tree(repo):
     assert "factory/skills/client-ops-skill/SKILL.md" in proc.stdout
 
 
+def test_upgrade_reports_a_client_skill_already_at_the_current_path(repo):
+    # A client skill ALREADY under factory/skills/ is preserved, not replaced,
+    # so it is project-owned — but it sits inside an UPGRADE_TREES entry and
+    # the harness-owned filter would otherwise discard it and report "none".
+    _make_legacy_upgrade_target(repo)
+    current = repo / "factory" / "skills" / "client-current-skill"
+    current.mkdir(parents=True)
+    (current / "SKILL.md").write_text("See .agents/scripts/verify.py\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "client skill at the current path")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "factory/skills/client-current-skill/SKILL.md" in proc.stdout
+
+
 def test_upgrade_reports_a_symlink_pointing_at_the_retired_root(repo):
     # `legacy-tools -> .agents` has no trailing slash and breaks just as
     # thoroughly as one naming a file inside it.
