@@ -84,7 +84,19 @@ def _check_legacy_retirable(target: Path, harness: Path) -> None:
     one exception, a client skill whose name the harness has since taken, is
     deferred as D-0002)."""
     legacy = target / ".agents"
-    if not legacy.is_dir() or legacy.is_symlink():
+    # Refuse a symlinked ROOT, do not just decline to retire it: every later
+    # step reaches through it. `.agents/skills` resolves past the link, so
+    # iterdir() would walk an external directory and copy its contents into
+    # factory/skills — importing files from outside the repository entirely.
+    if legacy.is_symlink():
+        fail(
+            ".agents is a symlink. The upgrade would migrate skills by reading "
+            "through it, pulling content from outside the repository into "
+            "factory/skills, and retiring it would drop the link rather than the "
+            "machinery. Replace it with a real directory (or remove it) and "
+            "re-run. Nothing was written."
+        )
+    if not legacy.is_dir():
         return
     # A symlinked skills root cannot be traversed (iterdir() would walk the
     # referent) and cannot be merged into the real factory/skills without a
@@ -292,7 +304,10 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
                 client_skill_dirs.append(rel)
     for rel in PRESERVE_IN_AGENTS + client_skill_dirs:
         src = target / rel
-        if src.exists():
+        # exists() is False for a DANGLING symlink, and a client skill can
+        # legitimately be one. Without the is_symlink() arm it is never
+        # preserved, so replacing factory/ deletes project-owned content.
+        if src.exists() or src.is_symlink():
             dest = keep_root / rel
             _keep_path(src, dest)
             preserved[rel] = dest

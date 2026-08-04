@@ -971,6 +971,41 @@ def test_upgrade_reports_a_migrated_client_skill_naming_the_old_tree(repo):
     assert "factory/skills/client-ops-skill/SKILL.md" in proc.stdout
 
 
+def test_upgrade_refuses_a_symlinked_legacy_root(repo, tmp_path):
+    # Every later step reaches THROUGH the link: .agents/skills resolves past
+    # it, so migration would copy an external directory into factory/skills.
+    external = tmp_path / "outside"
+    (external / "skills" / "vendor-skill").mkdir(parents=True)
+    (external / "skills" / "vendor-skill" / "SKILL.md").write_text("external\n")
+    _make_legacy_upgrade_target(repo)
+    shutil.rmtree(repo / ".agents")
+    (repo / ".agents").symlink_to(external)
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "machinery root as a symlink")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert ".agents is a symlink" in proc.stdout + proc.stderr
+    assert not (repo / "factory" / "skills" / "vendor-skill").exists()
+    assert (external / "skills" / "vendor-skill" / "SKILL.md").read_text() == "external\n"
+
+
+def test_upgrade_preserves_a_dangling_client_skill_symlink(repo):
+    # exists() is False for a dangling link, so the preservation check skipped
+    # it and replacing factory/ deleted project-owned content.
+    _make_legacy_upgrade_target(repo)
+    (repo / "factory" / "skills").mkdir(parents=True)
+    (repo / "factory" / "skills" / "client-linked").symlink_to("../../not-there")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "dangling client skill link")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (repo / "factory" / "skills" / "client-linked").is_symlink()
+
+
 def test_upgrade_reports_a_client_skill_already_at_the_current_path(repo):
     # A client skill ALREADY under factory/skills/ is preserved, not replaced,
     # so it is project-owned — but it sits inside an UPGRADE_TREES entry and
