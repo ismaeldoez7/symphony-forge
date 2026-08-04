@@ -1,0 +1,45 @@
+{
+  "commit": "d7af3bbc09a3f97e088ea6ee8a092da986af2e8e",
+  "automated": {
+    "generated_by": "implementer",
+    "status": "passed",
+    "summary": "Verify is green at d7af3bb: dual-runtime parity, scaffold integrity, and 276 automated tests. The four capture gates PH-1 adds are covered by eight new tests, and the four reaping/termination failures that made this branch red were a pre-existing calendar-dependent defect, not PH-1 work.",
+    "blocking_findings": [],
+    "commands_run": [
+      "FACTORY_STRUCTURAL_CMD='python3 factory/scripts/check_dual_runtime.py' FACTORY_TYPECHECK_CMD='python3 factory/scripts/check_factory_scaffold.py' FACTORY_TEST_CMD='uv run --with pytest python -m pytest factory/tests -q' python3 factory/scripts/verify.py",
+      "uv run --with pytest python -m pytest factory/tests/test_gates.py -q -k 'reap or termination'"
+    ],
+    "tests_added_or_updated": [
+      "test_parse_sections_maps_headings_to_bodies - the shared parser answers 'which sections does this document have', including CRLF documents",
+      "test_scaffolded_brief_carries_the_canonical_headings - template, live brief, and the conventions doc are tied to one ordered heading tuple so they cannot drift apart",
+      "test_signoff_refuses_a_brief_missing_a_required_heading - sign-off names every absent heading rather than failing on the first",
+      "test_signoff_refuses_a_heading_with_an_empty_body - a heading with no content is an absent section",
+      "test_spec_confirm_refuses_a_spec_missing_required_headings - Why / Behaviour / Acceptance criteria are required at confirmation",
+      "test_spec_check_never_refuses_a_complete_spec - the wrong-refusal direction is asserted, not assumed",
+      "test_spec_save_still_accepts_an_incomplete_draft - capture stays cheap; only confirmation is gated",
+      "test_doctor_reports_legacy_capture_without_blocking - legacy briefs and confirmed specs are reported as advisory, never counted as failures"
+    ],
+    "pass_fail_summary": "276 passed in 468.26s; check_dual_runtime and check_factory_scaffold both exit 0.",
+    "remaining_gaps": [
+      "D-0002: the spec heading pre-filter does not exclude fenced blocks or raw HTML, so sections written only inside an example count as present. Deliberate - the spec grill is the depth, and three cycles of hand-rolled structure detection each closed one over-count and opened a new wrong refusal.",
+      "A-0004: assumption that over-counting a heading is the safe direction because spec confirm requires a human grill regardless. Awaiting resolution.",
+      "verify.py falls back to a Node toolchain (pnpm check:all) when FACTORY_*_CMD is unset, so an invocation that omits them reports red against a stack this repo does not have. Not PH-1 scope; needs its own fix."
+    ],
+    "reviewed_scope": [
+      "factory/scripts/factory_lib.py",
+      "factory/scripts/record_signoff.py",
+      "factory/scripts/forge_cli/specs.py",
+      "factory/scripts/forge_cli/doctor.py",
+      "factory/tests/test_gates.py",
+      "docs/product/BRIEF.md",
+      "harness/nestjs-react/BRIEF_TEMPLATE.md",
+      "conventions/plans.md"
+    ],
+    "non_blocking_findings": [],
+    "residual_risks": [],
+    "manual_validation_steps": [],
+    "recorded_at": "2026-08-04T16:01:24+00:00",
+    "commit": "d7af3bbc09a3f97e088ea6ee8a092da986af2e8e"
+  },
+  "updated_at": "2026-08-04T16:01:24+00:00"
+}
