@@ -719,6 +719,116 @@ def test_parse_sections_maps_headings_to_bodies():
     }
 
 
+def test_parse_sections_reads_examples_as_examples():
+    """A heading inside an example illustrates a heading; it is not one.
+
+    Every case here was broken by one of the four regex attempts that preceded
+    factory_lib.example_ranges — each closed one way of over-counting and
+    opened a new way of missing a real heading — so these are guards against
+    reintroducing that class, not decoration.
+    """
+    factory_lib = load_factory_lib(HARNESS)
+
+    # A fenced example cannot supply a section the author never wrote.
+    assert factory_lib.parse_sections(
+        "# Spec\n\n## Why\n\nreal\n\n```md\n## Behaviour\n\nfenced\n```\n"
+    ) == {"Why": "real\n\n```md\n## Behaviour\n\nfenced\n```"}
+
+    # ...and a section whose ONLY content is an example still has content.
+    assert factory_lib.parse_sections(
+        "## Acceptance criteria\n\n```gherkin\ngiven X, then Y\n```\n"
+    )["Acceptance criteria"].startswith("```gherkin")
+
+    # A closing fence exactly as long as its opener closes it, so the heading
+    # after the block is document structure again.
+    assert set(factory_lib.parse_sections(
+        "```\n## Hidden\n```\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+    # An info string containing a backtick opens nothing (CommonMark), so a
+    # matcher that paired this line with a later fence swallowed real headings.
+    assert set(factory_lib.parse_sections(
+        "## Why\n\nuse ```json `x` ``` inline\n\n## Behaviour\n\nreal\n"
+    )) == {"Why", "Behaviour"}
+
+    # A comment marker inside an example must not pair with one outside it.
+    assert set(factory_lib.parse_sections(
+        "```\n<!--\n```\n\n## Why\n\nreal\n\n<!-- ## Hidden -->\n"
+    )) == {"Why"}
+
+    # A tilde fence is a fence; backticks inside it are content.
+    assert set(factory_lib.parse_sections(
+        "~~~\n```\n## Hidden\n~~~\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+    # An unterminated construct masks NOTHING. A stray opener is a typo, and
+    # reading the rest of the document as an example refuses a complete spec —
+    # the failure this gate exists to remove. Over-counting only routes the
+    # author to the grill that `spec confirm` requires anyway.
+    assert set(factory_lib.parse_sections(
+        "```\n\n## Why\n\nreal\n\n## Behaviour\n\nreal\n"
+    )) == {"Why", "Behaviour"}
+
+    # `<!--` is a comment opener at the start of a line, not wherever the
+    # substring appears: in inline code or prose it is the subject, not syntax.
+    assert set(factory_lib.parse_sections(
+        "The marker is `<!--`\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+    # A fence-looking line inside a comment must not change fence state, or a
+    # commented-out example hides every real section after it — including when
+    # a later fence would otherwise pair with the one inside the comment.
+    assert set(factory_lib.parse_sections(
+        "<!--\n```\n-->\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+    assert set(factory_lib.parse_sections(
+        "<!--\n```\n-->\n\n## Why\n\nreal\n\n```\n"
+    )) == {"Why"}
+
+    # ...and the mirror: a comment marker inside a fence is content, so the
+    # heading after the fence closes is structure again.
+    assert set(factory_lib.parse_sections(
+        "```\n<!--\n```\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+    # Only spaces and tabs may follow a closing fence. `strip()` also eats
+    # NBSP, which would close a block the renderer leaves open and promote
+    # the example's remaining headings to the document's own.
+    assert set(factory_lib.parse_sections(
+        "```\n## Hidden\n```\u00a0\n## Also hidden\n```\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+    # A trailing ASCII space does close it, so the heading after is structure.
+    assert set(factory_lib.parse_sections(
+        "```\n## Hidden\n``` \n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+    # A fence opened inside a list item ends when the item does. Left open it
+    # pairs with the next top-level fence and masks every heading between.
+    assert set(factory_lib.parse_sections(
+        "- example:\n  ```text\n  x\n## Why\n\nreal\n\n```text\nx\n```\n"
+    )) == {"Why"}
+    # ...but it still masks its own body, and a blank line is not an outdent.
+    assert set(factory_lib.parse_sections(
+        "- example:\n  ```\n\n  ## Hidden\n  ```\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+
+def test_spec_confirm_refuses_headings_that_only_exist_in_an_example(repo):
+    """The gate promises 'complete or refused'; an example is not completion."""
+    spec = repo / "docs" / "specs" / "fenced.md"
+    spec.parent.mkdir(parents=True, exist_ok=True)
+    spec.write_text(
+        "---\nslug: fenced\ntitle: Fenced\nstatus: draft\nsaved: 2026-08-04\n---\n\n"
+        "# Fenced\n\n"
+        "Here is the shape a spec takes:\n\n"
+        "```md\n## Why\n\nbecause\n\n## Behaviour\n\nit does\n\n"
+        "## Acceptance criteria\n\n- it works\n```\n"
+    )
+    code, out = run(repo, "forge.py", "spec", "confirm", "fenced")
+    assert code != 0, out
+    assert "## Why" in out and "## Behaviour" in out and "## Acceptance criteria" in out
+
+
 def test_scaffolded_brief_carries_the_canonical_headings(repo):
     factory_lib = load_factory_lib(HARNESS)
 
@@ -843,13 +953,10 @@ def test_spec_confirm_refuses_a_spec_missing_required_headings(repo, tmp_path):
 
 
 def test_spec_check_never_refuses_a_complete_spec(repo):
-    """The heading check is a cheap pre-filter, so it must never be the reason
-    a complete spec is refused. Three cycles of hand-rolled Markdown structure
-    detection each closed one over-count and opened a new way to MISS a real
-    heading — an exact-length closing fence, a comment marker inside a fence
-    pairing with a later one outside, a backtick in an info string. Depth is
-    the grill's job (spec confirm requires one); this stays shallow and safe.
-    Structure inside fences and raw HTML is tracked as D-0002."""
+    """Refusing a spec whose sections are plainly there is the failure this
+    story exists to remove, so a document that carries an example before its
+    sections must still pass. Each example below broke one of the four regex
+    attempts that preceded factory_lib.example_ranges."""
     sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
     from forge_cli.specs import missing_required_content
 
@@ -858,7 +965,9 @@ def test_spec_check_never_refuses_a_complete_spec(repo):
         ("closer longer than opener", "```\nex\n````\n"),
         ("closer indented three spaces", "```\nex\n   ```\n"),
         ("tilde fence", "~~~\nex\n~~~\n"),
-        ("backtick inside the info string", "```a`b\nex\n```\n"),
+        # A backtick fence's info string may not contain a backtick, so this is
+        # only a legal opener with tildes — and the sections after it are real.
+        ("backtick inside a tilde info string", "~~~a`b\nex\n~~~\n"),
         ("comment marker inside a fence", "```\n<!-- x\n```\n\n<!-- note -->\n"),
     ):
         document = f"---\nslug: x\n---\n\n# Billing\n\n{example}{sections}"

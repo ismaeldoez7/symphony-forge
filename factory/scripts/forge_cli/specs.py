@@ -6,7 +6,8 @@ import re
 from pathlib import Path
 
 from factory_lib import (
-    ATX_CLOSING_RUN, now_iso, parse_sections, repo_root, require_grill,
+    ATX_CLOSING_RUN, now_iso, outside_examples, parse_sections, repo_root,
+    require_grill,
 )
 
 from .common import fail
@@ -36,24 +37,12 @@ ATX_TITLE = re.compile(r"^#[ \t]+(?P<title>.*)$", re.MULTILINE)
 
 
 def document_structure(text: str) -> str:
-    """The spec body — frontmatter removed, nothing else interpreted.
+    """The spec body — frontmatter removed.
 
-    This deliberately does NOT exclude fenced blocks, comments or raw HTML, and
-    the omission is the design rather than an oversight. Deciding whether a line
-    is a heading is Markdown parsing, and factory/scripts is stdlib-only by
-    design (factory_lib.py). Three review cycles of hand-rolled structure
-    detection each closed one way of over-counting a heading and opened a new
-    way of MISSING one: an exact-length closing fence, a comment marker inside a
-    fence pairing with a later one outside, a backtick in an info string. Every
-    one of those refused a complete spec.
-
-    The asymmetry decides it. Over-counting means an author who wrote their
-    sections only inside an example reaches the spec grill — a human
-    interrogation that `spec confirm` requires anyway — and is caught there.
-    Under-counting means the harness refuses a document whose sections are
-    plainly present, which is the failure this story exists to remove.
-    So this check stays a cheap pre-filter and the grill stays the depth.
-    Raw-HTML and fenced structure are tracked as D-0002.
+    Frontmatter goes first so a `status:` line can never read as content;
+    fenced blocks and HTML comments are excluded at the point of asking, by
+    factory_lib.example_ranges, so a section written only inside an example
+    still counts as its own body but never as a heading.
     """
     return FRONTMATTER.sub("", text, count=1)
 
@@ -63,7 +52,7 @@ def missing_required_content(text: str) -> list[str]:
     missing = []
     if not any(
         ATX_CLOSING_RUN.sub("", match.group("title")).strip()
-        for match in ATX_TITLE.finditer(body)
+        for match in outside_examples(body, ATX_TITLE.finditer(body))
     ):
         missing.append("H1 title")
     sections = parse_sections(body)
