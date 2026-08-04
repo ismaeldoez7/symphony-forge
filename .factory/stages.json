@@ -1,0 +1,25 @@
+{
+  "issue": "PH-1",
+  "stages": [
+    {
+      "id": "PH-1.1",
+      "title": "One heading parser, one canonical brief heading set",
+      "status": "pending"
+    },
+    {
+      "id": "PH-1.2",
+      "title": "Sign-off refuses an incomplete brief",
+      "status": "pending"
+    },
+    {
+      "id": "PH-1.3",
+      "title": "Spec confirm refuses an incomplete spec",
+      "status": "pending"
+    },
+    {
+      "id": "PH-1.4",
+      "title": "Doctor reports capture gaps without blocking",
+      "status": "pending"
+    }
+  ]
+}

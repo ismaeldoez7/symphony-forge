@@ -35,7 +35,7 @@
         "A brief or spec captured before this contract is reported by forge doctor and refused by nothing that already passed."
       ],
       "order": 2,
-      "status": "pending",
+      "status": "active",
       "skill": "backend",
       "spec": "docs/specs/project-hierarchy.md"
     },
@@ -93,5 +93,5 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-04T13:18:45+00:00"
+  "updated_at": "2026-08-04T13:19:07+00:00"
 }

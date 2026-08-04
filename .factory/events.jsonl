@@ -100,3 +100,7 @@
 {"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-04T13:18:44+00:00", "story": "PH-2", "detail": "docs/specs/project-hierarchy.md"}
 {"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-04T13:18:44+00:00", "story": "PH-3", "detail": "docs/specs/project-hierarchy.md"}
 {"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-04T13:18:45+00:00", "story": "PH-4", "detail": "docs/specs/project-hierarchy.md"}
+{"event": "intake", "generated_by": "orchestrator", "at": "2026-08-04T13:19:07+00:00", "story": "PH-1", "detail": "Project and spec capture is complete or refused"}
+{"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-04T13:36:38+00:00", "story": "PH-1", "detail": "plans/active/PH-1-project-and-spec-capture-is-complete-or-refused.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-04T13:38:16+00:00", "story": "PH-1", "detail": "4 task(s)"}
+{"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-04T13:38:16+00:00", "story": "PH-1"}
