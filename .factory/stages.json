@@ -52,7 +52,7 @@
     {
       "id": "PH-1.4",
       "title": "Doctor reports capture gaps without blocking",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-04T14:48:38+00:00",
       "base_sha": "6c4b2fafc9f199e39857c3238e861dbdbc2e1535",
       "dirty_at_start": {
@@ -65,7 +65,8 @@
           "git": "1 .M N... 100644 100644 100644 232faa6aa98eefecd3f1f01af3144639b0bf58f6 232faa6aa98eefecd3f1f01af3144639b0bf58f6 .factory/stages.json\u0000\u0000100644 232faa6aa98eefecd3f1f01af3144639b0bf58f6 0\t.factory/stages.json\u0000\u0000H .factory/stages.json\u0000"
         }
       },
-      "task_sha256": "20089ecd001bf28b8ec46d0ea07392fc886ce76b30cc16cfaa1879ff1dc4f08e"
+      "task_sha256": "20089ecd001bf28b8ec46d0ea07392fc886ce76b30cc16cfaa1879ff1dc4f08e",
+      "completed_at": "2026-08-04T15:11:00+00:00"
     }
   ]
 }
