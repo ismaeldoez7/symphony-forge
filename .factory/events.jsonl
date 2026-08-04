@@ -132,3 +132,4 @@
 {"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-04T18:18:43+00:00", "story": "PH-1"}
 {"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-04T18:18:43+00:00", "story": "PH-1"}
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-04T18:18:44+00:00", "story": "PH-1"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-04T18:19:05+00:00", "story": "PH-1", "detail": "A brief or spec that is missing a required section is now refused at the gate that records it, instead of reaching sign-off half-written. Sign-off names every absent BRIEF heading, spec confirm requir"}
