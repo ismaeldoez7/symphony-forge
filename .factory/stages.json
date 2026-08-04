@@ -4,7 +4,11 @@
     {
       "id": "PH-2.1",
       "title": "The story and epic contracts, at the routes that author them",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-04T18:02:54+00:00",
+      "base_sha": "2871769a1d869d5feb9754ec09a3ed48af1c2c70",
+      "dirty_at_start": {},
+      "task_sha256": "522255d7c39099d834b8c8cf03777e2a8c79ebe3babf1f59386ad4fdb5ccf15b"
     },
     {
       "id": "PH-2.2",

@@ -723,16 +723,19 @@ def test_spec_confirm_roadmap_derive_and_signoff_gate(repo, tmp_path):
     roadmap_input = tmp_path / "derived-roadmap.json"
     roadmap_input.write_text(json.dumps({
         "generated_by": "docs-decomposer",
-        "items": [{"key": "BILL-0", "title": "Missing source"}],
+        "epics": [ROADMAP_EPIC],
+        "items": [authored_story("BILL-0", "Missing source")],
     }))
     code, out = run(repo, "forge.py", "roadmap", "derive",
                     "--input", str(roadmap_input))
     assert code != 0 and "'spec' is required" in out
     roadmap_input.write_text(json.dumps({
         "generated_by": "docs-decomposer",
-        "epics": [{"id": "billing", "title": "Billing"}],
+        "epics": [ROADMAP_EPIC],
         "items": [{
             "key": "BILL-1", "title": "Invoices", "epic": "billing",
+            "story": "As a user, I can create invoices.",
+            "acceptance_criteria": ["Invoices can be created"], "skill": "backend",
             "spec": "docs/specs/billing.md", "depends_on": [],
         }],
     }))
@@ -1270,9 +1273,20 @@ def test_dual_runtime_linter_clean_on_scaffold_and_catches_phantom_ref(repo):
 
 # ------------------------------------------------------------------- roadmap
 
-ROADMAP = {"generated_by": "human", "items": [
-    {"key": "ENG-1", "title": "Invoices", "epic": "billing"},
-    {"key": "ENG-2", "title": "Payments", "epic": "billing"},
+ROADMAP_EPIC = {"id": "billing", "title": "Billing", "objective": "money in",
+                "source_refs": ["docs/product/BRIEF.md"]}
+
+
+def authored_story(key: str, title: str, **over) -> dict:
+    return {"key": key, "title": title, "epic": "billing",
+            "story": f"As a user, I can use {title.lower()}.",
+            "acceptance_criteria": [f"{title} works"], "skill": "backend",
+            "depends_on": [], **over}
+
+
+ROADMAP = {"generated_by": "human", "epics": [ROADMAP_EPIC], "items": [
+    authored_story("ENG-1", "Invoices"),
+    authored_story("ENG-2", "Payments"),
 ]}
 
 
@@ -1302,6 +1316,189 @@ def import_roadmap(repo: Path, tmp_path: Path, payload=None) -> tuple[int, str]:
 def roadmap_items(repo: Path) -> dict:
     data = json.loads((repo / "plans" / "roadmap.json").read_text())
     return {item["key"]: item for item in data["items"]}
+
+
+def test_roadmap_authoring_refuses_an_incomplete_story(repo, tmp_path):
+    code, out = import_roadmap(repo, tmp_path, {
+        "generated_by": "human", "epics": [ROADMAP_EPIC],
+        "items": [{"key": "ENG-9", "title": "Reports"}],
+    })
+    assert code != 0
+    for field in ("epic", "story", "acceptance_criteria", "skill", "depends_on"):
+        assert field in out
+
+    unknown = authored_story("ENG-9", "Reports", epic="missing")
+    code, out = import_roadmap(repo, tmp_path, {
+        "generated_by": "human", "epics": [ROADMAP_EPIC], "items": [unknown],
+    })
+    assert code != 0 and "not a known epic" in out
+
+
+def test_roadmap_authoring_requires_an_explicit_depends_on(repo, tmp_path):
+    item = authored_story("ENG-9", "Reports")
+    item.pop("depends_on")
+    code, out = import_roadmap(repo, tmp_path, {
+        "generated_by": "human", "epics": [ROADMAP_EPIC], "items": [item],
+    })
+    assert code != 0 and "depends_on" in out
+
+    item["depends_on"] = []
+    code, out = import_roadmap(repo, tmp_path, {
+        "generated_by": "human", "epics": [ROADMAP_EPIC], "items": [item],
+    })
+    assert code == 0, out
+
+
+def test_epic_contract_refuses_an_unresolvable_source_ref(repo, tmp_path):
+    epic = {**ROADMAP_EPIC, "source_refs": ["docs/product/missing.md"]}
+    code, out = import_roadmap(repo, tmp_path, {
+        "generated_by": "human", "epics": [epic],
+        "items": [authored_story("ENG-9", "Reports")],
+    })
+    assert code != 0 and "docs/product/missing.md" in out and "does not exist" in out
+
+
+def test_derive_never_accepts_an_epic_it_is_about_to_delete(repo, tmp_path):
+    """derive REPLACES the epic list, so validating a story against a stored
+    epic would accept a parent the same call removes — saving a roadmap that
+    violates the contract it just passed."""
+    stored = {"generated_by": "human", "epics": [ROADMAP_EPIC], "items": []}
+    (repo / "plans" / "roadmap.json").write_text(json.dumps(stored))
+
+    payload = {
+        "generated_by": "docs-decomposer",
+        "items": [authored_story("ENG-9", "Reports", epic=ROADMAP_EPIC["id"])],
+    }
+    source = tmp_path / "derived.json"
+    source.write_text(json.dumps(payload))
+    code, out = run(repo, "forge.py", "roadmap", "derive", "--input", str(source))
+    assert code != 0, out
+    assert "not a known epic" in out
+
+    saved = json.loads((repo / "plans" / "roadmap.json").read_text())
+    named = {item.get("epic") for item in saved.get("items", [])}
+    assert named <= {epic["id"] for epic in saved.get("epics", [])}
+
+
+def test_malformed_epic_value_is_refused_not_crashed(repo, tmp_path):
+    """Authoring input is untrusted JSON. An `epic` that arrives as a list must
+    reach the type validator, not raise an unhashable-type traceback on the way."""
+    item = authored_story("ENG-9", "Reports")
+    item["epic"] = []
+    code, out = import_roadmap(repo, tmp_path, {
+        "generated_by": "human", "epics": [ROADMAP_EPIC], "items": [item],
+    })
+    assert code != 0
+    assert "Traceback" not in out and "unhashable" not in out, out
+    assert "epic" in out
+
+
+def test_add_ignores_a_stale_epic_the_new_story_does_not_name(repo, tmp_path):
+    """One legacy epic elsewhere in the roadmap must not refuse an unrelated,
+    perfectly good story — the same scoping import uses."""
+    stale = {"id": "legacy", "title": "Legacy", "objective": "old",
+             "source_refs": ["docs/architecture/gone.md"]}
+    (repo / "docs" / "architecture").mkdir(parents=True, exist_ok=True)
+    (repo / "docs" / "architecture" / "gone.md").write_text("# Gone\n")
+    code, out = import_roadmap(repo, tmp_path, {
+        "generated_by": "human", "epics": [ROADMAP_EPIC, stale],
+        "items": [authored_story("ENG-1", "First")],
+    })
+    assert code == 0, out
+    (repo / "docs" / "architecture" / "gone.md").unlink()
+
+    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-9", "Reports",
+                    "--story", "As a finance lead, I see monthly reports.",
+                    "--ac", "the report lists every invoice",
+                    "--epic", "billing", "--skill", "backend",
+                    "--spec", "docs/specs/base.md")
+    assert code == 0, out
+
+    code, out = run(repo, "forge.py", "roadmap", "add", "ENG-10", "Legacy work",
+                    "--story", "As a maintainer, I finish the legacy work.",
+                    "--ac", "it is done", "--epic", "legacy", "--skill", "backend",
+                    "--spec", "docs/specs/base.md")
+    assert code != 0 and "does not exist" in out, out
+
+
+def test_story_contract_refuses_whitespace_only_fields(repo, tmp_path):
+    """A field of spaces is a field nobody filled in. Type checks alone accept
+    it, and the story then carries no usable narrative or criterion."""
+    for field, blank in (("story", "   "), ("acceptance_criteria", ["  "])):
+        item = authored_story("ENG-9", "Reports")
+        item[field] = blank
+        code, out = import_roadmap(repo, tmp_path, {
+            "generated_by": "human", "epics": [ROADMAP_EPIC], "items": [item],
+        })
+        assert code != 0, f"{field}: {out}"
+        assert field in out
+
+
+def test_import_revalidates_a_stored_epic_a_new_story_leans_on(repo, tmp_path):
+    """Import may name an epic it did not supply. That epic's source_refs may
+    have been deleted since, so the ones incoming stories reference are
+    re-checked — and only those, or an unrelated stale epic refuses the import."""
+    # A source_ref outside the handover docs the grill watches, so deleting it
+    # exercises the epic contract rather than the staleness gate.
+    source = repo / "docs" / "architecture" / "billing.md"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("# Billing\n")
+    epic = {**ROADMAP_EPIC, "source_refs": ["docs/architecture/billing.md"]}
+
+    code, out = import_roadmap(repo, tmp_path, {
+        "generated_by": "human", "epics": [epic],
+        "items": [authored_story("ENG-1", "First")],
+    })
+    assert code == 0, out
+
+    source.unlink()
+
+    code, out = import_roadmap(repo, tmp_path, {
+        "generated_by": "human",
+        "items": [authored_story("ENG-2", "Second", epic=epic["id"])],
+    })
+    assert code != 0 and "does not exist" in out, out
+
+
+def test_epic_source_refs_resolve_against_the_target_repo(repo, tmp_path):
+    """--repo names the repository under management. Resolving source_refs
+    against the tool's own checkout refuses references that exist in the target
+    and accepts ones that do not."""
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    try:
+        from forge_cli.roadmap import check_epic_contract
+    finally:
+        sys.path.pop(0)
+
+    only_in_target = repo / "docs" / "product" / "target-only.md"
+    only_in_target.parent.mkdir(parents=True, exist_ok=True)
+    only_in_target.write_text("# Target only\n")
+    epic = {**ROADMAP_EPIC, "source_refs": ["docs/product/target-only.md"]}
+
+    check_epic_contract(epic, repo)  # resolves in the target: accepted
+
+    with pytest.raises(SystemExit):
+        check_epic_contract(epic, tmp_path)  # absent there: refused
+
+
+def test_legacy_epicless_roadmap_still_loads_and_heals(repo):
+    path = repo / "plans" / "roadmap.json"
+    legacy = {"generated_by": "human", "items": [
+        {"key": "LEG-1", "title": "Legacy story", "status": "pending", "order": 1},
+    ]}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(legacy))
+
+    code, out = run(repo, "forge.py", "roadmap", "list")
+    assert code == 0 and "LEG-1" in out, out
+    code, out = run(repo, "intake.py", "--issue", "LEG-1", "--title", "Legacy story")
+    assert code == 0 and roadmap_items(repo)["LEG-1"]["status"] == "active", out
+
+    data = json.loads(path.read_text())
+    data["items"].append({**data["items"][0], "status": "done"})
+    path.write_text(json.dumps(data))
+    code, out = run(repo, "forge.py", "roadmap", "heal")
+    assert code == 0 and roadmap_items(repo)["LEG-1"]["status"] == "done", out
 
 
 def test_roadmap_lifecycle(repo, tmp_path):
@@ -1335,10 +1532,13 @@ def test_roadmap_reimport_preserves_lifecycle_and_kept_items(repo, tmp_path):
     import_roadmap(repo, tmp_path)
     intake(repo)  # ENG-1 -> active
     # Refined roadmap: retitles ENG-1, drops ENG-2, adds ENG-3
-    code, out = import_roadmap(repo, tmp_path, {"generated_by": "human", "items": [
-        {"key": "ENG-1", "title": "Invoices v2", "epic": "billing"},
-        {"key": "ENG-3", "title": "Reports", "epic": "insights"},
-    ]})
+    insights = {"id": "insights", "title": "Insights", "objective": "clear reports",
+                "source_refs": ["docs/product/BRIEF.md"]}
+    code, out = import_roadmap(repo, tmp_path, {
+        "generated_by": "human", "epics": [insights], "items": [
+            authored_story("ENG-1", "Invoices v2"),
+            authored_story("ENG-3", "Reports", epic="insights"),
+        ]})
     assert code == 0 and "kept" in out, out
     items = roadmap_items(repo)
     assert items["ENG-1"]["status"] == "active"  # lifecycle survives re-import
@@ -1355,11 +1555,14 @@ def test_roadmap_import_and_add_validation(repo, tmp_path):
                                {"generated_by": "human", "items": [{"key": "A"}]})
     assert code != 0 and "title" in out
     code, out = import_roadmap(repo, tmp_path, {"generated_by": "human", "items": [
-        {"key": "A", "title": "x"}, {"key": "A", "title": "y"},
-    ]})
+        authored_story("A", "x"), authored_story("A", "y"),
+    ], "epics": [ROADMAP_EPIC]})
     assert code != 0 and "duplicate" in out
+    code, out = import_roadmap(repo, tmp_path)
+    assert code == 0, out
     story_flags = ("--story", "As a finance lead, I see monthly reports.",
-                   "--ac", "the report lists every invoice")
+                   "--ac", "the report lists every invoice",
+                   "--epic", "billing", "--skill", "backend")
     code, out = run(repo, "forge.py", "roadmap", "add", "ENG-9", "Reports",
                     *story_flags, "--spec", "docs/specs/base.md")
     assert code == 0, out
@@ -1664,10 +1867,11 @@ def test_epics_and_story_fields_recorded_and_grouped(repo, tmp_path):
     sign_off(repo)
     code, out = import_roadmap(repo, tmp_path, {
         "generated_by": "docs-decomposer",
-        "epics": [{"id": "billing", "title": "Billing", "objective": "money in"}],
+        "epics": [ROADMAP_EPIC],
         "items": [{"key": "ENG-1", "title": "Invoices", "epic": "billing",
                    "story": "As an admin, I invoice clients",
-                   "acceptance_criteria": ["PDF generated"], "skill": "backend"}],
+                   "acceptance_criteria": ["PDF generated"], "skill": "backend",
+                   "depends_on": []}],
     })
     assert code == 0 and "1 epic(s) recorded" in out, out
     data = json.loads((repo / "plans" / "roadmap.json").read_text())
@@ -2452,19 +2656,20 @@ def test_trailer_check_targets_the_acceptance_commit(repo):
 # ------------------------------------------------------------ parallelization
 
 def test_roadmap_parallel_frontier(repo, tmp_path):
-    code, out = import_roadmap(repo, tmp_path, {"generated_by": "docs-decomposer", "items": [
-        {"key": "P-1", "title": "Auth API", "skill": "backend"},
-        {"key": "P-2", "title": "Notes UI", "skill": "frontend"},
-        {"key": "P-3", "title": "Profile page", "skill": "frontend",
-         "depends_on": ["P-1"]},
-    ]})
+    code, out = import_roadmap(repo, tmp_path, {
+        "generated_by": "docs-decomposer", "epics": [ROADMAP_EPIC], "items": [
+            authored_story("P-1", "Auth API"),
+            authored_story("P-2", "Notes UI", skill="frontend"),
+            authored_story("P-3", "Profile page", skill="frontend",
+                           depends_on=["P-1"]),
+        ]})
     assert code == 0, out
     # dangling and self edges are refused at import
     code, out = import_roadmap(repo, tmp_path, {"generated_by": "docs-decomposer", "items": [
-        {"key": "P-4", "title": "X", "depends_on": ["P-99"]}]})
+        authored_story("P-4", "X", depends_on=["P-99"])]})
     assert code != 0 and "P-99" in out
     code, out = import_roadmap(repo, tmp_path, {"generated_by": "docs-decomposer", "items": [
-        {"key": "P-5", "title": "Y", "depends_on": ["P-5"]}]})
+        authored_story("P-5", "Y", depends_on=["P-5"])]})
     assert code != 0 and "itself" in out
     # frontier: P-1 and P-2 run in parallel worktrees; P-3 blocked on P-1
     code, out = run(repo, "forge.py", "roadmap", "parallel")
@@ -2477,7 +2682,7 @@ def test_roadmap_parallel_frontier(repo, tmp_path):
     # completing P-1 unblocks P-3
     from_json = (repo / "plans" / "roadmap.json")
     import_roadmap(repo, tmp_path, {"generated_by": "docs-decomposer", "items": [
-        {"key": "P-1", "title": "Auth API", "skill": "backend"}]})  # no-op merge keeps status
+        authored_story("P-1", "Auth API")]})  # no-op merge keeps status
     data = json.loads(from_json.read_text())
     for item in data["items"]:
         if item["key"] == "P-1":
@@ -2661,11 +2866,12 @@ def test_frontier_is_ranked_by_what_it_unblocks(repo, tmp_path):
     assert rows["comms"] == (2, ["core"])   # derived, not declared
     assert rows["core"] == (2, [])
     # and the CLI ranks by it rather than by roadmap order
-    import_roadmap(repo, tmp_path, {"generated_by": "docs-decomposer", "items": [
-        {"key": "ENG-1", "title": "frees nothing"},
-        {"key": "ENG-2", "title": "frees one"},
-        {"key": "ENG-3", "title": "waits", "depends_on": ["ENG-2"]},
-    ]})
+    import_roadmap(repo, tmp_path, {
+        "generated_by": "docs-decomposer", "epics": [ROADMAP_EPIC], "items": [
+            authored_story("ENG-1", "frees nothing"),
+            authored_story("ENG-2", "frees one"),
+            authored_story("ENG-3", "waits", depends_on=["ENG-2"]),
+        ]})
     code, out = run(repo, "forge.py", "roadmap", "parallel")
     assert code == 0, out
     assert out.index("ENG-2") < out.index("ENG-1"), out
@@ -2769,9 +2975,12 @@ def test_adhoc_capture_is_visible_debt_not_a_build_bypass(repo, tmp_path):
     ask that cannot be recorded gets built off the books — without becoming a
     way around decision 0014."""
     sign_off(repo)
+    code, out = import_roadmap(repo, tmp_path)
+    assert code == 0, out
     code, out = run(repo, "forge.py", "roadmap", "add", "ENG-7", "Urgent export",
                     "--story", "As a finance lead, I export invoices to CSV.",
-                    "--ac", "the export downloads", "--no-spec",
+                    "--ac", "the export downloads", "--epic", "billing",
+                    "--skill", "backend", "--no-spec",
                     "--reason", "client asked mid-sprint, spec to follow")
     assert code == 0, out
     item = roadmap_items(repo)["ENG-7"]
@@ -3006,14 +3215,15 @@ def test_review_hardening_guards(repo, tmp_path):
 
 
 def test_roadmap_dependency_and_lifecycle_guards(repo, tmp_path):
-    import_roadmap(repo, tmp_path, {"generated_by": "docs-decomposer", "items": [
-        {"key": "G-1", "title": "API"},
-        {"key": "G-2", "title": "UI", "depends_on": ["G-1"]},
-    ]})
+    import_roadmap(repo, tmp_path, {
+        "generated_by": "docs-decomposer", "epics": [ROADMAP_EPIC], "items": [
+            authored_story("G-1", "API"),
+            authored_story("G-2", "UI", depends_on=["G-1"]),
+        ]})
     # cycles refused at import
     code, out = import_roadmap(repo, tmp_path, {"generated_by": "docs-decomposer", "items": [
-        {"key": "C-1", "title": "a", "depends_on": ["C-2"]},
-        {"key": "C-2", "title": "b", "depends_on": ["C-1"]},
+        authored_story("C-1", "a", depends_on=["C-2"]),
+        authored_story("C-2", "b", depends_on=["C-1"]),
     ]})
     assert code != 0 and "cycle" in out
     # intake ENFORCES depends_on, not just displays it
@@ -5304,9 +5514,10 @@ def test_plan_save_requires_surface_impact_section(repo, tmp_path):
 
 
 def test_refactor_ratchet_blocks_growing_refactors(repo, tmp_path):
-    import_roadmap(repo, tmp_path, {"generated_by": "docs-decomposer", "items": [
-        {"key": "REF-1", "title": "Shrink the api layer", "kind": "refactor"},
-    ]})
+    import_roadmap(repo, tmp_path, {
+        "generated_by": "docs-decomposer", "epics": [ROADMAP_EPIC], "items": [
+            authored_story("REF-1", "Shrink the api layer", kind="refactor"),
+        ]})
     # invalid kind refused at grooming time
     code, out = run(repo, "forge.py", "roadmap", "add", "X-1", "t", "--kind", "cleanup",
                     "--story", "As a dev, I keep the api small.", "--ac", "smaller")

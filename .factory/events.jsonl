@@ -104,3 +104,5 @@
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-04T17:51:45+00:00", "story": "PH-2", "detail": "plans/active/PH-2-the-roadmap-hierarchy-contract.md"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-04T18:01:48+00:00", "story": "PH-2", "detail": "4 task(s)"}
 {"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-04T18:01:54+00:00", "story": "PH-2"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-04T18:02:54+00:00", "story": "PH-2", "detail": "PH-2.1 The story and epic contracts, at the routes that author them"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-04T18:18:41+00:00", "story": "PH-2", "detail": "PH-2.1 (write)"}
