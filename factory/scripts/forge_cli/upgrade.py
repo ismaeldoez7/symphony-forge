@@ -6,7 +6,6 @@ Replaces machinery the harness owns; never touches project-owned content.
 from __future__ import annotations
 
 import argparse
-import os
 import shutil
 import subprocess
 import tempfile
@@ -98,6 +97,13 @@ def _check_legacy_retirable(target: Path, harness: Path) -> None:
             "machinery tree, and retiring .agents/ would drop the link. Replace it "
             "with a real directory (or move it out of .agents/) and re-run."
         )
+    # A legacy skills entry whose name the harness also ships is treated as the
+    # machinery being replaced. That cannot be decided from the paths: an older
+    # harness's copy of a skill differs from the current one exactly the way a
+    # client's would, and the harness ships factory/skills/forge.md, so
+    # refusing every collision would refuse every upgrade. It is not silent
+    # either — upgrade refuses a dirty tree, so the replacement lands as a
+    # reviewed deletion in the upgrade diff. Conflict policy is D-0002.
     missing = []
     for path in sorted(legacy.rglob("*")):
         if not (path.is_file() or path.is_symlink()):
@@ -162,50 +168,81 @@ def _is_harness_owned(rel: str, harness: Path) -> bool:
     return False
 
 
+def _indexed_symlinks_naming_legacy(target: Path) -> list[str]:
+    """Symlinks whose target names the retired tree.
+
+    `git grep` skips symlink entries, but a symlink's blob IS its target text —
+    and a link into .agents/ breaks exactly like a mention of it does. Read the
+    blob from the index rather than the working tree, so no link is ever
+    followed and no ancestor can redirect the read out of the repository.
+    """
+    listing = subprocess.run(
+        ["git", "ls-files", "-s", "-z"], cwd=target, capture_output=True)
+    if listing.returncode != 0:
+        return []
+    found = []
+    for raw in listing.stdout.split(b"\0"):
+        metadata, _, rel = raw.partition(b"\t")
+        fields = metadata.split()
+        if not rel or len(fields) < 2 or fields[0] != b"120000":
+            continue
+        blob = subprocess.run(
+            ["git", "cat-file", "blob", fields[1].decode()],
+            cwd=target, capture_output=True)
+        if blob.returncode != 0:
+            continue
+        link = blob.stdout.decode("utf-8", errors="replace")
+        # Whole path component: `legacy-tools -> .agents` has no trailing slash.
+        if ".agents" in link.split("/"):
+            found.append(rel.decode("utf-8", errors="surrogateescape"))
+    return found
+
+
 def _stale_agents_references(
     target: Path, harness: Path, migrated: list[str] | None = None
 ) -> list[str]:
-    tracked = subprocess.run(
-        ["git", "ls-files", "-z"], cwd=target, capture_output=True, check=True
-    ).stdout.split(b"\0")
-    candidates = [
-        raw.decode("utf-8", errors="surrogateescape") for raw in tracked if raw
+    """Project-owned files that still name the retired tree.
+
+    Searched in the INDEX, never through the working tree. Git streams blob
+    content and resolves paths itself, so this cannot follow a symlink (at the
+    leaf or at any ancestor) out of the repository, cannot wander into an
+    ignored node_modules/ or dist/, and cannot allocate a whole large file to
+    look for a short marker. A symlink's blob is its target text, so a link
+    that merely NAMES .agents is matched like any other content.
+    """
+    search = subprocess.run(
+        ["git", "grep", "-l", "--cached", "-I", "-z", "-F", "-e", ".agents", "--"],
+        cwd=target, capture_output=True,
+    )
+    # 0 = matches, 1 = none. Anything else is a real failure, but this report
+    # is advisory and runs after the migration; it must never abort the upgrade.
+    if search.returncode not in (0, 1):
+        return []
+    hits = [
+        raw.decode("utf-8", errors="surrogateescape")
+        for raw in search.stdout.split(b"\0") if raw
     ]
+    hits.extend(_indexed_symlinks_naming_legacy(target))
     # Client skills carried out of .agents/skills/ land at factory/skills/<name>,
-    # which is BOTH untracked until the human stages the upgrade and skipped as
-    # harness-owned below. Repos that install project skills carry a dozen of
-    # them, so leaving them out would let the report say "none" while a
-    # project-owned file still names the retired tree.
-    for rel in migrated or []:
-        root = target / rel
-        if root.is_dir() and not root.is_symlink():
-            candidates.extend(
-                str(child.relative_to(target)) for child in sorted(root.rglob("*"))
-            )
-        else:
-            candidates.append(rel)
-    stale = []
-    for rel in candidates:
+    # untracked until the human stages the upgrade. Their INDEXED source is the
+    # .agents/skills/ path, so translate the hit to where the file now lives
+    # rather than walking the freshly copied tree.
+    carried = {
+        rel[len("factory/skills/"):].split("/", 1)[0]
+        for rel in migrated or [] if rel.startswith("factory/skills/")
+    }
+    stale = set()
+    for rel in hits:
         if rel.startswith(".factory/history/"):
             continue
-        if not rel.startswith("factory/skills/") and _is_harness_owned(rel, harness):
+        parts = rel.split("/")
+        if parts[0] == ".agents":
+            if len(parts) > 2 and parts[1] == "skills" and parts[2] in carried:
+                stale.add("factory/skills/" + "/".join(parts[2:]))
             continue
-        path = target / rel
-        try:
-            # A symlink's tracked content IS its target text — following it
-            # would both miss a link that names .agents/ (broken once the tree
-            # is retired) and read whatever it points at, which is exactly the
-            # untracked/external content this report must never touch.
-            if path.is_symlink():
-                # Match .agents as a whole path component: a link that points AT
-                # the retired root (`legacy-tools -> .agents`) has no trailing
-                # slash, and breaks just as thoroughly.
-                if ".agents" in os.readlink(path).split("/"):
-                    stale.append(rel)
-            elif path.is_file() and b".agents/" in path.read_bytes():
-                stale.append(rel)
-        except OSError:
+        if _is_harness_owned(rel, harness):
             continue
+        stale.add(rel)
     return sorted(stale)
 
 
