@@ -3639,6 +3639,34 @@ def test_stage_done_termination_signal_reaps_active_proof(
         os.kill(child_pid, 0)
 
 
+def test_process_identity_matches_the_process_table_on_single_digit_days(repo):
+    # `ps -o lstart=` pads the day of month to width two ("Aug  4"), while
+    # _process_table rebuilds identity with " ".join(fields) and collapses it.
+    # Every identity comparison in the module pits one form against the other,
+    # so an unnormalized probe matches nothing on days 1-9 — no observed
+    # process is recognized as live, none is signalled, and proof trees
+    # survive. It passed on 2026-07-30 and failed on 2026-08-04 for that
+    # reason alone. Assert the two forms agree for a live process.
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+
+        proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(5)"])
+        try:
+            probed = delegate._process_start_identity(proc.pid)
+            tabled = delegate._process_table().get(proc.pid)
+            assert probed is not None and tabled is not None
+            assert probed == tabled[1], (
+                f"identity forms disagree: probe={probed!r} table={tabled[1]!r}")
+            assert "  " not in probed
+        finally:
+            proc.kill()
+            proc.wait(timeout=5)
+    finally:
+        sys.path.remove(str(repo / "factory" / "scripts"))
+        sys.modules.pop("forge_cli.delegate", None)
+
+
 @pytest.mark.parametrize("proof_kind", ["verify-command", "required-test"])
 def test_proof_reaps_spawn_when_process_identity_probe_fails(
         repo, monkeypatch, proof_kind):
@@ -4256,10 +4284,12 @@ def test_stage_migrate_requires_confirmation_and_adopts_legacy_state(
     assert code == 0, out
     protected = delegation_ledger(repo).parent
     shutil.rmtree(protected)
-    code, out = run(repo, "forge.py", "stage", "migrate")
+    base = head(repo)
+    code, out = run(repo, "forge.py", "stage", "migrate", "--base", base)
     assert code != 0 and "--confirm-workspace-state" in out
     code, out = run(
-        repo, "forge.py", "stage", "migrate", "--confirm-workspace-state")
+        repo, "forge.py", "stage", "migrate", "--base", base,
+        "--confirm-workspace-state")
     assert code == 0, out
     assert (protected / "decomposition.json").is_file()
     assert (protected / "stages.json").is_file()
@@ -4282,9 +4312,71 @@ def test_stage_migrate_refuses_partial_protected_authority(
     protected.mkdir(parents=True)
     (protected / protected_name).write_bytes(source)
     code, out = run(
-        repo, "forge.py", "stage", "migrate", "--confirm-workspace-state")
+        repo, "forge.py", "stage", "migrate", "--base", head(repo),
+        "--confirm-workspace-state")
     assert code != 0
     assert "partial protected" in out
+
+
+def prepare_legacy_stage_migration(repo, tmp_path, tasks=None):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    tasks = tasks or [STAGE_TASK]
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": tasks}))
+    assert code == 0, out
+    protected = delegation_ledger(repo).parent
+    shutil.rmtree(protected)
+    return protected
+
+
+def test_stage_migrate_requires_a_base(repo, tmp_path):
+    prepare_legacy_stage_migration(repo, tmp_path)
+    code, out = run(
+        repo, "forge.py", "stage", "migrate", "--confirm-workspace-state")
+    assert code != 0 and "--base" in out
+
+    code, out = run(
+        repo, "forge.py", "stage", "migrate", "--base", "not-a-commit",
+        "--confirm-workspace-state")
+    assert code != 0 and "does not resolve to a commit" in out
+
+
+def test_stage_migrate_refuses_a_base_that_is_not_an_ancestor(repo, tmp_path):
+    prepare_legacy_stage_migration(repo, tmp_path)
+    tree = git(repo, "rev-parse", "HEAD^{tree}")
+    unrelated = git(repo, "commit-tree", tree, "-m", "unrelated root")
+    code, out = run(
+        repo, "forge.py", "stage", "migrate", "--base", unrelated,
+        "--confirm-workspace-state")
+    assert code != 0 and "not an ancestor of HEAD" in out
+
+
+def test_stage_migrate_records_the_base_on_adopted_stages(repo, tmp_path):
+    tasks = [
+        {**STAGE_TASK, "id": "T1"},
+        {**STAGE_TASK, "id": "T2"},
+        {**STAGE_TASK, "id": "T3"},
+    ]
+    protected = prepare_legacy_stage_migration(repo, tmp_path, tasks)
+    stages_path = repo / ".factory" / "stages.json"
+    stages = json.loads(stages_path.read_text())
+    stages["stages"][0]["status"] = "done"
+    stages["stages"][1]["status"] = "active"
+    stages_path.write_text(json.dumps(stages))
+    base = head(repo)
+
+    code, out = run(
+        repo, "forge.py", "stage", "migrate", "--base", base[:12],
+        "--confirm-workspace-state")
+    assert code == 0, out
+    adopted = json.loads((protected / "stages.json").read_text())["stages"]
+    for stage in adopted[:2]:
+        assert stage["base_sha"] == base
+        assert stage["task_sha256"]
+    assert "base_sha" not in adopted[2]
+    assert "task_sha256" not in adopted[2]
 
 
 @pytest.mark.parametrize(

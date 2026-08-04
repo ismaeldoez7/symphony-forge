@@ -1054,6 +1054,19 @@ def _cmd_migrate_locked(args: argparse.Namespace, base: Path) -> None:
         fail("migration trusts legacy workspace state exactly once; inspect "
              ".factory/decomposition.json and .factory/stages.json, then pass "
              "--confirm-workspace-state")
+    resolved_base = _git(
+        base, "rev-parse", "--verify", "--end-of-options",
+        f"{args.base}^{{commit}}")
+    if not resolved_base:
+        fail(f"--base {args.base!r} does not resolve to a commit")
+    resolved_base = resolved_base.strip()
+    ancestor = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", resolved_base, "HEAD"],
+        cwd=base, capture_output=True, text=True, env=clean_git_env())
+    if ancestor.returncode == 1:
+        fail(f"--base {resolved_base!r} is not an ancestor of HEAD")
+    if ancestor.returncode != 0:
+        fail(f"could not validate --base {resolved_base!r} against HEAD")
     protected_decomposition = protected_decomposition_state_path(base)
     protected_stages = authoritative_stages_path(base)
     if protected_decomposition.exists() != protected_stages.exists():
@@ -1086,6 +1099,7 @@ def _cmd_migrate_locked(args: argparse.Namespace, base: Path) -> None:
         if stage.get("status") not in {"pending", "active", "done"}:
             fail(f"legacy stage {stage.get('id')} has invalid status")
         if stage.get("status") in {"active", "done"}:
+            stage["base_sha"] = resolved_base
             stage["task_sha256"] = task_digest(tasks[stage["id"]])
         stage.pop("parallel", None)
         stage.pop("attested_digests", None)
