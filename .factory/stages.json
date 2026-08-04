@@ -1,0 +1,15 @@
+{
+  "issue": "FORGE-UPG-1",
+  "stages": [
+    {
+      "id": "FORGE-UPG-1.1",
+      "title": "forge upgrade retires the legacy .agents/ tree and reports what survives",
+      "status": "pending"
+    },
+    {
+      "id": "FORGE-UPG-1.2",
+      "title": "stage migrate records an explicit base commit",
+      "status": "pending"
+    }
+  ]
+}

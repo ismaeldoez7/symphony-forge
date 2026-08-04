@@ -2,31 +2,23 @@
   "generated_by": "griller",
   "gate": "spec",
   "verdict": "pass",
-  "questions_asked": 5,
-  "summary": "Five decisions put to the human one at a time, each with a recommendation; all five confirmed. Two read-only audits supplied the facts (file:line) rather than asking for them.",
+  "questions_asked": 2,
+  "summary": "Interrogated docs/specs/legacy-upgrade.md against decisions 0009 (frozen gate surface), 0016 (machinery dir rename), 0002 (one story per branch) and the mixed-ownership contract stated in upgrade.py. Two blocking findings, both resolved into the spec text.",
   "gaps": [
-    "'Done' was undefined: forge stage done checked only that the stage was started, so a partially finished delegation closed clean.",
-    "The delegation step had no command, so what should have happened was a recollection rather than a record.",
-    "Nothing composed context for the executing runtime: factory/prompts/implementer.md is referenced by five docs and read by zero scripts.",
-    "A running or stalled Codex job was invisible until someone asked.",
-    "write_scope, verify_commands and required_tests were declared per task and consumed only by the renderer."
+    "The spec said the base commit for a legacy stage is 'recorded' without saying where it comes from. A base is what decides which commits count as the story's work; inferring it from branch topology would make that decision silently, and agentstats has no remote from which a default branch could even be probed."
   ],
   "contradictions": [
-    "Three layers disagree on the Codex write default: the companion defaults read-only (codex-companion.mjs:782), this repo says read-only unless --write (pre_tool_use.py:275, harness.yaml:54), and the plugin's own subagent says to default to --write (agents/codex-rescue.md:34).",
-    "harness.yaml requires emil-design-eng and frontend-design for user-facing work, but ~/.codex/skills/ has only frontend-design \u2014 so every skills_used attestation naming the others on a Codex-built artifact is false."
+    "The spec said the .agents/ tree 'is removed' \u2014 a wholesale delete written into the same file that promises never to delete client additions (upgrade.py:29) and enforced nowhere. A client repo that placed its own content under .agents/ would lose it with no refusal and no report."
   ],
   "resolutions": [
-    "stage done becomes a measurement: it refuses on an empty diff, an out-of-scope path, a missing required test, or a failing verify command.",
-    "forge delegate composes the brief and the invocation; the write flag is derived from stage state instead of typed per request, which removes the three-layer disagreement at the only place that matters.",
-    "The brief is hook-gated: a --write companion call with no fresh recorded brief is denied, and the refusal names the command that fixes it.",
-    "forge codex status reads the plugin job registry and reports the write flag and age per job; it stays advisory so a third-party path can never block a ship.",
-    "verify_commands must be runnable \u2014 prose is refused at record time for new decompositions, and forge doctor reports prose still carried by an active decomposition.",
-    "forge doctor checks required and advised skills against every runtime expected to attest them, with --fix to install what is missing."
+    "Behaviour section rewritten: the legacy tree is retired by carry-then-verify. Skill-evolution dirs and client-added skills move from .agents/skills/ into factory/skills/ under the existing mixed-ownership rule; the remainder is deleted ONLY if every file left has a counterpart path in the newly vendored factory/ tree. Any unrecognized path aborts the upgrade and is named. Added as an acceptance criterion.",
+    "Behaviour section rewritten: `forge stage migrate --base <sha>` takes the base explicitly and validates that it resolves and is an ancestor of HEAD. Rationale recorded in the spec: migration is already a one-time act gated on --confirm-workspace-state, so the base belongs to the same human inspection. Acceptance criterion updated to name the flag and both refusals."
   ],
   "open_items": [
-    "Rendering delegation state on the board is deferred: it depends on the display-layer work still outstanding from PR #24. Non-blocking \u2014 the CLI surfaces it this round."
+    "Non-blocking: archived evidence under .factory/history/ keeps its .agents/ paths and is excluded from the stale-reference report. Decision 0016 already designates itself the read-key for historical artifacts, so this is a restatement, not new scope.",
+    "Non-blocking: legacy prose verify_commands and opaque required_tests are not auto-converted. `forge doctor` already reports them (shipped in FORGE-DELEG-1) and the human re-records the decomposition."
   ],
-  "input_sha256": "f64364ae43fa7ee314654e7671915283e1a56809886ae669c3201635f8c8793b",
-  "recorded_at": "2026-07-27T12:07:10+00:00",
-  "commit": "74e2ceb84464fe69fd5671dffa299ce42b937ad1"
+  "input_sha256": "bf4c1b8b0664b2549836213e87b763952fd4204818bc0f41c654bd871d5cbfa9",
+  "recorded_at": "2026-08-04T10:01:18+00:00",
+  "commit": "006a23b4d66a70acc94d0f945ec3381a1c0f468e"
 }

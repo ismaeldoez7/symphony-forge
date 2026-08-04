@@ -22,8 +22,27 @@
       "completed_at": "2026-07-30T11:49:30+00:00",
       "history": ".factory/history/FORGE-DELEG-1/",
       "outcome": "Developers can now see the epic-to-story dependency hierarchy, start dependency-ready stories in separate worktrees, and execute each story's tasks sequentially through a protected, measured delegation boundary that refuses off-contract writes, overlapping workers, stale proof, and incomplete verification."
+    },
+    {
+      "key": "FORGE-UPG-1",
+      "title": "Legacy repo upgrade: one command, no residue",
+      "story": "As an orchestrator upgrading a client repo vendored before the factory/ rename, I want one command to carry it onto the current harness, so that no stale copy of the gate surface survives and no story that was open at upgrade time becomes unclosable.",
+      "acceptance_criteria": [
+        "Upgrading a repo that carries .agents/ leaves no .agents/ tree and a complete factory/ tree",
+        "Skill-evolution state (proposed, rejected) and client-added skills under .agents/skills/ survive at factory/skills/",
+        "A path under .agents/ with no counterpart in the vendored factory/ tree aborts the upgrade and is named; nothing under it is deleted",
+        "The upgrade output names every project-owned file still referencing .agents/, excluding archived evidence under .factory/history/",
+        "The migration modifies no project-owned file",
+        "Upgrading a repo already on factory/ behaves exactly as before",
+        "forge stage migrate --base <sha> records that base for each legacy stage it adopts, and refuses a base that does not resolve or is not an ancestor of HEAD"
+      ],
+      "order": 2,
+      "status": "active",
+      "skill": "backend",
+      "kind": "feature",
+      "spec": "docs/specs/legacy-upgrade.md"
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-07-30T11:49:30+00:00"
+  "updated_at": "2026-08-04T10:01:50+00:00"
 }

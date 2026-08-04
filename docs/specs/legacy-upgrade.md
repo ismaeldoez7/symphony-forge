@@ -1,7 +1,7 @@
 ---
 slug: legacy-upgrade
 title: Legacy repo upgrade: one command, no residue
-status: draft
+status: confirmed
 saved: 2026-08-04T10:00:36+00:00
 ---
 
