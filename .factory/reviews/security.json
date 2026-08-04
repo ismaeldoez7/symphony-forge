@@ -22,6 +22,6 @@
     "factory/scripts/forge_cli/delegate.py"
   ],
   "aspect": "security",
-  "recorded_at": "2026-08-04T17:38:56+00:00",
-  "commit": "2b9ce1dbd8b192467f8deb09423251ef99dbceac"
+  "recorded_at": "2026-08-04T18:18:44+00:00",
+  "commit": "fbda5d122594bf09057b1d6874068d7aa08b91c2"
 }

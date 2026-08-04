@@ -127,3 +127,8 @@
 {"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-04T17:38:56+00:00", "story": "PH-1"}
 {"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-04T17:38:56+00:00", "story": "PH-1"}
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-04T17:38:56+00:00", "story": "PH-1"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-04T18:18:29+00:00", "story": "PH-1"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-04T18:18:43+00:00", "story": "PH-1", "detail": "passed"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-04T18:18:43+00:00", "story": "PH-1"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-04T18:18:43+00:00", "story": "PH-1"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-04T18:18:44+00:00", "story": "PH-1"}
