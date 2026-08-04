@@ -57,8 +57,80 @@
       "skill": "backend",
       "origin": "adhoc",
       "spec": "docs/specs/repo-system-of-record.md"
+    },
+    {
+      "key": "PH-1",
+      "title": "Project and spec capture is complete or refused",
+      "story": "As a developer opening a project I have not seen, I want the brief and its capability specs to be guaranteed complete, so that the board can show me what this product is instead of rendering blanks.",
+      "acceptance_criteria": [
+        "record_signoff.py refuses when docs/product/BRIEF.md is missing a required heading or a required heading's body is empty, and names the heading.",
+        "forge spec confirm refuses a spec without an H1 title, Why, Behaviour, or Acceptance criteria, and names what is missing.",
+        "forge spec save still accepts an incomplete draft.",
+        "The brief template, its conventions doc and docs/product/BRIEF.md carry one canonical heading set including Target Outcome, and no heading in an already-written brief is renamed.",
+        "A brief or spec captured before this contract is reported by forge doctor and refused by nothing that already passed."
+      ],
+      "order": 4,
+      "status": "done",
+      "skill": "backend",
+      "spec": "docs/specs/project-hierarchy.md",
+      "completed_at": "2026-08-04T18:19:05+00:00",
+      "history": ".factory/history/PH-1/",
+      "outcome": "A brief or spec that is missing a required section is now refused at the gate that records it, instead of reaching sign-off half-written. Sign-off names every absent BRIEF heading, spec confirm requires Why, Behaviour and Acceptance criteria, and doctor reports legacy documents without blocking anyone. One shared parser answers 'does this document have this section' for all three, and it reads an example as an example: headings inside fenced blocks, HTML comments, raw blocks and container blocks no longer count as structure."
+    },
+    {
+      "key": "PH-2",
+      "title": "The roadmap hierarchy contract",
+      "story": "As a planner, I want epics and stories to be refused unless they carry the fields the hierarchy needs, so that what the board draws is guaranteed to exist rather than hoped for.",
+      "acceptance_criteria": [
+        "roadmap derive, import and add refuse an epic missing id, title, objective or resolvable source_refs, and a story missing narrative, acceptance criteria, skill, a known epic, or an explicit depends_on.",
+        "forge roadmap epic add creates an epic after sign-off, proven against a roadmap that has none.",
+        "The roadmap add --no-spec ad-hoc path still works and plan save still refuses to build its output.",
+        "mark_status, assign, link-spec and heal all still succeed against a roadmap captured before this contract.",
+        "unblocks, leverage and epic gating are derived from depends_on, and no route accepts them as authored input."
+      ],
+      "order": 5,
+      "status": "pending",
+      "skill": "backend",
+      "spec": "docs/specs/project-hierarchy.md"
+    },
+    {
+      "key": "PH-3",
+      "title": "Plan and task contract",
+      "story": "As a reviewer six weeks later, I want every approved plan to carry all nine sections and every task its own provenance, so that the argument for a change survives the person who made it.",
+      "acceptance_criteria": [
+        "plan save refuses a plan missing any of the nine sections the planner prompt names, or carrying one with an empty body.",
+        "A recorded decomposition takes project, story, epic, plan path and plan digest from repository state, and a payload cannot override them.",
+        "Task verify_commands must be runnable, required_tests may be empty, and a task dependency may only name an earlier task.",
+        "build_waves is no longer authored by the decomposer prompt and its only reader is removed, while the schema still parses artifacts that carry it."
+      ],
+      "order": 6,
+      "status": "pending",
+      "skill": "backend",
+      "spec": "docs/specs/project-hierarchy.md"
+    },
+    {
+      "key": "PH-4",
+      "title": "Present the hierarchy to engineers",
+      "story": "As a new engineer, I want the default board screen to tell me what this project is, which stories I can start in parallel right now, and why the others are blocked, so that I can act without opening every card.",
+      "acceptance_criteria": [
+        "Every epic, story and task on screen is explicitly labelled as such, and the drawer opens with a Project > Epic > Story breadcrumb.",
+        "/api/state and /api/story/<key> carry project identity, epic membership and derived relationships, and no mutating route exists.",
+        "The default view answers what the project is, what can start now, what each epic delivers, and why a story is blocked.",
+        "Blocked stories are described as blocked wherever the API reports blocked.",
+        "The bundled example passes the production validators and reads correctly at desktop, tablet and mobile widths."
+      ],
+      "order": 7,
+      "status": "pending",
+      "skill": "fullstack",
+      "depends_on": [
+        "PH-1",
+        "PH-2",
+        "PH-3"
+      ],
+      "spec": "docs/specs/project-hierarchy.md"
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-04T15:17:11+00:00"
+  "updated_at": "2026-08-04T18:19:05+00:00",
+  "epics": []
 }

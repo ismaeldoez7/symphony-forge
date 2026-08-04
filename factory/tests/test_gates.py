@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -37,6 +38,15 @@ def run(repo: Path, script: str, *args: str, stdin: str | None = None,
     return proc.returncode, proc.stdout + proc.stderr
 
 
+def load_factory_lib(repo: Path):
+    path = repo / "factory" / "scripts" / "factory_lib.py"
+    spec = importlib.util.spec_from_file_location("factory_lib_under_test", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 GIT_ID = ["-c", "user.email=test@knacklabs.dev", "-c", "user.name=Gate Tests"]
 
 # Minimal payload satisfying factory/schemas/decomposition.json
@@ -49,6 +59,16 @@ DECOMP = {"status": "recorded", "generated_by": "docs-decomposer",
 # Minimal plan body passing `plan save` content gates (Decisions + Surface Impact).
 PLAN_BODY = ("## Decisions\nNo new decisions\n\n"
              "## Surface Impact\nAll surfaces: N-A (test plan)\n")
+
+BRIEF_HEADINGS = (
+    "Summary",
+    "Users",
+    "Target Outcome",
+    "Key Flows",
+    "Domain Concepts",
+    "Constraints",
+    "Out of Scope",
+)
 
 
 def git(repo: Path, *args: str) -> str:
@@ -678,6 +698,247 @@ def test_scaffold_does_not_inherit_the_harness_signoff(repo):
     assert not signed_off(repo)
 
 
+def test_parse_sections_maps_headings_to_bodies():
+    factory_lib = load_factory_lib(HARNESS)
+
+    assert factory_lib.parse_sections(
+        "# Brief\n\n## Summary\n\n A \n\n## Target Outcome\n \t\n"
+    ) == {
+        "Summary": "A",
+        "Target Outcome": "",
+    }
+
+    # A brief authored on Windows is ordinary input. Multiline `$` sits before
+    # the `\n` and cannot consume the `\r`, so an anchor without `\r?` misses
+    # every heading and the gate refuses a document that is actually complete.
+    assert factory_lib.parse_sections(
+        "# Brief\r\n\r\n## Summary\r\n\r\n A \r\n\r\n## Target Outcome\r\n \t\r\n"
+    ) == {
+        "Summary": "A",
+        "Target Outcome": "",
+    }
+
+
+def test_parse_sections_reads_examples_as_examples():
+    """A heading inside an example illustrates a heading; it is not one.
+
+    Every case here was broken by one of the four regex attempts that preceded
+    factory_lib.example_ranges — each closed one way of over-counting and
+    opened a new way of missing a real heading — so these are guards against
+    reintroducing that class, not decoration.
+    """
+    factory_lib = load_factory_lib(HARNESS)
+
+    # A fenced example cannot supply a section the author never wrote.
+    assert factory_lib.parse_sections(
+        "# Spec\n\n## Why\n\nreal\n\n```md\n## Behaviour\n\nfenced\n```\n"
+    ) == {"Why": "real\n\n```md\n## Behaviour\n\nfenced\n```"}
+
+    # ...and a section whose ONLY content is an example still has content.
+    assert factory_lib.parse_sections(
+        "## Acceptance criteria\n\n```gherkin\ngiven X, then Y\n```\n"
+    )["Acceptance criteria"].startswith("```gherkin")
+
+    # A closing fence exactly as long as its opener closes it, so the heading
+    # after the block is document structure again.
+    assert set(factory_lib.parse_sections(
+        "```\n## Hidden\n```\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+    # An info string containing a backtick opens nothing (CommonMark), so a
+    # matcher that paired this line with a later fence swallowed real headings.
+    assert set(factory_lib.parse_sections(
+        "## Why\n\nuse ```json `x` ``` inline\n\n## Behaviour\n\nreal\n"
+    )) == {"Why", "Behaviour"}
+
+    # A comment marker inside an example must not pair with one outside it.
+    assert set(factory_lib.parse_sections(
+        "```\n<!--\n```\n\n## Why\n\nreal\n\n<!-- ## Hidden -->\n"
+    )) == {"Why"}
+
+    # A tilde fence is a fence; backticks inside it are content.
+    assert set(factory_lib.parse_sections(
+        "~~~\n```\n## Hidden\n~~~\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+    # An unterminated construct masks NOTHING. A stray opener is a typo, and
+    # reading the rest of the document as an example refuses a complete spec —
+    # the failure this gate exists to remove. Over-counting only routes the
+    # author to the grill that `spec confirm` requires anyway.
+    assert set(factory_lib.parse_sections(
+        "```\n\n## Why\n\nreal\n\n## Behaviour\n\nreal\n"
+    )) == {"Why", "Behaviour"}
+
+    # `<!--` is a comment opener at the start of a line, not wherever the
+    # substring appears: in inline code or prose it is the subject, not syntax.
+    assert set(factory_lib.parse_sections(
+        "The marker is `<!--`\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+    # A fence-looking line inside a comment must not change fence state, or a
+    # commented-out example hides every real section after it — including when
+    # a later fence would otherwise pair with the one inside the comment.
+    assert set(factory_lib.parse_sections(
+        "<!--\n```\n-->\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+    assert set(factory_lib.parse_sections(
+        "<!--\n```\n-->\n\n## Why\n\nreal\n\n```\n"
+    )) == {"Why"}
+
+    # ...and the mirror: a comment marker inside a fence is content, so the
+    # heading after the fence closes is structure again.
+    assert set(factory_lib.parse_sections(
+        "```\n<!--\n```\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+    # Only spaces and tabs may follow a closing fence. `strip()` also eats
+    # NBSP, which would close a block the renderer leaves open and promote
+    # the example's remaining headings to the document's own.
+    assert set(factory_lib.parse_sections(
+        "```\n## Hidden\n```\u00a0\n## Also hidden\n```\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+    # A trailing ASCII space does close it, so the heading after is structure.
+    assert set(factory_lib.parse_sections(
+        "```\n## Hidden\n``` \n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+    # A fence opened inside a list item ends when the item does. Left open it
+    # pairs with the next top-level fence and masks every heading between.
+    assert set(factory_lib.parse_sections(
+        "- example:\n  ```text\n  x\n## Why\n\nreal\n\n```text\nx\n```\n"
+    )) == {"Why"}
+    # ...but it still masks its own body, and a blank line is not an outdent.
+    assert set(factory_lib.parse_sections(
+        "- example:\n  ```\n\n  ## Hidden\n  ```\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+    # Indentation alone is not list membership: a TOP-LEVEL fence may indent up
+    # to three spaces, and closing that one early hands its headings over.
+    assert factory_lib.parse_sections(
+        "# S\n\n   ```md\n## Why\n\nw\n\n## Behaviour\n\nb\n   ```\n"
+    ) == {}
+    assert set(factory_lib.parse_sections(
+        "- item\n\ntext\n\n  ```\n## Hidden\n  ```\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+    # `<pre>` and friends hold their content verbatim to a closing tag, in any
+    # case. A `<div>` does NOT: that block ends at the blank line, so the
+    # heading after it is the document's own and masking to `</div>` would
+    # refuse a complete spec.
+    assert factory_lib.parse_sections(
+        "# S\n\n<pre>\n## Why\n\nw\n\n## Behaviour\n\nb\n</pre>\n"
+    ) == {}
+    assert set(factory_lib.parse_sections(
+        "# S\n\n<PRE>\n## Hidden\n</PRE>\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+    assert set(factory_lib.parse_sections(
+        "# S\n\n<div>\n\n## Why\n\nreal\n\n</div>\n"
+    )) == {"Why"}
+    # A container block with no blank line runs on, so those headings are its
+    # content — but it ends at the first blank line, and after that the
+    # document speaks for itself again.
+    assert factory_lib.parse_sections(
+        "# S\n\n<div>\n## Why\nw\n## Behaviour\nb\n## Acceptance criteria\n- a\n</div>\n"
+    ) == {}
+    assert set(factory_lib.parse_sections(
+        "# S\n\n<div>\nx\n</div>\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+    # ...and a tag named in prose opens nothing.
+    assert set(factory_lib.parse_sections(
+        "# S\n\nuse a <div> for layout\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+    # The tag set is CommonMark's, not a hand-picked shortlist, so `<article>`
+    # and `<ul>` behave exactly as `<div>` does.
+    assert factory_lib.parse_sections(
+        "# S\n\n<article>\n## Why\nw\n## Behaviour\nb\n## Acceptance criteria\n- a\n</article>\n"
+    ) == {}
+    assert set(factory_lib.parse_sections(
+        "# S\n\n<ul>\n## Hidden\n</ul>\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+    assert set(factory_lib.parse_sections(
+        "# S\n\n<pre>\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+
+
+def test_spec_confirm_refuses_headings_that_only_exist_in_an_example(repo):
+    """The gate promises 'complete or refused'; an example is not completion."""
+    spec = repo / "docs" / "specs" / "fenced.md"
+    spec.parent.mkdir(parents=True, exist_ok=True)
+    spec.write_text(
+        "---\nslug: fenced\ntitle: Fenced\nstatus: draft\nsaved: 2026-08-04\n---\n\n"
+        "# Fenced\n\n"
+        "Here is the shape a spec takes:\n\n"
+        "```md\n## Why\n\nbecause\n\n## Behaviour\n\nit does\n\n"
+        "## Acceptance criteria\n\n- it works\n```\n"
+    )
+    code, out = run(repo, "forge.py", "spec", "confirm", "fenced")
+    assert code != 0, out
+    assert "## Why" in out and "## Behaviour" in out and "## Acceptance criteria" in out
+
+
+def test_scaffolded_brief_carries_the_canonical_headings(repo):
+    factory_lib = load_factory_lib(HARNESS)
+
+    scaffolded = factory_lib.parse_sections(
+        (repo / "docs" / "product" / "BRIEF.md").read_text()
+    )
+    live = factory_lib.parse_sections(
+        (HARNESS / "docs" / "product" / "BRIEF.md").read_text()
+    )
+    plan_headings = re.findall(
+        r"^- \*\*([^*]+)\*\* —",
+        (HARNESS / "harness" / "nestjs-react" / "conventions" / "plans.md").read_text(),
+        flags=re.MULTILINE,
+    )
+
+    assert tuple(scaffolded) == BRIEF_HEADINGS
+    assert tuple(live) == BRIEF_HEADINGS
+    assert tuple(plan_headings) == BRIEF_HEADINGS
+    sign_off(repo)
+    assert signed_off(repo)
+
+
+def test_signoff_refuses_a_brief_missing_a_required_heading(repo):
+    brief = repo / "docs" / "product" / "BRIEF.md"
+    brief.unlink()
+
+    code, out = run(repo, "record_signoff.py")
+    assert code != 0
+    assert "at least one confirmed spec in docs/specs/" in out
+    assert "plans/roadmap.json with at least one story" in out
+    assert "docs/product/BRIEF.md is absent" in out
+    assert ", ".join(BRIEF_HEADINGS) in out
+
+    missing = {"Users", "Constraints"}
+    brief.write_text(
+        "# Product Brief\n\n"
+        + "\n".join(
+            f"## {heading}\n\nComplete.\n"
+            for heading in BRIEF_HEADINGS
+            if heading not in missing
+        )
+    )
+    code, out = run(repo, "record_signoff.py")
+    assert code != 0
+    assert "brief required headings missing or empty: Users, Constraints" in out
+
+
+def test_signoff_refuses_a_heading_with_an_empty_body(repo):
+    seed_signoff_inputs(repo)
+    empty = {"Users", "Constraints"}
+    empty_body = " \t "
+    (repo / "docs" / "product" / "BRIEF.md").write_text(
+        "# Product Brief\n\n"
+        + "\n".join(
+            f"## {heading}\n\n{empty_body if heading in empty else 'Complete.'}\n"
+            for heading in BRIEF_HEADINGS
+        )
+    )
+
+    code, out = run(repo, "record_signoff.py")
+    assert code != 0
+    assert "brief required headings missing or empty: Users, Constraints" in out
+
+
 def test_record_signoff_requires_accepted_and_confirmed(repo):
     seed_signoff_inputs(repo)
     code, out = run(repo, "record_signoff.py")
@@ -703,9 +964,104 @@ def test_record_signoff_refuses_without_confirmed_specs_and_roadmap(repo):
     assert "plans/roadmap.json" in out
 
 
+def test_spec_confirm_refuses_a_spec_missing_required_headings(repo, tmp_path):
+    complete = {
+        "title": "# Billing\n",
+        "why": "## Why\n\nCustomers need invoices.\n",
+        "behaviour": "## Behaviour\n\nInvoices can be downloaded.\n",
+        "acceptance": "## Acceptance criteria\n\n- An invoice downloads.\n",
+    }
+    cases = [
+        ("missing-title", "H1 title", {**complete, "title": ""}),
+        ("empty-title", "H1 title", {**complete, "title": "#   \n"}),
+        ("missing-why", "## Why", {**complete, "why": ""}),
+        ("empty-why", "## Why", {**complete, "why": "## Why\n\n"}),
+        ("missing-behaviour", "## Behaviour", {**complete, "behaviour": ""}),
+        ("empty-behaviour", "## Behaviour",
+         {**complete, "behaviour": "## Behaviour\n\n"}),
+        ("missing-acceptance", "## Acceptance criteria",
+         {**complete, "acceptance": ""}),
+        ("empty-acceptance", "## Acceptance criteria",
+         {**complete, "acceptance": "## Acceptance criteria\n\n"}),
+    ]
+
+    for slug, expected, parts in cases:
+        draft = tmp_path / f"{slug}.md"
+        draft.write_text("\n".join(parts.values()))
+        code, out = run(repo, "forge.py", "spec", "save", slug,
+                        "--from", str(draft))
+        assert code == 0, out
+
+        code, out = run(repo, "forge.py", "spec", "confirm", slug)
+        assert code != 0
+        assert expected in out
+        assert "grill" not in out.lower()
+
+
+def test_spec_check_never_refuses_a_complete_spec(repo):
+    """Refusing a spec whose sections are plainly there is the failure this
+    story exists to remove, so a document that carries an example before its
+    sections must still pass. Each example below broke one of the four regex
+    attempts that preceded factory_lib.example_ranges."""
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.specs import missing_required_content
+
+    sections = "\n## Why\n\nw\n\n## Behaviour\n\nb\n\n## Acceptance criteria\n\n- a\n"
+    for label, example in (
+        ("closer longer than opener", "```\nex\n````\n"),
+        ("closer indented three spaces", "```\nex\n   ```\n"),
+        ("tilde fence", "~~~\nex\n~~~\n"),
+        # A backtick fence's info string may not contain a backtick, so this is
+        # only a legal opener with tildes — and the sections after it are real.
+        ("backtick inside a tilde info string", "~~~a`b\nex\n~~~\n"),
+        ("comment marker inside a fence", "```\n<!-- x\n```\n\n<!-- note -->\n"),
+    ):
+        document = f"---\nslug: x\n---\n\n# Billing\n\n{example}{sections}"
+        assert missing_required_content(document) == [], label
+
+    # `## Why ##` is the same heading as `## Why`. Refusing it would be the H1
+    # rule contradicting the H2 rule inside one file.
+    closed = ("\n## Why ##\n\nw\n\n## Behaviour ##\n\nb\n"
+              "\n## Acceptance criteria ##\n\n- a\n")
+    assert missing_required_content(
+        f"---\nslug: x\n---\n\n# Billing\n{closed}") == []
+
+    # An ATX closing run leaves no title behind, but a trailing hash that is
+    # part of the name must survive — under LF and CRLF alike, since the
+    # closing-run anchor sits before the line ending.
+    for title, expected in (
+        ("# #", ["H1 title"]),
+        ("#   #", ["H1 title"]),
+        ("# Billing #", []),
+        ("# Sharp C#", []),
+    ):
+        document = f"---\nslug: x\n---\n\n{title}\n{sections}"
+        assert missing_required_content(document) == expected, title
+        assert missing_required_content(
+            document.replace("\n", "\r\n")) == expected, f"{title} (CRLF)"
+
+
+def test_spec_save_still_accepts_an_incomplete_draft(repo, tmp_path):
+    draft = tmp_path / "notes.md"
+    draft.write_text("Early notes without the required structure.\n")
+
+    code, out = run(repo, "forge.py", "spec", "save", "early-notes",
+                    "--from", str(draft))
+
+    assert code == 0, out
+    saved = repo / "docs" / "specs" / "early-notes.md"
+    assert "status: draft" in saved.read_text()
+    assert "Early notes without the required structure." in saved.read_text()
+
+
 def test_spec_confirm_roadmap_derive_and_signoff_gate(repo, tmp_path):
     draft = tmp_path / "billing.md"
-    draft.write_text("# Billing\n\nInvoices and payments.\n")
+    draft.write_text(
+        "# Billing\n\n"
+        "## Why\n\nCustomers need invoices and payments.\n\n"
+        "## Behaviour\n\nCustomers can manage invoices and payments.\n\n"
+        "## Acceptance criteria\n\n- Billing actions are available.\n"
+    )
     code, out = run(repo, "forge.py", "spec", "save", "billing",
                     "--from", str(draft))
     assert code == 0, out
@@ -3159,7 +3515,12 @@ def test_adhoc_capture_is_visible_debt_not_a_build_bypass(repo, tmp_path):
     code, out = save_plan(repo, tmp_path)
     assert code != 0 and "link-spec" in out and "0014" in out, out
     spec = tmp_path / "export.md"
-    spec.write_text("# Export\n\nCSV export of invoices.\n")
+    spec.write_text(
+        "# Export\n\n"
+        "## Why\n\nFinance leads need invoice data outside the app.\n\n"
+        "## Behaviour\n\nFinance leads can export invoices to CSV.\n\n"
+        "## Acceptance criteria\n\n- The export downloads.\n"
+    )
     run(repo, "forge.py", "spec", "save", "export", "--from", str(spec))
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "docs: export spec draft")
@@ -4616,6 +4977,63 @@ def test_doctor_reports_legacy_string_required_tests(repo):
     (repo / ".factory" / "decomposition.json").write_text(json.dumps(
         {**DECOMP, "tasks": [{**STAGE_TASK, "required_tests": ["test_slice"]}]}))
     assert legacy_required_tests(repo) == ["T1: 'test_slice'"]
+
+
+def test_doctor_reports_legacy_capture_without_blocking(repo, capsys):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.doctor import report_legacy_capture_gaps
+    finally:
+        sys.path.pop(0)
+
+    brief = repo / "docs" / "product" / "BRIEF.md"
+    brief.write_text("\n".join(
+        f"## {heading}\n\n{'' if heading in {'Users', 'Constraints'} else 'Captured.'}"
+        for heading in BRIEF_HEADINGS
+    ))
+    specs = repo / "docs" / "specs"
+    specs.joinpath("base.md").write_text(
+        "---\nstatus: confirmed\n---\n\n# Base\n\n"
+        "## Behaviour\n\nCaptured.\n\n"
+        "## Acceptance criteria\n\n- Captured.\n"
+    )
+    specs.joinpath("legacy-two.md").write_text(
+        "---\nstatus: confirmed\n---\n\n# Two\n\n"
+        "## Why\n\nCaptured.\n\n## Behaviour\n\nCaptured.\n"
+    )
+    specs.joinpath("draft.md").write_text(
+        "---\nstatus: draft\n---\n\n# Draft\n"
+    )
+
+    report_legacy_capture_gaps(repo)
+    out = capsys.readouterr().out
+    assert "[opt ] capture/brief docs/product/BRIEF.md: Users, Constraints" in out
+    assert "[opt ] capture/spec  docs/specs/base.md: ## Why" in out
+    assert ("[opt ] capture/spec  docs/specs/legacy-two.md: "
+            "## Acceptance criteria") in out
+    assert "draft.md" not in out
+
+    # A brief that does not exist is the most incomplete a brief can be, and a
+    # project with no brief is exactly the one that needs to be told.
+    brief.unlink()
+    report_legacy_capture_gaps(repo)
+    out = capsys.readouterr().out
+    assert all(f"{heading}" in out for heading in BRIEF_HEADINGS)
+    assert out.startswith("[opt ] capture/brief docs/product/BRIEF.md:")
+
+    brief.write_text("\n".join(
+        f"## {heading}\n\nCaptured." for heading in BRIEF_HEADINGS
+    ))
+    complete_spec = (
+        "---\nstatus: confirmed\n---\n\n# Complete\n\n"
+        "## Why\n\nCaptured.\n\n## Behaviour\n\nCaptured.\n\n"
+        "## Acceptance criteria\n\n- Captured.\n"
+    )
+    specs.joinpath("base.md").write_text(complete_spec)
+    specs.joinpath("legacy-two.md").write_text(complete_spec)
+
+    report_legacy_capture_gaps(repo)
+    assert capsys.readouterr().out == ""
 
 
 DELEGATE_TASK = {**STAGE_TASK, "required_tests": [{
