@@ -933,6 +933,25 @@ def test_upgrade_refuses_unrecognized_content_parked_under_a_cache_name(repo):
     assert parked.read_text() == "not bytecode\n"
 
 
+def test_upgrade_refusal_leaves_the_target_untouched(repo):
+    # The refusal tells the human to delete the orphan and re-run. If the
+    # abort happened after the trees were replaced, that re-run would be
+    # rejected by the dirty-target gate — the repair would be unrunnable.
+    _make_legacy_upgrade_target(repo)
+    orphan = repo / ".agents" / "client-private" / "keep.txt"
+    orphan.parent.mkdir()
+    orphan.write_text("must survive\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "legacy tree with unrecognized content")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert not git(repo, "status", "--porcelain").strip(), \
+        "a refused upgrade must leave the worktree clean so the repair can re-run"
+    assert not (repo / "factory").exists()
+
+
 def test_upgrade_preserves_a_legacy_skill_symlink_as_a_symlink(repo, tmp_path):
     # Dereferencing would copy the referent's bytes into the repo under the
     # link's name — and retirement then deletes the original, so an external

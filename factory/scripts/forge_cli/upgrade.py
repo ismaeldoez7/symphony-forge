@@ -6,6 +6,7 @@ Replaces machinery the harness owns; never touches project-owned content.
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import tempfile
@@ -72,10 +73,20 @@ def _keep_path(src: Path, dst: Path) -> None:
         shutil.copy2(src, dst, follow_symlinks=False)
 
 
-def _retire_legacy_agents(target: Path) -> bool:
+def _check_legacy_retirable(target: Path, harness: Path) -> None:
+    """Refuse BEFORE anything is written, or the repair cannot be run.
+
+    Validation used to sit next to the delete, after the trees were replaced —
+    so refusing left a clean repo dirty, and the "delete it and re-run" the
+    message asks for was then rejected by the dirty-target gate above. The
+    counterparts are knowable in advance: they are the harness's own factory/
+    tree, plus everything under skills/, which survives either because the
+    harness ships it or because it is preserved out of .agents/skills/ (the
+    one exception, a client skill whose name the harness has since taken, is
+    deferred as D-0002)."""
     legacy = target / ".agents"
-    if not legacy.is_dir():
-        return False
+    if not legacy.is_dir() or legacy.is_symlink():
+        return
     missing = []
     for path in sorted(legacy.rglob("*")):
         if not (path.is_file() or path.is_symlink()):
@@ -89,7 +100,9 @@ def _retire_legacy_agents(target: Path) -> bool:
         if path.suffix == ".pyc":
             continue
         rel = path.relative_to(legacy)
-        counterpart = target / "factory" / rel
+        if rel.parts and rel.parts[0] == "skills":
+            continue
+        counterpart = harness / "factory" / rel
         if not (counterpart.is_file() or counterpart.is_symlink()):
             missing.append(f".agents/{rel.as_posix()}")
     if missing:
@@ -99,9 +112,18 @@ def _retire_legacy_agents(target: Path) -> bool:
             f"legacy .agents/ holds {len(missing)} path(s) with no counterpart in the "
             f"vendored factory/ tree, so they cannot be shown to be the machinery "
             f"being replaced:\n  {listing}{more}\n"
-            "Nothing under .agents/ was deleted. If this is retired machinery, delete "
-            "it and re-run; if it is yours, move it somewhere the harness does not own."
+            "Nothing was written and nothing under .agents/ was deleted. If this is "
+            "retired machinery, delete it and re-run; if it is yours, move it "
+            "somewhere the harness does not own."
         )
+
+
+def _retire_legacy_agents(target: Path) -> bool:
+    """Delete only. _check_legacy_retirable already refused anything unknown,
+    before the first write."""
+    legacy = target / ".agents"
+    if not legacy.is_dir() or legacy.is_symlink():
+        return False
     shutil.rmtree(legacy)
     return True
 
@@ -142,7 +164,14 @@ def _stale_agents_references(target: Path, harness: Path) -> list[str]:
             continue
         path = target / rel
         try:
-            if path.is_file() and b".agents/" in path.read_bytes():
+            # A symlink's tracked content IS its target text — following it
+            # would both miss a link that names .agents/ (broken once the tree
+            # is retired) and read whatever it points at, which is exactly the
+            # untracked/external content this report must never touch.
+            if path.is_symlink():
+                if ".agents/" in os.readlink(path):
+                    stale.append(rel)
+            elif path.is_file() and b".agents/" in path.read_bytes():
                 stale.append(rel)
         except OSError:
             continue
@@ -164,6 +193,7 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
             f"{target} has uncommitted changes. Commit or stash first so the upgrade "
             "is a reviewable diff (--force to override)."
         )
+    _check_legacy_retirable(target, harness)
 
     preserved: dict[str, Path] = {}
     keep_root = Path(tempfile.mkdtemp(prefix="forge-upgrade-keep-"))
@@ -187,7 +217,9 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
             dest = keep_root / rel
             _keep_path(src, dest)
             preserved[rel] = dest
-    if legacy_skills.is_dir():
+    # `is_dir()` follows symlinks: a symlinked skills root would have iterdir()
+    # walk an external directory and copy its contents into factory/skills.
+    if legacy_skills.is_dir() and not legacy_skills.is_symlink():
         for child in legacy_skills.iterdir():
             rel = f"factory/skills/{child.name}"
             if child.name not in harness_skill_names or rel in PRESERVE_IN_AGENTS:
