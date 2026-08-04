@@ -914,6 +914,47 @@ def test_upgrade_retires_a_legacy_tree_carrying_pycache(repo):
     assert not (repo / ".agents").exists()
 
 
+def test_upgrade_refuses_unrecognized_content_parked_under_a_cache_name(repo):
+    # Only the bytecode itself is exempt from the counterpart check. Exempting
+    # every path under a __pycache__ directory would let arbitrary content be
+    # deleted by a name convention, which is the one thing retirement promises
+    # not to do.
+    _make_legacy_upgrade_target(repo)
+    parked = repo / ".agents" / "scripts" / "__pycache__" / "notes.txt"
+    parked.parent.mkdir(parents=True)
+    parked.write_text("not bytecode\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "content parked under a cache name")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert "notes.txt" in proc.stdout + proc.stderr
+    assert parked.read_text() == "not bytecode\n"
+
+
+def test_upgrade_preserves_a_legacy_skill_symlink_as_a_symlink(repo, tmp_path):
+    # Dereferencing would copy the referent's bytes into the repo under the
+    # link's name — and retirement then deletes the original, so an external
+    # target would be silently absorbed.
+    outside = tmp_path / "outside-the-repo.txt"
+    outside.write_text("never belongs in the repo\n")
+    _make_legacy_upgrade_target(repo)
+    custom = repo / ".agents" / "skills" / "client-linked-skill"
+    custom.mkdir(parents=True)
+    (custom / "SKILL.md").write_text("client skill\n")
+    (custom / "asset").symlink_to(outside)
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "legacy client skill carrying a symlink")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    carried = repo / "factory" / "skills" / "client-linked-skill" / "asset"
+    assert carried.is_symlink()
+    assert not (repo / ".agents").exists()
+
+
 def test_upgrade_reports_stale_agents_references(repo):
     _make_legacy_upgrade_target(repo)
     project_file = repo / "docs" / "context" / "legacy-path.md"

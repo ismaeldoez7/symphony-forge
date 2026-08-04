@@ -59,12 +59,17 @@ def _replace_path(src: Path, dst: Path) -> None:
 
 
 def _keep_path(src: Path, dst: Path) -> None:
-    """Copy project-owned state into the temporary preservation tree."""
+    """Copy project-owned state into the temporary preservation tree.
+
+    Symlinks are preserved AS symlinks. Dereferencing would copy the referent's
+    bytes into the repo under the link's name — and since retirement then
+    deletes the original, a link pointing outside the repo would be silently
+    replaced by its target's content."""
     dst.parent.mkdir(parents=True, exist_ok=True)
-    if src.is_dir():
-        shutil.copytree(src, dst, dirs_exist_ok=True)
+    if src.is_dir() and not src.is_symlink():
+        shutil.copytree(src, dst, dirs_exist_ok=True, symlinks=True)
     else:
-        shutil.copy2(src, dst)
+        shutil.copy2(src, dst, follow_symlinks=False)
 
 
 def _retire_legacy_agents(target: Path) -> bool:
@@ -78,8 +83,10 @@ def _retire_legacy_agents(target: Path) -> bool:
         # Vendoring never shipped build noise (VENDOR_IGNORE), so a .pyc has no
         # counterpart by construction — counting it would abort the upgrade on
         # every real pre-rename repo, which all carry __pycache__ from having
-        # actually run the machinery.
-        if "__pycache__" in path.parts or path.suffix == ".pyc":
+        # actually run the machinery. Exempt the bytecode itself and nothing
+        # else: exempting the whole directory would let anything parked under
+        # a __pycache__ name be deleted without ever being recognized.
+        if path.suffix == ".pyc":
             continue
         rel = path.relative_to(legacy)
         counterpart = target / "factory" / rel
@@ -233,15 +240,17 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
 
     for rel, kept in preserved.items():
         dst = target / rel
-        if dst.is_dir():
+        if dst.is_dir() and not dst.is_symlink():
             shutil.rmtree(dst)
-        elif dst.exists():
+        elif dst.exists() or dst.is_symlink():
             dst.unlink()
         dst.parent.mkdir(parents=True, exist_ok=True)
-        if kept.is_dir():
-            shutil.copytree(kept, dst)
+        # Same symlink rule as _keep_path: a link kept as a link must come back
+        # as a link, or the round trip quietly materializes its referent.
+        if kept.is_dir() and not kept.is_symlink():
+            shutil.copytree(kept, dst, symlinks=True)
         else:
-            shutil.copy2(kept, dst)
+            shutil.copy2(kept, dst, follow_symlinks=False)
     shutil.rmtree(keep_root, ignore_errors=True)
 
     retired_legacy = _retire_legacy_agents(target)
