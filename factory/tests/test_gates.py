@@ -4413,6 +4413,55 @@ def test_doctor_reports_legacy_string_required_tests(repo):
     assert legacy_required_tests(repo) == ["T1: 'test_slice'"]
 
 
+def test_doctor_reports_legacy_capture_without_blocking(repo, capsys):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.doctor import report_legacy_capture_gaps
+    finally:
+        sys.path.pop(0)
+
+    brief = repo / "docs" / "product" / "BRIEF.md"
+    brief.write_text("\n".join(
+        f"## {heading}\n\n{'' if heading in {'Users', 'Constraints'} else 'Captured.'}"
+        for heading in BRIEF_HEADINGS
+    ))
+    specs = repo / "docs" / "specs"
+    specs.joinpath("base.md").write_text(
+        "---\nstatus: confirmed\n---\n\n# Base\n\n"
+        "## Behaviour\n\nCaptured.\n\n"
+        "## Acceptance criteria\n\n- Captured.\n"
+    )
+    specs.joinpath("legacy-two.md").write_text(
+        "---\nstatus: confirmed\n---\n\n# Two\n\n"
+        "## Why\n\nCaptured.\n\n## Behaviour\n\nCaptured.\n"
+    )
+    specs.joinpath("draft.md").write_text(
+        "---\nstatus: draft\n---\n\n# Draft\n"
+    )
+
+    report_legacy_capture_gaps(repo)
+    out = capsys.readouterr().out
+    assert "[opt ] capture/brief docs/product/BRIEF.md: Users, Constraints" in out
+    assert "[opt ] capture/spec  docs/specs/base.md: ## Why" in out
+    assert ("[opt ] capture/spec  docs/specs/legacy-two.md: "
+            "## Acceptance criteria") in out
+    assert "draft.md" not in out
+
+    brief.write_text("\n".join(
+        f"## {heading}\n\nCaptured." for heading in BRIEF_HEADINGS
+    ))
+    complete_spec = (
+        "---\nstatus: confirmed\n---\n\n# Complete\n\n"
+        "## Why\n\nCaptured.\n\n## Behaviour\n\nCaptured.\n\n"
+        "## Acceptance criteria\n\n- Captured.\n"
+    )
+    specs.joinpath("base.md").write_text(complete_spec)
+    specs.joinpath("legacy-two.md").write_text(complete_spec)
+
+    report_legacy_capture_gaps(repo)
+    assert capsys.readouterr().out == ""
+
+
 DELEGATE_TASK = {**STAGE_TASK, "required_tests": [{
                      "id": "test_slice",
                      "path": "factory/tests/test_gates.py",
