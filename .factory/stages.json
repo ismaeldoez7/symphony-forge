@@ -4,16 +4,30 @@
     {
       "id": "PH-1.1",
       "title": "One heading parser, one canonical brief heading set",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-04T13:38:28+00:00",
       "base_sha": "aea16c9c67f7450e675c1d973f9ff4ea62f51f03",
       "dirty_at_start": {},
-      "task_sha256": "4fe710c9254b3b66940aecde0e85540c81e4fc39071c67621c586d54c0aff99f"
+      "task_sha256": "4fe710c9254b3b66940aecde0e85540c81e4fc39071c67621c586d54c0aff99f",
+      "completed_at": "2026-08-04T13:54:33+00:00"
     },
     {
       "id": "PH-1.2",
       "title": "Sign-off refuses an incomplete brief",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-04T13:54:46+00:00",
+      "base_sha": "70525ddfe565c721ce28776419b966da5ec364a5",
+      "dirty_at_start": {
+        ".factory/events.jsonl": {
+          "digest": "258031055fcabbbd5de758dd8c0e8589a9abb1b1c97057c9881965a8ccf6e98d",
+          "git": "1 .M N... 100644 100644 100644 876b124780388ba70421cda4b829fb3b3b1cc850 876b124780388ba70421cda4b829fb3b3b1cc850 .factory/events.jsonl\u0000\u0000100644 876b124780388ba70421cda4b829fb3b3b1cc850 0\t.factory/events.jsonl\u0000\u0000H .factory/events.jsonl\u0000"
+        },
+        ".factory/stages.json": {
+          "digest": "80dd7747aee99800be15dce6ff8a5b142c554d9c6496055e0f9f9ba15b1943d1",
+          "git": "1 .M N... 100644 100644 100644 140dfe3ba768992ee4734d5856884166dcc5df66 140dfe3ba768992ee4734d5856884166dcc5df66 .factory/stages.json\u0000\u0000100644 140dfe3ba768992ee4734d5856884166dcc5df66 0\t.factory/stages.json\u0000\u0000H .factory/stages.json\u0000"
+        }
+      },
+      "task_sha256": "ef65f958311d2c371c3ac86febc19ca2c5121e4d1770db1b6f477916c4c3a21c"
     },
     {
       "id": "PH-1.3",

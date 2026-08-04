@@ -60,6 +60,16 @@ DECOMP = {"status": "recorded", "generated_by": "docs-decomposer",
 PLAN_BODY = ("## Decisions\nNo new decisions\n\n"
              "## Surface Impact\nAll surfaces: N-A (test plan)\n")
 
+BRIEF_HEADINGS = (
+    "Summary",
+    "Users",
+    "Target Outcome",
+    "Key Flows",
+    "Domain Concepts",
+    "Constraints",
+    "Out of Scope",
+)
+
 
 def git(repo: Path, *args: str) -> str:
     proc = subprocess.run(["git", *GIT_ID, *args], cwd=repo,
@@ -711,15 +721,6 @@ def test_parse_sections_maps_headings_to_bodies():
 
 def test_scaffolded_brief_carries_the_canonical_headings(repo):
     factory_lib = load_factory_lib(HARNESS)
-    canonical = [
-        "Summary",
-        "Users",
-        "Target Outcome",
-        "Key Flows",
-        "Domain Concepts",
-        "Constraints",
-        "Out of Scope",
-    ]
 
     scaffolded = factory_lib.parse_sections(
         (repo / "docs" / "product" / "BRIEF.md").read_text()
@@ -733,11 +734,53 @@ def test_scaffolded_brief_carries_the_canonical_headings(repo):
         flags=re.MULTILINE,
     )
 
-    assert list(scaffolded) == canonical
-    assert list(live) == canonical
-    assert plan_headings == canonical
+    assert tuple(scaffolded) == BRIEF_HEADINGS
+    assert tuple(live) == BRIEF_HEADINGS
+    assert tuple(plan_headings) == BRIEF_HEADINGS
     sign_off(repo)
     assert signed_off(repo)
+
+
+def test_signoff_refuses_a_brief_missing_a_required_heading(repo):
+    brief = repo / "docs" / "product" / "BRIEF.md"
+    brief.unlink()
+
+    code, out = run(repo, "record_signoff.py")
+    assert code != 0
+    assert "at least one confirmed spec in docs/specs/" in out
+    assert "plans/roadmap.json with at least one story" in out
+    assert "docs/product/BRIEF.md is absent" in out
+    assert ", ".join(BRIEF_HEADINGS) in out
+
+    missing = {"Users", "Constraints"}
+    brief.write_text(
+        "# Product Brief\n\n"
+        + "\n".join(
+            f"## {heading}\n\nComplete.\n"
+            for heading in BRIEF_HEADINGS
+            if heading not in missing
+        )
+    )
+    code, out = run(repo, "record_signoff.py")
+    assert code != 0
+    assert "brief required headings missing or empty: Users, Constraints" in out
+
+
+def test_signoff_refuses_a_heading_with_an_empty_body(repo):
+    seed_signoff_inputs(repo)
+    empty = {"Users", "Constraints"}
+    empty_body = " \t "
+    (repo / "docs" / "product" / "BRIEF.md").write_text(
+        "# Product Brief\n\n"
+        + "\n".join(
+            f"## {heading}\n\n{empty_body if heading in empty else 'Complete.'}\n"
+            for heading in BRIEF_HEADINGS
+        )
+    )
+
+    code, out = run(repo, "record_signoff.py")
+    assert code != 0
+    assert "brief required headings missing or empty: Users, Constraints" in out
 
 
 def test_record_signoff_requires_accepted_and_confirmed(repo):

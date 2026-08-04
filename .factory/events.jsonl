@@ -108,3 +108,6 @@
 {"event": "signal-blocked", "generated_by": "implementer", "at": "2026-08-04T13:43:50+00:00", "story": "PH-1", "detail": "PH-1.1 code and declared tests pass, but the exact verify selector is blocked in this sandbox: five unrelated stage-delegation tests fail because companion startup gets Operation not permitted: ps."}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-04T13:44:00+00:00", "story": "PH-1", "detail": "PH-1.1 (write)"}
 {"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-04T13:46:04+00:00", "story": "PH-1", "detail": "S-0001-b711: Confirmed and not your defect. Outside the Codex sandbox the exact selector is green: 21 passed, 0 failed, including both required tests. The five failures are environmental \u2014 the sandbox denies ps, w"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-04T13:54:33+00:00", "story": "PH-1", "detail": "PH-1.1 One heading parser, one canonical brief heading set"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-04T13:54:47+00:00", "story": "PH-1", "detail": "PH-1.2 Sign-off refuses an incomplete brief"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-04T14:12:52+00:00", "story": "PH-1", "detail": "PH-1.2 (write)"}
