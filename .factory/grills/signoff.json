@@ -2,24 +2,24 @@
   "generated_by": "griller",
   "gate": "signoff",
   "verdict": "pass",
-  "questions_asked": 6,
-  "summary": "Re-recording a sign-off this project already gave on 2026-07-24, on the mainline where the pin was never written. Scope is unchanged from 0010: this is the harness's own repository and maintainer plan approval is the sign-off. The interrogation found one blocking gap in the handover itself \u2014 the brief was still the unfilled template \u2014 which was fixed before this grill was recorded. Three further gaps are real but specific to a harness maintenance repo and are parked as non-blocking.",
+  "questions_asked": 1,
+  "summary": "Re-grill of the project sign-off for symphony-forge itself. The prior record (2026-07-24) went stale only because the decision corpus grew from 10 records to 18; the sign-off substance was not in question. Reconciled against all 18 current records, the three confirmed specs, and the spec-linked roadmap.",
   "gaps": [
-    "docs/product/BRIEF.md was the unfilled scaffold: '## Summary' read 'One paragraph on what is being built and why now' and users were 'primary user type'. The central handover document said nothing about the product.",
-    "Only one confirmed capability spec exists (docs/specs/delegation-boundary.md) for a repo that has already shipped the delegation boundary, the legacy upgrade, the board, and the gate chain. Most shipped capability is specified in WORKFLOW.md and AGENTS.md rather than as confirmed specs.",
-    "plans/roadmap.json on this branch holds one story and it is done, so sign-off is being recorded over a line with no pending derived scope. The work it will gate (FORGE-LOCK-1 and the project-hierarchy stories) is on chore/codify-process-rules.",
-    "docs/product/DISCOVERY.md does not exist; the repo predates its own phase-0 ceremony."
+    "The sign-off gate became DERIVED rather than recorded (91ec45a): harness.yaml pins a decision record and every gate resolves the answer from it. 0010-client-signoff \u2014 this project's actual sign-off evidence, confirmed_by vrknetha on 2026-07-24 \u2014 had been marked superseded by 0014, so nothing satisfied the pin and the harness repo failed its own gate, on main as well as locally.",
+    "docs/specs/repo-system-of-record.md sat in draft while the capability it describes was live, and 0014 requires that no spec remain in draft before sign-off can be recorded."
   ],
-  "contradictions": [],
+  "contradictions": [
+    "0014 declared itself to supersede 0010 while its own Decision section states 'From 0010, retained unchanged: the harness maintainer is the client for symphony-forge itself.' A record cannot both retire another and retain it unchanged; the supersession retired the only evidence this project was ever signed off."
+  ],
   "resolutions": [
-    "The brief was written from README.md, AGENTS.md and WORKFLOW.md and committed as 3626113 before this grill was recorded, so the handover now states the product, its users, flows, domain concepts, constraints and non-goals.",
-    "0019-client-signoff records why a superseded 0010 left the mainline unsigned and states that 0014 remains the governing rule; there is no live contradiction between the two records."
+    "0010 restored to accepted and the relationship corrected in both records: 0014 EXTENDS the preconditions for RECORDING sign-off (confirmed specs, a derived roadmap) rather than retiring the sign-off artifact. Frontmatter now reads extends/extended_by. Done on maintainer confirmation in chat, 2026-08-04.",
+    "docs/specs/repo-system-of-record.md grilled and confirmed against the shipped system, and linked to FORGE-LOCK-1, whose planning-lock scope the spec names directly ('lock alignment' under 0017). Spec debt cleared."
   ],
   "open_items": [
-    "non-blocking: the harness's own shipped capabilities are under-specified as capability specs. Retro-fitting specs for already-shipped machinery would be archaeology, not planning; the constraint applies to new capabilities from here.",
-    "non-blocking: this branch's roadmap converges with chore/codify-process-rules on merge, where FORGE-DELEG-1 done, FORGE-UPG-1 active and FORGE-LOCK-1 pending already sit.",
-    "non-blocking: no DISCOVERY.md \u2014 this repo's discovery record is README.md, WORKFLOW.md and docs/harness-philosophy.md. Revisit only if the harness ever runs a full product phase-0 on itself."
+    "Non-blocking: 0017-repo-as-system-of-record and 0018-delegation-gates are `proposed` while the capabilities they govern are live. Acceptance is human chat confirmation and is not part of this gate; both are surfaced to the maintainer.",
+    "Non-blocking: 0004-mandatory-plan-mode is superseded by 0013 and correctly inactive.",
+    "Non-blocking: the harness repo is its own client (0010). Stakeholder, constraint and non-functional questions that a client project's sign-off would hunt are answered by that decision rather than re-elicited."
   ],
-  "recorded_at": "2026-08-04T12:59:28+00:00",
-  "commit": "36261132e5bbe9ccf45fddff5c390c30b1acce8a"
+  "recorded_at": "2026-08-04T15:18:15+00:00",
+  "commit": "ea653d06601ff8520aebd69ee26c294cf0171b1e"
 }

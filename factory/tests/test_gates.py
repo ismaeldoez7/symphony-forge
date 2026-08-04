@@ -1576,6 +1576,369 @@ def test_upgrade_refuses_dirty_target(repo):
     assert proc.returncode != 0 and "uncommitted" in proc.stdout + proc.stderr
 
 
+def _make_legacy_upgrade_target(repo: Path) -> None:
+    shutil.copytree(repo / "factory", repo / ".agents")
+    shutil.rmtree(repo / "factory")
+
+
+def _upgrade_target(repo: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(HARNESS / "factory" / "scripts" / "forge.py"),
+         "upgrade", "--target", str(repo)],
+        cwd=HARNESS, capture_output=True, text=True,
+    )
+
+
+def test_upgrade_retires_the_legacy_agents_tree(repo):
+    _make_legacy_upgrade_target(repo)
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "pre-rename harness layout")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not (repo / ".agents").exists()
+    assert (repo / "factory" / "scripts" / "forge.py").exists()
+    assert (repo / "factory" / "schemas" / "decomposition.json").exists()
+
+
+def test_upgrade_carries_legacy_skills_into_factory(repo):
+    _make_legacy_upgrade_target(repo)
+    legacy_skills = repo / ".agents" / "skills"
+    (legacy_skills / "proposed" / "client-proposal.md").write_text("proposal\n")
+    (legacy_skills / "rejected" / "client-rejection.md").write_text("rejection\n")
+    custom = legacy_skills / "client-release-skill"
+    custom.mkdir()
+    (custom / "SKILL.md").write_text("client skill\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "legacy skill evolution state")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (repo / "factory" / "skills" / "proposed" /
+            "client-proposal.md").read_text() == "proposal\n"
+    assert (repo / "factory" / "skills" / "rejected" /
+            "client-rejection.md").read_text() == "rejection\n"
+    assert (repo / "factory" / "skills" / "client-release-skill" /
+            "SKILL.md").read_text() == "client skill\n"
+    assert not (repo / ".agents").exists()
+
+
+def test_upgrade_refuses_an_unrecognized_path_under_agents(repo):
+    _make_legacy_upgrade_target(repo)
+    orphan = repo / ".agents" / "client-private" / "keep.txt"
+    orphan.parent.mkdir()
+    orphan.write_text("must survive\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "legacy tree with unrecognized content")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert ".agents/client-private/keep.txt" in proc.stdout + proc.stderr
+    assert orphan.read_text() == "must survive\n"
+    assert (repo / ".agents").exists()
+
+
+def test_upgrade_retires_a_legacy_tree_carrying_pycache(repo):
+    # Every repo that actually RAN the old machinery carries __pycache__ under
+    # it, and vendoring never shipped build noise — so a .pyc has no factory/
+    # counterpart by construction. Counting it would abort the upgrade on
+    # exactly the repos this migration exists for.
+    _make_legacy_upgrade_target(repo)
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "legacy tree with compiled artifacts")
+    # Written AFTER the commit: real repos gitignore bytecode, so the artifact
+    # that must not abort the upgrade is the UNTRACKED one. A tracked .pyc is
+    # committed content and is checked like anything else.
+    cached = repo / ".agents" / "scripts" / "__pycache__" / "forge.cpython-313.pyc"
+    cached.parent.mkdir(parents=True)
+    cached.write_bytes(b"\x00compiled\n")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not (repo / ".agents").exists()
+
+
+def test_upgrade_refuses_unrecognized_content_parked_under_a_cache_name(repo):
+    # Only the bytecode itself is exempt from the counterpart check. Exempting
+    # every path under a __pycache__ directory would let arbitrary content be
+    # deleted by a name convention, which is the one thing retirement promises
+    # not to do.
+    _make_legacy_upgrade_target(repo)
+    parked = repo / ".agents" / "scripts" / "__pycache__" / "notes.txt"
+    parked.parent.mkdir(parents=True)
+    parked.write_text("not bytecode\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "content parked under a cache name")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert "notes.txt" in proc.stdout + proc.stderr
+    assert parked.read_text() == "not bytecode\n"
+
+
+def test_upgrade_refuses_a_symlinked_legacy_skills_root(repo, tmp_path):
+    # Not traversable without dereferencing, not mergeable into the real
+    # factory/skills without a policy — and retiring .agents/ would delete the
+    # link, silently dropping every client skill it stood for.
+    external = tmp_path / "external-skills"
+    (external / "vendor-skill").mkdir(parents=True)
+    (external / "vendor-skill" / "SKILL.md").write_text("external\n")
+    _make_legacy_upgrade_target(repo)
+    shutil.rmtree(repo / ".agents" / "skills")
+    (repo / ".agents" / "skills").symlink_to(external)
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "legacy skills root as a symlink")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert ".agents/skills is not a directory" in proc.stdout + proc.stderr
+    assert (repo / ".agents" / "skills").is_symlink()
+    assert (external / "vendor-skill" / "SKILL.md").read_text() == "external\n"
+
+
+def test_upgrade_refuses_a_tracked_pyc_with_no_counterpart(repo):
+    # The .pyc exemption exists for build noise, which is untracked by
+    # definition. A COMMITTED .pyc is client content, and exempting it by
+    # suffix alone would delete it on nothing but its name.
+    _make_legacy_upgrade_target(repo)
+    committed = repo / ".agents" / "client" / "plugin.pyc"
+    committed.parent.mkdir(parents=True)
+    committed.write_bytes(b"\x00client bytecode\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "tracked client bytecode")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert ".agents/client/plugin.pyc" in proc.stdout + proc.stderr
+    assert committed.read_bytes() == b"\x00client bytecode\n"
+
+
+def test_upgrade_refuses_a_legacy_skills_root_that_is_a_file(repo):
+    # The counterpart check exempts everything under skills/ because a real
+    # directory there is shipped or preserved. A regular FILE at that path is
+    # neither — it would be deleted with the tree, unchecked and unpreserved.
+    _make_legacy_upgrade_target(repo)
+    shutil.rmtree(repo / ".agents" / "skills")
+    (repo / ".agents" / "skills").write_text("client notes, not a skills dir\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "skills root replaced by a file")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert ".agents/skills is not a directory" in proc.stdout + proc.stderr
+    assert (repo / ".agents" / "skills").read_text() == "client notes, not a skills dir\n"
+
+
+def test_upgrade_reports_a_migrated_client_skill_naming_the_old_tree(repo):
+    # The carried skill lands at factory/skills/<name>, which is untracked
+    # until the human stages the upgrade — so a report built only from
+    # git ls-files would say "none" while this file still names .agents/.
+    _make_legacy_upgrade_target(repo)
+    custom = repo / ".agents" / "skills" / "client-ops-skill"
+    custom.mkdir(parents=True)
+    (custom / "SKILL.md").write_text("Run .agents/scripts/verify.py first.\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "client skill naming the old tree")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "factory/skills/client-ops-skill/SKILL.md" in proc.stdout
+
+
+def test_upgrade_refuses_a_symlinked_legacy_root(repo, tmp_path):
+    # Every later step reaches THROUGH the link: .agents/skills resolves past
+    # it, so migration would copy an external directory into factory/skills.
+    external = tmp_path / "outside"
+    (external / "skills" / "vendor-skill").mkdir(parents=True)
+    (external / "skills" / "vendor-skill" / "SKILL.md").write_text("external\n")
+    _make_legacy_upgrade_target(repo)
+    shutil.rmtree(repo / ".agents")
+    (repo / ".agents").symlink_to(external)
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "machinery root as a symlink")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert ".agents is a symlink" in proc.stdout + proc.stderr
+    assert not (repo / "factory" / "skills" / "vendor-skill").exists()
+    assert (external / "skills" / "vendor-skill" / "SKILL.md").read_text() == "external\n"
+
+
+def test_upgrade_preserves_a_dangling_client_skill_symlink(repo):
+    # exists() is False for a dangling link, so the preservation check skipped
+    # it and replacing factory/ deleted project-owned content.
+    _make_legacy_upgrade_target(repo)
+    (repo / "factory" / "skills").mkdir(parents=True)
+    (repo / "factory" / "skills" / "client-linked").symlink_to("../../not-there")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "dangling client skill link")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (repo / "factory" / "skills" / "client-linked").is_symlink()
+
+
+def test_upgrade_reports_a_client_skill_already_at_the_current_path(repo):
+    # A client skill ALREADY under factory/skills/ is preserved, not replaced,
+    # so it is project-owned — but it sits inside an UPGRADE_TREES entry and
+    # the harness-owned filter would otherwise discard it and report "none".
+    _make_legacy_upgrade_target(repo)
+    current = repo / "factory" / "skills" / "client-current-skill"
+    current.mkdir(parents=True)
+    (current / "SKILL.md").write_text("See .agents/scripts/verify.py\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "client skill at the current path")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "factory/skills/client-current-skill/SKILL.md" in proc.stdout
+
+
+def test_adapter_check_tolerates_os_artifacts(repo):
+    # A structural gate must not depend on whether someone opened the folder
+    # in Finder. These are gitignored everywhere and recreated by the desktop;
+    # failing on them took check_dual_runtime — and verify.py with it — red in
+    # a freshly upgraded client repo.
+    for adapter in (".claude", ".codex"):
+        (repo / adapter).mkdir(parents=True, exist_ok=True)
+        (repo / adapter / ".DS_Store").write_bytes(b"\x00finder\n")
+    proc = subprocess.run(
+        [sys.executable, str(repo / "factory/scripts/check_dual_runtime.py")],
+        cwd=repo, capture_output=True, text=True)
+    assert ".DS_Store" not in proc.stdout + proc.stderr
+
+
+def test_upgrade_does_not_vendor_os_noise(repo):
+    # .DS_Store is gitignored in the HARNESS, so it is invisible there while
+    # sitting on disk — and copytree walks the filesystem, not the index. A
+    # real upgrade shipped one into the client, where .claude/.DS_Store fails
+    # the thin-adapter linter.
+    noise = HARNESS / ".claude" / ".DS_Store"
+    created = not noise.exists()
+    if created:
+        noise.write_bytes(b"\x00finder\n")
+    try:
+        _make_legacy_upgrade_target(repo)
+        git(repo, "add", "-A", "-f")
+        git(repo, "commit", "-q", "-m", "pre-rename layout")
+
+        proc = _upgrade_target(repo)
+
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert not list(repo.rglob(".DS_Store"))
+    finally:
+        if created:
+            noise.unlink()
+
+
+def test_upgrade_report_ignores_names_that_merely_start_with_agents(repo):
+    # Found on the real target: agentstats' own sources carry
+    # `com.agentstats.push` and `day.agents`, and a bare-substring search
+    # reported three source files as stale machinery references.
+    _make_legacy_upgrade_target(repo)
+    src = repo / "src" / "scheduler.ts"
+    src.parent.mkdir(parents=True, exist_ok=True)
+    src.write_text('const LABEL = "com.agentstats.push";\nreturn day.agents;\n')
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "sources with agents-prefixed identifiers")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "src/scheduler.ts" not in proc.stdout
+
+
+def test_upgrade_reports_a_symlink_pointing_at_the_retired_root(repo):
+    # `legacy-tools -> .agents` has no trailing slash and breaks just as
+    # thoroughly as one naming a file inside it.
+    _make_legacy_upgrade_target(repo)
+    (repo / "legacy-tools").symlink_to(".agents")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "link pointing at the machinery root")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "legacy-tools" in proc.stdout
+
+
+def test_upgrade_refusal_leaves_the_target_untouched(repo):
+    # The refusal tells the human to delete the orphan and re-run. If the
+    # abort happened after the trees were replaced, that re-run would be
+    # rejected by the dirty-target gate — the repair would be unrunnable.
+    _make_legacy_upgrade_target(repo)
+    orphan = repo / ".agents" / "client-private" / "keep.txt"
+    orphan.parent.mkdir()
+    orphan.write_text("must survive\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "legacy tree with unrecognized content")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert not git(repo, "status", "--porcelain").strip(), \
+        "a refused upgrade must leave the worktree clean so the repair can re-run"
+    assert not (repo / "factory").exists()
+
+
+def test_upgrade_preserves_a_legacy_skill_symlink_as_a_symlink(repo, tmp_path):
+    # Dereferencing would copy the referent's bytes into the repo under the
+    # link's name — and retirement then deletes the original, so an external
+    # target would be silently absorbed.
+    outside = tmp_path / "outside-the-repo.txt"
+    outside.write_text("never belongs in the repo\n")
+    _make_legacy_upgrade_target(repo)
+    custom = repo / ".agents" / "skills" / "client-linked-skill"
+    custom.mkdir(parents=True)
+    (custom / "SKILL.md").write_text("client skill\n")
+    (custom / "asset").symlink_to(outside)
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "legacy client skill carrying a symlink")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    carried = repo / "factory" / "skills" / "client-linked-skill" / "asset"
+    assert carried.is_symlink()
+    assert not (repo / ".agents").exists()
+
+
+def test_upgrade_reports_stale_agents_references(repo):
+    _make_legacy_upgrade_target(repo)
+    project_file = repo / "docs" / "context" / "legacy-path.md"
+    project_file.write_text("Run .agents/scripts/verify.py after changes.\n")
+    archived = repo / ".factory" / "history" / "OLD-1" / "notes.md"
+    archived.parent.mkdir(parents=True)
+    archived.write_text("Archived .agents/scripts/verify.py evidence.\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "tracked legacy references")
+    dependency = repo / "node_modules" / "example" / "index.js"
+    dependency.parent.mkdir(parents=True)
+    dependency.write_text("require('.agents/scripts/verify.py')\n")
+    assert not git(repo, "ls-files", "node_modules")
+    before = project_file.read_bytes()
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "docs/context/legacy-path.md" in proc.stdout
+    assert ".factory/history/OLD-1/notes.md" not in proc.stdout
+    assert "node_modules/example/index.js" not in proc.stdout
+    assert project_file.read_bytes() == before
+
+
 # --------------------------------------------------------- misc deterministic
 
 def test_decision_accept_and_plain_issue_keys(repo):
@@ -2347,7 +2710,8 @@ COMPANION_WRITE = (COMPANION + " --write --prompt-file .factory/briefs/T1.md "
 
 
 def test_hook_denies_unbriefed_write_delegation(repo, tmp_path):
-    """Every direct companion command is routed to the canonical executor."""
+    """Every companion WRITE launch is routed to the canonical executor;
+    read-only launches are the rescue exploration lane and pass."""
     start_stage(repo, tmp_path, DELEGATE_TASK, launch=False)
     for mode in ("default", "plan"):
         code, out = hook(repo, {"tool_name": "Bash", "permission_mode": mode,
@@ -2355,7 +2719,7 @@ def test_hook_denies_unbriefed_write_delegation(repo, tmp_path):
         assert "deny" in out and "forge delegate <task-id>" in out, mode
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": COMPANION + " 'map it'"}})
-    assert "deny" in out and "forge delegate" in out
+    assert code == 0 and "deny" not in out
 
 
 def test_hook_denies_write_delegation_hidden_by_quoting(repo, tmp_path):
@@ -2407,7 +2771,7 @@ def test_hook_denies_variable_hidden_companion_in_unparseable_bash(repo):
     assert "deny" in out and "could not be safely parsed" in out
 
 
-def test_hook_routes_every_literal_companion_token(repo):
+def test_hook_allows_readonly_companion_mentions(repo):
     for command in (
         "rg codex-companion factory",
         "cat /tmp/codex-companion.mjs",
@@ -2415,7 +2779,17 @@ def test_hook_routes_every_literal_companion_token(repo):
     ):
         code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                                 "tool_input": {"command": command}})
-        assert "deny" in out and "forge delegate" in out, command
+        assert code == 0 and "deny" not in out, command
+
+
+def test_hook_allows_readonly_companion_task_launch(repo):
+    for command in (
+        COMPANION + " --effort xhigh 'explore the sender chain'",
+        "node /x/codex-companion.mjs task-resume-candidate --json",
+    ):
+        code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                                "tool_input": {"command": command}})
+        assert code == 0 and "deny" not in out, command
 
 
 def test_hook_routes_absolute_and_quoted_node_companion_invocations(repo):
@@ -2507,11 +2881,15 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
                             "tool_input": {"command":
                                            "codex exec --profile explore -s read-only 'map it'"}})
     assert "deny" in out and "codex:rescue" in out
-    # Direct companion commands are always off-contract.
+    # Companion denial keys on WRITE INTENT, not on the companion itself: the
+    # codex-exec denial points at /codex:rescue, which runs the companion, so
+    # denying every invocation made exploration impossible from the
+    # orchestrator (0341332). A read-only rescue run passes; a write launch
+    # stays delegate-owned.
     companion = "node /x/codex-companion.mjs task --model gpt-5.6-terra 'map the module'"
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": companion}})
-    assert "deny" in out and "forge delegate" in out
+    assert "deny" not in out
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": companion + " --write"}})
     assert "deny" in out and "forge delegate" in out
@@ -4210,7 +4588,8 @@ def test_stage_done_termination_signal_reaps_active_proof(
         os.kill(child_pid, 0)
 
 
-def test_process_identity_matches_the_process_table_on_single_digit_days(repo):
+def test_process_identity_matches_the_process_table_on_single_digit_days(
+        repo, monkeypatch):
     # `ps -o lstart=` pads the day of month to width two ("Aug  4"), while
     # _process_table rebuilds identity with " ".join(fields) and collapses it.
     # Every identity comparison in the module pits one form against the other,
@@ -4222,17 +4601,21 @@ def test_process_identity_matches_the_process_table_on_single_digit_days(repo):
     try:
         import forge_cli.delegate as delegate
 
-        proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(5)"])
-        try:
-            probed = delegate._process_start_identity(proc.pid)
-            tabled = delegate._process_table().get(proc.pid)
-            assert probed is not None and tabled is not None
-            assert probed == tabled[1], (
-                f"identity forms disagree: probe={probed!r} table={tabled[1]!r}")
-            assert "  " not in probed
-        finally:
-            proc.kill()
-            proc.wait(timeout=5)
+        def fake_ps(args, **_kwargs):
+            if args[1:3] == ["-o", "lstart="]:
+                return subprocess.CompletedProcess(
+                    args, 0, stdout="Mon Aug  4 10:11:12 2026\n", stderr="")
+            return subprocess.CompletedProcess(
+                args, 0,
+                stdout="101 1 Mon Aug 4 10:11:12 2026\n", stderr="")
+
+        monkeypatch.setattr(delegate.subprocess, "run", fake_ps)
+        probed = delegate._process_start_identity(101)
+        tabled = delegate._process_table().get(101)
+        assert probed is not None and tabled is not None
+        assert probed == tabled[1], (
+            f"identity forms disagree: probe={probed!r} table={tabled[1]!r}")
+        assert "  " not in probed
     finally:
         sys.path.remove(str(repo / "factory" / "scripts"))
         sys.modules.pop("forge_cli.delegate", None)
@@ -4912,10 +5295,12 @@ def test_stage_migrate_requires_confirmation_and_adopts_legacy_state(
     assert code == 0, out
     protected = delegation_ledger(repo).parent
     shutil.rmtree(protected)
-    code, out = run(repo, "forge.py", "stage", "migrate")
+    base = head(repo)
+    code, out = run(repo, "forge.py", "stage", "migrate", "--base", base)
     assert code != 0 and "--confirm-workspace-state" in out
     code, out = run(
-        repo, "forge.py", "stage", "migrate", "--confirm-workspace-state")
+        repo, "forge.py", "stage", "migrate", "--base", base,
+        "--confirm-workspace-state")
     assert code == 0, out
     assert (protected / "decomposition.json").is_file()
     assert (protected / "stages.json").is_file()
@@ -4938,9 +5323,71 @@ def test_stage_migrate_refuses_partial_protected_authority(
     protected.mkdir(parents=True)
     (protected / protected_name).write_bytes(source)
     code, out = run(
-        repo, "forge.py", "stage", "migrate", "--confirm-workspace-state")
+        repo, "forge.py", "stage", "migrate", "--base", head(repo),
+        "--confirm-workspace-state")
     assert code != 0
     assert "partial protected" in out
+
+
+def prepare_legacy_stage_migration(repo, tmp_path, tasks=None):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    tasks = tasks or [STAGE_TASK]
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": tasks}))
+    assert code == 0, out
+    protected = delegation_ledger(repo).parent
+    shutil.rmtree(protected)
+    return protected
+
+
+def test_stage_migrate_requires_a_base(repo, tmp_path):
+    prepare_legacy_stage_migration(repo, tmp_path)
+    code, out = run(
+        repo, "forge.py", "stage", "migrate", "--confirm-workspace-state")
+    assert code != 0 and "--base" in out
+
+    code, out = run(
+        repo, "forge.py", "stage", "migrate", "--base", "not-a-commit",
+        "--confirm-workspace-state")
+    assert code != 0 and "does not resolve to a commit" in out
+
+
+def test_stage_migrate_refuses_a_base_that_is_not_an_ancestor(repo, tmp_path):
+    prepare_legacy_stage_migration(repo, tmp_path)
+    tree = git(repo, "rev-parse", "HEAD^{tree}")
+    unrelated = git(repo, "commit-tree", tree, "-m", "unrelated root")
+    code, out = run(
+        repo, "forge.py", "stage", "migrate", "--base", unrelated,
+        "--confirm-workspace-state")
+    assert code != 0 and "not an ancestor of HEAD" in out
+
+
+def test_stage_migrate_records_the_base_on_adopted_stages(repo, tmp_path):
+    tasks = [
+        {**STAGE_TASK, "id": "T1"},
+        {**STAGE_TASK, "id": "T2"},
+        {**STAGE_TASK, "id": "T3"},
+    ]
+    protected = prepare_legacy_stage_migration(repo, tmp_path, tasks)
+    stages_path = repo / ".factory" / "stages.json"
+    stages = json.loads(stages_path.read_text())
+    stages["stages"][0]["status"] = "done"
+    stages["stages"][1]["status"] = "active"
+    stages_path.write_text(json.dumps(stages))
+    base = head(repo)
+
+    code, out = run(
+        repo, "forge.py", "stage", "migrate", "--base", base[:12],
+        "--confirm-workspace-state")
+    assert code == 0, out
+    adopted = json.loads((protected / "stages.json").read_text())["stages"]
+    for stage in adopted[:2]:
+        assert stage["base_sha"] == base
+        assert stage["task_sha256"]
+    assert "base_sha" not in adopted[2]
+    assert "task_sha256" not in adopted[2]
 
 
 @pytest.mark.parametrize(
@@ -5237,6 +5684,46 @@ def test_tagged_process_scan_is_limited_to_same_user_processes(
     assert found == {}
 
 
+def test_tagged_process_scan_skips_permission_denied_candidates(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        real_path = Path
+
+        class Candidate:
+            def __init__(self, name):
+                self.name = name
+
+            def __truediv__(self, _name):
+                return self
+
+            def read_bytes(self):
+                if self.name == "101":
+                    raise PermissionError("hidden process environment")
+                return b"FORGE_PROCESS_" + b"TOKEN=owned\0"
+
+        class ProcRoot:
+            def is_dir(self):
+                return True
+
+            def __truediv__(self, pid):
+                return Candidate(str(pid))
+
+        monkeypatch.setattr(
+            delegate, "Path",
+            lambda value: ProcRoot() if value == "/proc" else real_path(value))
+        monkeypatch.setattr(
+            delegate, "_process_table",
+            lambda: {101: (1, "hidden"), 202: (1, "readable")})
+        monkeypatch.setattr(
+            delegate, "_process_start_identity", lambda pid: f"identity-{pid}")
+        found = delegate._tagged_processes("owned")
+    finally:
+        sys.path.pop(0)
+    assert found == {202: "identity-202"}
+
+
 def test_live_process_identity_probe_failure_is_not_treated_as_exit(
         repo, monkeypatch):
     sys.path.insert(0, str(repo / "factory" / "scripts"))
@@ -5265,6 +5752,45 @@ def test_process_cleanup_fails_when_discovery_is_unavailable(
     finally:
         sys.path.pop(0)
     assert stopped is False
+
+
+def test_process_cleanup_reaps_known_process_when_discovery_fails(
+        repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        clock = {"now": 0.0}
+        live = {101: "parent"}
+        signals = []
+
+        def unavailable():
+            raise delegate.ProcessDiscoveryError("ps unavailable")
+
+        def signal_processes(processes, signum=signal.SIGTERM):
+            signals.extend((pid, signum) for pid in processes)
+            if signum == signal.SIGKILL:
+                live.clear()
+            return dict(processes)
+
+        monkeypatch.setattr(
+            delegate, "_live_identified_processes",
+            lambda known: {
+                pid: identity for pid, identity in known.items()
+                if live.get(pid) == identity
+            })
+        monkeypatch.setattr(
+            delegate, "_signal_identified_processes", signal_processes)
+        monkeypatch.setattr(
+            delegate.time, "monotonic", lambda: clock["now"])
+        monkeypatch.setattr(
+            delegate.time, "sleep",
+            lambda _seconds: clock.__setitem__("now", clock["now"] + 1))
+        stopped = delegate._terminate_processes_until_quiet(
+            {101: "parent"}, unavailable)
+    finally:
+        sys.path.pop(0)
+    assert stopped is False
+    assert signals == [(101, signal.SIGTERM), (101, signal.SIGKILL)]
 
 
 def test_immediate_cleanup_signals_owned_group_before_discovery(

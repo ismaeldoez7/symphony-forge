@@ -24,6 +24,41 @@
       "outcome": "Developers can now see the epic-to-story dependency hierarchy, start dependency-ready stories in separate worktrees, and execute each story's tasks sequentially through a protected, measured delegation boundary that refuses off-contract writes, overlapping workers, stale proof, and incomplete verification."
     },
     {
+      "key": "FORGE-UPG-1",
+      "title": "Legacy repo upgrade: one command, no residue",
+      "story": "As an orchestrator upgrading a client repo vendored before the factory/ rename, I want one command to carry it onto the current harness, so that no stale copy of the gate surface survives and no story that was open at upgrade time becomes unclosable.",
+      "acceptance_criteria": [
+        "Upgrading a repo that carries .agents/ leaves no .agents/ tree and a complete factory/ tree",
+        "Skill-evolution state (proposed, rejected) and client-added skills under .agents/skills/ survive at factory/skills/",
+        "A path under .agents/ with no counterpart in the vendored factory/ tree aborts the upgrade and is named; nothing under it is deleted",
+        "The upgrade output names every project-owned file still referencing .agents/, excluding archived evidence under .factory/history/",
+        "The migration modifies no project-owned file",
+        "Upgrading a repo already on factory/ behaves exactly as before",
+        "forge stage migrate --base <sha> records that base for each legacy stage it adopts, and refuses a base that does not resolve or is not an ancestor of HEAD"
+      ],
+      "order": 2,
+      "status": "active",
+      "skill": "backend",
+      "kind": "feature",
+      "spec": "docs/specs/legacy-upgrade.md"
+    },
+    {
+      "key": "FORGE-LOCK-1",
+      "title": "The planning lock guards the harness's own source",
+      "story": "As a maintainer dogfooding this harness on itself, I want the planning lock to treat factory/, docs/, constitution/ and harness/ as product IN THIS REPO so that a change to the gate machinery goes through a plan or a bounded window, the way every client's product code already does.",
+      "acceptance_criteria": [
+        "A write under factory/ in the harness's own repo is refused without an approved plan with a recorded decomposition, or an open quickfix window.",
+        "The same paths stay writable during planning in a client repo, where they are vendored harness surface rather than the client's product.",
+        "A quickfix window in the harness repo claims the files it touches against its five-file budget, so the closed ledger entry reports the real scope instead of zero.",
+        "A test proves the two repo kinds are classified differently, so the distinction cannot silently regress."
+      ],
+      "order": 3,
+      "status": "pending",
+      "skill": "backend",
+      "origin": "adhoc",
+      "spec": "docs/specs/repo-system-of-record.md"
+    },
+    {
       "key": "PH-1",
       "title": "Project and spec capture is complete or refused",
       "story": "As a developer opening a project I have not seen, I want the brief and its capability specs to be guaranteed complete, so that the board can show me what this product is instead of rendering blanks.",
@@ -34,7 +69,7 @@
         "The brief template, its conventions doc and docs/product/BRIEF.md carry one canonical heading set including Target Outcome, and no heading in an already-written brief is renamed.",
         "A brief or spec captured before this contract is reported by forge doctor and refused by nothing that already passed."
       ],
-      "order": 2,
+      "order": 4,
       "status": "done",
       "skill": "backend",
       "spec": "docs/specs/project-hierarchy.md",
@@ -53,7 +88,7 @@
         "mark_status, assign, link-spec and heal all still succeed against a roadmap captured before this contract.",
         "unblocks, leverage and epic gating are derived from depends_on, and no route accepts them as authored input."
       ],
-      "order": 3,
+      "order": 5,
       "status": "pending",
       "skill": "backend",
       "spec": "docs/specs/project-hierarchy.md"
@@ -68,7 +103,7 @@
         "Task verify_commands must be runnable, required_tests may be empty, and a task dependency may only name an earlier task.",
         "build_waves is no longer authored by the decomposer prompt and its only reader is removed, while the schema still parses artifacts that carry it."
       ],
-      "order": 4,
+      "order": 6,
       "status": "pending",
       "skill": "backend",
       "spec": "docs/specs/project-hierarchy.md"
@@ -84,7 +119,7 @@
         "Blocked stories are described as blocked wherever the API reports blocked.",
         "The bundled example passes the production validators and reads correctly at desktop, tablet and mobile widths."
       ],
-      "order": 5,
+      "order": 7,
       "status": "pending",
       "skill": "fullstack",
       "depends_on": [
@@ -96,5 +131,6 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-04T18:19:05+00:00"
+  "updated_at": "2026-08-04T18:19:05+00:00",
+  "epics": []
 }

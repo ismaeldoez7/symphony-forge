@@ -133,3 +133,28 @@
 {"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-04T18:18:43+00:00", "story": "PH-1"}
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-04T18:18:44+00:00", "story": "PH-1"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-04T18:19:05+00:00", "story": "PH-1", "detail": "A brief or spec that is missing a required section is now refused at the gate that records it, instead of reaching sign-off half-written. Sign-off names every absent BRIEF heading, spec confirm requir"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-04T09:57:19+00:00", "detail": "legacy-upgrade: Legacy repo upgrade: one command, no residue"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-04T10:00:36+00:00", "detail": "legacy-upgrade: Legacy repo upgrade: one command, no residue"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-04T10:01:23+00:00", "detail": "legacy-upgrade"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-04T10:01:45+00:00", "story": "FORGE-UPG-1", "detail": "docs/specs/legacy-upgrade.md"}
+{"event": "intake", "generated_by": "orchestrator", "at": "2026-08-04T10:01:50+00:00", "story": "FORGE-UPG-1", "detail": "Legacy repo upgrade: one command, no residue"}
+{"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-04T10:10:21+00:00", "story": "FORGE-UPG-1", "detail": "plans/active/FORGE-UPG-1-legacy-repo-upgrade-one-command-no-residue.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-04T10:11:19+00:00", "story": "FORGE-UPG-1", "detail": "2 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-04T10:11:47+00:00", "story": "FORGE-UPG-1", "detail": "FORGE-UPG-1.1 forge upgrade retires the legacy .agents/ tree and reports what survives"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-04T10:18:46+00:00", "story": "FORGE-UPG-1", "detail": "FORGE-UPG-1.1 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-04T11:09:19+00:00", "story": "FORGE-UPG-1", "detail": "FORGE-UPG-1.1 forge upgrade retires the legacy .agents/ tree and reports what survives"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-04T11:09:27+00:00", "story": "FORGE-UPG-1", "detail": "FORGE-UPG-1.2 stage migrate records an explicit base commit"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-04T11:17:25+00:00", "story": "FORGE-UPG-1", "detail": "FORGE-UPG-1.2 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-04T11:55:27+00:00", "story": "FORGE-UPG-1", "detail": "2 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-04T11:55:42+00:00", "story": "FORGE-UPG-1", "detail": "FORGE-UPG-1.2 stage migrate records an explicit base commit"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-04T12:11:18+00:00", "story": "FORGE-UPG-1", "detail": "FORGE-UPG-1.2 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-04T12:25:02+00:00", "story": "FORGE-UPG-1", "detail": "FORGE-UPG-1.2 stage migrate records an explicit base commit"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-04T12:39:35+00:00", "story": "FORGE-UPG-1"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-04T12:40:26+00:00", "story": "FORGE-UPG-1", "detail": "passed"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-04T12:56:10+00:00", "story": "FORGE-LOCK-1", "detail": "no spec (adhoc)"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-04T13:49:04+00:00", "story": "FORGE-UPG-1"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-04T13:49:04+00:00", "story": "FORGE-UPG-1"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-04T13:49:04+00:00", "story": "FORGE-UPG-1"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-04T15:16:13+00:00", "detail": "repo-system-of-record"}
+{"event": "roadmap-link-spec", "generated_by": "orchestrator", "at": "2026-08-04T15:17:11+00:00", "story": "FORGE-LOCK-1", "detail": "docs/specs/repo-system-of-record.md"}
+{"event": "client-signoff", "generated_by": "orchestrator", "at": "2026-08-04T15:18:15+00:00", "detail": "docs/decisions/0010-client-signoff.md"}
