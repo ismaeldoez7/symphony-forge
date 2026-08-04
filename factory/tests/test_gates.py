@@ -933,6 +933,58 @@ def test_upgrade_refuses_unrecognized_content_parked_under_a_cache_name(repo):
     assert parked.read_text() == "not bytecode\n"
 
 
+def test_upgrade_refuses_a_symlinked_legacy_skills_root(repo, tmp_path):
+    # Not traversable without dereferencing, not mergeable into the real
+    # factory/skills without a policy — and retiring .agents/ would delete the
+    # link, silently dropping every client skill it stood for.
+    external = tmp_path / "external-skills"
+    (external / "vendor-skill").mkdir(parents=True)
+    (external / "vendor-skill" / "SKILL.md").write_text("external\n")
+    _make_legacy_upgrade_target(repo)
+    shutil.rmtree(repo / ".agents" / "skills")
+    (repo / ".agents" / "skills").symlink_to(external)
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "legacy skills root as a symlink")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode != 0
+    assert ".agents/skills is a symlink" in proc.stdout + proc.stderr
+    assert (repo / ".agents" / "skills").is_symlink()
+    assert (external / "vendor-skill" / "SKILL.md").read_text() == "external\n"
+
+
+def test_upgrade_reports_a_migrated_client_skill_naming_the_old_tree(repo):
+    # The carried skill lands at factory/skills/<name>, which is untracked
+    # until the human stages the upgrade — so a report built only from
+    # git ls-files would say "none" while this file still names .agents/.
+    _make_legacy_upgrade_target(repo)
+    custom = repo / ".agents" / "skills" / "client-ops-skill"
+    custom.mkdir(parents=True)
+    (custom / "SKILL.md").write_text("Run .agents/scripts/verify.py first.\n")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "client skill naming the old tree")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "factory/skills/client-ops-skill/SKILL.md" in proc.stdout
+
+
+def test_upgrade_reports_a_symlink_pointing_at_the_retired_root(repo):
+    # `legacy-tools -> .agents` has no trailing slash and breaks just as
+    # thoroughly as one naming a file inside it.
+    _make_legacy_upgrade_target(repo)
+    (repo / "legacy-tools").symlink_to(".agents")
+    git(repo, "add", "-A", "-f")
+    git(repo, "commit", "-q", "-m", "link pointing at the machinery root")
+
+    proc = _upgrade_target(repo)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "legacy-tools" in proc.stdout
+
+
 def test_upgrade_refusal_leaves_the_target_untouched(repo):
     # The refusal tells the human to delete the orphan and re-run. If the
     # abort happened after the trees were replaced, that re-run would be

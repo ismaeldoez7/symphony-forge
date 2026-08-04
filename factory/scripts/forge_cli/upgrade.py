@@ -87,6 +87,17 @@ def _check_legacy_retirable(target: Path, harness: Path) -> None:
     legacy = target / ".agents"
     if not legacy.is_dir() or legacy.is_symlink():
         return
+    # A symlinked skills root cannot be traversed (iterdir() would walk the
+    # referent) and cannot be merged into the real factory/skills without a
+    # policy for it — and retirement would then delete the link, silently
+    # dropping every client skill it stood for. Refuse the topology instead.
+    if (legacy / "skills").is_symlink():
+        fail(
+            ".agents/skills is a symlink. The upgrade cannot migrate client skills "
+            "through it without dereferencing content that lives outside the "
+            "machinery tree, and retiring .agents/ would drop the link. Replace it "
+            "with a real directory (or move it out of .agents/) and re-run."
+        )
     missing = []
     for path in sorted(legacy.rglob("*")):
         if not (path.is_file() or path.is_symlink()):
@@ -151,16 +162,33 @@ def _is_harness_owned(rel: str, harness: Path) -> bool:
     return False
 
 
-def _stale_agents_references(target: Path, harness: Path) -> list[str]:
+def _stale_agents_references(
+    target: Path, harness: Path, migrated: list[str] | None = None
+) -> list[str]:
     tracked = subprocess.run(
         ["git", "ls-files", "-z"], cwd=target, capture_output=True, check=True
     ).stdout.split(b"\0")
+    candidates = [
+        raw.decode("utf-8", errors="surrogateescape") for raw in tracked if raw
+    ]
+    # Client skills carried out of .agents/skills/ land at factory/skills/<name>,
+    # which is BOTH untracked until the human stages the upgrade and skipped as
+    # harness-owned below. Repos that install project skills carry a dozen of
+    # them, so leaving them out would let the report say "none" while a
+    # project-owned file still names the retired tree.
+    for rel in migrated or []:
+        root = target / rel
+        if root.is_dir() and not root.is_symlink():
+            candidates.extend(
+                str(child.relative_to(target)) for child in sorted(root.rglob("*"))
+            )
+        else:
+            candidates.append(rel)
     stale = []
-    for raw in tracked:
-        if not raw:
+    for rel in candidates:
+        if rel.startswith(".factory/history/"):
             continue
-        rel = raw.decode("utf-8", errors="surrogateescape")
-        if rel.startswith(".factory/history/") or _is_harness_owned(rel, harness):
+        if not rel.startswith("factory/skills/") and _is_harness_owned(rel, harness):
             continue
         path = target / rel
         try:
@@ -169,7 +197,10 @@ def _stale_agents_references(target: Path, harness: Path) -> list[str]:
             # is retired) and read whatever it points at, which is exactly the
             # untracked/external content this report must never touch.
             if path.is_symlink():
-                if ".agents/" in os.readlink(path):
+                # Match .agents as a whole path component: a link that points AT
+                # the retired root (`legacy-tools -> .agents`) has no trailing
+                # slash, and breaks just as thoroughly.
+                if ".agents" in os.readlink(path).split("/"):
                     stale.append(rel)
             elif path.is_file() and b".agents/" in path.read_bytes():
                 stale.append(rel)
@@ -222,6 +253,11 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     if legacy_skills.is_dir() and not legacy_skills.is_symlink():
         for child in legacy_skills.iterdir():
             rel = f"factory/skills/{child.name}"
+            # The current location wins when a name exists in BOTH. Copying the
+            # legacy one on top would merge into whatever the first copy left
+            # at that destination — and if that was a symlink, through it.
+            if rel in preserved:
+                continue
             if child.name not in harness_skill_names or rel in PRESERVE_IN_AGENTS:
                 dest = keep_root / rel
                 _keep_path(child, dest)
@@ -333,7 +369,7 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     print("Untouched (project-owned): " + ", ".join(PROJECT_OWNED) + drift)
     if retired_legacy:
         print("Retired legacy machinery: .agents/")
-    stale_references = _stale_agents_references(target, harness)
+    stale_references = _stale_agents_references(target, harness, sorted(preserved))
     if stale_references:
         print("Project-owned files still referencing .agents/:")
         for rel in stale_references:
