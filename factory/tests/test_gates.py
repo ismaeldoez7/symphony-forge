@@ -833,6 +833,19 @@ def test_parse_sections_reads_examples_as_examples():
     assert set(factory_lib.parse_sections(
         "# S\n\n<div>\n\n## Why\n\nreal\n\n</div>\n"
     )) == {"Why"}
+    # A container block with no blank line runs on, so those headings are its
+    # content — but it ends at the first blank line, and after that the
+    # document speaks for itself again.
+    assert factory_lib.parse_sections(
+        "# S\n\n<div>\n## Why\nw\n## Behaviour\nb\n## Acceptance criteria\n- a\n</div>\n"
+    ) == {}
+    assert set(factory_lib.parse_sections(
+        "# S\n\n<div>\nx\n</div>\n\n## Why\n\nreal\n"
+    )) == {"Why"}
+    # ...and a tag named in prose opens nothing.
+    assert set(factory_lib.parse_sections(
+        "# S\n\nuse a <div> for layout\n\n## Why\n\nreal\n"
+    )) == {"Why"}
     assert set(factory_lib.parse_sections(
         "# S\n\n<pre>\n\n## Why\n\nreal\n"
     )) == {"Why"}

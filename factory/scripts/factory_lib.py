@@ -107,6 +107,14 @@ LIST_ITEM = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])[ \t]")
 # heading after that blank line really is the document's own, and masking to
 # `</div>` would refuse a complete spec.
 RAW_BLOCK_OPEN = re.compile(r" {0,3}<(pre|script|style|textarea)[ \t>]", re.I)
+# The container tags an author reaches for when wrapping an example. These end
+# at a blank line or the end of the document, so a heading after the blank line
+# IS the document's own — masking to `</div>` would refuse a complete spec.
+# A narrow list on purpose: every tag added here masks more, and masking more
+# is the direction that refuses documents whose sections are plainly present.
+HTML_BLOCK_OPEN = re.compile(
+    r" {0,3}</?(div|table|details|section|blockquote|figure|aside)[ \t>/]", re.I
+)
 
 
 def _indent(line: str) -> int:
@@ -140,11 +148,16 @@ def example_ranges(text: str) -> list[tuple[int, int]]:
     # (closing marker, start offset) for the constructs that run verbatim to a
     # marker rather than to a matching fence line: HTML comments and raw blocks.
     verbatim: tuple[str, int] | None = None
+    # A container block, which ends at a blank line or the end of the document.
+    html_block_at: int | None = None
     opened_at = 0
     offset = 0
     in_list = False
     for line in text.splitlines(keepends=True):
         match = FENCE_LINE.match(line.rstrip("\r\n"))
+        if html_block_at is not None and not line.strip():
+            ranges.append((html_block_at, offset))
+            html_block_at = None
         if fence is not None and line.strip() and _indent(line) < fence[2]:
             # A fence opened inside a list item ends when the item does, so an
             # outdented line closes it. Only fences opened inside a list carry
@@ -186,7 +199,14 @@ def example_ranges(text: str) -> list[tuple[int, int]]:
                 ranges, line, offset, opener.end(),
                 f"</{opener.group(1).lower()}>",
             )
+        elif html_block_at is None and HTML_BLOCK_OPEN.match(line):
+            html_block_at = offset
         offset += len(line)
+    if html_block_at is not None:
+        # End of document terminates a container block — that is the spec, not
+        # a deviation, so unlike a stray fence there is nothing unterminated
+        # here to be lenient about.
+        ranges.append((html_block_at, len(text)))
     return ranges
 
 
