@@ -1,51 +1,99 @@
 # Product Brief
 
-Use this file to define what should be built before planning starts.
-
-Keep it short. It should answer:
-- what the product or feature is
-- who it is for
-- the key user flows
-- the core domain concepts
-- the important constraints
-- what is explicitly out of scope
-
-Rules:
-- do not put schema design here
-- do not put API endpoint lists here
-- do not put component trees or file layouts here
-- if a product choice becomes binding, record it in `docs/decisions/`
-
-Recommended shape:
-
 ## Summary
 
-One paragraph on what is being built and why now.
+Symphony Forge is KnackLabs's process harness for building applications with
+Claude Code coordinating and Codex executing. It turns in-repo architecture and
+decision documents into shipped software through a fixed sequence — discovery,
+confirmed capability specs, a derived roadmap, client sign-off, one planned
+story at a time, bounded tasks, deterministic verification, one autoreview pass,
+and a recorded outcome — and it enforces that sequence in code rather than in
+instructions an agent can talk itself out of.
+
+It exists because agentic delivery fails quietly. Work gets done that nobody
+planned, tests that were promised are never written, a review is claimed but
+never ran, and six weeks later nothing in the repo says why any of it happened.
+The harness makes each of those a refusal at the moment it would occur, and
+leaves the evidence committed next to the code.
+
+The harness is vendored, never forked: a client repo is born with its own
+history and receives the machinery by copy, then upgrades in place.
 
 ## Users
 
-- primary user type
-- secondary user type
+- **Developers** running a delivery loop with Claude Code and Codex, who want
+  the next action to be deterministic rather than remembered.
+- **Maintainers of this repo**, who dogfood the harness on itself — every gate
+  here is exercised by the work that changes it.
+- **KnackLabs client projects**, which vendor the machinery and inherit the
+  gates without inheriting this repository's history.
 
 ## Key Flows
 
-- flow 1
-- flow 2
-- flow 3
+- A developer says "set up a new project"; the harness checks the machine,
+  scaffolds a fresh repo with its own origin, and hands off to that repo.
+- A developer asks "what now?" in any phase and `./forge next` reads recorded
+  state and prints the exact next action, identically in both runtimes.
+- A capability is captured as a spec, grilled, and confirmed; the roadmap is
+  derived from confirmed specs; the client signs off once, and that sign-off
+  gates every later phase.
+- One roadmap story is planned, grilled, and approved, then decomposed into
+  bounded sequential tasks; each task is delegated with a composed brief,
+  measured on its own diff, and reviewed locally before it commits.
+- Verification, tests, three review lenses, and an outcome are recorded through
+  schema-validated commands, and `pr_ready` refuses until all of them exist.
+- Dependency-ready stories fan out into separate worktrees; their roadmap
+  status flips converge deterministically on merge.
+- An existing repo is adopted into the harness, or a client repo is upgraded to
+  a newer harness version, without either forking this one.
 
 ## Domain Concepts
 
-- concept 1
-- concept 2
-- concept 3
+- **Capability spec** — what a capability does and how it is judged, confirmed
+  before any roadmap exists.
+- **Epic / story / task** — a business outcome area, one deliverable capability
+  owning a worktree, and one bounded implementation step inside it.
+- **Plan** — the approved, grilled argument for one story, attesting every
+  active decision.
+- **Decomposition and stages** — the immutable task contract and its mutable
+  execution twin.
+- **Gate** — a refusal in code: sign-off, plan approval, decomposition, verify,
+  tests, review, outcome.
+- **Grill** — an interrogation of a handover before it becomes the contract
+  downstream work builds on, bound by digest to the exact artifact.
+- **Decision record** — a durable, human-confirmed choice; the active corpus is
+  attested by every plan.
+- **Evidence** — the recorded proof under `.factory/`, archived per story at
+  ship, written only by the recorder scripts.
+- **Signal** — a contradiction, confusion, blocker, or scope change a worker
+  raises before it guesses.
+- **Lesson, assumption, deferral, quickfix** — the four ledgers that keep what
+  was learned, assumed, parked, and patched.
 
 ## Constraints
 
-- business constraint
-- integration constraint
-- deployment/runtime constraint
+- Two runtimes must stay in lockstep: the same contract in `AGENTS.md` and its
+  Claude adapter, verified by `check_dual_runtime.py`.
+- Claude Code coordinates; Codex executes. Review is one autoreview pass run by
+  the orchestrating session, never a nested reviewer.
+- The vendored gate surface is frozen between vendorings and hash-checked, so
+  client repos cannot drift from the machinery they were given.
+- Evidence enters `.factory/` only through recording commands that validate
+  against `factory/schemas/`, including a pinned `generated_by`.
+- The planning lock is always armed; the only exits are an approved plan with a
+  recorded decomposition, or a bounded, ledgered quickfix window.
+- One story per worktree, tasks strictly sequential inside it.
+- The board is read-only and derives everything from committed artifacts; it
+  never approves.
+- This repository stays independent of any client source repo.
 
 ## Out of Scope
 
-- non-goal 1
-- non-goal 2
+- Being a framework, runtime, or application template — the harness ships
+  process machinery, not product code.
+- Hosting, CI, or deployment infrastructure for client applications.
+- A hosted service, database, or multi-user server; the board is localhost and
+  file-backed.
+- Replacing human judgement at the gates that require it: decision acceptance,
+  client sign-off, and plan approval remain human acts.
+- Supporting agent runtimes beyond Claude Code and Codex.
