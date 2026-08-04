@@ -93,3 +93,10 @@
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-07-30T11:49:26+00:00", "story": "FORGE-DELEG-1"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-07-30T11:49:30+00:00", "story": "FORGE-DELEG-1", "detail": "Developers can now see the epic-to-story dependency hierarchy, start dependency-ready stories in separate worktrees, and execute each story's tasks sequentially through a protected, measured delegatio"}
 {"event": "client-signoff", "generated_by": "orchestrator", "at": "2026-08-04T12:59:43+00:00", "detail": "docs/decisions/0019-client-signoff.md"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-04T13:17:06+00:00", "detail": "project-hierarchy: Project hierarchy: captured completely, readable by an engineer"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-04T13:17:57+00:00", "detail": "project-hierarchy: Project hierarchy: captured completely, readable by an engineer"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-04T13:18:19+00:00", "detail": "project-hierarchy"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-04T13:18:44+00:00", "story": "PH-1", "detail": "docs/specs/project-hierarchy.md"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-04T13:18:44+00:00", "story": "PH-2", "detail": "docs/specs/project-hierarchy.md"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-04T13:18:44+00:00", "story": "PH-3", "detail": "docs/specs/project-hierarchy.md"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-04T13:18:45+00:00", "story": "PH-4", "detail": "docs/specs/project-hierarchy.md"}
