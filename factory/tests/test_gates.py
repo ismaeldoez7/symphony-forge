@@ -808,9 +808,105 @@ def test_record_signoff_refuses_without_confirmed_specs_and_roadmap(repo):
     assert "plans/roadmap.json" in out
 
 
+def test_spec_confirm_refuses_a_spec_missing_required_headings(repo, tmp_path):
+    complete = {
+        "title": "# Billing\n",
+        "why": "## Why\n\nCustomers need invoices.\n",
+        "behaviour": "## Behaviour\n\nInvoices can be downloaded.\n",
+        "acceptance": "## Acceptance criteria\n\n- An invoice downloads.\n",
+    }
+    cases = [
+        ("missing-title", "H1 title", {**complete, "title": ""}),
+        ("empty-title", "H1 title", {**complete, "title": "#   \n"}),
+        ("missing-why", "## Why", {**complete, "why": ""}),
+        ("empty-why", "## Why", {**complete, "why": "## Why\n\n"}),
+        ("missing-behaviour", "## Behaviour", {**complete, "behaviour": ""}),
+        ("empty-behaviour", "## Behaviour",
+         {**complete, "behaviour": "## Behaviour\n\n"}),
+        ("missing-acceptance", "## Acceptance criteria",
+         {**complete, "acceptance": ""}),
+        ("empty-acceptance", "## Acceptance criteria",
+         {**complete, "acceptance": "## Acceptance criteria\n\n"}),
+    ]
+
+    for slug, expected, parts in cases:
+        draft = tmp_path / f"{slug}.md"
+        draft.write_text("\n".join(parts.values()))
+        code, out = run(repo, "forge.py", "spec", "save", slug,
+                        "--from", str(draft))
+        assert code == 0, out
+
+        code, out = run(repo, "forge.py", "spec", "confirm", slug)
+        assert code != 0
+        assert expected in out
+        assert "grill" not in out.lower()
+
+
+def test_spec_check_never_refuses_a_complete_spec(repo):
+    """The heading check is a cheap pre-filter, so it must never be the reason
+    a complete spec is refused. Three cycles of hand-rolled Markdown structure
+    detection each closed one over-count and opened a new way to MISS a real
+    heading — an exact-length closing fence, a comment marker inside a fence
+    pairing with a later one outside, a backtick in an info string. Depth is
+    the grill's job (spec confirm requires one); this stays shallow and safe.
+    Structure inside fences and raw HTML is tracked as D-0002."""
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.specs import missing_required_content
+
+    sections = "\n## Why\n\nw\n\n## Behaviour\n\nb\n\n## Acceptance criteria\n\n- a\n"
+    for label, example in (
+        ("closer longer than opener", "```\nex\n````\n"),
+        ("closer indented three spaces", "```\nex\n   ```\n"),
+        ("tilde fence", "~~~\nex\n~~~\n"),
+        ("backtick inside the info string", "```a`b\nex\n```\n"),
+        ("comment marker inside a fence", "```\n<!-- x\n```\n\n<!-- note -->\n"),
+    ):
+        document = f"---\nslug: x\n---\n\n# Billing\n\n{example}{sections}"
+        assert missing_required_content(document) == [], label
+
+    # `## Why ##` is the same heading as `## Why`. Refusing it would be the H1
+    # rule contradicting the H2 rule inside one file.
+    closed = ("\n## Why ##\n\nw\n\n## Behaviour ##\n\nb\n"
+              "\n## Acceptance criteria ##\n\n- a\n")
+    assert missing_required_content(
+        f"---\nslug: x\n---\n\n# Billing\n{closed}") == []
+
+    # An ATX closing run leaves no title behind, but a trailing hash that is
+    # part of the name must survive — under LF and CRLF alike, since the
+    # closing-run anchor sits before the line ending.
+    for title, expected in (
+        ("# #", ["H1 title"]),
+        ("#   #", ["H1 title"]),
+        ("# Billing #", []),
+        ("# Sharp C#", []),
+    ):
+        document = f"---\nslug: x\n---\n\n{title}\n{sections}"
+        assert missing_required_content(document) == expected, title
+        assert missing_required_content(
+            document.replace("\n", "\r\n")) == expected, f"{title} (CRLF)"
+
+
+def test_spec_save_still_accepts_an_incomplete_draft(repo, tmp_path):
+    draft = tmp_path / "notes.md"
+    draft.write_text("Early notes without the required structure.\n")
+
+    code, out = run(repo, "forge.py", "spec", "save", "early-notes",
+                    "--from", str(draft))
+
+    assert code == 0, out
+    saved = repo / "docs" / "specs" / "early-notes.md"
+    assert "status: draft" in saved.read_text()
+    assert "Early notes without the required structure." in saved.read_text()
+
+
 def test_spec_confirm_roadmap_derive_and_signoff_gate(repo, tmp_path):
     draft = tmp_path / "billing.md"
-    draft.write_text("# Billing\n\nInvoices and payments.\n")
+    draft.write_text(
+        "# Billing\n\n"
+        "## Why\n\nCustomers need invoices and payments.\n\n"
+        "## Behaviour\n\nCustomers can manage invoices and payments.\n\n"
+        "## Acceptance criteria\n\n- Billing actions are available.\n"
+    )
     code, out = run(repo, "forge.py", "spec", "save", "billing",
                     "--from", str(draft))
     assert code == 0, out
@@ -2886,7 +2982,12 @@ def test_adhoc_capture_is_visible_debt_not_a_build_bypass(repo, tmp_path):
     code, out = save_plan(repo, tmp_path)
     assert code != 0 and "link-spec" in out and "0014" in out, out
     spec = tmp_path / "export.md"
-    spec.write_text("# Export\n\nCSV export of invoices.\n")
+    spec.write_text(
+        "# Export\n\n"
+        "## Why\n\nFinance leads need invoice data outside the app.\n\n"
+        "## Behaviour\n\nFinance leads can export invoices to CSV.\n\n"
+        "## Acceptance criteria\n\n- The export downloads.\n"
+    )
     run(repo, "forge.py", "spec", "save", "export", "--from", str(spec))
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "docs: export spec draft")

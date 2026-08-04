@@ -192,3 +192,8 @@ uv run --with pytest python -m pytest factory/tests/test_gates.py -q \
 Then one autoreview pass across quality, performance and security, and
 `./forge outcome set` before `pr_ready.py`. No functional check: this story has
 no user-facing surface — the decomposition records `user_facing: false`.
+
+## Implementation Assumptions
+
+<!-- Made during implementation, NOT part of the approved plan. Dev: review these before merge; promote any that matter to docs/decisions/. -->
+- 2026-08-04: PH-1.3's heading check is a shallow pre-filter: it matches heading-shaped lines anywhere in the spec body, so a spec whose only required sections sit inside a fenced example or raw HTML passes it and is caught by the mandatory spec grill instead. This narrows the task's acceptance criterion, which reads as though the gate refuses every structurally incomplete spec. Chosen because three attempts at real structure detection each closed one over-count and opened a new FALSE REFUSAL of a complete spec, and correct detection needs a Markdown parser that factory/scripts is stdlib-only by design to exclude (D-0002).

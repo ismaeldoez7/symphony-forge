@@ -12,6 +12,7 @@ from .events import append_event
 
 FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.DOTALL)
 SAFE_SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
+REQUIRED_SECTIONS = ("Why", "Behaviour", "Acceptance criteria")
 
 
 def parse_frontmatter(text: str) -> dict[str, str]:
@@ -25,6 +26,59 @@ def parse_frontmatter(text: str) -> dict[str, str]:
         key, _, value = line.partition(":")
         fields[key.strip()] = value.strip().strip("\"'")
     return fields
+
+
+ATX_TITLE = re.compile(r"^#[ \t]+(?P<title>.*)$", re.MULTILINE)
+# The optional ATX closing run: `# Billing #` titles Billing, and `# #` titles
+# nothing at all. Anchored to start-or-whitespace so a trailing hash that is
+# part of the title (`# Sharp C#`) survives, and stripped before asking whether
+# any title text remains.
+ATX_CLOSING_RUN = re.compile(r"(?:^|[ \t]+)#+[ \t]*\r?$")
+
+
+def document_structure(text: str) -> str:
+    """The spec body — frontmatter removed, nothing else interpreted.
+
+    This deliberately does NOT exclude fenced blocks, comments or raw HTML, and
+    the omission is the design rather than an oversight. Deciding whether a line
+    is a heading is Markdown parsing, and factory/scripts is stdlib-only by
+    design (factory_lib.py). Three review cycles of hand-rolled structure
+    detection each closed one way of over-counting a heading and opened a new
+    way of MISSING one: an exact-length closing fence, a comment marker inside a
+    fence pairing with a later one outside, a backtick in an info string. Every
+    one of those refused a complete spec.
+
+    The asymmetry decides it. Over-counting means an author who wrote their
+    sections only inside an example reaches the spec grill — a human
+    interrogation that `spec confirm` requires anyway — and is caught there.
+    Under-counting means the harness refuses a document whose sections are
+    plainly present, which is the failure this story exists to remove.
+    So this check stays a cheap pre-filter and the grill stays the depth.
+    Raw-HTML and fenced structure are tracked as D-0002.
+    """
+    return FRONTMATTER.sub("", text, count=1)
+
+
+def missing_required_content(text: str) -> list[str]:
+    body = document_structure(text)
+    missing = []
+    if not any(
+        ATX_CLOSING_RUN.sub("", match.group("title")).strip()
+        for match in ATX_TITLE.finditer(body)
+    ):
+        missing.append("H1 title")
+    for title in REQUIRED_SECTIONS:
+        match = re.search(
+            # `## Why ##` is the same heading as `## Why`; refusing it would be
+            # the H1 rule contradicting the H2 rule in one file.
+            rf"^##[ \t]+{re.escape(title)}(?:[ \t]+#+)?[ \t]*\r?\n"
+            r"(?P<body>.*?)(?=^#{1,2}[ \t]+|\Z)",
+            body,
+            re.DOTALL | re.MULTILINE,
+        )
+        if not match or not match.group("body").strip():
+            missing.append(f"## {title}")
+    return missing
 
 
 def spec_records(base: Path) -> list[dict]:
@@ -97,6 +151,9 @@ def cmd_confirm(args: argparse.Namespace) -> None:
     if fields.get("status") != "draft":
         fail(f"spec status must be draft before confirmation, got "
              f"{fields.get('status', 'missing')!r}")
+    missing = missing_required_content(text)
+    if missing:
+        fail(f"spec is incomplete; missing or empty: {', '.join(missing)}")
     require_grill(
         base,
         "spec",
