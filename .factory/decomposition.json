@@ -1,0 +1,141 @@
+{
+  "generated_by": "docs-decomposer",
+  "project": "Symphony Forge",
+  "user_facing": false,
+  "doc_roots": [
+    "docs/specs/project-hierarchy.md"
+  ],
+  "tasks": [
+    {
+      "id": "PH-3.1",
+      "title": "Nine sections, not one",
+      "objective": "Replace plan save's substring test for '## Surface Impact' with a parse_sections check over all nine planner sections, naming every missing one.",
+      "dependencies": [],
+      "write_scope": [
+        "factory/scripts/forge_cli/plans.py",
+        "factory/tests/test_gates.py"
+      ],
+      "acceptance_criteria": [
+        "plan save refuses a plan missing any of Problem, Scope / Non-goals, Acceptance Criteria, Technical Approach, Decisions, Surface Impact, Task Decomposition, Risks, Verify Plan.",
+        "A section present with a whitespace-only body counts as missing, decided by parse_sections rather than a length threshold.",
+        "The refusal names every missing section in one message, not the first one found.",
+        "The check calls factory_lib.parse_sections; no second section matcher is added to plans.py. This task cannot start until PH-1 is on main, because that function does not exist before it.",
+        "Every plan already under plans/ passes the check, or the ones that fail are fixed in this task and the failure explained in the commit."
+      ],
+      "verify_commands": [
+        "uv run --with pytest python -m pytest factory/tests/test_gates.py -q -k \"plan_save or plan_sections\""
+      ],
+      "required_tests": [
+        {
+          "id": "test_plan_save_refuses_a_plan_missing_any_required_section",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_plan_save_names_every_missing_section",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_shipped_plans_satisfy_the_section_contract",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "That plans.py imports parse_sections rather than growing its own matcher. A second section parser is the duplicate PH-1 spent four review cycles removing."
+    },
+    {
+      "id": "PH-3.2",
+      "title": "Bind the decomposition to its plan, and make task fields mean something",
+      "objective": "Stamp project, story, epic, plan_file and the plan digest into the decomposition from run.json and the roadmap, refuse a digest that does not match the active plan, and validate verify_commands and dependencies.",
+      "dependencies": [
+        "PH-3.1"
+      ],
+      "write_scope": [
+        "factory/scripts/record_decomposition_from_json.py",
+        "factory/schemas/decomposition.json",
+        "factory/tests/test_gates.py"
+      ],
+      "acceptance_criteria": [
+        "The recorder writes project, story, epic, plan_file and plan_sha256 from .factory/run.json and plans/roadmap.json; agent-supplied values for those keys are dropped, not merged.",
+        "A decomposition whose plan_sha256 does not match the active plan file is refused, so this handover is digest-bound like every other one.",
+        "Artifacts recorded before this change stay readable: the new fields are optional in the schema and .factory/history/ artifacts still parse.",
+        "Every task's verify_commands entry is checked with doctor.unrunnable_reason; prose is refused and a real command passes.",
+        "required_tests may be [] and the task is still accepted, provided verify_commands is runnable.",
+        "A dependencies entry naming a later task in the array is refused; array order stays the execution sequence.",
+        "The recorder refuses when the roadmap has no story matching run.json rather than inventing an epic."
+      ],
+      "verify_commands": [
+        "uv run --with pytest python -m pytest factory/tests/test_gates.py -q -k \"decomposition or provenance or unrunnable\""
+      ],
+      "required_tests": [
+        {
+          "id": "test_decomposition_provenance_overrides_agent_supplied_fields",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_decomposition_refuses_a_stale_plan_digest",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_decomposition_refuses_prose_verify_commands",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_decomposition_accepts_empty_required_tests",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_historical_decomposition_artifacts_still_parse",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "That promoting doctor.unrunnable_reason from advisory output to a refusal path does not change what it accepts for doctor's existing caller."
+    },
+    {
+      "id": "PH-3.3",
+      "title": "Retire authored waves",
+      "objective": "Stop anything authoring build_waves and delete its only reader in the same change, keeping the schema field optional so shipped artifacts still parse.",
+      "dependencies": [
+        "PH-3.2"
+      ],
+      "write_scope": [
+        "factory/prompts/decomposer.md",
+        "factory/prompts/griller.md",
+        "factory/scripts/render_linear_task_graph.py",
+        "factory/tests/test_gates.py"
+      ],
+      "acceptance_criteria": [
+        "build_waves is gone from factory/prompts/decomposer.md's output contract and from griller.md's checklist.",
+        "factory/scripts/render_linear_task_graph.py is deleted in this same task, so the field never exists as a writer without a reader or the reverse.",
+        "build_waves stays optional in factory/schemas/decomposition.json and the .factory/history/ artifacts carrying it still parse.",
+        "Nothing else references render_linear_task_graph: a repo-wide search returns no callers, and check_dual_runtime stays green.",
+        "The change cites decision 0021 derived-ordering, or restates the ordering claim if that record has not landed."
+      ],
+      "verify_commands": [
+        "uv run --with pytest python -m pytest factory/tests/test_gates.py -q -k \"waves or decomposer or history\"",
+        "python3 factory/scripts/check_dual_runtime.py",
+        "python3 factory/scripts/check_agents_hygiene.py"
+      ],
+      "required_tests": [
+        {
+          "id": "test_no_prompt_authors_build_waves",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_historical_decomposition_artifacts_still_parse",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "That the writer and the reader die together. Split across tasks, one of them is an orphan by construction."
+    }
+  ],
+  "commit": "7a483981d1bbff210e48d1428a7dfa2bde94c7b3"
+}

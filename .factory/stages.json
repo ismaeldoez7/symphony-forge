@@ -1,0 +1,20 @@
+{
+  "issue": "PH-3",
+  "stages": [
+    {
+      "id": "PH-3.1",
+      "title": "Nine sections, not one",
+      "status": "pending"
+    },
+    {
+      "id": "PH-3.2",
+      "title": "Bind the decomposition to its plan, and make task fields mean something",
+      "status": "pending"
+    },
+    {
+      "id": "PH-3.3",
+      "title": "Retire authored waves",
+      "status": "pending"
+    }
+  ]
+}
