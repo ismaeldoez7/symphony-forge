@@ -175,3 +175,13 @@
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-05T05:50:13+00:00", "story": "PH-3", "detail": "3 task(s)"}
 {"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-05T05:50:13+00:00", "story": "PH-3", "detail": "S-0001-0048: The rule was wrong, not the scope. Three of the failing files are not plans at all \u2014 plans/README.md is a readme, assumptions.md and deferrals.md are ledgers \u2014 so a check that globs plans/**/*.md is c"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T05:54:16+00:00", "story": "PH-3", "detail": "PH-3.1 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-05T05:57:36+00:00", "story": "PH-3.1", "detail": "PH-3.1: task contract re-recorded mid-stage"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-05T05:58:15+00:00", "story": "PH-3.1", "detail": "PH-3.1: task contract re-recorded mid-stage"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-05T05:58:16+00:00", "story": "PH-3.1", "detail": "PH-3.1: task contract re-recorded mid-stage"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-05T05:58:16+00:00", "story": "PH-3.1", "detail": "PH-3.1: task contract re-recorded mid-stage"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-05T05:58:36+00:00", "story": "PH-3.1", "detail": "PH-3.1: task contract re-recorded mid-stage"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-05T05:59:04+00:00", "story": "PH-3.1", "detail": "PH-3.1: task contract re-recorded mid-stage"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-05T05:59:04+00:00", "story": "PH-3.1", "detail": "PH-3.1: task contract re-recorded mid-stage"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-05T05:59:05+00:00", "story": "PH-3.1", "detail": "PH-3.1: task contract re-recorded mid-stage"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-05T06:21:21+00:00", "story": "PH-3", "detail": "PH-3.1: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-05T06:21:21+00:00", "story": "PH-3", "detail": "PH-3.1 Nine sections, not one"}
