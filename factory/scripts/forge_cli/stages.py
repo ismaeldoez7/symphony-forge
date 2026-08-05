@@ -146,6 +146,35 @@ def dirty_paths(base: Path) -> list[str]:
     return sorted(set(paths))
 
 
+def stage_ref(stage_id: str) -> str:
+    """The stage's fixed point (decision 0023).
+
+    Under `refs/forge/` so it is never confused with a branch, never fetched or
+    pushed by default, and never rewritten by an ordinary git operation.
+    """
+    return f"refs/forge/stage/{stage_id}"
+
+
+def write_stage_ref(base: Path, stage_id: str) -> str:
+    """Pin HEAD as this stage's baseline and return the sha it points at."""
+    head = head_sha(base) or ""
+    if head:
+        _git(base, "update-ref", stage_ref(stage_id), head)
+    return head
+
+
+def stage_baseline(base: Path, stage: dict) -> str:
+    """The ref if it resolves, else the recorded sha.
+
+    The fallback is what lets a stage started before 0023 — or one whose ref a
+    worktree prune removed — still be measured and closed, rather than becoming
+    the unrecoverable state this decision exists to remove.
+    """
+    resolved = _git(base, "rev-parse", "--verify", "--quiet",
+                    stage_ref(stage.get("id", ""))).strip()
+    return resolved or stage.get("base_sha", "") or ""
+
+
 def committed_paths(base: Path, base_sha: str, head: str) -> set[str]:
     """Both sides of every committed change, including renames and copies."""
     raw = _git(base, "diff", "--name-status", "-z", "--find-renames",
@@ -585,48 +614,17 @@ def _cmd_start_locked(args: argparse.Namespace, base: Path) -> None:
              "new stage in a re-recorded decomposition")
     current_task = task_for(base, args.id)
     if stage.get("status") == "active":
-        recorded = stage.get("task_sha256")
-        current = task_digest(current_task)
-        if not recorded or recorded == current:
-            fail(f"{args.id} is already active — restarting it would erase the "
-                 "measured delta. Continue the active stage, or re-record a "
-                 "changed task contract before deliberately re-baselining it.")
-        changed = [
-            path for path in changed_paths(
-                base, stage.get("base_sha", ""),
-                stage.get("dirty_at_start", {}),
-            )
-            if not path.startswith(WORKFLOW_PATHS)
-        ]
-        strays = out_of_scope(changed, current_task.get("write_scope") or [])
-        if strays:
-            fail(f"{args.id} cannot re-baseline over path(s) still outside the "
-                 f"new task contract: {', '.join(strays[:10])}. Resolve or "
-                 "remove those changes before restarting the stage.")
-        # Re-baselining onto a HEAD that already contains this stage's work
-        # sets the baseline to the finished state, so `stage done` then measures
-        # nothing and refuses as an EMPTY diff — with no way back, because
-        # restarting again is what caused it. The repair for a wrong scope must
-        # happen BEFORE the work, so say so instead of silently destroying the
-        # measurement the next command depends on.
-        # COMMITTED work only. Re-baselining over uncommitted work is the
-        # normal repair — the worktree delta survives the new baseline. But a
-        # commit becomes the new baseline itself, so the delta it carried is
-        # gone and nothing can measure it again.
-        head = head_sha(base)
-        committed = [
-            path for path in committed_paths(base, stage.get("base_sha", ""), head)
-            if not path.startswith(WORKFLOW_PATHS)
-        ] if head and stage.get("base_sha") else []
-        if committed:
-            fail(f"{args.id} cannot re-baseline: this stage's work is already "
-                 f"committed in {head[:8]} ({', '.join(sorted(committed)[:5])}), "
-                 "so baselining on top of it would measure an empty diff and "
-                 "strand the stage with no way back. Re-record a changed "
-                 "contract BEFORE the work, not after. To recover now, move the "
-                 "commit off the baseline (git reset --soft to where the stage "
-                 "started) and restart, or close with --incomplete and open a "
-                 "follow-up task for the rest.")
+        # No re-baselining, ever (decision 0023). The baseline is a ref written
+        # once at start; a contract that changes mid-stage is LEDGERED, not
+        # replayed onto a new fixed point. Coupling the two is what stranded a
+        # stage whose work was complete, reviewed and committed: the repair
+        # rebaselined onto the finished commit, so the delta it was protecting
+        # no longer existed and nothing could measure it again.
+        fail(f"{args.id} is already active — restarting would erase the measured "
+             "delta, and the baseline is not something to move. Re-record a "
+             "changed contract if the scope was wrong: the change is ledgered "
+             f"and `forge stage done {args.id}` still measures against the ref "
+             "this stage started from.")
     active_others = [
         other["id"] for other in data.get("stages", [])
         if other is not stage and other.get("status") == "active"
@@ -643,7 +641,11 @@ def _cmd_start_locked(args: argparse.Namespace, base: Path) -> None:
     stage["started_at"] = now_iso()
     # `stage done` measures the diff, and a measurement needs a fixed point —
     # plus the dirt that was already there, which is not this stage's work.
-    stage["base_sha"] = head_sha(base) or ""
+    # The fixed point is a REF (decision 0023): a sha in stages.json can be
+    # rewritten by the next `stage start`, which is how re-recording a contract
+    # once destroyed the delta it was supposed to protect. A ref is written
+    # once per stage and survives commits, rebases and worktree switches.
+    stage["base_sha"] = write_stage_ref(base, args.id) or ""
     stage["dirty_at_start"] = dirty_digests(base)
     stage["task_sha256"] = task_digest(current_task)
     append_event(base, "stage-start", actor="implementer", story=data.get("issue", ""),
@@ -672,7 +674,7 @@ def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> None:
     Every other diff-based check in this repo fires when TOO MUCH changed.
     None fired when too little did — which is exactly what a stalled or
     half-finished delegation looks like, and it signed itself off."""
-    base_sha = stage.get("base_sha")
+    base_sha = stage_baseline(base, stage)
     if not base_sha:
         fail(f"{stage_id} was started before its base commit was recorded, so "
              "there is nothing to measure against. Re-run "
@@ -688,14 +690,21 @@ def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> None:
              f"then `forge stage start {stage_id}` again.")
     recorded = stage.get("task_sha256")
     if recorded and recorded != task_digest(task):
-        # Re-recording mid-stage is the sanctioned repair for a wrong scope —
-        # but it must not be a way to widen the contract moments before closing
-        # over it. Re-starting re-baselines deliberately and on the record.
-        fail(f"{stage_id}'s task contract changed after the stage started "
-             "(write_scope, required_tests, verify_commands or acceptance "
-             "criteria). Closing over a contract you just rewrote proves "
-             f"nothing — run `forge stage start {stage_id}` to re-baseline "
-             "against the current decomposition, then close it.")
+        # A contract that moved mid-stage is EVIDENCE, not a refusal (0023).
+        # Refusing here forced a re-baseline, and re-baselining after the work
+        # destroyed the delta being measured. Record what changed so review
+        # sees a widened scope and can ask why; the diff is still measured
+        # against the ref this stage started from, so the boundary still binds.
+        stage["contract_changed"] = {
+            "at": now_iso(),
+            "from": recorded,
+            "to": task_digest(task),
+        }
+        append_event(base, "stage-contract-changed", actor="implementer",
+                     story=stage_id,
+                     detail=f"{stage_id}: task contract re-recorded mid-stage")
+        print(f"NOTE: {stage_id}'s task contract changed after the stage "
+              "started; recorded for review. The measured diff is unaffected.")
     # Emptiness is judged on PRODUCT paths only. A stalled run still churns
     # .factory/ — the stage tracker and the events ledger move on every
     # command — so counting workflow paths would make this check pass for
@@ -987,10 +996,14 @@ def _finish_stage(base: Path, args: argparse.Namespace, data: dict,
             fail(f"{args.id} changed identity before its done transition could "
                  "be serialized; inspect `forge stage list` and retry.")
         locked_task = task_for(base, args.id)
-        if (not current.get("task_sha256")
-                or task_digest(locked_task) != current["task_sha256"]):
-            fail(f"{args.id}'s task contract changed before its done transition "
-                 "could be serialized; re-baseline and prove the current contract.")
+        # A RACE guard, not a contract-drift guard: the decomposition must not
+        # move between the measurement above and the write below. Comparing to
+        # the digest recorded at stage START conflated the two, so a contract
+        # legitimately re-recorded mid-stage (decision 0023 ledgers those)
+        # could never be closed at all.
+        if task_digest(locked_task) != task_digest(final_task):
+            fail(f"{args.id}'s task contract changed while its done transition "
+                 "was being serialized; nothing was written — retry.")
         _measure(base, args.id, current, locked_task)
         _require_successful_launch(base, args.id, current, locked_task)
         if product_tree_snapshot(base) != proof_tree:

@@ -4724,25 +4724,37 @@ def test_stage_tasks_are_sequential_and_parallel_flag_is_refused(repo, tmp_path)
     assert "dependency-ready stories" in out
 
 
-def test_stage_done_refuses_a_contract_rewritten_mid_stage(repo, tmp_path):
-    """Re-recording is the sanctioned repair for a wrong scope, but it must not
-    be a way to widen write_scope moments before closing over it."""
+def test_stage_done_ledgers_a_contract_rewritten_mid_stage(repo, tmp_path):
+    """A contract that moved mid-stage is evidence, not a refusal (0023).
+
+    Refusing forced a re-baseline, and re-baselining after the work destroyed
+    the delta being measured — which stranded a stage whose work was complete,
+    reviewed and committed. The widened scope is recorded for review instead,
+    and the diff is still measured against the ref the stage started from, so
+    the boundary still binds.
+    """
     start_stage(repo, tmp_path, STAGE_TASK)
     write_in_scope(repo, "billing/ledger.py")
     widened = {**DECOMP, "tasks": [{**STAGE_TASK, "write_scope": ["src/", "billing/"]}]}
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(widened))
     assert code == 0, out
-    code, out = run(repo, "forge.py", "stage", "done", "T1")
-    assert code != 0 and "task contract changed" in out
-    # re-baselining is deliberate and on the record
-    code, out = run(repo, "forge.py", "stage", "start", "T1")
-    assert code == 0, out
+    # A changed contract is a changed brief, so decision 0018 still wants a
+    # launch bound to it. Ledgering the change removes the re-baseline, not
+    # the delegation binding.
     code, out = run(repo, "forge.py", "delegate", "T1",
                     env={"HOME": str(fake_companion_home(tmp_path))})
     assert code == 0, out
     write_in_scope(repo, "billing/ledger.py", "changed = True\n")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
+    assert "contract changed" in out
+
+    stage = next(s for s in json.loads(
+        (repo / ".factory" / "stages.json").read_text())["stages"]
+        if s["id"] == "T1")
+    assert stage["contract_changed"]["from"] != stage["contract_changed"]["to"]
+    events = (repo / ".factory" / "events.jsonl").read_text()
+    assert "stage-contract-changed" in events
 
 
 def test_decomposition_refuses_to_remove_an_active_task(repo, tmp_path):
@@ -4833,18 +4845,20 @@ def test_stage_start_refuses_to_rebaseline_an_unchanged_active_contract(repo, tm
     assert code != 0 and "already active" in out and "erase" in out
 
 
-def test_stage_start_refuses_to_rebaseline_onto_its_own_finished_work(repo, tmp_path):
-    """The repair for a wrong scope must happen BEFORE the work.
+def test_stage_start_never_moves_the_baseline(repo, tmp_path):
+    """The baseline is written once, as a ref, and is not something to move.
 
-    Re-recording mid-stage then restarting sets the baseline to the finished
-    state, so `stage done` measures nothing and refuses as an EMPTY diff — and
-    restarting again is what caused that, so the stage strands with the work
-    complete, reviewed and committed. Refuse the move that creates the trap.
+    Re-baselining used to be the sanctioned repair for a wrong scope. Doing it
+    after the work set the baseline to the finished state, so `stage done`
+    measured nothing and refused as an EMPTY diff — with no way back, because
+    restarting again is what caused it.
     """
     start_stage(repo, tmp_path, STAGE_TASK)
+    baseline = subprocess.run(
+        ["git", "rev-parse", "refs/forge/stage/T1"],
+        cwd=repo, capture_output=True, text=True)
+    assert baseline.returncode == 0, baseline.stderr
     write_in_scope(repo, "src/core.py")
-    # Only the in-scope path: `git add -A` would sweep in the sign-off and
-    # harness files the fixture wrote, and trip the stray-path guard instead.
     subprocess.run(["git", "add", "src/core.py"], cwd=repo, check=True)
     subprocess.run(["git", "commit", "-qm", "the stage's work"], cwd=repo, check=True)
 
@@ -4854,9 +4868,19 @@ def test_stage_start_refuses_to_rebaseline_onto_its_own_finished_work(repo, tmp_
                     stdin=json.dumps({**DECOMP, "tasks": [widened]}))
     assert code == 0, out
     code, out = run(repo, "forge.py", "stage", "start", "T1")
-    assert code != 0, out
-    assert "already committed" in out and "empty diff" in out.lower()
-    assert "src/core.py" in out
+    assert code != 0 and "not something to move" in out
+
+    # ...and the ref still points where it did, so the work stays measurable.
+    after = subprocess.run(
+        ["git", "rev-parse", "refs/forge/stage/T1"],
+        cwd=repo, capture_output=True, text=True)
+    assert after.stdout == baseline.stdout
+    code, out = run(repo, "forge.py", "delegate", "T1",
+                    env={"HOME": str(fake_companion_home(tmp_path))})
+    assert code == 0, out
+    write_in_scope(repo, "src/core.py", "more = True\n")
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
 
 
 def test_verify_refuses_to_guess_a_toolchain(repo, tmp_path):
