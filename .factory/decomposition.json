@@ -1,6 +1,6 @@
 {
   "generated_by": "docs-decomposer",
-  "project": "Symphony Forge",
+  "project": "",
   "user_facing": false,
   "doc_roots": [
     "docs/specs/project-hierarchy.md"
@@ -60,15 +60,17 @@
       "write_scope": [
         "factory/scripts/record_decomposition_from_json.py",
         "factory/schemas/decomposition.json",
+        "factory/scripts/forge_cli/stages.py",
         "factory/tests/test_gates.py"
       ],
       "acceptance_criteria": [
         "The recorder writes project, story, epic, plan_file and plan_sha256 from .factory/run.json and plans/roadmap.json; agent-supplied values for those keys are dropped, not merged.",
-        "A decomposition whose plan_sha256 does not match the active plan file is refused, so this handover is digest-bound like every other one.",
-        "Artifacts recorded before this change stay readable: the new fields are optional in the schema and .factory/history/ artifacts still parse.",
+        "plan_sha256 is the digest of the plan the RECORDER read, so it is true at record time without asking a producer to hash a file. A supplied digest that disagrees with the active plan is still refused.",
+        "stage start refuses when the active plan's digest no longer matches the one stamped on the decomposition: the realistic staleness is the plan being edited AFTER the task graph was recorded, which no record-time check can see.",
+        "Artifacts recorded before this change stay readable: the new fields are optional in the schema and .factory/history/ artifacts still parse, including ones with no plan_sha256 at all.",
         "Every task's verify_commands entry is checked with doctor.unrunnable_reason; prose is refused and a real command passes.",
         "required_tests may be [] and the task is still accepted, provided verify_commands is runnable.",
-        "A dependencies entry naming a later task in the array is refused; array order stays the execution sequence.",
+        "dependencies defaults only when ABSENT \u2014 false, 0, '' and {} are refused rather than silently read as an empty list \u2014 and may only name an earlier task.",
         "The recorder refuses when the roadmap has no story matching run.json rather than inventing an epic."
       ],
       "verify_commands": [
@@ -77,11 +79,6 @@
       "required_tests": [
         {
           "id": "test_decomposition_provenance_overrides_agent_supplied_fields",
-          "path": "factory/tests/test_gates.py",
-          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
-        },
-        {
-          "id": "test_decomposition_refuses_a_stale_plan_digest",
           "path": "factory/tests/test_gates.py",
           "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
         },
@@ -97,6 +94,16 @@
         },
         {
           "id": "test_historical_decomposition_artifacts_still_parse",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_stage_start_refuses_a_decomposition_whose_plan_moved",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_decomposition_refuses_a_falsy_non_list_dependencies",
           "path": "factory/tests/test_gates.py",
           "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
         }
@@ -143,5 +150,9 @@
       "reviewer_focus": "That the writer and the reader die together. Split across tasks, one of them is an orphan by construction."
     }
   ],
-  "commit": "22e598edb3f55c77ae9a6a0f298075fb25aa30ba"
+  "story": "PH-3",
+  "epic": "",
+  "plan_file": "plans/active/PH-3-plan-and-task-contract.md",
+  "plan_sha256": "1e917e878d115aef830ef00a52012a66027437680cc4cf3b4ce6b4ca2651ae09",
+  "commit": "0917de5be87e42a4fd03c20dac9f310d7ca3cd13"
 }

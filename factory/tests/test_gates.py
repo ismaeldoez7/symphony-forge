@@ -5002,6 +5002,44 @@ def test_stage_done_incomplete_leaves_stage_open(repo, tmp_path):
     assert stages[0]["status"] == "done" and "incomplete" not in stages[0]
 
 
+def test_stage_start_refuses_a_decomposition_whose_plan_moved(repo, tmp_path):
+    """The realistic staleness is the plan being edited AFTER the task graph
+    was recorded — the decomposition was current when written, so no
+    record-time check can see it. Catch it before work starts."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}))
+    assert code == 0, out
+    plan = next((repo / "plans" / "active").glob("*.md"))
+    plan.write_text(plan.read_text() + "\n<!-- edited after decomposition -->\n")
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code != 0, out
+    assert "has changed since this decomposition was recorded" in out
+
+    # Absence must refuse too: a stamped decomposition claims a binding, so
+    # failing to VERIFY it is not permission to proceed.
+    plan.unlink()
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code != 0, out
+    assert "missing" in out and "cannot be verified" in out
+
+
+def test_decomposition_refuses_a_falsy_non_list_dependencies(repo, tmp_path):
+    """`or []` let false, 0, "" and {} pass a list check, then persisted the
+    malformed value into the recorded artifact."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    for malformed in (False, 0, "", {}):
+        payload = {**DECOMP, "tasks": [{**STAGE_TASK, "dependencies": malformed}]}
+        code, out = run(repo, "record_decomposition_from_json.py",
+                        stdin=json.dumps(payload))
+        assert code != 0, f"{malformed!r} was accepted: {out}"
+        assert "dependencies" in out
+
+
 def test_decomposition_refuses_prose_verify_commands(repo, tmp_path):
     """`stage done` executes these, so an entry that cannot run is a gate that
     can never pass — which is what "package test script" always was."""
@@ -5021,6 +5059,109 @@ def test_decomposition_refuses_prose_verify_commands(repo, tmp_path):
         code, out = run(repo, "record_decomposition_from_json.py",
                         stdin=json.dumps(payload))
         assert code == 0, f"{command}: {out}"
+
+
+def test_decomposition_provenance_overrides_agent_supplied_fields(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    roadmap = json.loads((repo / "plans" / "roadmap.json").read_text())
+    story = next(item for item in roadmap["items"] if item["key"] == "ENG-1")
+    story["epic"] = "billing"
+    (repo / "plans" / "roadmap.json").write_text(json.dumps(roadmap, indent=2) + "\n")
+    state = run_state(repo)
+    plan = repo / state["plan_file"]
+    payload = {
+        **DECOMP,
+        "project": "agent-project",
+        "story": "AGENT-9",
+        "epic": "agent-epic",
+        "plan_file": "plans/active/agent.md",
+        "plan_sha256": hashlib.sha256(plan.read_bytes()).hexdigest(),
+    }
+
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps(payload))
+
+    assert code == 0, out
+    recorded = json.loads((repo / ".factory" / "decomposition.json").read_text())
+    assert {key: recorded[key] for key in (
+        "project", "story", "epic", "plan_file", "plan_sha256",
+    )} == {
+        "project": "app",
+        "story": "ENG-1",
+        "epic": "billing",
+        "plan_file": state["plan_file"],
+        "plan_sha256": hashlib.sha256(plan.read_bytes()).hexdigest(),
+    }
+
+
+def test_decomposition_refuses_a_stale_plan_digest(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    payload = {**DECOMP, "plan_sha256": "0" * 64}
+
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps(payload))
+
+    assert code != 0
+    assert "plan_sha256" in out and "active plan" in out
+
+
+def test_decomposition_accepts_empty_required_tests(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    task = {**STAGE_TASK, "verify_commands": ["true"], "required_tests": []}
+
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [task]}))
+
+    assert code == 0, out
+    recorded = json.loads((repo / ".factory" / "decomposition.json").read_text())
+    assert recorded["tasks"][0]["required_tests"] == []
+
+
+def test_decomposition_refuses_a_dependency_on_a_later_task(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    first = {**STAGE_TASK, "dependencies": ["T2"]}
+    second = {**STAGE_TASK, "id": "T2", "dependencies": []}
+
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
+        {**DECOMP, "tasks": [first, second]}))
+
+    assert code != 0
+    assert "T1" in out and "T2" in out and "earlier" in out
+
+
+def test_decomposition_refuses_when_roadmap_story_is_missing(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    roadmap = json.loads((repo / "plans" / "roadmap.json").read_text())
+    roadmap["items"] = [
+        item for item in roadmap["items"] if item.get("key") != "ENG-1"
+    ]
+    (repo / "plans" / "roadmap.json").write_text(json.dumps(roadmap, indent=2) + "\n")
+
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps(DECOMP))
+
+    assert code != 0
+    assert "ENG-1" in out and "roadmap" in out
+
+
+def test_historical_decomposition_artifacts_still_parse():
+    factory_lib = load_factory_lib(HARNESS)
+    for issue in ("FORGE-INIT-1", "FORGE-DELEG-1", "PH-1"):
+        artifact = HARNESS / ".factory" / "history" / issue / "decomposition.json"
+        assert artifact.is_file()
+        payload = json.loads(artifact.read_text())
+        assert "plan_sha256" not in payload
+        factory_lib.validate_payload(HARNESS, "decomposition", payload)
 
 
 def test_doctor_reports_prose_verify_commands(repo, tmp_path):
