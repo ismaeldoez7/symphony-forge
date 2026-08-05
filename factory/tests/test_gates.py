@@ -1468,6 +1468,25 @@ def test_pr_ready_tolerates_harness_upgrade_commits(repo, tmp_path):
     assert code == 0, out
 
 
+def test_upgrade_survives_a_repo_without_harness_yaml(repo, tmp_path):
+    """harness.yaml is PROJECT-owned, so an older scaffold may not have one —
+    which is the normal state of the legacy repos this command exists to
+    upgrade. Reading it unconditionally turned that into a traceback AFTER the
+    writes, leaving the target half-upgraded."""
+    (repo / "harness.yaml").unlink()
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "older scaffold: no harness.yaml")
+    proc = subprocess.run(
+        [sys.executable, str(HARNESS / "factory" / "scripts" / "forge.py"),
+         "upgrade", "--target", str(repo)],
+        cwd=HARNESS, capture_output=True, text=True,
+    )
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert "Traceback" not in output
+    assert "no harness.yaml in this repo" in output
+
+
 def test_upgrade_replaces_machinery_preserves_project(repo, tmp_path):
     # Degrade machinery, add project-owned content + a proposed skill
     (repo / "factory" / "scripts" / "verify.py").unlink()
