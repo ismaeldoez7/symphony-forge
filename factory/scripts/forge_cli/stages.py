@@ -648,7 +648,14 @@ def _cmd_start_locked(args: argparse.Namespace, base: Path) -> None:
     # recorded, so the tasks describe a plan nobody approved. No record-time
     # check can see that — the decomposition was current when it was written.
     # This is where it becomes visible, at the last moment before work starts.
-    decomposition = load_json(decomposition_state_path(base), default={})
+    # The PROTECTED authority, not the workspace mirror. Reading the mutable
+    # .factory/decomposition.json meant that replacing it — which a merge does
+    # routinely, since tracked evidence travels with the branch — could drop
+    # the stamp and silently disable this check. A binding that disappears
+    # when a file is overwritten is not a binding.
+    decomposition = load_json(protected_decomposition_state_path(base), default={})
+    if not decomposition:
+        decomposition = load_json(decomposition_state_path(base), default={})
     stamped = decomposition.get("plan_sha256")
     plan_file = load_json(run_state_path(base), default={}).get("plan_file")
     if stamped:

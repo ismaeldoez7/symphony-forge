@@ -205,3 +205,5 @@
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T10:17:15+00:00", "story": "PH-3", "detail": "PH-3.3 (write)"}
 {"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-05T10:18:28+00:00", "story": "PH-3", "detail": "PH-3.3: task contract re-recorded mid-stage"}
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-05T10:18:28+00:00", "story": "PH-3", "detail": "PH-3.3 Retire authored waves"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-05T10:31:51+00:00", "story": "PH-3"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-05T10:36:38+00:00", "story": "PH-3", "detail": "S-0004-3c48: Correct, and factory/prompts/decomposer.md was not the only place the decomposer is told what to emit \u2014 .codex/agents/docs-decomposer.toml carried the same output contract. An agent still authoring a "}
