@@ -203,3 +203,5 @@
 {"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-05T10:13:40+00:00", "story": "PH-3", "detail": "S-0003-57db: Correct on both counts, and I had already hit one of them before seeing this signal. check_factory_scaffold.py listed the renderer as REQUIRED scaffold, so deleting it made the scaffold check fail out"}
 {"event": "signal-scope-change", "generated_by": "implementer", "at": "2026-08-05T10:15:51+00:00", "story": "PH-3", "detail": "PH-3.3 must stop anything authoring build_waves, but .codex/agents/docs-decomposer.toml still lists build_waves in the active decomposer output contract and is outside the task write scope; add that p"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T10:17:15+00:00", "story": "PH-3", "detail": "PH-3.3 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-05T10:18:28+00:00", "story": "PH-3", "detail": "PH-3.3: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-05T10:18:28+00:00", "story": "PH-3", "detail": "PH-3.3 Retire authored waves"}

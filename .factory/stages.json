@@ -24,11 +24,17 @@
     {
       "id": "PH-3.3",
       "title": "Retire authored waves",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-05T07:57:06+00:00",
       "base_sha": "ce33af5d76bdeac80e8f4ba2f7bc24c45e155249",
       "dirty_at_start": {},
-      "task_sha256": "a9f4d704edc0bdd9cbb61aac95fe107fc32c26c7fed25a57d2d4e37078b62f6e"
+      "task_sha256": "2a8b279f46dc45d3c9d37f2bd7de381e26b5c7a4ac632a6ba9b7a6cc6726f858",
+      "completed_at": "2026-08-05T10:18:28+00:00",
+      "contract_changed": {
+        "at": "2026-08-05T10:18:28+00:00",
+        "from": "a9f4d704edc0bdd9cbb61aac95fe107fc32c26c7fed25a57d2d4e37078b62f6e",
+        "to": "2a8b279f46dc45d3c9d37f2bd7de381e26b5c7a4ac632a6ba9b7a6cc6726f858"
+      }
     }
   ]
 }
