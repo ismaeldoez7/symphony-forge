@@ -5394,6 +5394,30 @@ def test_no_prompt_authors_build_waves(repo):
     assert "render_linear_task_graph" not in scaffold
 
 
+def test_decomposition_refuses_a_malformed_epic(repo, tmp_path):
+    """Absent or null is legacy "no epic"; false/0/{}/[] is a broken roadmap.
+
+    `or ""` erased the difference, so provenance recorded "no epic" for a
+    roadmap that was actually malformed — the same shape as the dependencies
+    bug in this file, three lines away.
+    """
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    roadmap = repo / "plans" / "roadmap.json"
+    import copy
+    original = json.loads(roadmap.read_text())
+    for malformed in (False, 0, {}, []):
+        data = copy.deepcopy(original)
+        for item in data["items"]:
+            item["epic"] = malformed
+        roadmap.write_text(json.dumps(data))
+        code, out = run(repo, "record_decomposition_from_json.py",
+                        stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}))
+        assert code != 0, f"{malformed!r} accepted: {out}"
+        assert "epic" in out
+
+
 def test_decomposition_refuses_a_falsy_non_list_dependencies(repo, tmp_path):
     """`or []` let false, 0, "" and {} pass a list check, then persisted the
     malformed value into the recorded artifact."""

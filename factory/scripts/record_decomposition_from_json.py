@@ -81,7 +81,12 @@ if roadmap_story is None:
 # decomposition says it as "". Refusing null would block recording for every
 # pre-hierarchy story, which is the case this provenance has to survive — and
 # PH-2's own backfilled roadmap writes null for stories it has not adopted yet.
-epic = roadmap_story.get("epic") or ""
+# Only None becomes "". `or ""` also swallowed false, 0, {} and [], so the
+# type check below could never reject them and provenance recorded "no epic"
+# for a malformed roadmap — the same bug this file already had for
+# `dependencies`, reintroduced three lines away.
+epic = roadmap_story.get("epic")
+epic = "" if epic is None else epic
 if not isinstance(epic, str):
     raise SystemExit(
         f"decomposition provenance: roadmap story {story!r} has a non-string epic "
