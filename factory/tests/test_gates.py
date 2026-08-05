@@ -4845,6 +4845,33 @@ def test_stage_start_refuses_to_rebaseline_an_unchanged_active_contract(repo, tm
     assert code != 0 and "already active" in out and "erase" in out
 
 
+def test_stage_done_ignores_paths_a_merge_brought_in(repo, tmp_path):
+    """A merge is something the branch received, not something the stage did.
+
+    Measuring a plain range diff attributes every file upstream touched to the
+    open stage, so `stage done` refuses a scope violation the worker never
+    committed — and no baseline can separate the two once the merge is in the
+    window. That stranded PH-2.2 with its work complete and reviewed.
+    """
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "src/core.py")
+    git(repo, "add", "src/core.py")
+    git(repo, "commit", "-qm", "the stage's own work")
+
+    # An upstream branch that touches a path this task does not own.
+    git(repo, "checkout", "-q", "-b", "upstream", "HEAD~1")
+    (repo / "unrelated.py").write_text("upstream = True\n")
+    git(repo, "add", "unrelated.py")
+    git(repo, "commit", "-qm", "upstream work outside this task")
+    git(repo, "checkout", "-q", "-")
+    git(repo, "merge", "--no-edit", "-q", "upstream")
+
+    assert (repo / "unrelated.py").exists()
+    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+    assert "unrelated.py" not in out
+
+
 def test_stage_start_never_moves_the_baseline(repo, tmp_path):
     """The baseline is written once, as a ref, and is not something to move.
 

@@ -176,9 +176,16 @@ def stage_baseline(base: Path, stage: dict) -> str:
 
 
 def committed_paths(base: Path, base_sha: str, head: str) -> set[str]:
-    """Both sides of every committed change, including renames and copies."""
-    raw = _git(base, "diff", "--name-status", "-z", "--find-renames",
-               f"{base_sha}..{head}")
+    """Both sides of every change THIS BRANCH committed, renames and copies too.
+
+    `--first-parent --no-merges`, not a plain range diff: merging upstream into
+    a story worktree while a stage is open otherwise attributes every file that
+    upstream touched to the stage, and `stage done` refuses a scope violation
+    the worker never committed. A merge is something the branch received, not
+    something the stage did.
+    """
+    raw = _git(base, "log", "--first-parent", "--no-merges", "--format=",
+               "--name-status", "-z", "--find-renames", f"{base_sha}..{head}")
     entries = raw.split("\0")
     paths: set[str] = set()
     index = 0
