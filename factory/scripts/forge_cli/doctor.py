@@ -159,6 +159,39 @@ def report_legacy_capture_gaps(base: Path) -> None:
         print(f"[opt ] capture/{kind:<5} {detail}")
 
 
+def legacy_roadmap_gaps(base: Path) -> list[tuple[str, str]]:
+    """Stored hierarchy gaps that legacy roadmap routes deliberately tolerate."""
+    path = base / "plans" / "roadmap.json"
+    if not path.is_file():
+        return []
+
+    # Defensive on purpose: doctor is what someone runs when the project is
+    # ALREADY broken, so a roadmap that is null, a list, or holds a non-object
+    # item must produce a report rather than a traceback. Crashing here takes
+    # doctor's other checks down with it, at exactly the moment they are what
+    # is being asked for.
+    roadmap = load_json(path, default={})
+    if not isinstance(roadmap, dict):
+        return [("shape", "plans/roadmap.json: not a JSON object")]
+    found = []
+    if not roadmap.get("epics"):
+        found.append(("epics", "plans/roadmap.json: no epics declared"))
+    items = roadmap.get("items")
+    if items is not None and not isinstance(items, list):
+        return [*found, ("shape", "plans/roadmap.json: 'items' is not a list")]
+    for position, item in enumerate(items or [], 1):
+        if not isinstance(item, dict):
+            found.append(("shape", f"item {position}: not an object"))
+        elif not item.get("epic"):
+            found.append(("story", f"{item.get('key', '?')}: no epic declared"))
+    return found
+
+
+def report_legacy_roadmap_gaps(base: Path) -> None:
+    for kind, detail in legacy_roadmap_gaps(base):
+        print(f"[opt ] roadmap/{kind:<5} {detail}")
+
+
 def _check(name: str, ok: bool, detail: str, fix: str, required: bool = True) -> dict:
     return {"name": name, "ok": ok, "detail": detail, "fix": fix, "required": required}
 
@@ -765,6 +798,7 @@ def cmd_doctor(args: argparse.Namespace) -> None:
 
     if repo:
         report_legacy_capture_gaps(repo)
+        report_legacy_roadmap_gaps(repo)
 
     if failures:
         print(f"\nforge doctor: {failures} required item(s) missing.")

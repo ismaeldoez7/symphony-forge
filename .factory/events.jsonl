@@ -93,6 +93,27 @@
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-07-30T11:49:26+00:00", "story": "FORGE-DELEG-1"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-07-30T11:49:30+00:00", "story": "FORGE-DELEG-1", "detail": "Developers can now see the epic-to-story dependency hierarchy, start dependency-ready stories in separate worktrees, and execute each story's tasks sequentially through a protected, measured delegatio"}
 {"event": "client-signoff", "generated_by": "orchestrator", "at": "2026-08-04T12:59:43+00:00", "detail": "docs/decisions/0019-client-signoff.md"}
+{"event": "intake", "generated_by": "orchestrator", "at": "2026-08-04T15:54:20+00:00", "story": "PH-2", "detail": "The roadmap hierarchy contract"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-04T13:17:06+00:00", "detail": "project-hierarchy: Project hierarchy: captured completely, readable by an engineer"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-04T13:17:57+00:00", "detail": "project-hierarchy: Project hierarchy: captured completely, readable by an engineer"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-04T13:18:19+00:00", "detail": "project-hierarchy"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-04T13:18:44+00:00", "story": "PH-1", "detail": "docs/specs/project-hierarchy.md"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-04T13:18:44+00:00", "story": "PH-2", "detail": "docs/specs/project-hierarchy.md"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-04T13:18:44+00:00", "story": "PH-3", "detail": "docs/specs/project-hierarchy.md"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-04T13:18:45+00:00", "story": "PH-4", "detail": "docs/specs/project-hierarchy.md"}
+{"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-04T17:51:45+00:00", "story": "PH-2", "detail": "plans/active/PH-2-the-roadmap-hierarchy-contract.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-04T18:01:48+00:00", "story": "PH-2", "detail": "4 task(s)"}
+{"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-04T18:01:54+00:00", "story": "PH-2"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-04T18:02:54+00:00", "story": "PH-2", "detail": "PH-2.1 The story and epic contracts, at the routes that author them"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-04T18:18:41+00:00", "story": "PH-2", "detail": "PH-2.1 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-04T18:51:08+00:00", "story": "PH-2", "detail": "PH-2.1 The story and epic contracts, at the routes that author them"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-04T18:51:19+00:00", "story": "PH-2", "detail": "PH-2.2 Two epic routes, and --epic required on add"}
+{"event": "signal-scope-change", "generated_by": "implementer", "at": "2026-08-04T18:52:46+00:00", "story": "PH-2", "detail": "PH-2.2 requires new CLI routes, but argparse registration lives in factory/scripts/forge.py, which is outside the declared write scope; roadmap.py contains handlers only, so the acceptance criteria ca"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-04T18:53:30+00:00", "story": "PH-2", "detail": "PH-2.2 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-04T18:54:49+00:00", "story": "PH-2", "detail": "4 task(s)"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-04T18:55:08+00:00", "story": "PH-2", "detail": "S-0001-0b24: Correct, and the decomposition was wrong: factory/scripts/forge.py holds every subcommand's argparse wiring and roadmap.py has zero add_parser calls, so 'epic add' and 'set-epic' cannot exist within t"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-04T19:03:08+00:00", "story": "PH-2", "detail": "PH-2.2 (write)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-04T19:06:30+00:00", "story": "PH-2", "detail": "PH-2.2 Two epic routes, and --epic required on add"}
 {"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-04T13:17:06+00:00", "detail": "project-hierarchy: Project hierarchy: captured completely, readable by an engineer"}
 {"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-04T13:17:57+00:00", "detail": "project-hierarchy: Project hierarchy: captured completely, readable by an engineer"}
 {"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-04T13:18:19+00:00", "detail": "project-hierarchy"}
@@ -158,6 +179,34 @@
 {"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-04T15:16:13+00:00", "detail": "repo-system-of-record"}
 {"event": "roadmap-link-spec", "generated_by": "orchestrator", "at": "2026-08-04T15:17:11+00:00", "story": "FORGE-LOCK-1", "detail": "docs/specs/repo-system-of-record.md"}
 {"event": "client-signoff", "generated_by": "orchestrator", "at": "2026-08-04T15:18:15+00:00", "detail": "docs/decisions/0010-client-signoff.md"}
+{"event": "stage-incomplete", "generated_by": "implementer", "at": "2026-08-05T04:50:32+00:00", "story": "PH-2", "detail": "PH-2.2: Nothing is missing from the work: epic add, set-epic and --epic on roadmap add are implemented in 409aafd, autoreview clean at 0.88, 23 tests passing, every acceptance criterion met. What is missing is the MEASUREMENT. Two upstream merges were pulled into this worktree while the stage was open, so no baseline isolates this stage's diff from 26 unrelated files. The gap is in the bookkeeping, not the code \u2014 do not reopen this as work."}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T05:45:09+00:00", "story": "PH-2", "detail": "PH-2.2 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-05T05:45:32+00:00", "story": "PH-2", "detail": "PH-2.2 Two epic routes, and --epic required on add"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-05T05:45:42+00:00", "story": "PH-2", "detail": "PH-2.3 Schema note, the ordering decision, and an advisory doctor report"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T05:49:51+00:00", "story": "PH-2", "detail": "PH-2.3 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-05T06:27:50+00:00", "story": "PH-2", "detail": "PH-2.3 Schema note, the ordering decision, and an advisory doctor report"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-05T06:28:00+00:00", "story": "PH-2", "detail": "PH-2.4 Backfill this repo's own roadmap through the new routes"}
+{"event": "roadmap-epic-add", "generated_by": "orchestrator", "at": "2026-08-05T06:29:28+00:00", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:29+00:00", "story": "FORGE-DELEG-1", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:30+00:00", "story": "FORGE-UPG-1", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:31+00:00", "story": "FORGE-LOCK-1", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:31+00:00", "story": "PH-1", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:32+00:00", "story": "PH-2", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:32+00:00", "story": "PH-3", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:32+00:00", "story": "PH-4", "detail": "symphony-forge"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T06:33:15+00:00", "story": "PH-2", "detail": "PH-2.4 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-05T07:43:19+00:00", "story": "PH-2", "detail": "PH-2.4 Backfill this repo's own roadmap through the new routes"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-05T07:58:10+00:00", "story": "PH-2"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-05T09:35:31+00:00", "story": "PH-2"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-05T09:35:31+00:00", "story": "PH-2"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-05T09:35:31+00:00", "story": "PH-2"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-05T09:49:58+00:00", "story": "PH-2", "detail": "passed"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-05T09:50:45+00:00", "story": "PH-2", "detail": "passed"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-05T09:50:45+00:00", "story": "PH-2"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-05T09:50:45+00:00", "story": "PH-2"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-05T09:50:45+00:00", "story": "PH-2"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-05T10:03:28+00:00", "story": "PH-2"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-05T10:03:36+00:00", "story": "PH-2", "detail": "A story on the roadmap now has to say what it is: the three routes that author stories refuse one that omits its epic, narrative, acceptance criteria, skill or an explicit depends_on. Two new commands"}
 {"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-05T08:43:07+00:00", "story": "FORGE-UPG-1"}
 {"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-05T08:43:07+00:00", "story": "FORGE-UPG-1"}
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-05T08:43:07+00:00", "story": "FORGE-UPG-1"}
@@ -165,3 +214,4 @@
 {"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-05T09:30:58+00:00", "story": "FORGE-UPG-1"}
 {"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-05T09:31:29+00:00", "story": "FORGE-UPG-1", "detail": "passed"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-05T09:31:29+00:00", "story": "FORGE-UPG-1", "detail": "A repo vendored before the factory/ rename can now be carried onto the current harness in one command. `forge upgrade` detects the legacy .agents/ layout, carries the project's skills across, deletes "}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T10:33:14+00:00", "story": "FORGE-UPG-1", "detail": "symphony-forge"}
