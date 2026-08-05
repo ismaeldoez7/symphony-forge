@@ -41,7 +41,19 @@ plan_file = state.get("plan_file")
 # harness rather than being scaffolded by it — this one included — has never
 # had the field. Requiring provenance nobody can supply refuses the harness's
 # own repo, and the field is optional in the schema for the same reason.
-project = project.strip() if isinstance(project, str) else ""
+# Absent or null is a legacy repo that never ran `forge init`; anything else
+# non-string is a broken run.json and must REFUSE rather than be recorded as
+# "no project". Third instance of this shape in this file — erasing a value to
+# make it validate is how false provenance gets written.
+if project is None:
+    project = ""
+elif not isinstance(project, str):
+    raise SystemExit(
+        f"decomposition provenance: .factory/run.json has a non-string project "
+        f"({type(project).__name__}); it must be a string, absent, or null"
+    )
+else:
+    project = project.strip()
 if not isinstance(story, str) or not story.strip():
     raise SystemExit("decomposition provenance: .factory/run.json has no story")
 if not isinstance(plan_file, str) or not plan_file.strip():
