@@ -179,3 +179,6 @@
 {"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-04T15:16:13+00:00", "detail": "repo-system-of-record"}
 {"event": "roadmap-link-spec", "generated_by": "orchestrator", "at": "2026-08-04T15:17:11+00:00", "story": "FORGE-LOCK-1", "detail": "docs/specs/repo-system-of-record.md"}
 {"event": "client-signoff", "generated_by": "orchestrator", "at": "2026-08-04T15:18:15+00:00", "detail": "docs/decisions/0010-client-signoff.md"}
+{"event": "stage-incomplete", "generated_by": "implementer", "at": "2026-08-05T04:50:32+00:00", "story": "PH-2", "detail": "PH-2.2: Nothing is missing from the work: epic add, set-epic and --epic on roadmap add are implemented in 409aafd, autoreview clean at 0.88, 23 tests passing, every acceptance criterion met. What is missing is the MEASUREMENT. Two upstream merges were pulled into this worktree while the stage was open, so no baseline isolates this stage's diff from 26 unrelated files. The gap is in the bookkeeping, not the code \u2014 do not reopen this as work."}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T05:45:09+00:00", "story": "PH-2", "detail": "PH-2.2 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-05T05:45:32+00:00", "story": "PH-2", "detail": "PH-2.2 Two epic routes, and --epic required on add"}

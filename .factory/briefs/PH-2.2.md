@@ -59,18 +59,25 @@ That the --no-spec carve-out survives intact. Decision 0014 puts authorization a
 - 0007-stage-commit-loop: Decomposition tasks execute as stages; local autoreview gates every commit
 - 0008-loop-health-audit: The improvement loops are themselves audited (forge audit)
 - 0009-frozen-gate-integrity: The vendored gate surface is frozen between vendorings
+- 0010-client-signoff: Client Signoff
 - 0011-orchestrator-runs-autoreview: Orchestrator Runs Autoreview
 - 0012-project-level-memory: Project-Level Memory
 - 0013-always-armed-planning-lock: Always-armed planning lock with quickfix escape hatch
 - 0014-specs-before-signoff: Confirmed specs and derived roadmap gate client sign-off
 - 0015-plan-contradiction-gate: Plan save refuses unresolved contradictions with active decisions
 - 0016-machinery-dir-rename: Harness machinery lives in factory/, not .agents/ (Codex sandbox collision)
+- 0017-repo-as-system-of-record: The repo is the system of record: outcomes, timeline, and decision provenance
+- 0018-delegation-gates: Delegation Gates
 - 0019-client-signoff: Client Signoff
+- 0022-conflict-free-ledgers: Conflict Free Ledgers
+- 0023-stage-delta-by-ref: Stage Delta By Ref
 
 ## Lessons recorded against these paths
 
 - When uvx cannot read the shared uv cache under sandboxing, set UV_CACHE_DIR to a writable temporary directory before rerunning the exact test command.
+- When uvx cannot read the shared uv cache under sandboxing, set UV_CACHE_DIR to a writable temporary directory before rerunning the exact test command.
 - Never git add a conflicted file until the resolution is machine-verified (anchored ^marker regex + ast.parse for Python) — content can legitimately contain marker-like strings, and add-after-failed-resolver commits the markers. Separate verification from commit; never chain a may-fail step to a commit via newline.
+- When uvx cannot read the shared uv cache under sandboxing, set UV_CACHE_DIR to a writable temporary directory before rerunning the exact test command.
 
 ## Implementer contract
 

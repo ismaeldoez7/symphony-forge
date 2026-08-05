@@ -14,11 +14,13 @@
     {
       "id": "PH-2.2",
       "title": "Two epic routes, and --epic required on add",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-04T19:06:30+00:00",
       "base_sha": "409aafdacec8c6593ebca4adfe970f5041543da6",
       "dirty_at_start": {},
-      "task_sha256": "0a364dd8fbc6840dcaf6e15e6b4b1e991cb00d710bba6d332a41e5c3c7c27c6f"
+      "task_sha256": "0a364dd8fbc6840dcaf6e15e6b4b1e991cb00d710bba6d332a41e5c3c7c27c6f",
+      "updated_at": "2026-08-05T04:50:32+00:00",
+      "completed_at": "2026-08-05T05:45:32+00:00"
     },
     {
       "id": "PH-2.3",
