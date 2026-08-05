@@ -121,6 +121,8 @@
         "factory/prompts/decomposer.md",
         "factory/prompts/griller.md",
         "factory/scripts/render_linear_task_graph.py",
+        "factory/scripts/check_factory_scaffold.py",
+        "docs/FACTORY.md",
         "factory/tests/test_gates.py"
       ],
       "acceptance_criteria": [
@@ -128,7 +130,9 @@
         "factory/scripts/render_linear_task_graph.py is deleted in this same task, so the field never exists as a writer without a reader or the reverse.",
         "build_waves stays optional in factory/schemas/decomposition.json and the .factory/history/ artifacts carrying it still parse.",
         "Nothing else references render_linear_task_graph: a repo-wide search returns no callers, and check_dual_runtime stays green.",
-        "The change cites decision 0021 derived-ordering, or restates the ordering claim if that record has not landed."
+        "The change cites decision 0021 derived-ordering, or restates the ordering claim if that record has not landed.",
+        "docs/FACTORY.md stops advertising render_linear_task_graph.py. Deleting a script while a doc still tells people to run it is the same orphan the writer/reader rule forbids, pointing the other way.",
+        "check_factory_scaffold.py stops requiring render_linear_task_graph.py. It lists the file as required scaffold, so deleting the script makes the scaffold check fail \u2014 the deletion is not atomic until every reference goes with it."
       ],
       "verify_commands": [
         "uv run --with pytest python -m pytest factory/tests/test_gates.py -q -k \"waves or decomposer or history\"",
@@ -154,5 +158,5 @@
   "epic": "",
   "plan_file": "plans/active/PH-3-plan-and-task-contract.md",
   "plan_sha256": "1e917e878d115aef830ef00a52012a66027437680cc4cf3b4ce6b4ca2651ae09",
-  "commit": "0917de5be87e42a4fd03c20dac9f310d7ca3cd13"
+  "commit": "ce33af5d76bdeac80e8f4ba2f7bc24c45e155249"
 }

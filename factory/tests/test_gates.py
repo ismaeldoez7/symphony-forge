@@ -5026,6 +5026,24 @@ def test_stage_start_refuses_a_decomposition_whose_plan_moved(repo, tmp_path):
     assert "missing" in out and "cannot be verified" in out
 
 
+def test_no_prompt_authors_build_waves(repo):
+    """Waves were a SECOND hand-written ordering of work whose real order is
+    the array index and the depends_on edges (decision 0021). Two sources of
+    truth for one fact, and the authored one could not be recomputed when
+    anything moved. The writer and its only reader die together — a field
+    nothing writes with a script still reading it, or the reverse, is an
+    orphan by construction."""
+    for prompt in ("decomposer.md", "griller.md"):
+        body = (HARNESS / "factory" / "prompts" / prompt).read_text()
+        assert "build_waves" not in body, prompt
+    assert not (HARNESS / "factory" / "scripts" / "render_linear_task_graph.py").exists()
+    assert "render_linear_task_graph" not in (HARNESS / "docs" / "FACTORY.md").read_text()
+    # Nothing else may reference the deleted renderer either — a scaffold check
+    # that still REQUIRES it turns the deletion into a failing gate.
+    scaffold = (HARNESS / "factory" / "scripts" / "check_factory_scaffold.py").read_text()
+    assert "render_linear_task_graph" not in scaffold
+
+
 def test_decomposition_refuses_a_falsy_non_list_dependencies(repo, tmp_path):
     """`or []` let false, 0, "" and {} pass a list check, then persisted the
     malformed value into the recorded artifact."""
@@ -5155,13 +5173,18 @@ def test_decomposition_refuses_when_roadmap_story_is_missing(repo, tmp_path):
 
 
 def test_historical_decomposition_artifacts_still_parse():
+    schema = json.loads((HARNESS / "factory" / "schemas" / "decomposition.json").read_text())
+    assert "build_waves" in schema["optional"]
+    carried = 0
     factory_lib = load_factory_lib(HARNESS)
     for issue in ("FORGE-INIT-1", "FORGE-DELEG-1", "PH-1"):
         artifact = HARNESS / ".factory" / "history" / issue / "decomposition.json"
         assert artifact.is_file()
         payload = json.loads(artifact.read_text())
+        carried += "build_waves" in payload
         assert "plan_sha256" not in payload
         factory_lib.validate_payload(HARNESS, "decomposition", payload)
+    assert carried, "no historical artifact carries build_waves — this test proves nothing"
 
 
 def test_doctor_reports_prose_verify_commands(repo, tmp_path):
