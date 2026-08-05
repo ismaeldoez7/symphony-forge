@@ -523,8 +523,21 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
                      + "".join(f"{rel}\n" for rel in EPHEMERAL_UNTRACK))
         ensured.append(".gitignore (0025 ephemeral paths appended)")
         ignore_text = gitignore.read_text()
-    installed = {line.strip() for line in ignore_text.splitlines()}
-    to_untrack = [rel for rel in EPHEMERAL_UNTRACK if rel in installed]
+    # Only the marker-owned tail governs, last mention wins: a duplicate
+    # positive rule elsewhere in the file must not override an opt-out made
+    # under the marker (removing the rule, or negating it below the block).
+    marker_tail = ignore_text.split(EPHEMERAL_MARKER, 1)[1].splitlines()
+
+    def _opted_out(rel: str) -> bool:
+        state = True
+        for line in marker_tail:
+            if line.strip() == rel:
+                state = False
+            elif line.strip() == "!" + rel:
+                state = True
+        return state
+
+    to_untrack = [rel for rel in EPHEMERAL_UNTRACK if not _opted_out(rel)]
     untracked = subprocess.run(
         ["git", "-C", str(target), "rm", "-r", "--cached", "--ignore-unmatch",
          "--"] + to_untrack,

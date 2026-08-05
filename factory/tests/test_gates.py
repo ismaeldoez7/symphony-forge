@@ -7633,17 +7633,19 @@ def test_upgrade_untracks_ephemeral_factory_paths(repo):
         assert subprocess.run(
             ["git", "-C", str(repo), "check-ignore", "-q", "--", probe],
         ).returncode == 0, f"{probe} not effectively ignored after upgrade"
-    # Marker present + client-trimmed rules = deliberate opt-out, respected:
-    # the rule stays gone AND the opted-back-in path stays tracked (untracking
-    # it anyway would delete teammates' copies on their next pull).
-    trimmed = gitignore.read_text().replace(".factory/diagnostic-briefs/\n", "")
-    gitignore.write_text(trimmed)
+    # Opt-out under the marker: the client re-includes a path by NEGATING it
+    # after the block. The positive rule line still exists inside the marker
+    # block above, so a file-wide line set would wrongly untrack it — only the
+    # marker-owned tail governs, last mention wins. The opted-back-in path
+    # stays tracked (untracking it would delete teammates' copies on pull).
+    opted = gitignore.read_text() + "!.factory/diagnostic-briefs/\n"
+    gitignore.write_text(opted)
     (diag / "T-2.md").write_text("opted back in\n")
-    git(repo, "add", "-A")  # plain add tracks it — the rule is gone
+    git(repo, "add", "-A")  # plain add tracks it — the negation wins
     git(repo, "commit", "-q", "-m", "client opts a path back in, under the marker")
     proc = upgrade_into(repo)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert gitignore.read_text() == trimmed  # untouched — opt-out respected
+    assert gitignore.read_text() == opted  # untouched — opt-out respected
     tracked = subprocess.run(
         ["git", "-C", str(repo), "ls-files", ".factory"],
         capture_output=True, text=True).stdout
