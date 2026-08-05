@@ -4854,13 +4854,10 @@ def test_stage_start_never_moves_the_baseline(repo, tmp_path):
     restarting again is what caused it.
     """
     start_stage(repo, tmp_path, STAGE_TASK)
-    baseline = subprocess.run(
-        ["git", "rev-parse", "refs/forge/stage/T1"],
-        cwd=repo, capture_output=True, text=True)
-    assert baseline.returncode == 0, baseline.stderr
+    baseline = git(repo, "rev-parse", "refs/forge/stage/T1")
     write_in_scope(repo, "src/core.py")
-    subprocess.run(["git", "add", "src/core.py"], cwd=repo, check=True)
-    subprocess.run(["git", "commit", "-qm", "the stage's work"], cwd=repo, check=True)
+    git(repo, "add", "src/core.py")
+    git(repo, "commit", "-qm", "the stage's work")
 
     widened = {**STAGE_TASK,
                "write_scope": [*STAGE_TASK["write_scope"], "src/extra.py"]}
@@ -4871,10 +4868,7 @@ def test_stage_start_never_moves_the_baseline(repo, tmp_path):
     assert code != 0 and "not something to move" in out
 
     # ...and the ref still points where it did, so the work stays measurable.
-    after = subprocess.run(
-        ["git", "rev-parse", "refs/forge/stage/T1"],
-        cwd=repo, capture_output=True, text=True)
-    assert after.stdout == baseline.stdout
+    assert git(repo, "rev-parse", "refs/forge/stage/T1") == baseline
     code, out = run(repo, "forge.py", "delegate", "T1",
                     env={"HOME": str(fake_companion_home(tmp_path))})
     assert code == 0, out
