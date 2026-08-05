@@ -1,8 +1,9 @@
 ---
-status: accepted
+status: superseded
 confirmed_by: "vrknetha"
 date: 2026-08-05
 stories: []
+superseded_by: 0025-evidence-lifetime-contract
 ---
 
 # Evidence Lifetime Split
