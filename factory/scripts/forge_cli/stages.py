@@ -644,6 +644,38 @@ def _cmd_start_locked(args: argparse.Namespace, base: Path) -> None:
     if not_done:
         fail(f"{args.id} follows unfinished task(s): {', '.join(not_done)} — "
              "finish them in decomposition order")
+    # The realistic staleness: the plan was edited AFTER this task graph was
+    # recorded, so the tasks describe a plan nobody approved. No record-time
+    # check can see that — the decomposition was current when it was written.
+    # This is where it becomes visible, at the last moment before work starts.
+    # The PROTECTED authority, not the workspace mirror. Reading the mutable
+    # .factory/decomposition.json meant that replacing it — which a merge does
+    # routinely, since tracked evidence travels with the branch — could drop
+    # the stamp and silently disable this check. A binding that disappears
+    # when a file is overwritten is not a binding.
+    decomposition = load_json(protected_decomposition_state_path(base), default={})
+    if not decomposition:
+        decomposition = load_json(decomposition_state_path(base), default={})
+    stamped = decomposition.get("plan_sha256")
+    plan_file = load_json(run_state_path(base), default={}).get("plan_file")
+    if stamped:
+        # A stamped decomposition CLAIMS a plan binding, so failing to verify it
+        # is a refusal, never a pass. Skipping the check when the plan is gone
+        # would open the gate in exactly the case it exists for: the plan that
+        # was approved is no longer there to compare against.
+        if not plan_file:
+            fail(f"{args.id} cannot start: this decomposition is bound to a plan "
+                 "digest, but .factory/run.json no longer names a plan_file. "
+                 "Restore the run state or re-record the decomposition.")
+        if not (base / plan_file).is_file():
+            fail(f"{args.id} cannot start: the plan this decomposition was built "
+                 f"from ({plan_file}) is missing, so its binding cannot be "
+                 "verified. Restore it or re-record against the current plan.")
+        if sha256_of(base / plan_file) != stamped:
+            fail(f"{args.id} cannot start: {plan_file} has changed since this "
+                 "decomposition was recorded, so the task list describes a plan "
+                 "that is no longer the approved one. Re-record the "
+                 "decomposition against the current plan, then start the stage.")
     stage["status"] = "active"
     stage["started_at"] = now_iso()
     # `stage done` measures the diff, and a measurement needs a fixed point —
@@ -1020,6 +1052,12 @@ def _finish_stage(base: Path, args: argparse.Namespace, data: dict,
                 "from": started_digest,
                 "to": task_digest(locked_task),
             }
+            # The stage was MEASURED and closed against the current contract,
+            # so that is the digest it carries. Leaving the start digest here
+            # made the completed stage permanently un-re-recordable: the
+            # frozen-contract guard compares against task_sha256 and would see
+            # a change that was already ledgered and closed over.
+            current["task_sha256"] = task_digest(locked_task)
             append_event(base, "stage-contract-changed", actor="implementer",
                          story=data.get("issue", ""),
                          detail=f"{args.id}: task contract re-recorded mid-stage")

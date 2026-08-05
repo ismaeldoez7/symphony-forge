@@ -68,9 +68,21 @@ DECOMP = {"status": "recorded", "generated_by": "docs-decomposer",
                      "objective": "Build the core slice so the feature works end to end.",
                      "acceptance_criteria": ["the slice runs green"]}]}
 
-# Minimal plan body passing `plan save` content gates (Decisions + Surface Impact).
-PLAN_BODY = ("## Decisions\nNo new decisions\n\n"
-             "## Surface Impact\nAll surfaces: N-A (test plan)\n")
+# Minimal plan body passing every `plan save` section gate.
+PLAN_SECTIONS = (
+    "Problem",
+    "Scope / Non-goals",
+    "Acceptance Criteria",
+    "Technical Approach",
+    "Decisions",
+    "Surface Impact",
+    "Task Decomposition",
+    "Risks",
+    "Verify Plan",
+)
+PLAN_BODY = "\n\n".join(
+    f"## {section}\nTest content for {section}." for section in PLAN_SECTIONS
+) + "\n"
 
 BRIEF_HEADINGS = (
     "Summary",
@@ -5340,6 +5352,86 @@ def test_stage_done_incomplete_leaves_stage_open(repo, tmp_path):
     assert stages[0]["status"] == "done" and "incomplete" not in stages[0]
 
 
+def test_stage_start_refuses_a_decomposition_whose_plan_moved(repo, tmp_path):
+    """The realistic staleness is the plan being edited AFTER the task graph
+    was recorded — the decomposition was current when written, so no
+    record-time check can see it. Catch it before work starts."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}))
+    assert code == 0, out
+    plan = next((repo / "plans" / "active").glob("*.md"))
+    plan.write_text(plan.read_text() + "\n<!-- edited after decomposition -->\n")
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code != 0, out
+    assert "has changed since this decomposition was recorded" in out
+
+    # Absence must refuse too: a stamped decomposition claims a binding, so
+    # failing to VERIFY it is not permission to proceed.
+    plan.unlink()
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code != 0, out
+    assert "missing" in out and "cannot be verified" in out
+
+
+def test_no_prompt_authors_build_waves(repo):
+    """Waves were a SECOND hand-written ordering of work whose real order is
+    the array index and the depends_on edges (decision 0021). Two sources of
+    truth for one fact, and the authored one could not be recomputed when
+    anything moved. The writer and its only reader die together — a field
+    nothing writes with a script still reading it, or the reverse, is an
+    orphan by construction."""
+    for prompt in ("decomposer.md", "griller.md"):
+        body = (HARNESS / "factory" / "prompts" / prompt).read_text()
+        assert "build_waves" not in body, prompt
+    assert not (HARNESS / "factory" / "scripts" / "render_linear_task_graph.py").exists()
+    assert "render_linear_task_graph" not in (HARNESS / "docs" / "FACTORY.md").read_text()
+    # Nothing else may reference the deleted renderer either — a scaffold check
+    # that still REQUIRES it turns the deletion into a failing gate.
+    scaffold = (HARNESS / "factory" / "scripts" / "check_factory_scaffold.py").read_text()
+    assert "render_linear_task_graph" not in scaffold
+
+
+def test_decomposition_refuses_a_malformed_epic(repo, tmp_path):
+    """Absent or null is legacy "no epic"; false/0/{}/[] is a broken roadmap.
+
+    `or ""` erased the difference, so provenance recorded "no epic" for a
+    roadmap that was actually malformed — the same shape as the dependencies
+    bug in this file, three lines away.
+    """
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    roadmap = repo / "plans" / "roadmap.json"
+    import copy
+    original = json.loads(roadmap.read_text())
+    for malformed in (False, 0, {}, []):
+        data = copy.deepcopy(original)
+        for item in data["items"]:
+            item["epic"] = malformed
+        roadmap.write_text(json.dumps(data))
+        code, out = run(repo, "record_decomposition_from_json.py",
+                        stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}))
+        assert code != 0, f"{malformed!r} accepted: {out}"
+        assert "epic" in out
+
+
+def test_decomposition_refuses_a_falsy_non_list_dependencies(repo, tmp_path):
+    """`or []` let false, 0, "" and {} pass a list check, then persisted the
+    malformed value into the recorded artifact."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    for malformed in (False, 0, "", {}):
+        payload = {**DECOMP, "tasks": [{**STAGE_TASK, "dependencies": malformed}]}
+        code, out = run(repo, "record_decomposition_from_json.py",
+                        stdin=json.dumps(payload))
+        assert code != 0, f"{malformed!r} was accepted: {out}"
+        assert "dependencies" in out
+
+
 def test_decomposition_refuses_prose_verify_commands(repo, tmp_path):
     """`stage done` executes these, so an entry that cannot run is a gate that
     can never pass — which is what "package test script" always was."""
@@ -5359,6 +5451,114 @@ def test_decomposition_refuses_prose_verify_commands(repo, tmp_path):
         code, out = run(repo, "record_decomposition_from_json.py",
                         stdin=json.dumps(payload))
         assert code == 0, f"{command}: {out}"
+
+
+def test_decomposition_provenance_overrides_agent_supplied_fields(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    roadmap = json.loads((repo / "plans" / "roadmap.json").read_text())
+    story = next(item for item in roadmap["items"] if item["key"] == "ENG-1")
+    story["epic"] = "billing"
+    (repo / "plans" / "roadmap.json").write_text(json.dumps(roadmap, indent=2) + "\n")
+    state = run_state(repo)
+    plan = repo / state["plan_file"]
+    payload = {
+        **DECOMP,
+        "project": "agent-project",
+        "story": "AGENT-9",
+        "epic": "agent-epic",
+        "plan_file": "plans/active/agent.md",
+        "plan_sha256": hashlib.sha256(plan.read_bytes()).hexdigest(),
+    }
+
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps(payload))
+
+    assert code == 0, out
+    recorded = json.loads((repo / ".factory" / "decomposition.json").read_text())
+    assert {key: recorded[key] for key in (
+        "project", "story", "epic", "plan_file", "plan_sha256",
+    )} == {
+        "project": "app",
+        "story": "ENG-1",
+        "epic": "billing",
+        "plan_file": state["plan_file"],
+        "plan_sha256": hashlib.sha256(plan.read_bytes()).hexdigest(),
+    }
+
+
+def test_decomposition_refuses_a_stale_plan_digest(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    payload = {**DECOMP, "plan_sha256": "0" * 64}
+
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps(payload))
+
+    assert code != 0
+    assert "plan_sha256" in out and "active plan" in out
+
+
+def test_decomposition_accepts_empty_required_tests(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    task = {**STAGE_TASK, "verify_commands": ["true"], "required_tests": []}
+
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [task]}))
+
+    assert code == 0, out
+    recorded = json.loads((repo / ".factory" / "decomposition.json").read_text())
+    assert recorded["tasks"][0]["required_tests"] == []
+
+
+def test_decomposition_refuses_a_dependency_on_a_later_task(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    first = {**STAGE_TASK, "dependencies": ["T2"]}
+    second = {**STAGE_TASK, "id": "T2", "dependencies": []}
+
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
+        {**DECOMP, "tasks": [first, second]}))
+
+    assert code != 0
+    assert "T1" in out and "T2" in out and "earlier" in out
+
+
+def test_decomposition_refuses_when_roadmap_story_is_missing(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    roadmap = json.loads((repo / "plans" / "roadmap.json").read_text())
+    roadmap["items"] = [
+        item for item in roadmap["items"] if item.get("key") != "ENG-1"
+    ]
+    (repo / "plans" / "roadmap.json").write_text(json.dumps(roadmap, indent=2) + "\n")
+
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps(DECOMP))
+
+    assert code != 0
+    assert "ENG-1" in out and "roadmap" in out
+
+
+def test_historical_decomposition_artifacts_still_parse():
+    schema = json.loads((HARNESS / "factory" / "schemas" / "decomposition.json").read_text())
+    assert "build_waves" in schema["optional"]
+    carried = 0
+    factory_lib = load_factory_lib(HARNESS)
+    for issue in ("FORGE-INIT-1", "FORGE-DELEG-1", "PH-1"):
+        artifact = HARNESS / ".factory" / "history" / issue / "decomposition.json"
+        assert artifact.is_file()
+        payload = json.loads(artifact.read_text())
+        carried += "build_waves" in payload
+        assert "plan_sha256" not in payload
+        factory_lib.validate_payload(HARNESS, "decomposition", payload)
+    assert carried, "no historical artifact carries build_waves — this test proves nothing"
 
 
 def test_doctor_reports_prose_verify_commands(repo, tmp_path):
@@ -6751,16 +6951,74 @@ def test_next_names_delegation_step(repo, tmp_path):
     assert "INCOMPLETE" in out and "retry path missing" in out
 
 
-def test_plan_save_requires_surface_impact_section(repo, tmp_path):
+def test_plan_save_refuses_a_plan_missing_any_required_section(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     ensure_story(repo, "ENG-1", "Invoices")
     plan = tmp_path / "plan.md"
-    plan.write_text(plan_draft(
-        repo, body="## Decisions\nNo new decisions\n"))  # no Surface Impact
+
+    for missing in PLAN_SECTIONS:
+        body = "\n\n".join(
+            f"## {section}\nComplete."
+            for section in PLAN_SECTIONS if section != missing
+        )
+        plan.write_text(plan_draft(repo, body=body))
+        record_grill(repo, "plan", digest_of=plan)
+        code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan))
+        assert code != 0 and missing in out, (missing, out)
+
+
+def test_plan_save_names_every_missing_section(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    ensure_story(repo, "ENG-1", "Invoices")
+    plan = tmp_path / "plan.md"
+    present = {"Problem", "Technical Approach", "Decisions", "Verify Plan"}
+    body = "\n\n".join(
+        f"## {section}\n" + (" \t" if section == "Scope / Non-goals" else "Complete.")
+        for section in PLAN_SECTIONS
+        if section in present or section == "Scope / Non-goals"
+    )
+    plan.write_text(plan_draft(repo, body=body))
     record_grill(repo, "plan", digest_of=plan)
+
     code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan))
-    assert code != 0 and "Surface Impact" in out
+
+    missing = [section for section in PLAN_SECTIONS if section not in present]
+    assert code != 0
+    assert all(section in out for section in missing), out
+    assert all(section not in out for section in present), out
+
+
+def test_archived_plans_are_not_held_to_a_later_contract(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    archived = repo / "plans" / "completed" / "FORGE-INIT-1-init.md"
+    archived.parent.mkdir(parents=True, exist_ok=True)
+    historical = "---\nissue: FORGE-INIT-1\nstatus: shipped\n---\n\n## Decisions\nNone.\n"
+    archived.write_text(historical)
+
+    code, out = save_plan(repo, tmp_path)
+
+    assert code == 0, out
+    assert archived.read_text() == historical
+
+
+def test_plan_ledgers_are_not_plans(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    ledgers = {
+        repo / "plans" / "README.md": "# Plans\n",
+        repo / "plans" / "assumptions.md": "# Assumptions\n",
+        repo / "plans" / "deferrals.md": "# Deferrals\n",
+    }
+    for path, content in ledgers.items():
+        path.write_text(content)
+
+    code, out = save_plan(repo, tmp_path)
+
+    assert code == 0, out
+    assert all(path.read_text() == content for path, content in ledgers.items())
 
 
 def test_refactor_ratchet_blocks_growing_refactors(repo, tmp_path):

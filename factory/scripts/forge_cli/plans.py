@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+import factory_lib
 from factory_lib import (
     client_signoff, dump_json, load_json, now_iso, repo_root, require_grill,
     run_state_path, slugify,
@@ -19,6 +20,18 @@ from .decisions import active_decision_ids, decision_records
 from .signal import open_signals
 
 FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.DOTALL)
+
+REQUIRED_PLAN_SECTIONS = (
+    "Problem",
+    "Scope / Non-goals",
+    "Acceptance Criteria",
+    "Technical Approach",
+    "Decisions",
+    "Surface Impact",
+    "Task Decomposition",
+    "Risks",
+    "Verify Plan",
+)
 
 
 def parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
@@ -151,16 +164,12 @@ def cmd_save(args: argparse.Namespace) -> None:
         ]
         fail("decisions_reviewed contains unknown or inactive decisions: "
              + ", ".join(labels))
-    # Surfaces left implicit are how API/CLI/docs/tests drift ships: the plan
-    # must classify every surface, with a reason on anything not Changed.
-    if "## Surface Impact" not in body:
-        fail(
-            "the plan has no '## Surface Impact' section. Classify each surface "
-            "(runtime behavior, API, data/schema, CLI/ops, UI, docs, tests) as "
-            "Changed / Read-only / Unchanged by design / Deferred / N-A — "
-            "Deferred and Unchanged-by-design entries need a reason "
-            "(factory/prompts/planner.md)."
-        )
+    sections = factory_lib.parse_sections(body)
+    missing_sections = [
+        section for section in REQUIRED_PLAN_SECTIONS if not sections.get(section)
+    ]
+    if missing_sections:
+        fail("the plan is missing required sections: " + ", ".join(missing_sections))
     title = args.title or state.get("title") or issue
     dest_dir = base / "plans" / "active"
     dest_dir.mkdir(parents=True, exist_ok=True)

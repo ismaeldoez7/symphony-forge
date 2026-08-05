@@ -115,10 +115,13 @@
         "build_waves is no longer authored by the decomposer prompt and its only reader is removed, while the schema still parses artifacts that carry it."
       ],
       "order": 6,
-      "status": "pending",
+      "status": "done",
       "skill": "backend",
       "spec": "docs/specs/project-hierarchy.md",
-      "epic": "symphony-forge"
+      "epic": "symphony-forge",
+      "completed_at": "2026-08-05T12:45:02+00:00",
+      "history": ".factory/history/PH-3/",
+      "outcome": "A plan is now refused unless it carries all nine sections the planner prompt mandates, checked with the shared parser instead of a substring that a fenced example could satisfy. A decomposition is bound to the plan it was built from: the recorder stamps project, story, epic, plan_file and the plan digest from trusted state and drops whatever an agent claimed, and stage start refuses when that plan has changed since \u2014 or when the binding cannot be verified at all. And build_waves stops being authored anywhere: prompts, the Codex agent contract, the doc and the scaffold check all let go of it together with its only reader, so ordering is derived from dependencies rather than written twice."
     },
     {
       "key": "PH-4",
@@ -144,7 +147,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-05T10:33:14+00:00",
+  "updated_at": "2026-08-05T12:45:02+00:00",
   "epics": [
     {
       "id": "symphony-forge",
