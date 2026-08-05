@@ -475,11 +475,16 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     # Decision 0025: briefs and the delegation mirror stay on disk (a running
     # task keeps reading them) but leave the tracked tree. --cached only, so
     # nothing is deleted; the staged untracking rides the client's next commit.
-    if gitignore.exists() and ".factory/briefs/" not in gitignore.read_text():
+    # Each rule checked independently: a client may have hand-ignored one
+    # path already, and the first rule must not act as a sentinel for the rest.
+    missing_rules = ([rel for rel in EPHEMERAL_UNTRACK
+                      if rel not in gitignore.read_text()]
+                     if gitignore.exists() else [])
+    if missing_rules:
         with gitignore.open("a") as fh:
             fh.write("\n# Worker briefs and the delegation mirror are read from "
                      "disk, never from git (0025)\n"
-                     + "".join(f"{rel}\n" for rel in EPHEMERAL_UNTRACK))
+                     + "".join(f"{rel}\n" for rel in missing_rules))
         ensured.append(".gitignore (0025 ephemeral paths appended)")
     untracked = subprocess.run(
         ["git", "-C", str(target), "rm", "-r", "--cached", "--ignore-unmatch",

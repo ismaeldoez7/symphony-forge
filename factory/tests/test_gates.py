@@ -7612,3 +7612,17 @@ def test_upgrade_untracks_ephemeral_factory_paths(repo):
     git(repo, "commit", "-q", "-m", "carry the staged untracking")
     proc = upgrade_into(repo)
     assert proc.returncode == 0, proc.stdout + proc.stderr
+    # Partial ignore: a client hand-ignored briefs but not the other two.
+    # The first rule must not act as a sentinel — the missing rules come back.
+    gitignore = repo / ".gitignore"
+    gitignore.write_text("".join(
+        line for line in gitignore.read_text().splitlines(keepends=True)
+        if line.strip() not in (".factory/diagnostic-briefs/",
+                                ".factory/delegations.jsonl")))
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "client trimmed two ignore rules")
+    proc = upgrade_into(repo)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    restored = gitignore.read_text()
+    assert ".factory/diagnostic-briefs/" in restored
+    assert ".factory/delegations.jsonl" in restored
