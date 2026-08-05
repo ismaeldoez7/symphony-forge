@@ -169,3 +169,9 @@
 {"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-04T15:16:13+00:00", "detail": "repo-system-of-record"}
 {"event": "roadmap-link-spec", "generated_by": "orchestrator", "at": "2026-08-04T15:17:11+00:00", "story": "FORGE-LOCK-1", "detail": "docs/specs/repo-system-of-record.md"}
 {"event": "client-signoff", "generated_by": "orchestrator", "at": "2026-08-04T15:18:15+00:00", "detail": "docs/decisions/0010-client-signoff.md"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-05T05:46:19+00:00", "story": "PH-3", "detail": "PH-3.1 Nine sections, not one"}
+{"event": "signal-scope-change", "generated_by": "implementer", "at": "2026-08-05T05:48:16+00:00", "story": "PH-3", "detail": "PH-3.1 requires every existing plan to satisfy all nine sections, but active/completed plans fail and the write scope excludes plans/**; authorize the failing plan files or revise the shipped-plan acc"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T05:48:34+00:00", "story": "PH-3", "detail": "PH-3.1 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-05T05:50:13+00:00", "story": "PH-3", "detail": "3 task(s)"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-05T05:50:13+00:00", "story": "PH-3", "detail": "S-0001-0048: The rule was wrong, not the scope. Three of the failing files are not plans at all \u2014 plans/README.md is a readme, assumptions.md and deferrals.md are ledgers \u2014 so a check that globs plans/**/*.md is c"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T05:54:16+00:00", "story": "PH-3", "detail": "PH-3.1 (write)"}

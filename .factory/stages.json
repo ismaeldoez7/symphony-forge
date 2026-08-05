@@ -4,7 +4,11 @@
     {
       "id": "PH-3.1",
       "title": "Nine sections, not one",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-05T05:46:19+00:00",
+      "base_sha": "22e598edb3f55c77ae9a6a0f298075fb25aa30ba",
+      "dirty_at_start": {},
+      "task_sha256": "343023caaaf49ca32aed50e176c1bd206059ff11d0a6f04de42b83a8e84f3592"
     },
     {
       "id": "PH-3.2",

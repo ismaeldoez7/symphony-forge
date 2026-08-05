@@ -68,9 +68,21 @@ DECOMP = {"status": "recorded", "generated_by": "docs-decomposer",
                      "objective": "Build the core slice so the feature works end to end.",
                      "acceptance_criteria": ["the slice runs green"]}]}
 
-# Minimal plan body passing `plan save` content gates (Decisions + Surface Impact).
-PLAN_BODY = ("## Decisions\nNo new decisions\n\n"
-             "## Surface Impact\nAll surfaces: N-A (test plan)\n")
+# Minimal plan body passing every `plan save` section gate.
+PLAN_SECTIONS = (
+    "Problem",
+    "Scope / Non-goals",
+    "Acceptance Criteria",
+    "Technical Approach",
+    "Decisions",
+    "Surface Impact",
+    "Task Decomposition",
+    "Risks",
+    "Verify Plan",
+)
+PLAN_BODY = "\n\n".join(
+    f"## {section}\nTest content for {section}." for section in PLAN_SECTIONS
+) + "\n"
 
 BRIEF_HEADINGS = (
     "Summary",
@@ -6356,16 +6368,74 @@ def test_next_names_delegation_step(repo, tmp_path):
     assert "INCOMPLETE" in out and "retry path missing" in out
 
 
-def test_plan_save_requires_surface_impact_section(repo, tmp_path):
+def test_plan_save_refuses_a_plan_missing_any_required_section(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     ensure_story(repo, "ENG-1", "Invoices")
     plan = tmp_path / "plan.md"
-    plan.write_text(plan_draft(
-        repo, body="## Decisions\nNo new decisions\n"))  # no Surface Impact
+
+    for missing in PLAN_SECTIONS:
+        body = "\n\n".join(
+            f"## {section}\nComplete."
+            for section in PLAN_SECTIONS if section != missing
+        )
+        plan.write_text(plan_draft(repo, body=body))
+        record_grill(repo, "plan", digest_of=plan)
+        code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan))
+        assert code != 0 and missing in out, (missing, out)
+
+
+def test_plan_save_names_every_missing_section(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    ensure_story(repo, "ENG-1", "Invoices")
+    plan = tmp_path / "plan.md"
+    present = {"Problem", "Technical Approach", "Decisions", "Verify Plan"}
+    body = "\n\n".join(
+        f"## {section}\n" + (" \t" if section == "Scope / Non-goals" else "Complete.")
+        for section in PLAN_SECTIONS
+        if section in present or section == "Scope / Non-goals"
+    )
+    plan.write_text(plan_draft(repo, body=body))
     record_grill(repo, "plan", digest_of=plan)
+
     code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan))
-    assert code != 0 and "Surface Impact" in out
+
+    missing = [section for section in PLAN_SECTIONS if section not in present]
+    assert code != 0
+    assert all(section in out for section in missing), out
+    assert all(section not in out for section in present), out
+
+
+def test_archived_plans_are_not_held_to_a_later_contract(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    archived = repo / "plans" / "completed" / "FORGE-INIT-1-init.md"
+    archived.parent.mkdir(parents=True, exist_ok=True)
+    historical = "---\nissue: FORGE-INIT-1\nstatus: shipped\n---\n\n## Decisions\nNone.\n"
+    archived.write_text(historical)
+
+    code, out = save_plan(repo, tmp_path)
+
+    assert code == 0, out
+    assert archived.read_text() == historical
+
+
+def test_plan_ledgers_are_not_plans(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    ledgers = {
+        repo / "plans" / "README.md": "# Plans\n",
+        repo / "plans" / "assumptions.md": "# Assumptions\n",
+        repo / "plans" / "deferrals.md": "# Deferrals\n",
+    }
+    for path, content in ledgers.items():
+        path.write_text(content)
+
+    code, out = save_plan(repo, tmp_path)
+
+    assert code == 0, out
+    assert all(path.read_text() == content for path, content in ledgers.items())
 
 
 def test_refactor_ratchet_blocks_growing_refactors(repo, tmp_path):
