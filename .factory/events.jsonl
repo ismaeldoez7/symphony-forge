@@ -264,3 +264,9 @@
 {"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-05T09:31:29+00:00", "story": "FORGE-UPG-1", "detail": "passed"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-05T09:31:29+00:00", "story": "FORGE-UPG-1", "detail": "A repo vendored before the factory/ rename can now be carried onto the current harness in one command. `forge upgrade` detects the legacy .agents/ layout, carries the project's skills across, deletes "}
 {"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T10:33:14+00:00", "story": "FORGE-UPG-1", "detail": "symphony-forge"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-05T12:44:08+00:00", "story": "PH-3"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-05T12:44:41+00:00", "story": "PH-3", "detail": "passed"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-05T12:44:41+00:00", "story": "PH-3"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-05T12:44:41+00:00", "story": "PH-3"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-05T12:44:41+00:00", "story": "PH-3"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-05T12:45:02+00:00", "story": "PH-3", "detail": "A plan is now refused unless it carries all nine sections the planner prompt mandates, checked with the shared parser instead of a substring that a fenced example could satisfy. A decomposition is bou"}
