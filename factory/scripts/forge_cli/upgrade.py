@@ -45,6 +45,11 @@ PROJECT_OWNED = [
 ]
 # Preserved across the factory replacement (project evolution state).
 PRESERVE_IN_AGENTS = ["factory/skills/proposed", "factory/skills/rejected"]
+# Ephemeral working state (decision 0025): read from disk in the worktree,
+# never from git. Untracked on upgrade — a .gitignore rule alone does nothing
+# to an already-tracked file.
+EPHEMERAL_UNTRACK = [".factory/briefs/", ".factory/diagnostic-briefs/",
+                     ".factory/delegations.jsonl"]
 # Vendoring never ships build or OS noise. .DS_Store is gitignored HERE, so it
 # is invisible in this repo while still sitting on disk — and copytree walks
 # the filesystem, not the index. It then lands in the client as untracked
@@ -467,6 +472,30 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
                      ".gstack/tmp/\n.gstack/.*\n.gstack/**/brain-cache/\n"
                      ".gstack/**/timeline.jsonl\n.gstack/slug-cache/\n")
         ensured.append(".gitignore (gstack entries appended)")
+    # Decision 0025: briefs and the delegation mirror stay on disk (a running
+    # task keeps reading them) but leave the tracked tree. --cached only, so
+    # nothing is deleted; the staged untracking rides the client's next commit.
+    if gitignore.exists() and ".factory/briefs/" not in gitignore.read_text():
+        with gitignore.open("a") as fh:
+            fh.write("\n# Worker briefs and the delegation mirror are read from "
+                     "disk, never from git (0025)\n"
+                     + "".join(f"{rel}\n" for rel in EPHEMERAL_UNTRACK))
+        ensured.append(".gitignore (0025 ephemeral paths appended)")
+    untracked = subprocess.run(
+        ["git", "-C", str(target), "rm", "-r", "--cached", "--ignore-unmatch",
+         "--"] + EPHEMERAL_UNTRACK,
+        capture_output=True, text=True,
+    )
+    if untracked.returncode != 0:
+        raise SystemExit("could not untrack ephemeral .factory paths:\n"
+                         + untracked.stderr)
+    if untracked.stdout.strip():
+        count = len(untracked.stdout.strip().splitlines())
+        ensured.append(f"{count} ephemeral .factory file(s) untracked "
+                       "(0025 — still on disk HERE, commit the staged removal; "
+                       "TEAMMATES' pulls delete their clean local copies — a dev "
+                       "mid-task recomposes the brief by re-running "
+                       "./forge delegate <task-id>)")
     for rel in PROJECT_STARTERS:
         destination = target / rel
         if not destination.exists():

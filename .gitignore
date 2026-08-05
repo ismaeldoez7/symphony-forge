@@ -42,6 +42,11 @@ pino-*.log
 # Factory runtime outputs
 .factory/tool-history.jsonl
 .factory/*.tmp.json
+# Worker briefs and the delegation mirror are read from disk, never from git;
+# the delegation AUTHORITY lives in the git control dir (decision 0025)
+.factory/briefs/
+.factory/diagnostic-briefs/
+.factory/delegations.jsonl
 # Session noise from the PreCompact hook — snapshot, never evidence
 .factory/scratchpad.md
 .worktrees/

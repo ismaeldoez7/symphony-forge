@@ -7579,3 +7579,36 @@ def test_init_refuses_directory_at_append_path(tmp_path: Path):
     proc = _init(target)
     assert proc.returncode == 1
     assert "README.md" in proc.stdout + proc.stderr
+
+
+def test_upgrade_untracks_ephemeral_factory_paths(repo):
+    """0025: a legacy client tracks briefs and the delegation mirror. Upgrade
+    must untrack all three paths (staged, --cached) while leaving the files on
+    disk — a running task keeps reading its brief — and must be idempotent."""
+    briefs = repo / ".factory" / "briefs"
+    briefs.mkdir(parents=True, exist_ok=True)
+    (briefs / "T-1.md").write_text("brief body\n")
+    diag = repo / ".factory" / "diagnostic-briefs"
+    diag.mkdir(exist_ok=True)
+    (diag / "T-1.md").write_text("diag body\n")
+    (repo / ".factory" / "delegations.jsonl").write_text("{}\n")
+    # -f: current scaffolds already ignore these; a legacy repo tracked them.
+    git(repo, "add", "-f", "-A")
+    git(repo, "commit", "-q", "-m", "legacy repo tracking ephemera")
+    proc = upgrade_into(repo)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    tracked = subprocess.run(
+        ["git", "-C", str(repo), "ls-files", ".factory"],
+        capture_output=True, text=True).stdout
+    assert ".factory/briefs/T-1.md" not in tracked
+    assert ".factory/diagnostic-briefs/T-1.md" not in tracked
+    assert ".factory/delegations.jsonl" not in tracked
+    assert (briefs / "T-1.md").exists()  # on disk, just untracked
+    assert ".factory/briefs/" in (repo / ".gitignore").read_text()
+    assert "untracked" in proc.stdout
+    # Second run: nothing left to untrack, still succeeds. Plain add -A now
+    # skips the ignored ephemera — only the upgrade's own writes get committed.
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "carry the staged untracking")
+    proc = upgrade_into(repo)
+    assert proc.returncode == 0, proc.stdout + proc.stderr

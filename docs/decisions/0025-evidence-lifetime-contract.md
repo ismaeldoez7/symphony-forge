@@ -66,6 +66,12 @@ is mostly durable artifacts at reasonable size and is not the problem.
 - Open signals stay committed and untouched, so the signal-authority hazard
   the 0024 validation flagged does not arise.
 - Implementation is one bounded task: the ignore rules, the `git rm --cached`
-  migration here and in `forge upgrade` (refusing nothing — untracking a
-  regenerable file is safe mid-task), and a test proving a client upgrade
+  migration here and in `forge upgrade`, and a test proving a client upgrade
   untracks all three paths.
+- **The migration commit propagates as a deletion.** `--cached` keeps files on
+  disk only on the machine that ran it; a teammate's pull removes their clean
+  local copies. That is harmless for the mirror (each clone's authority lives
+  in its own git control dir) and for closed tasks, but a dev mid-task loses
+  the composed brief and stage close refuses until `./forge delegate
+  <task-id>` recomposes it from the decomposition. Upgrade says this in its
+  output; run the migration at a story boundary when possible.
