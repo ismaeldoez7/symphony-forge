@@ -2056,6 +2056,22 @@ def add_epic(repo: Path, epic=ROADMAP_EPIC) -> tuple[int, str]:
                *source_args)
 
 
+def test_shipped_roadmap_satisfies_the_story_contract():
+    roadmap = json.loads((HARNESS / "plans" / "roadmap.json").read_text())
+    epics = roadmap["epics"]
+    assert epics
+
+    epic_ids = set()
+    for epic in epics:
+        assert all(epic.get(field) for field in ("id", "title", "objective"))
+        assert epic.get("source_refs")
+        assert all((HARNESS / source_ref).is_file()
+                   for source_ref in epic["source_refs"])
+        epic_ids.add(epic["id"])
+
+    assert all(item.get("epic") in epic_ids for item in roadmap["items"])
+
+
 def test_epic_add_refuses_a_duplicate_id(repo):
     epic = {**ROADMAP_EPIC,
             "source_refs": ["docs/product/BRIEF.md", "docs/FACTORY.md"]}

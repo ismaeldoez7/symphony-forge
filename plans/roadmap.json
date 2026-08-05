@@ -21,7 +21,8 @@
       "spec": "docs/specs/delegation-boundary.md",
       "completed_at": "2026-07-30T11:49:30+00:00",
       "history": ".factory/history/FORGE-DELEG-1/",
-      "outcome": "Developers can now see the epic-to-story dependency hierarchy, start dependency-ready stories in separate worktrees, and execute each story's tasks sequentially through a protected, measured delegation boundary that refuses off-contract writes, overlapping workers, stale proof, and incomplete verification."
+      "outcome": "Developers can now see the epic-to-story dependency hierarchy, start dependency-ready stories in separate worktrees, and execute each story's tasks sequentially through a protected, measured delegation boundary that refuses off-contract writes, overlapping workers, stale proof, and incomplete verification.",
+      "epic": "symphony-forge"
     },
     {
       "key": "FORGE-UPG-1",
@@ -40,7 +41,8 @@
       "status": "active",
       "skill": "backend",
       "kind": "feature",
-      "spec": "docs/specs/legacy-upgrade.md"
+      "spec": "docs/specs/legacy-upgrade.md",
+      "epic": "symphony-forge"
     },
     {
       "key": "FORGE-LOCK-1",
@@ -56,7 +58,8 @@
       "status": "pending",
       "skill": "backend",
       "origin": "adhoc",
-      "spec": "docs/specs/repo-system-of-record.md"
+      "spec": "docs/specs/repo-system-of-record.md",
+      "epic": "symphony-forge"
     },
     {
       "key": "PH-1",
@@ -75,7 +78,8 @@
       "spec": "docs/specs/project-hierarchy.md",
       "completed_at": "2026-08-04T18:19:05+00:00",
       "history": ".factory/history/PH-1/",
-      "outcome": "A brief or spec that is missing a required section is now refused at the gate that records it, instead of reaching sign-off half-written. Sign-off names every absent BRIEF heading, spec confirm requires Why, Behaviour and Acceptance criteria, and doctor reports legacy documents without blocking anyone. One shared parser answers 'does this document have this section' for all three, and it reads an example as an example: headings inside fenced blocks, HTML comments, raw blocks and container blocks no longer count as structure."
+      "outcome": "A brief or spec that is missing a required section is now refused at the gate that records it, instead of reaching sign-off half-written. Sign-off names every absent BRIEF heading, spec confirm requires Why, Behaviour and Acceptance criteria, and doctor reports legacy documents without blocking anyone. One shared parser answers 'does this document have this section' for all three, and it reads an example as an example: headings inside fenced blocks, HTML comments, raw blocks and container blocks no longer count as structure.",
+      "epic": "symphony-forge"
     },
     {
       "key": "PH-2",
@@ -91,7 +95,8 @@
       "order": 5,
       "status": "pending",
       "skill": "backend",
-      "spec": "docs/specs/project-hierarchy.md"
+      "spec": "docs/specs/project-hierarchy.md",
+      "epic": "symphony-forge"
     },
     {
       "key": "PH-3",
@@ -106,7 +111,8 @@
       "order": 6,
       "status": "pending",
       "skill": "backend",
-      "spec": "docs/specs/project-hierarchy.md"
+      "spec": "docs/specs/project-hierarchy.md",
+      "epic": "symphony-forge"
     },
     {
       "key": "PH-4",
@@ -127,10 +133,20 @@
         "PH-2",
         "PH-3"
       ],
-      "spec": "docs/specs/project-hierarchy.md"
+      "spec": "docs/specs/project-hierarchy.md",
+      "epic": "symphony-forge"
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-04T13:18:45+00:00",
-  "epics": []
+  "updated_at": "2026-08-05T06:29:32+00:00",
+  "epics": [
+    {
+      "id": "symphony-forge",
+      "title": "Symphony Forge",
+      "objective": "Turn in-repo architecture and decisions into shipped applications through a deterministic software-factory workflow.",
+      "source_refs": [
+        "docs/product/BRIEF.md"
+      ]
+    }
+  ]
 }

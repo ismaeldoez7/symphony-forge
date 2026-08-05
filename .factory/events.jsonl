@@ -184,3 +184,15 @@
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-05T05:45:32+00:00", "story": "PH-2", "detail": "PH-2.2 Two epic routes, and --epic required on add"}
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-05T05:45:42+00:00", "story": "PH-2", "detail": "PH-2.3 Schema note, the ordering decision, and an advisory doctor report"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T05:49:51+00:00", "story": "PH-2", "detail": "PH-2.3 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-05T06:27:50+00:00", "story": "PH-2", "detail": "PH-2.3 Schema note, the ordering decision, and an advisory doctor report"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-05T06:28:00+00:00", "story": "PH-2", "detail": "PH-2.4 Backfill this repo's own roadmap through the new routes"}
+{"event": "roadmap-epic-add", "generated_by": "orchestrator", "at": "2026-08-05T06:29:28+00:00", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:29+00:00", "story": "FORGE-DELEG-1", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:30+00:00", "story": "FORGE-UPG-1", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:31+00:00", "story": "FORGE-LOCK-1", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:31+00:00", "story": "PH-1", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:32+00:00", "story": "PH-2", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:32+00:00", "story": "PH-3", "detail": "symphony-forge"}
+{"event": "roadmap-set-epic", "generated_by": "orchestrator", "at": "2026-08-05T06:29:32+00:00", "story": "PH-4", "detail": "symphony-forge"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T06:33:15+00:00", "story": "PH-2", "detail": "PH-2.4 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-05T07:43:19+00:00", "story": "PH-2", "detail": "PH-2.4 Backfill this repo's own roadmap through the new routes"}
