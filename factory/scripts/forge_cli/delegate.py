@@ -943,7 +943,12 @@ def cmd_delegate(args: argparse.Namespace) -> None:
     canonical_path = brief_path(base, args.id)
     path = (diagnostic_briefs_dir(base) / f"{args.id}.md"
             if args.print_only or not write else canonical_path)
-    launch_id = uuid.uuid4().hex
+    # Prefixed, not bare hex. A 32-character hex string reads as a credential
+    # to every secret scanner — autoreview refused to bundle any diff touching
+    # the delegation ledger, five times in one session, each needing the ledger
+    # stashed before a review could run. The prefix costs nothing and ends it
+    # for every scanner, in every repo, permanently.
+    launch_id = f"launch-{uuid.uuid4().hex}"
     lock = (_acquire_delegation_lock(base, args.id, launch_id)
             if write and not args.print_only else None)
     if write and not args.print_only:
