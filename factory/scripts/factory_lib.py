@@ -252,7 +252,12 @@ def append_ledger_record(legacy: Path, record: dict, record_id: str) -> Path:
     directory = ledger_dir(legacy)
     directory.mkdir(parents=True, exist_ok=True)
     safe = re.sub(r"[^A-Za-z0-9._-]", "-", record_id)[:120] or "record"
-    path = directory / f"{safe}.json"
+    # A microsecond suffix, because two records of the same ledger can be
+    # written inside one second — `quickfix start` then `done` on a fast
+    # machine — and filenames that tie put the ledger in ALPHABETICAL order,
+    # which is how "done" came to precede "open". Filenames are not the
+    # ordering (that is each record's timestamp), but they must not fight it.
+    path = directory / f"{safe}-{datetime.now(timezone.utc):%H%M%S%f}.json"
     dump_json(path, record)
     return path
 

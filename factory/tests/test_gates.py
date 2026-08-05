@@ -3075,12 +3075,15 @@ def test_quickfix_lifecycle_tracks_files_and_enforces_budget(repo):
     code, out = run(repo, "forge.py", "quickfix", "done")
     assert code == 0 and "5 file(s)" in out, out
     assert not active_path.exists()
-    # One record per file now (decision 0022); order comes from each record's
-    # own timestamp, never from position in a shared file.
-    events = sorted(
-        (json.loads(p.read_text()) for p in (repo / "plans" / "quickfixes").glob("*.json")),
-        key=lambda e: e.get("completed_at") or e.get("started_at") or "")
-    assert [event["event"] for event in events] == ["open", "done"]
+    # One record per file now (decision 0022). Each record carries its own
+    # timestamps, so the ledger is a SET of records rather than a sequence —
+    # asserting a line order would re-import the assumption 0022 removed, and
+    # start/done can land inside the same second anyway.
+    events = {json.loads(p.read_text())["event"]: json.loads(p.read_text())
+              for p in (repo / "plans" / "quickfixes").glob("*.json")}
+    assert set(events) == {"open", "done"}
+    assert events["open"]["started_at"] <= events["done"]["completed_at"]
+    events = [events["open"], events["done"]]
     assert events[-1]["files"] == [f"src/file-{number}.py" for number in range(1, 6)]
 
     code, out = hook(repo, {
