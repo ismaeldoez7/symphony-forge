@@ -7729,3 +7729,20 @@ def test_upgrade_refuses_unreadable_run_json_before_writing(repo):
     assert proc.returncode != 0
     assert "run.json" in proc.stdout + proc.stderr
     assert not sentinel.exists()
+
+
+def test_doctor_merge_check_helpers(repo, monkeypatch):
+    """Slug parsing covers the three GitHub remote forms and rejects others;
+    the protection check answers None (not a failing row) when unanswerable."""
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli import doctor
+    monkeypatch.chdir(repo)
+    git(repo, "remote", "add", "origin", "git@github.com:acme/widgets.git")
+    assert doctor._github_slug() == "acme/widgets"
+    git(repo, "remote", "set-url", "origin", "https://github.com/acme/widgets.git")
+    assert doctor._github_slug() == "acme/widgets"
+    git(repo, "remote", "set-url", "origin", "https://gitlab.com/acme/widgets.git")
+    assert doctor._github_slug() == ""
+    # No gh on PATH -> unanswerable -> None, never a red advisory row.
+    monkeypatch.setattr(doctor.shutil, "which", lambda _: None)
+    assert doctor._merge_check_status(fix=False) is None

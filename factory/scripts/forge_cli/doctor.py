@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import platform
 import shlex
@@ -233,6 +234,86 @@ def fast_status(home: Path | None = None) -> tuple[list[str], list[str]]:
     }
     return ([k for k, ok in required.items() if not ok],
             [k for k, ok in advisory.items() if not ok])
+
+
+def _github_slug() -> str:
+    code, out = run_quiet(["git", "remote", "get-url", "origin"])
+    if code != 0:
+        return ""
+    url = out.strip()
+    for prefix in ("git@github.com:", "https://github.com/", "ssh://git@github.com/"):
+        if url.startswith(prefix):
+            return url.removeprefix(prefix).removesuffix(".git")
+    return ""
+
+
+def _merge_check_status(*, fix: bool) -> tuple[bool, str] | None:
+    """Is `scaffold-check` a required status check on the default branch?
+
+    Returns None when the question cannot be answered (no gh, no GitHub
+    remote, offline, unauthenticated) — an unanswerable advisory check is
+    noise, not signal. The fix path is deliberately non-destructive: it PUTs
+    a minimal rule only when NO protection exists, and otherwise ADDs the
+    context to the existing required checks, never overwriting reviewer
+    requirements or other rules an admin configured.
+    """
+    if shutil.which("gh") is None:
+        return None
+    slug = _github_slug()
+    if not slug:
+        return None
+    code, out = run_quiet(["gh", "api", f"repos/{slug}", "--jq", ".default_branch"])
+    if code != 0:
+        return None  # offline or unauthenticated — cannot answer
+    default = out.strip()
+    checks_url = f"repos/{slug}/branches/{default}/protection/required_status_checks"
+
+    def contexts() -> tuple[list[str] | None, bool]:
+        """(contexts, definitive): None contexts = no required checks set."""
+        code, out = run_quiet(["gh", "api", checks_url, "--jq", ".contexts[]"])
+        if code == 0:
+            return out.split(), True
+        if "Branch not protected" in out or "Not Found" in out:
+            return None, True
+        return None, False
+
+    current, definitive = contexts()
+    if not definitive:
+        return None
+    if current is not None and "scaffold-check" in current:
+        return True, f"{slug}@{default}"
+    if fix:
+        if current is None:
+            print(f"[fix ] protecting {default}: scaffold-check required to merge ...")
+            payload = json.dumps({
+                "required_status_checks": {"strict": False,
+                                           "contexts": ["scaffold-check"]},
+                "enforce_admins": False,
+                "required_pull_request_reviews": None,
+                "restrictions": None,
+            })
+            proc = subprocess.run(
+                ["gh", "api", "-X", "PUT",
+                 f"repos/{slug}/branches/{default}/protection", "--input", "-"],
+                input=payload, capture_output=True, text=True, timeout=15)
+            if proc.returncode != 0:
+                return False, f"fix failed (admin rights?): {proc.stderr.strip()[:120]}"
+        else:
+            print(f"[fix ] adding scaffold-check to {default}'s required checks ...")
+            proc = subprocess.run(
+                ["gh", "api", "-X", "POST", f"{checks_url}/contexts",
+                 "--input", "-"],
+                input=json.dumps(["scaffold-check"]),
+                capture_output=True, text=True, timeout=15)
+            if proc.returncode != 0:
+                return False, f"fix failed (admin rights?): {proc.stderr.strip()[:120]}"
+        current, definitive = contexts()
+        if definitive and current is not None and "scaffold-check" in current:
+            return True, f"{slug}@{default}"
+        return False, "fix applied but verification failed"
+    detail = ("no branch protection" if current is None
+              else "protected, but scaffold-check is not required")
+    return False, f"{slug}@{default}: {detail}"
 
 
 def _platform_name() -> str:
@@ -675,6 +756,24 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         "to ~/.codex/skills/ (the ONE reviewer — the review gate needs it) — "
         "or rerun with --fix",
     ))
+
+    # Merge gate: scaffold-check must be a REQUIRED status check on the
+    # default branch, or a red CI run can still merge (observed: a red suite
+    # reached main with CI failing and nothing enforcing it). This is a
+    # per-repo GitHub setting — vendored workflow files cannot carry it, so
+    # doctor checks it wherever a client repo is set up. Advisory: it needs
+    # network + gh auth, and admin rights to fix.
+    protection = _merge_check_status(fix=args.fix)
+    if protection is not None:
+        ok, detail = protection
+        checks.append(_check(
+            "branch protection: scaffold-check required to merge",
+            ok, detail,
+            "run `gh api -X PUT repos/<owner>/<repo>/branches/<default>/protection"
+            " --input -` with required_status_checks contexts [\"scaffold-check\"]"
+            " (repo admin) — or rerun with --fix",
+            required=False,
+        ))
 
     # Optional tools below are reported but not installed by the normal
     # `doctor --fix` path. This keeps machine setup focused on required items.
