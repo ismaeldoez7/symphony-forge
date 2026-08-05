@@ -7708,3 +7708,11 @@ def test_upgrade_refuses_unreadable_run_json_before_writing(repo):
     assert proc.returncode != 0
     assert "run.json" in proc.stdout + proc.stderr
     assert not sentinel.exists()
+    # A DIRECTORY at the path refuses the same way (preflight runs before the
+    # dirty check, so no commit is needed to reach it).
+    (repo / ".factory" / "run.json").unlink()
+    (repo / ".factory" / "run.json").mkdir()
+    proc = upgrade_into(repo)
+    assert proc.returncode != 0
+    assert "run.json" in proc.stdout + proc.stderr
+    assert not sentinel.exists()

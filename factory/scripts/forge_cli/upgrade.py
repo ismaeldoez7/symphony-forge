@@ -324,12 +324,14 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     # machinery replacement, and a parse crash there leaves a half-upgraded
     # target. Unreadable state must stop the upgrade while it is untouched.
     legacy_run = target / ".factory" / "run.json"
-    if legacy_run.is_file():
+    if legacy_run.exists() or legacy_run.is_symlink():
         try:
             if not isinstance(json.loads(legacy_run.read_text()), dict):
                 fail(f"{legacy_run} is not a JSON object; fix or delete it, then rerun")
         except json.JSONDecodeError as exc:
             fail(f"{legacy_run} is unreadable JSON ({exc}); fix or delete it, then rerun")
+        except OSError as exc:
+            fail(f"{legacy_run} is not a readable file ({exc}); fix or delete it, then rerun")
     dirty = subprocess.run(
         ["git", "status", "--porcelain"], cwd=target, capture_output=True, text=True
     ).stdout.strip()
