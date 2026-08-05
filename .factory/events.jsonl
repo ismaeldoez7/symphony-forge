@@ -197,3 +197,6 @@
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T06:33:15+00:00", "story": "PH-2", "detail": "PH-2.4 (write)"}
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-05T07:43:19+00:00", "story": "PH-2", "detail": "PH-2.4 Backfill this repo's own roadmap through the new routes"}
 {"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-05T07:58:10+00:00", "story": "PH-2"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-05T09:35:31+00:00", "story": "PH-2"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-05T09:35:31+00:00", "story": "PH-2"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-05T09:35:31+00:00", "story": "PH-2"}
