@@ -25,7 +25,11 @@
     {
       "id": "PH-2.3",
       "title": "Schema note, the ordering decision, and an advisory doctor report",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-05T05:45:42+00:00",
+      "base_sha": "bd9bb92907f03f8f3f55c429252622e9a0a1a395",
+      "dirty_at_start": {},
+      "task_sha256": "180bcab089d4dcf288456a5202fcf5f959e14df3b2a8cac3f78b421d85ed2b01"
     },
     {
       "id": "PH-2.4",

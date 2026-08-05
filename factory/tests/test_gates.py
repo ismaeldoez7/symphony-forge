@@ -2313,6 +2313,15 @@ def test_legacy_epicless_roadmap_still_loads_and_heals(repo):
     assert code == 0 and roadmap_items(repo)["LEG-1"]["status"] == "done", out
 
 
+def test_roadmap_schema_notes_authoring_requirements():
+    schema = json.loads((HARNESS / "factory" / "schemas" / "roadmap.json").read_text())
+    note = schema["item_fields_note"]
+    for route in ("roadmap derive", "roadmap import", "roadmap add"):
+        assert route in note
+    for field in ("epic", "story", "acceptance_criteria", "skill", "depends_on"):
+        assert field in note
+
+
 def test_roadmap_lifecycle(repo, tmp_path):
     code, out = import_roadmap(repo, tmp_path)
     assert code == 0 and "2 added" in out, out
@@ -5446,6 +5455,51 @@ def test_doctor_reports_legacy_capture_without_blocking(repo, capsys):
 
     report_legacy_capture_gaps(repo)
     assert capsys.readouterr().out == ""
+
+
+def test_doctor_survives_a_malformed_roadmap(repo):
+    """doctor is what someone runs when the project is ALREADY broken.
+
+    A roadmap that is null, a list, or holds a non-object item must produce a
+    report — a traceback here takes doctor's other checks down with it, at
+    exactly the moment they are the ones being asked for.
+    """
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.doctor import legacy_roadmap_gaps
+    finally:
+        sys.path.pop(0)
+
+    path = repo / "plans" / "roadmap.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    for shape in ("null", "[]", '{"items": "nope"}', '{"items": [1, 2]}',
+                  '{"items": [{"key": "A"}]}'):
+        path.write_text(shape)
+        gaps = legacy_roadmap_gaps(repo)  # must not raise
+        assert isinstance(gaps, list), shape
+
+
+def test_doctor_reports_an_epicless_roadmap_without_blocking(repo, capsys):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.doctor import report_legacy_roadmap_gaps
+    finally:
+        sys.path.pop(0)
+
+    roadmap = repo / "plans" / "roadmap.json"
+    roadmap.write_text(json.dumps({
+        "generated_by": "human",
+        "items": [
+            {"key": "LEG-1", "title": "Legacy story"},
+            {"key": "MOD-1", "title": "Modern story", "epic": "modern"},
+        ],
+    }))
+
+    assert report_legacy_roadmap_gaps(repo) is None
+    out = capsys.readouterr().out
+    assert "[opt ] roadmap/epics plans/roadmap.json: no epics declared" in out
+    assert "[opt ] roadmap/story LEG-1: no epic declared" in out
+    assert "MOD-1" not in out
 
 
 DELEGATE_TASK = {**STAGE_TASK, "required_tests": [{
