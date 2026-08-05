@@ -12,9 +12,10 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-from factory_lib import decomposition_state_path, load_json, repo_root
+from factory_lib import decomposition_state_path, load_json, parse_sections, repo_root
 
 from .common import run_quiet
+from .specs import missing_required_content, parse_frontmatter
 
 DIRENV_VERSION = "2.37.1"
 
@@ -25,6 +26,16 @@ SHELL_BUILTINS = {".", ":", "[", "cd", "echo", "eval", "exec", "exit", "export",
 # Openers of compound commands: the program is not token zero, and `bash -n`
 # has already proved the whole thing parses.
 SHELL_KEYWORDS = {"!", "(", "{", "case", "for", "if", "until", "while"}
+
+BRIEF_REQUIRED_HEADINGS = (
+    "Summary",
+    "Users",
+    "Target Outcome",
+    "Key Flows",
+    "Domain Concepts",
+    "Constraints",
+    "Out of Scope",
+)
 
 
 def unrunnable_reason(command: str) -> str | None:
@@ -117,6 +128,35 @@ def legacy_required_tests(base: Path) -> list[str]:
             if not isinstance(proof, dict) or set(proof) != {"id", "path", "command"}:
                 found.append(f"{task.get('id', '?')}: {proof!r}")
     return found
+
+
+def legacy_capture_gaps(base: Path) -> list[tuple[str, str]]:
+    """Brief/spec capture gaps that predate the required-heading contract."""
+    found = []
+    brief = base / "docs" / "product" / "BRIEF.md"
+    # A missing brief is the most incomplete a brief can be. Reporting only
+    # briefs that exist made the one project that needs this line the one
+    # project that never sees it, while sign-off refuses it either way.
+    sections = parse_sections(brief.read_text()) if brief.is_file() else {}
+    missing = [heading for heading in BRIEF_REQUIRED_HEADINGS
+               if not sections.get(heading, "").strip()]
+    if missing:
+        found.append(("brief", f"docs/product/BRIEF.md: {', '.join(missing)}"))
+
+    specs = base / "docs" / "specs"
+    for spec in sorted(specs.glob("*.md")) if specs.is_dir() else []:
+        document = spec.read_text()
+        if parse_frontmatter(document).get("status") != "confirmed":
+            continue
+        missing = missing_required_content(document)
+        if missing:
+            found.append(("spec", f"{spec.relative_to(base)}: {', '.join(missing)}"))
+    return found
+
+
+def report_legacy_capture_gaps(base: Path) -> None:
+    for kind, detail in legacy_capture_gaps(base):
+        print(f"[opt ] capture/{kind:<5} {detail}")
 
 
 def _check(name: str, ok: bool, detail: str, fix: str, required: bool = True) -> dict:
@@ -722,6 +762,9 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         print("       fix: re-record the decomposition with {id, path, command} "
               "objects; stage done executes the exact command.")
         failures += len(legacy)
+
+    if repo:
+        report_legacy_capture_gaps(repo)
 
     if failures:
         print(f"\nforge doctor: {failures} required item(s) missing.")

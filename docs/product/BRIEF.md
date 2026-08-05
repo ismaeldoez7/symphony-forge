@@ -28,6 +28,13 @@ history and receives the machinery by copy, then upgrades in place.
 - **KnackLabs client projects**, which vendor the machinery and inherit the
   gates without inheriting this repository's history.
 
+## Target Outcome
+
+A team can move from confirmed product intent to a PR-ready application change
+through one visible, deterministic path, with every approval, implementation
+boundary, verification result, review, and delivered outcome preserved in the
+repository and reproducible in a fresh worktree.
+
 ## Key Flows
 
 - A developer says "set up a new project"; the harness checks the machine,

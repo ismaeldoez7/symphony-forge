@@ -344,10 +344,21 @@ has_companion = (
            for token in shell_tokens)
     or "codexcompanion" in compact_command
 )
-if tool_name == "Bash" and has_companion:
-    deny("Direct Codex companion commands are off-contract. Use "
+# Read-only companion runs are the /codex:rescue exploration lane and
+# pass. Only write launches must route through the canonical executor,
+# which owns the argv and records evidence `forge stage done` can verify.
+COMPANION_WRITE_FLAGS = {
+    "--write", "--full-auto", "--dangerously-bypass-approvals-and-sandbox",
+}
+has_companion_write = (
+    any(token in COMPANION_WRITE_FLAGS for token in shell_tokens)
+    or "--write" in shell_shape
+)
+if tool_name == "Bash" and has_companion and has_companion_write:
+    deny("Companion write launches are off-contract. Use "
          "`./forge delegate <task-id>`; it owns the argv launch and records "
-         "evidence that `forge stage done` can verify.")
+         "evidence that `forge stage done` can verify. Read-only companion "
+         "runs (/codex:rescue exploration) are allowed.")
 
 if run_state and not client_signoff(root)[0]:
     advancing = any(script in command for script in PHASE_ADVANCING)

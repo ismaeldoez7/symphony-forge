@@ -45,8 +45,12 @@ PROJECT_OWNED = [
 ]
 # Preserved across the factory replacement (project evolution state).
 PRESERVE_IN_AGENTS = ["factory/skills/proposed", "factory/skills/rejected"]
-# Vendoring never ships build noise.
-VENDOR_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc")
+# Vendoring never ships build or OS noise. .DS_Store is gitignored HERE, so it
+# is invisible in this repo while still sitting on disk — and copytree walks
+# the filesystem, not the index. It then lands in the client as untracked
+# clutter, and inside .claude/ the thin-adapter linter rejects it outright:
+# a real upgrade failed check_dual_runtime on a Finder artifact.
+VENDOR_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
 
 
 def _replace_path(src: Path, dst: Path) -> None:
@@ -59,6 +63,240 @@ def _replace_path(src: Path, dst: Path) -> None:
         shutil.copytree(src, dst, ignore=VENDOR_IGNORE)
     else:
         shutil.copy2(src, dst)
+
+
+def _keep_path(src: Path, dst: Path) -> None:
+    """Copy project-owned state into the temporary preservation tree.
+
+    Symlinks are preserved AS symlinks. Dereferencing would copy the referent's
+    bytes into the repo under the link's name — and since retirement then
+    deletes the original, a link pointing outside the repo would be silently
+    replaced by its target's content."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if src.is_dir() and not src.is_symlink():
+        shutil.copytree(src, dst, dirs_exist_ok=True, symlinks=True)
+    else:
+        shutil.copy2(src, dst, follow_symlinks=False)
+
+
+def _check_legacy_retirable(target: Path, harness: Path) -> None:
+    """Refuse BEFORE anything is written, or the repair cannot be run.
+
+    Validation used to sit next to the delete, after the trees were replaced —
+    so refusing left a clean repo dirty, and the "delete it and re-run" the
+    message asks for was then rejected by the dirty-target gate above. The
+    counterparts are knowable in advance: they are the harness's own factory/
+    tree, plus everything under skills/, which survives either because the
+    harness ships it or because it is preserved out of .agents/skills/ (the
+    one exception, a client skill whose name the harness has since taken, is
+    deferred as D-0002)."""
+    legacy = target / ".agents"
+    # Refuse a symlinked ROOT, do not just decline to retire it: every later
+    # step reaches through it. `.agents/skills` resolves past the link, so
+    # iterdir() would walk an external directory and copy its contents into
+    # factory/skills — importing files from outside the repository entirely.
+    if legacy.is_symlink():
+        fail(
+            ".agents is a symlink. The upgrade would migrate skills by reading "
+            "through it, pulling content from outside the repository into "
+            "factory/skills, and retiring it would drop the link rather than the "
+            "machinery. Replace it with a real directory (or remove it) and "
+            "re-run. Nothing was written."
+        )
+    if not legacy.is_dir():
+        return
+    # The whole skills/ subtree is exempt from the counterpart check below
+    # because a real directory there is either shipped or preserved. Anything
+    # ELSE at that path is neither: a symlink cannot be traversed (iterdir()
+    # would walk the referent) and a regular file is never preserved at all,
+    # so retirement would delete tracked client content that nothing checked.
+    # Refuse the topology before any write rather than exempting it.
+    skills_root = legacy / "skills"
+    if skills_root.is_symlink() or (
+            skills_root.exists() and not skills_root.is_dir()):
+        fail(
+            ".agents/skills is not a directory. The upgrade preserves client "
+            "skills only from a real directory there, so retiring .agents/ would "
+            "delete this without it ever being checked — and a symlink would be "
+            "migrated by reading through it. Replace it with a real directory "
+            "(or move it out of .agents/) and re-run. Nothing was written."
+        )
+    # A legacy skills entry whose name the harness also ships is treated as the
+    # machinery being replaced. That cannot be decided from the paths: an older
+    # harness's copy of a skill differs from the current one exactly the way a
+    # client's would, and the harness ships factory/skills/forge.md, so
+    # refusing every collision would refuse every upgrade. It is not silent
+    # either — upgrade refuses a dirty tree, so the replacement lands as a
+    # reviewed deletion in the upgrade diff. Conflict policy is D-0002.
+    listing = subprocess.run(
+        ["git", "ls-files", "-z", "--", ".agents"],
+        cwd=target, capture_output=True)
+    tracked = {
+        raw.decode("utf-8", errors="surrogateescape")
+        for raw in listing.stdout.split(b"\0") if raw
+    }
+    missing = []
+    for path in sorted(legacy.rglob("*")):
+        if not (path.is_file() or path.is_symlink()):
+            continue
+        rel = path.relative_to(legacy)
+        # Vendoring never shipped build noise (VENDOR_IGNORE), so an UNTRACKED
+        # .pyc has no counterpart by construction — counting it would abort the
+        # upgrade on every real pre-rename repo, which all carry __pycache__
+        # from having actually run the machinery. A TRACKED .pyc is committed
+        # content, not a build artifact, and gets checked like anything else:
+        # exempting by suffix alone would delete it on nothing but its name.
+        if path.suffix == ".pyc" and f".agents/{rel.as_posix()}" not in tracked:
+            continue
+        if rel.parts and rel.parts[0] == "skills":
+            continue
+        counterpart = harness / "factory" / rel
+        if not (counterpart.is_file() or counterpart.is_symlink()):
+            missing.append(f".agents/{rel.as_posix()}")
+    if missing:
+        listing = "\n  ".join(missing[:10])
+        more = f"\n  ... and {len(missing) - 10} more" if len(missing) > 10 else ""
+        fail(
+            f"legacy .agents/ holds {len(missing)} path(s) with no counterpart in the "
+            f"vendored factory/ tree, so they cannot be shown to be the machinery "
+            f"being replaced:\n  {listing}{more}\n"
+            "Nothing was written and nothing under .agents/ was deleted. If this is "
+            "retired machinery, delete it and re-run; if it is yours, move it "
+            "somewhere the harness does not own."
+        )
+
+
+def _retire_legacy_agents(target: Path) -> bool:
+    """Delete only. _check_legacy_retirable already refused anything unknown,
+    before the first write."""
+    legacy = target / ".agents"
+    if not legacy.is_dir() or legacy.is_symlink():
+        return False
+    shutil.rmtree(legacy)
+    return True
+
+
+def _is_harness_owned(rel: str, harness: Path) -> bool:
+    def within(root: str) -> bool:
+        return rel == root or rel.startswith(root + "/")
+
+    if any(within(root) for root in UPGRADE_TREES + [".agents"]):
+        return True
+    if rel in UPGRADE_FILES or rel in COPY_WORKFLOWS:
+        return True
+    if rel in {dst for _, dst in DOC_CONTRACTS}:
+        return True
+    if any(within(f".claude/{path}") for path in CLAUDE_HARNESS_OWNED):
+        return True
+    if rel in {f".codex/{name}" for name in COPY_CODEX}:
+        return True
+    for sub in ("agents", "skills"):
+        shipped = harness / ".codex" / sub
+        if shipped.is_dir() and any(
+            within(f".codex/{sub}/{child.name}") for child in shipped.iterdir()
+        ):
+            return True
+    return False
+
+
+def _indexed_symlinks_naming_legacy(target: Path) -> list[str]:
+    """Symlinks whose target names the retired tree.
+
+    `git grep` skips symlink entries, but a symlink's blob IS its target text —
+    and a link into .agents/ breaks exactly like a mention of it does. Read the
+    blob from the index rather than the working tree, so no link is ever
+    followed and no ancestor can redirect the read out of the repository.
+    """
+    listing = subprocess.run(
+        ["git", "ls-files", "-s", "-z"], cwd=target, capture_output=True)
+    if listing.returncode != 0:
+        return []
+    found = []
+    for raw in listing.stdout.split(b"\0"):
+        metadata, _, rel = raw.partition(b"\t")
+        fields = metadata.split()
+        if not rel or len(fields) < 2 or fields[0] != b"120000":
+            continue
+        blob = subprocess.run(
+            ["git", "cat-file", "blob", fields[1].decode()],
+            cwd=target, capture_output=True)
+        if blob.returncode != 0:
+            continue
+        link = blob.stdout.decode("utf-8", errors="replace")
+        # Whole path component: `legacy-tools -> .agents` has no trailing slash.
+        if ".agents" in link.split("/"):
+            found.append(rel.decode("utf-8", errors="surrogateescape"))
+    return found
+
+
+def _stale_agents_references(
+    target: Path, harness: Path, migrated: list[str] | None = None,
+    from_legacy: set[str] | None = None,
+) -> list[str]:
+    """Project-owned files that still name the retired tree.
+
+    Searched in the INDEX, never through the working tree. Git streams blob
+    content and resolves paths itself, so this cannot follow a symlink (at the
+    leaf or at any ancestor) out of the repository, cannot wander into an
+    ignored node_modules/ or dist/, and cannot allocate a whole large file to
+    look for a short marker. A symlink's blob is its target text, so a link
+    that merely NAMES .agents is matched like any other content.
+    """
+    # `.agents/` WITH the separator. A bare `.agents` is a substring of any
+    # identifier that merely starts that way — a real target reports
+    # `com.agentstats.push` and `day.agents` as stale machinery references,
+    # which is noise the human then has to re-triage by hand. A symlink whose
+    # target IS the bare root is caught by component match below, so the
+    # slashless form buys nothing here.
+    search = subprocess.run(
+        ["git", "grep", "-l", "--cached", "-I", "-z", "-F", "-e", ".agents/", "--"],
+        cwd=target, capture_output=True,
+    )
+    # 0 = matches, 1 = none. Anything else is a real failure, but this report
+    # is advisory and runs after the migration; it must never abort the upgrade.
+    if search.returncode not in (0, 1):
+        return []
+    hits = [
+        raw.decode("utf-8", errors="surrogateescape")
+        for raw in search.stdout.split(b"\0") if raw
+    ]
+    hits.extend(_indexed_symlinks_naming_legacy(target))
+    # Client skills carried out of .agents/skills/ land at factory/skills/<name>,
+    # untracked until the human stages the upgrade. Their INDEXED source is the
+    # .agents/skills/ path, so translate the hit to where the file now lives
+    # rather than walking the freshly copied tree.
+    # ONLY names actually carried out of the legacy tree. A name preserved from
+    # the CURRENT location had its legacy twin deliberately skipped (the
+    # current location wins), so translating that discarded copy's hits would
+    # name a current file that has no stale reference — or none at all.
+    carried = from_legacy or set()
+    # A client skill ALREADY at factory/skills/<name> is preserved, not
+    # replaced — so it is project-owned even though _is_harness_owned sees it
+    # inside an UPGRADE_TREES entry and would otherwise discard it. Match the
+    # path itself as well as its descendants: a skill can be a single file
+    # (factory/skills/client.md) or a symlink, preserved at that exact path.
+    owned = set(migrated or [])
+    preserved = tuple(f"{rel}/" for rel in owned)
+    stale = set()
+    for rel in hits:
+        if rel.startswith(".factory/history/"):
+            continue
+        parts = rel.split("/")
+        if parts[0] == ".agents":
+            # A bare `.agents` path is a regular file or link at that name, not
+            # the machinery directory — retirement leaves it in place, so it is
+            # surviving project-owned content and belongs in the report.
+            if len(parts) == 1:
+                stale.add(rel)
+                continue
+            if len(parts) > 2 and parts[1] == "skills" and parts[2] in carried:
+                stale.add("factory/skills/" + "/".join(parts[2:]))
+            continue
+        if rel not in owned and not rel.startswith(preserved) \
+                and _is_harness_owned(rel, harness):
+            continue
+        stale.add(rel)
+    return sorted(stale)
 
 
 def cmd_upgrade(args: argparse.Namespace) -> None:
@@ -76,6 +314,7 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
             f"{target} has uncommitted changes. Commit or stash first so the upgrade "
             "is a reviewable diff (--force to override)."
         )
+    _check_legacy_retirable(target, harness)
 
     preserved: dict[str, Path] = {}
     keep_root = Path(tempfile.mkdtemp(prefix="forge-upgrade-keep-"))
@@ -84,7 +323,9 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     # a dozen). Preserve every child the harness does not ship, plus the
     # evolution dirs (proposed/rejected — client's version always wins).
     client_skill_dirs: list[str] = []
+    carried_from_legacy: set[str] = set()
     target_skills = target / "factory" / "skills"
+    legacy_skills = target / ".agents" / "skills"
     harness_skill_names = {p.name for p in (harness / "factory" / "skills").iterdir()} \
         if (harness / "factory" / "skills").is_dir() else set()
     if target_skills.is_dir():
@@ -94,14 +335,28 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
                 client_skill_dirs.append(rel)
     for rel in PRESERVE_IN_AGENTS + client_skill_dirs:
         src = target / rel
-        if src.exists():
+        # exists() is False for a DANGLING symlink, and a client skill can
+        # legitimately be one. Without the is_symlink() arm it is never
+        # preserved, so replacing factory/ deletes project-owned content.
+        if src.exists() or src.is_symlink():
             dest = keep_root / rel
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            if src.is_dir():
-                shutil.copytree(src, dest)
-            else:
-                shutil.copy2(src, dest)
+            _keep_path(src, dest)
             preserved[rel] = dest
+    # `is_dir()` follows symlinks: a symlinked skills root would have iterdir()
+    # walk an external directory and copy its contents into factory/skills.
+    if legacy_skills.is_dir() and not legacy_skills.is_symlink():
+        for child in legacy_skills.iterdir():
+            rel = f"factory/skills/{child.name}"
+            # The current location wins when a name exists in BOTH. Copying the
+            # legacy one on top would merge into whatever the first copy left
+            # at that destination — and if that was a symlink, through it.
+            if rel in preserved:
+                continue
+            if child.name not in harness_skill_names or rel in PRESERVE_IN_AGENTS:
+                dest = keep_root / rel
+                _keep_path(child, dest)
+                preserved[rel] = dest
+                carried_from_legacy.add(child.name)
 
     for tree in UPGRADE_TREES:
         src = harness / tree
@@ -148,16 +403,20 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
 
     for rel, kept in preserved.items():
         dst = target / rel
-        if dst.is_dir():
+        if dst.is_dir() and not dst.is_symlink():
             shutil.rmtree(dst)
-        elif dst.exists():
+        elif dst.exists() or dst.is_symlink():
             dst.unlink()
         dst.parent.mkdir(parents=True, exist_ok=True)
-        if kept.is_dir():
-            shutil.copytree(kept, dst)
+        # Same symlink rule as _keep_path: a link kept as a link must come back
+        # as a link, or the round trip quietly materializes its referent.
+        if kept.is_dir() and not kept.is_symlink():
+            shutil.copytree(kept, dst, symlinks=True)
         else:
-            shutil.copy2(kept, dst)
+            shutil.copy2(kept, dst, follow_symlinks=False)
     shutil.rmtree(keep_root, ignore_errors=True)
+
+    retired_legacy = _retire_legacy_agents(target)
 
     # Newer harness additions that older scaffolds predate: create-if-missing /
     # append-if-missing (never overwrite — projects may extend these files).
@@ -233,5 +492,21 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     if ensured:
         print("Added (missing on this older scaffold): " + ", ".join(ensured))
     print("Untouched (project-owned): " + ", ".join(PROJECT_OWNED) + drift)
+    if retired_legacy:
+        print("Retired legacy machinery: .agents/")
+    stale_references = _stale_agents_references(
+        target, harness, sorted(preserved), carried_from_legacy)
+    # The scan reads the index, which equals the working tree only because the
+    # dirty-target gate held. --force bypasses that gate, so uncommitted edits
+    # and untracked files are outside what was searched — say so rather than
+    # printing a definitive answer the scan cannot support.
+    caveat = " (index only — --force skipped the clean-tree check, so uncommitted " \
+             "and untracked files were not searched)" if args.force else ""
+    if stale_references:
+        print(f"Project-owned files still referencing .agents/{caveat}:")
+        for rel in stale_references:
+            print(f"  {rel}")
+    else:
+        print(f"Project-owned files still referencing .agents/: none{caveat}")
     print("Next: review with `git diff`, run `python3 factory/scripts/check_dual_runtime.py` "
           "and the gate tests, then commit.")
