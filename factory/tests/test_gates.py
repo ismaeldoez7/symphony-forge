@@ -2637,7 +2637,13 @@ def test_scaffold_pins_gstack_into_the_repo(repo):
     # depends on a per-clone hook having run wherever the merge happens.
     assert attrs.exists() and "merge=union" in attrs.read_text()
     assert not jsonl_append_rules(attrs.read_text())
-    assert ".gstack/sessions/" in (repo / ".gitignore").read_text()
+    # Marker-keyed gstack block: machine noise ignored, projects/ committable.
+    assert subprocess.run(
+        ["git", "-C", str(repo), "check-ignore", "-q", "--",
+         ".gstack/sessions/probe"]).returncode == 0
+    assert subprocess.run(
+        ["git", "-C", str(repo), "check-ignore", "-q", "--",
+         ".gstack/projects/probe"]).returncode != 0
 
 
 def test_gstack_migrate_unions_personal_store(repo, tmp_path):
@@ -2677,8 +2683,9 @@ def test_upgrade_delivers_gstack_setup_to_older_scaffolds(repo):
     (repo / ".envrc").unlink()
     (repo / ".gitattributes").unlink()
     gitignore = repo / ".gitignore"
+    # An older scaffold predates the gstack block entirely — marker included.
     gitignore.write_text(
-        "\n".join(l for l in gitignore.read_text().splitlines() if ".gstack" not in l) + "\n"
+        "\n".join(l for l in gitignore.read_text().splitlines() if "gstack" not in l) + "\n"
     )
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "old-style scaffold")
@@ -2691,7 +2698,13 @@ def test_upgrade_delivers_gstack_setup_to_older_scaffolds(repo):
     assert 'GSTACK_HOME="$PWD/.gstack"' in (repo / ".envrc").read_text()
     assert "merge=union" in (repo / ".gitattributes").read_text()
     assert not jsonl_append_rules((repo / ".gitattributes").read_text())
-    assert ".gstack/sessions/" in gitignore.read_text()
+    # The marker-keyed block: machine noise ignored, projects/ committable.
+    assert subprocess.run(
+        ["git", "-C", str(repo), "check-ignore", "-q", "--",
+         ".gstack/sessions/probe"]).returncode == 0
+    assert subprocess.run(
+        ["git", "-C", str(repo), "check-ignore", "-q", "--",
+         ".gstack/projects/probe"]).returncode != 0
 
 
 def test_next_routes_design_skills_by_feature_type(repo, tmp_path):
