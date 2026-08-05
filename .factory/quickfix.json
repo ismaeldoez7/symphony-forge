@@ -1,7 +1,0 @@
-{
-  "id": "Q-0012-8670",
-  "reason": "Six process failures in one session, none of which caught a defect: a per-clone merge driver that hangs on three lines, verify.py silently substituting a Node toolchain, and stage start re-baselining onto the work it is meant to measure. Every repo on this template inherits them.",
-  "started_at": "2026-08-05T02:44:50+00:00",
-  "max_files": 5,
-  "files": []
-}
