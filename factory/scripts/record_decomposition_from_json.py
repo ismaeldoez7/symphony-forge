@@ -77,10 +77,16 @@ if roadmap_story is None:
     raise SystemExit(
         f"decomposition provenance: story {story!r} is not in plans/roadmap.json"
     )
-epic = roadmap_story.get("epic", "")
+# A legacy roadmap says "no epic" as a missing key or an explicit null; the
+# decomposition says it as "". Refusing null would block recording for every
+# pre-hierarchy story, which is the case this provenance has to survive — and
+# PH-2's own backfilled roadmap writes null for stories it has not adopted yet.
+epic = roadmap_story.get("epic") or ""
 if not isinstance(epic, str):
     raise SystemExit(
-        f"decomposition provenance: roadmap story {story!r} has a non-string epic"
+        f"decomposition provenance: roadmap story {story!r} has a non-string epic "
+        f"({type(roadmap_story.get('epic')).__name__}); it must be a string, "
+        "absent, or null"
     )
 payload.update({
     "project": project,

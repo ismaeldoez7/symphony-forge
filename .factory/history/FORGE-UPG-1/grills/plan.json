@@ -1,36 +1,3 @@
-<<<<<<< HEAD
-{
-  "generated_by": "griller",
-  "gate": "plan",
-  "issue": "PH-3",
-  "verdict": "pass",
-  "questions_asked": 5,
-  "summary": "Interrogated the PH-3 plan against plans.py, record_decomposition_from_json.py and factory/schemas/decomposition.json. The plan misdescribed the decomposition problem in a way that made it sound smaller than it is, and it asserted an independence from PH-1 that the code does not support. Both were fixed before this grill was recorded.",
-  "gaps": [
-    "The plan said the decomposition 'trusts the agent for project, story, epic and plan_file'. The schema has none of story, plan_file or a plan digest \u2014 the story is read from run.json's issue_key only when the event is appended. So the defect is not a mis-trusted field, it is that the decomposition is not bound to its plan at all, while every other handover gate in this harness is digest-bound. Understating it would have produced a task that stamped fields without adding the binding.",
-    "The plan described the plan-save check as needing generalization. It is a substring test \u2014 `'## Surface Impact' not in body` \u2014 so it is satisfied by the literal string appearing inside a fenced example. Worth stating because it explains why parse_sections is the fix rather than a longer list of substrings.",
-    "The compatibility line for digest-binding was unstated. Every decomposition recorded before this story lacks a digest, so the refusal has to apply to newly recorded artifacts while historical ones under .factory/history/ keep parsing \u2014 the same line build_waves already sits on."
-  ],
-  "contradictions": [
-    "The plan claimed PH-3 is independent of PH-1 and simultaneously that PH-3.1 reuses factory_lib.parse_sections. That function is added by PH-1 and does not exist on this story's base. Independence holds for file sets, and for PH-3.2 and PH-3.3, but PH-3.1 is blocked on PH-1 reaching main."
-  ],
-  "resolutions": [
-    "Problem section rewritten: the decomposition carries no plan_file, no digest and no story, so a decomposition recorded from one plan while another is active is indistinguishable from the right one. Acceptance criterion 2 now requires the schema to carry those fields and a mismatched digest to be refused.",
-    "Technical Approach now states that the current check is a substring test a fenced example satisfies, and that parse_sections is the fix.",
-    "The PH-1 dependency is stated as a risk in its own right and in the task ordering: PH-3.1 waits on PH-1 reaching main. The alternative \u2014 a second section matcher here \u2014 is the duplicate parser PH-1 spent four review cycles removing, so this story waits rather than forks.",
-    "Added the digest-binding compatibility risk and two tests: a pre-binding historical artifact still parses, and a decomposition whose digest does not match the active plan is refused."
-  ],
-  "open_items": [
-    "non-blocking: PH-3's Decisions section says 'no new decisions' and consumes PH-2's derived-ordering record. That record is written but unaccepted, and it lives on PH-2's branch. If PH-2 has not merged when PH-3 records its decomposition, the ordering claim is restated in PH-3's Technical Approach rather than cited \u2014 already stated in the plan.",
-    "non-blocking: this worktree's base predates main's acceptance of 0017 and 0018, so decisions_reviewed lists fifteen rather than seventeen. Same merge-ordering question as PH-2, not a plan defect.",
-    "non-blocking: reusing doctor.unrunnable_reason promotes an advisory helper to a refusal path. Covered by tests at both call sites, but its future changes now affect a gate, which is worth remembering when someone next edits it."
-  ],
-  "input_sha256": "efd345dd23c74017f19a030574d516df5c25c56ff13c8c787b29f7136c129a7e",
-  "recorded_at": "2026-08-04T17:54:15+00:00",
-  "commit": "342a179e4ee28c56ee8bf7506481d4a8f0830013"
-}
-||||||| 9716924
-=======
 {
   "generated_by": "griller",
   "gate": "plan",
@@ -56,4 +23,3 @@
   "recorded_at": "2026-08-04T10:10:16+00:00",
   "commit": "006a23b4d66a70acc94d0f945ec3381a1c0f468e"
 }
->>>>>>> origin/main

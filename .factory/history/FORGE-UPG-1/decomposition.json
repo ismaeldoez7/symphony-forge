@@ -1,162 +1,130 @@
 {
-  "generated_by": "docs-decomposer",
-  "project": "",
+  "generated_by": "claude-code:plan-mode",
+  "project": "symphony-forge",
   "user_facing": false,
   "doc_roots": [
-    "docs/specs/project-hierarchy.md"
+    "plans/active/FORGE-UPG-1-legacy-repo-upgrade-one-command-no-residue.md",
+    "docs/specs/legacy-upgrade.md"
+  ],
+  "epics": [
+    {
+      "id": "legacy-upgrade",
+      "title": "Legacy repo upgrade",
+      "objective": "Carry a repo vendored before the factory/ rename onto the current harness in one command, leaving no stale copy of the gate surface and no story that can no longer be closed",
+      "source_refs": [
+        "docs/specs/legacy-upgrade.md",
+        "docs/decisions/0016-machinery-dir-rename.md",
+        "docs/decisions/0009-frozen-gate-integrity.md"
+      ]
+    }
+  ],
+  "build_waves": [
+    [
+      "FORGE-UPG-1.1"
+    ],
+    [
+      "FORGE-UPG-1.2"
+    ]
   ],
   "tasks": [
     {
-      "id": "PH-3.1",
-      "title": "Nine sections, not one",
-      "objective": "Replace plan save's substring test for '## Surface Impact' with a parse_sections check over all nine planner sections, naming every missing one.",
+      "id": "FORGE-UPG-1.1",
+      "epic": "legacy-upgrade",
+      "title": "forge upgrade retires the legacy .agents/ tree and reports what survives",
+      "objective": "Detect a pre-rename target, carry its skill-evolution state and client-added skills out of .agents/skills/ into factory/skills/, retire the old tree only when every file left in it has a counterpart in the newly vendored factory/, and report the project-owned files that still name .agents/ without editing any of them.",
       "dependencies": [],
       "write_scope": [
-        "factory/scripts/forge_cli/plans.py",
+        "factory/scripts/forge_cli/upgrade.py",
         "factory/tests/test_gates.py"
       ],
       "acceptance_criteria": [
-        "plan save refuses a plan missing any of Problem, Scope / Non-goals, Acceptance Criteria, Technical Approach, Decisions, Surface Impact, Task Decomposition, Risks, Verify Plan.",
-        "A section present with a whitespace-only body counts as missing, decided by parse_sections rather than a length threshold.",
-        "The refusal names every missing section in one message, not the first one found.",
-        "The check calls factory_lib.parse_sections; no second section matcher is added to plans.py.",
-        "The rule binds at SAVE time and only to plan documents. plans/README.md, plans/assumptions.md and plans/deferrals.md are a readme and two ledgers, not plans, and are never checked.",
-        "Archived plans under plans/completed/ are NOT rewritten to satisfy a rule invented after they shipped \u2014 FORGE-INIT-1 is missing eight sections and harness-v2-wedge five, and rewriting them would falsify the record. A test asserts an archived plan is left alone."
-      ],
-      "verify_commands": [
-        "uv run --with pytest python -m pytest factory/tests/test_gates.py -q -k \"plan_save or plan_sections\""
+        "upgrading a repo carrying .agents/ leaves no .agents/ tree and a complete factory/ tree",
+        "skill-evolution dirs (proposed, rejected) and client-added skills under .agents/skills/ survive at factory/skills/",
+        "a path under .agents/ with no counterpart in the vendored factory/ tree aborts the upgrade, is named, and nothing under it is deleted",
+        "the output names every project-owned file still referencing .agents/, excluding archived evidence under .factory/history/",
+        "no project-owned file is modified by the migration",
+        "upgrading a repo already on factory/ behaves exactly as before"
       ],
       "required_tests": [
         {
-          "id": "test_plan_save_refuses_a_plan_missing_any_required_section",
+          "id": "test_upgrade_retires_the_legacy_agents_tree",
           "path": "factory/tests/test_gates.py",
           "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
         },
         {
-          "id": "test_plan_save_names_every_missing_section",
+          "id": "test_upgrade_carries_legacy_skills_into_factory",
           "path": "factory/tests/test_gates.py",
           "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
         },
         {
-          "id": "test_archived_plans_are_not_held_to_a_later_contract",
+          "id": "test_upgrade_refuses_an_unrecognized_path_under_agents",
           "path": "factory/tests/test_gates.py",
           "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
         },
         {
-          "id": "test_plan_ledgers_are_not_plans",
+          "id": "test_upgrade_reports_stale_agents_references",
           "path": "factory/tests/test_gates.py",
           "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
         }
       ],
-      "reviewer_focus": "That the rule binds where plans are WRITTEN, not everywhere plan-shaped files live. The first version of this task would have rewritten shipped, archived plans to satisfy a contract invented after they were saved."
+      "verify_commands": [
+        "uvx --with pytest python3 -m pytest factory/tests/test_gates.py -q -k \"upgrade or adopt\"",
+        "python3 factory/scripts/check_dual_runtime.py"
+      ],
+      "reviewer_focus": "the retire step must run AFTER preserved skills are restored, or their .agents/ originals look unrecognized and abort a clean upgrade. The report must read tracked files only (the real target carries node_modules/) and must write nothing.",
+      "user_facing": false
     },
     {
-      "id": "PH-3.2",
-      "title": "Bind the decomposition to its plan, and make task fields mean something",
-      "objective": "Stamp project, story, epic, plan_file and the plan digest into the decomposition from run.json and the roadmap, refuse a digest that does not match the active plan, and validate verify_commands and dependencies.",
+      "id": "FORGE-UPG-1.2",
+      "epic": "legacy-upgrade",
+      "title": "stage migrate records an explicit base commit",
+      "objective": "forge stage migrate takes --base <sha>, validates that it resolves and is an ancestor of HEAD, and stamps it as base_sha on every legacy stage it adopts, so a story that was open when its repo was upgraded can still be measured and closed.",
       "dependencies": [
-        "PH-3.1"
+        "FORGE-UPG-1.1"
       ],
       "write_scope": [
-        "factory/scripts/record_decomposition_from_json.py",
-        "factory/schemas/decomposition.json",
+        "factory/scripts/forge.py",
         "factory/scripts/forge_cli/stages.py",
+        "factory/scripts/forge_cli/delegate.py",
         "factory/tests/test_gates.py"
       ],
       "acceptance_criteria": [
-        "The recorder writes project, story, epic, plan_file and plan_sha256 from .factory/run.json and plans/roadmap.json; agent-supplied values for those keys are dropped, not merged.",
-        "plan_sha256 is the digest of the plan the RECORDER read, so it is true at record time without asking a producer to hash a file. A supplied digest that disagrees with the active plan is still refused.",
-        "stage start refuses when the active plan's digest no longer matches the one stamped on the decomposition: the realistic staleness is the plan being edited AFTER the task graph was recorded, which no record-time check can see.",
-        "Artifacts recorded before this change stay readable: the new fields are optional in the schema and .factory/history/ artifacts still parse, including ones with no plan_sha256 at all.",
-        "Every task's verify_commands entry is checked with doctor.unrunnable_reason; prose is refused and a real command passes.",
-        "required_tests may be [] and the task is still accepted, provided verify_commands is runnable.",
-        "dependencies defaults only when ABSENT \u2014 false, 0, '' and {} are refused rather than silently read as an empty list \u2014 and may only name an earlier task.",
-        "The recorder refuses when the roadmap has no story matching run.json rather than inventing an epic."
-      ],
-      "verify_commands": [
-        "uv run --with pytest python -m pytest factory/tests/test_gates.py -q -k \"decomposition or provenance or unrunnable\""
+        "stage migrate without --base refuses and names the flag",
+        "process identity is whitespace-normalized at every source, so observed processes are still recognized as live on single-digit days of the month",
+        "a discovery failure degrades discovery only; already-known processes still run the full SIGTERM to SIGKILL escalation",
+        "a base that does not resolve to a commit is refused",
+        "a base that is not an ancestor of HEAD is refused",
+        "the resolved sha lands as base_sha on every adopted active or done stage, alongside the task_sha256 the command already stamps"
       ],
       "required_tests": [
         {
-          "id": "test_decomposition_provenance_overrides_agent_supplied_fields",
+          "id": "test_stage_migrate_requires_a_base",
           "path": "factory/tests/test_gates.py",
           "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
         },
         {
-          "id": "test_decomposition_refuses_prose_verify_commands",
+          "id": "test_stage_migrate_refuses_a_base_that_is_not_an_ancestor",
           "path": "factory/tests/test_gates.py",
           "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
         },
         {
-          "id": "test_decomposition_accepts_empty_required_tests",
+          "id": "test_stage_migrate_records_the_base_on_adopted_stages",
           "path": "factory/tests/test_gates.py",
           "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
         },
         {
-          "id": "test_historical_decomposition_artifacts_still_parse",
-          "path": "factory/tests/test_gates.py",
-          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
-        },
-        {
-          "id": "test_stage_start_refuses_a_decomposition_whose_plan_moved",
-          "path": "factory/tests/test_gates.py",
-          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
-        },
-        {
-          "id": "test_decomposition_refuses_a_falsy_non_list_dependencies",
+          "id": "test_process_identity_matches_the_process_table_on_single_digit_days",
           "path": "factory/tests/test_gates.py",
           "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
         }
       ],
-      "reviewer_focus": "That promoting doctor.unrunnable_reason from advisory output to a refusal path does not change what it accepts for doctor's existing caller."
-    },
-    {
-      "id": "PH-3.3",
-      "title": "Retire authored waves",
-      "objective": "Stop anything authoring build_waves and delete its only reader in the same change, keeping the schema field optional so shipped artifacts still parse.",
-      "dependencies": [
-        "PH-3.2"
-      ],
-      "write_scope": [
-        "factory/prompts/decomposer.md",
-        "factory/prompts/griller.md",
-        "factory/scripts/render_linear_task_graph.py",
-        "factory/scripts/check_factory_scaffold.py",
-        "docs/FACTORY.md",
-        "factory/tests/test_gates.py"
-      ],
-      "acceptance_criteria": [
-        "build_waves is gone from factory/prompts/decomposer.md's output contract and from griller.md's checklist.",
-        "factory/scripts/render_linear_task_graph.py is deleted in this same task, so the field never exists as a writer without a reader or the reverse.",
-        "build_waves stays optional in factory/schemas/decomposition.json and the .factory/history/ artifacts carrying it still parse.",
-        "Nothing else references render_linear_task_graph: a repo-wide search returns no callers, and check_dual_runtime stays green.",
-        "The change cites decision 0021 derived-ordering, or restates the ordering claim if that record has not landed.",
-        "docs/FACTORY.md stops advertising render_linear_task_graph.py. Deleting a script while a doc still tells people to run it is the same orphan the writer/reader rule forbids, pointing the other way.",
-        "check_factory_scaffold.py stops requiring render_linear_task_graph.py. It lists the file as required scaffold, so deleting the script makes the scaffold check fail \u2014 the deletion is not atomic until every reference goes with it."
-      ],
       "verify_commands": [
-        "uv run --with pytest python -m pytest factory/tests/test_gates.py -q -k \"waves or decomposer or history\"",
-        "python3 factory/scripts/check_dual_runtime.py",
-        "python3 factory/scripts/check_agents_hygiene.py"
+        "uvx --with pytest python3 -m pytest factory/tests/test_gates.py -q -k \"migrate or stage_done or reaps or termination_signal or process_identity\"",
+        "python3 factory/scripts/check_dual_runtime.py"
       ],
-      "required_tests": [
-        {
-          "id": "test_no_prompt_authors_build_waves",
-          "path": "factory/tests/test_gates.py",
-          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
-        },
-        {
-          "id": "test_historical_decomposition_artifacts_still_parse",
-          "path": "factory/tests/test_gates.py",
-          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
-        }
-      ],
-      "reviewer_focus": "That the writer and the reader die together. Split across tasks, one of them is an orphan by construction."
+      "reviewer_focus": "--base is required with no default; conduct 5 forbids a compatibility shim for a once-per-repo command whose only consumer is its own test. dirty_at_start stays unset on purpose - _measure defaults it to {} and a commit base makes that the honest baseline. The delegate.py identity normalization is the inherited defect that blocked this stage's own verify: check both identity sources collapse whitespace the same way.",
+      "user_facing": false
     }
   ],
-  "story": "PH-3",
-  "epic": "",
-  "plan_file": "plans/active/PH-3-plan-and-task-contract.md",
-  "plan_sha256": "1e917e878d115aef830ef00a52012a66027437680cc4cf3b4ce6b4ca2651ae09",
-  "commit": "ce33af5d76bdeac80e8f4ba2f7bc24c45e155249"
+  "commit": "eec2c52e85596617676c906e8456ccd31eaab2d6"
 }

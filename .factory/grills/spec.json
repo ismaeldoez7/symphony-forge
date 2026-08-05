@@ -2,80 +2,23 @@
   "generated_by": "griller",
   "gate": "spec",
   "verdict": "pass",
-<<<<<<< HEAD
-  "questions_asked": 8,
-  "summary": "Interrogated the project-hierarchy spec against the code it claims to change. One claim was false and was corrected in the draft before this grill was recorded. Three gaps are real and are answered inside the spec's own boundaries; two are sequencing constraints that belong to the plans, not the spec, and are parked.",
-||||||| 9716924
-  "questions_asked": 5,
-  "summary": "Five decisions put to the human one at a time, each with a recommendation; all five confirmed. Two read-only audits supplied the facts (file:line) rather than asking for them.",
-=======
   "questions_asked": 1,
   "summary": "Retroactive confirmation of docs/specs/repo-system-of-record.md, whose capture and display work shipped before the spec was confirmed. The spec's own decision table was user-locked when written, so re-asking those would only restate the document. The grill instead hunted drift between the spec and the shipped system, and the scope of what a retroactive confirmation attests.",
->>>>>>> origin/main
   "gaps": [
-<<<<<<< HEAD
-    "The spec claimed the brief 'keeps every heading it already uses' and that the template therefore takes 'an insertion rather than a rewrite'. That is false: docs/product/BRIEF.md uses Summary/Users/Key Flows/Out of Scope while harness/nestjs-react/BRIEF_TEMPLATE.md scaffolds What/Who/Flows/Out of Scope (v1). The two already disagree, so something must be renamed.",
-    "The spec requires every story to name a known epic, but plans/roadmap.json on this line has no epics and there is no command that creates one outside the roadmap import ceremony, which needs an accepted epics-approved decision and a digest-bound grill. Enforcing the rule before the command exists would lock this repo out of its own roadmap.",
-    "The spec requires every story to reference a confirmed spec, which would delete the roadmap add --no-spec escape hatch that decision 0014 deliberately provides.",
-    "The spec says the board reads the hierarchy back, but the board renders no label for the epic or task level at all: EPIC appears zero times in factory/board/index.html and only the drawer says STORY. Projecting more data would not make the levels legible.",
-    "The spec's example expectations assume the Riverside example, which lives on feature/realistic-example-project and is not on this line."
-||||||| 9716924
-    "'Done' was undefined: forge stage done checked only that the stage was started, so a partially finished delegation closed clean.",
-    "The delegation step had no command, so what should have happened was a recollection rather than a record.",
-    "Nothing composed context for the executing runtime: factory/prompts/implementer.md is referenced by five docs and read by zero scripts.",
-    "A running or stalled Codex job was invisible until someone asked.",
-    "write_scope, verify_commands and required_tests were declared per task and consumed only by the renderer."
-  ],
-  "contradictions": [
-    "Three layers disagree on the Codex write default: the companion defaults read-only (codex-companion.mjs:782), this repo says read-only unless --write (pre_tool_use.py:275, harness.yaml:54), and the plugin's own subagent says to default to --write (agents/codex-rescue.md:34).",
-    "harness.yaml requires emil-design-eng and frontend-design for user-facing work, but ~/.codex/skills/ has only frontend-design \u2014 so every skills_used attestation naming the others on a Codex-built artifact is false."
-=======
     "Confirming a spec after its work shipped attests that it describes the system as built, but three of its verification items cannot be checked from a terminal: the light/dark/760px screenshot pass, the read-only filesystem-digest invariant, and the manual half of the parallel-merge check. Confirming without saying so would imply an attestation nobody made."
->>>>>>> origin/main
   ],
   "contradictions": [],
   "resolutions": [
-<<<<<<< HEAD
-    "The brief paragraph was rewritten to state the divergence and name the live brief's set as canonical, with the template realigned onto it; nothing any project has already written is renamed.",
-    "The spec introduces forge roadmap epic add as the post-sign-off route that makes the epic requirement satisfiable, and scopes the at-least-one-epic requirement to derive and import.",
-    "The spec's Behaviour section states the carve-out explicitly: a story links a confirmed spec OR carries the ad-hoc debt marker, and plan save remains the gate where that debt comes due.",
-    "Explicit EPIC and STORY labels and a Project > Epic > Story breadcrumb are named in the Behaviour section, so the labelling is part of the capability rather than a rendering detail."
-||||||| 9716924
-    "stage done becomes a measurement: it refuses on an empty diff, an out-of-scope path, a missing required test, or a failing verify command.",
-    "forge delegate composes the brief and the invocation; the write flag is derived from stage state instead of typed per request, which removes the three-layer disagreement at the only place that matters.",
-    "The brief is hook-gated: a --write companion call with no fresh recorded brief is denied, and the refusal names the command that fixes it.",
-    "forge codex status reads the plugin job registry and reports the write flag and age per job; it stays advisory so a third-party path can never block a ship.",
-    "verify_commands must be runnable \u2014 prose is refused at record time for new decompositions, and forge doctor reports prose still carried by an active decomposition.",
-    "forge doctor checks required and advised skills against every runtime expected to attest them, with --fix to install what is missing."
-=======
     "Verified the substantive capture behaviour against the running system rather than taking it on faith: `forge outcome set` writing .factory/outcome.json and pr_ready checking it; the append-only .factory/events.jsonl; decision<->story links in frontmatter (0018 carries stories: [FORGE-DELEG-1]); `roadmap add --no-spec --reason` capturing spec debt; and the board's per-task disclosures. The spec matches what the system does.",
     "Put the scope question to the maintainer, who chose to confirm as-is with the capture layer as what is attested, and to record the three unverifiable items as open items rather than silently folding them in."
->>>>>>> origin/main
   ],
   "open_items": [
-<<<<<<< HEAD
-    "non-blocking: the presentation story depends on feature/realistic-example-project being merged first. That is a plan-level sequencing constraint, not a change to the capability.",
-    "non-blocking: client repos receive the stricter gates only at re-vendoring, so the rollout runs through forge upgrade rather than retroactively."
-||||||| 9716924
-    "Rendering delegation state on the board is deferred: it depends on the display-layer work still outstanding from PR #24. Non-blocking \u2014 the CLI surfaces it this round."
-=======
     "Not verified at confirmation: the light/dark/760px screenshot pass. Visual QA from the original round; no automated check exists.",
     "Not verified at confirmation: the read-only invariant's before/after filesystem digest. The board server is GET-only by construction and the spec's automated tests cover the POST refusal.",
     "Not verified at confirmation: the manual half of the parallel-merge check. The automated union-merge test for .factory/events.jsonl is in the suite and green.",
     "Decision 0017-repo-as-system-of-record remains `proposed` while the capability it governs is live. Acceptance is human chat confirmation and is not part of this spec gate."
->>>>>>> origin/main
   ],
-<<<<<<< HEAD
-  "input_sha256": "45510fa0d3581bbd4f91bfdd7ded972752019482df625f9de70ed5fa778fd2b9",
-  "recorded_at": "2026-08-04T13:18:18+00:00",
-  "commit": "9716924654c255960d1c3d93e5ef9da8500e73c0"
-||||||| 9716924
-  "input_sha256": "f64364ae43fa7ee314654e7671915283e1a56809886ae669c3201635f8c8793b",
-  "recorded_at": "2026-07-27T12:07:10+00:00",
-  "commit": "74e2ceb84464fe69fd5671dffa299ce42b937ad1"
-=======
   "input_sha256": "15553f2b3185fc244f5af7cfd3c4e8380bd844519fb592d8bce2481ec10d7bf8",
   "recorded_at": "2026-08-04T15:16:13+00:00",
   "commit": "27da2928ae27b3d9e2cf79b96c885e72998ad21c"
->>>>>>> origin/main
 }
