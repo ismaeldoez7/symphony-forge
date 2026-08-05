@@ -50,6 +50,10 @@ PRESERVE_IN_AGENTS = ["factory/skills/proposed", "factory/skills/rejected"]
 # to an already-tracked file.
 EPHEMERAL_UNTRACK = [".factory/briefs/", ".factory/diagnostic-briefs/",
                      ".factory/delegations.jsonl"]
+# Must match the marker line in the harness .gitignore exactly — it is the
+# installed-once key for the ignore block below.
+EPHEMERAL_MARKER = ("# forge 0025: briefs and the delegation mirror are "
+                    "read from disk, never from git")
 # Vendoring never ships build or OS noise. .DS_Store is gitignored HERE, so it
 # is invisible in this repo while still sitting on disk — and copytree walks
 # the filesystem, not the index. It then lands in the client as untracked
@@ -475,25 +479,19 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     # Decision 0025: briefs and the delegation mirror stay on disk (a running
     # task keeps reading them) but leave the tracked tree. --cached only, so
     # nothing is deleted; the staged untracking rides the client's next commit.
-    # Each rule checked independently, and by git's own evaluation rather than
-    # substring matching — a comment mentioning the path, or a rule undone by a
-    # later `!` negation, must not count as an installed rule. Appending at the
-    # END of .gitignore means the added rule wins over any earlier negation.
-    def _effectively_ignored(rel: str) -> bool:
-        probe = rel + "probe" if rel.endswith("/") else rel
-        return subprocess.run(
-            ["git", "-C", str(target), "check-ignore", "-q", "--", probe],
-            capture_output=True,
-        ).returncode == 0
-
-    missing_rules = ([rel for rel in EPHEMERAL_UNTRACK
-                      if not _effectively_ignored(rel)]
-                     if gitignore.exists() else [])
-    if missing_rules:
+    # Keyed on the marker line, not on rule detection: probing (substring or
+    # `git check-ignore`) kept mis-answering — comments, later `!` negations,
+    # and machine-local ignore sources (global excludes, .git/info/exclude)
+    # all look like installed rules while committing nothing for teammates.
+    # The marker exists only where this block was installed (scaffold ships it
+    # in .gitignore; upgrade appends it once). Appended at the END: a
+    # directory rule there is total — git cannot re-include files inside an
+    # excluded directory. A client who edits rules under an existing marker
+    # has deliberately opted out, and upgrade respects that.
+    if gitignore.exists() and EPHEMERAL_MARKER not in gitignore.read_text():
         with gitignore.open("a") as fh:
-            fh.write("\n# Worker briefs and the delegation mirror are read from "
-                     "disk, never from git (0025)\n"
-                     + "".join(f"{rel}\n" for rel in missing_rules))
+            fh.write("\n" + EPHEMERAL_MARKER + "\n"
+                     + "".join(f"{rel}\n" for rel in EPHEMERAL_UNTRACK))
         ensured.append(".gitignore (0025 ephemeral paths appended)")
     untracked = subprocess.run(
         ["git", "-C", str(target), "rm", "-r", "--cached", "--ignore-unmatch",

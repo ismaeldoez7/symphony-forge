@@ -7612,21 +7612,32 @@ def test_upgrade_untracks_ephemeral_factory_paths(repo):
     git(repo, "commit", "-q", "-m", "carry the staged untracking")
     proc = upgrade_into(repo)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    # Partial ignore: a client trimmed one rule and NEGATED another, so the
-    # path strings still appear in the file. Substring matching would count
-    # the negation as installed; git's own evaluation must not. The appended
-    # rules land at the end, where they override the earlier negation.
+    # Legacy .gitignore WITHOUT the marker: hand-written partial rules and a
+    # negation must not suppress the append (no rule detection — the marker is
+    # the only key). The block lands at the end, where it beats the negation.
     gitignore = repo / ".gitignore"
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.upgrade import EPHEMERAL_MARKER
     gitignore.write_text("".join(
         line for line in gitignore.read_text().splitlines(keepends=True)
-        if line.strip() != ".factory/diagnostic-briefs/")
+        if line.strip() != EPHEMERAL_MARKER)
+        .replace(".factory/diagnostic-briefs/\n", "")
         + "!.factory/delegations.jsonl\n")
     git(repo, "add", "-A")
-    git(repo, "commit", "-q", "-m", "client trimmed one rule, negated another")
+    git(repo, "commit", "-q", "-m", "legacy hand-written rules, no marker")
     proc = upgrade_into(repo)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    for probe in (".factory/diagnostic-briefs/probe",
+    assert EPHEMERAL_MARKER in gitignore.read_text()
+    for probe in (".factory/briefs/probe", ".factory/diagnostic-briefs/probe",
                   ".factory/delegations.jsonl"):
         assert subprocess.run(
             ["git", "-C", str(repo), "check-ignore", "-q", "--", probe],
         ).returncode == 0, f"{probe} not effectively ignored after upgrade"
+    # Marker present + client-trimmed rules = deliberate opt-out, respected.
+    trimmed = gitignore.read_text().replace(".factory/diagnostic-briefs/\n", "")
+    gitignore.write_text(trimmed)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "client opts a path back in, under the marker")
+    proc = upgrade_into(repo)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert gitignore.read_text() == trimmed  # untouched — opt-out respected
