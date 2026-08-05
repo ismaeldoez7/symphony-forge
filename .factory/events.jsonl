@@ -158,3 +158,10 @@
 {"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-04T15:16:13+00:00", "detail": "repo-system-of-record"}
 {"event": "roadmap-link-spec", "generated_by": "orchestrator", "at": "2026-08-04T15:17:11+00:00", "story": "FORGE-LOCK-1", "detail": "docs/specs/repo-system-of-record.md"}
 {"event": "client-signoff", "generated_by": "orchestrator", "at": "2026-08-04T15:18:15+00:00", "detail": "docs/decisions/0010-client-signoff.md"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-05T08:43:07+00:00", "story": "FORGE-UPG-1"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-05T08:43:07+00:00", "story": "FORGE-UPG-1"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-05T08:43:07+00:00", "story": "FORGE-UPG-1"}
+{"event": "verify-failed", "generated_by": "orchestrator", "at": "2026-08-05T09:07:49+00:00", "story": "FORGE-UPG-1"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-05T09:30:58+00:00", "story": "FORGE-UPG-1"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-05T09:31:29+00:00", "story": "FORGE-UPG-1", "detail": "passed"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-05T09:31:29+00:00", "story": "FORGE-UPG-1", "detail": "A repo vendored before the factory/ rename can now be carried onto the current harness in one command. `forge upgrade` detects the legacy .agents/ layout, carries the project's skills across, deletes "}
