@@ -6,6 +6,7 @@ Replaces machinery the harness owns; never touches project-owned content.
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import tempfile
@@ -50,10 +51,14 @@ PRESERVE_IN_AGENTS = ["factory/skills/proposed", "factory/skills/rejected"]
 # to an already-tracked file.
 EPHEMERAL_UNTRACK = [".factory/briefs/", ".factory/diagnostic-briefs/",
                      ".factory/delegations.jsonl"]
-# Must match the marker line in the harness .gitignore exactly — it is the
-# installed-once key for the ignore block below.
+# Must match the marker lines in the harness .gitignore exactly — each is the
+# installed-once key for its ignore block below.
 EPHEMERAL_MARKER = ("# forge 0025: briefs and the delegation mirror are "
                     "read from disk, never from git")
+GSTACK_MARKER = ("# forge gstack: project-local store — projects/ is "
+                 "committed, machine noise is not")
+GSTACK_RULES = [".gstack/*", "!.gstack/projects/",
+                ".gstack/**/brain-cache/", ".gstack/**/timeline.jsonl"]
 # Vendoring never ships build or OS noise. .DS_Store is gitignored HERE, so it
 # is invisible in this repo while still sitting on disk — and copytree walks
 # the filesystem, not the index. It then lands in the client as untracked
@@ -315,6 +320,16 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         fail(f"{target} does not look like a scaffolded repo (.git + AGENTS.md required)")
     if target == harness:
         fail("run upgrade FROM the harness clone TARGETING a client repo, not itself")
+    # Refuse before writing: the sign-off carry below reads run.json AFTER the
+    # machinery replacement, and a parse crash there leaves a half-upgraded
+    # target. Unreadable state must stop the upgrade while it is untouched.
+    legacy_run = target / ".factory" / "run.json"
+    if legacy_run.is_file():
+        try:
+            if not isinstance(json.loads(legacy_run.read_text()), dict):
+                fail(f"{legacy_run} is not a JSON object; fix or delete it, then rerun")
+        except json.JSONDecodeError as exc:
+            fail(f"{legacy_run} is unreadable JSON ({exc}); fix or delete it, then rerun")
     dirty = subprocess.run(
         ["git", "status", "--porcelain"], cwd=target, capture_output=True, text=True
     ).stdout.strip()
@@ -469,13 +484,22 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     if ensure_onboarding(target, target.name):
         ensured.append("README.md ('Working in this repo' onboarding section appended)")
     gitignore = target / ".gitignore"
-    if gitignore.exists() and ".gstack/sessions/" not in gitignore.read_text():
+    # The old blanket `.gstack/` rule hid the COMMITTED projects/ store
+    # (WORKFLOW.md: design docs, decisions, learnings) — and git cannot
+    # re-include inside an excluded directory, so the corrected block below
+    # only takes effect once the blanket line is gone.
+    if gitignore.exists():
+        kept = [line for line in gitignore.read_text().splitlines(keepends=True)
+                if line.strip() != ".gstack/"]
+        if "".join(kept) != gitignore.read_text():
+            gitignore.write_text("".join(kept))
+            ensured.append(".gitignore (blanket .gstack/ rule removed — it hid "
+                           "the committed projects/ store)")
+    if gitignore.exists() and GSTACK_MARKER not in gitignore.read_text():
         with gitignore.open("a") as fh:
-            fh.write("\n# Project-local gstack store: projects/ committed, machine noise not\n"
-                     ".gstack/sessions/\n.gstack/analytics/\n.gstack/cdp-profile/\n"
-                     ".gstack/tmp/\n.gstack/.*\n.gstack/**/brain-cache/\n"
-                     ".gstack/**/timeline.jsonl\n.gstack/slug-cache/\n")
-        ensured.append(".gitignore (gstack entries appended)")
+            fh.write("\n" + GSTACK_MARKER + "\n"
+                     + "".join(f"{rule}\n" for rule in GSTACK_RULES))
+        ensured.append(".gitignore (gstack block appended)")
     # Decision 0025: briefs and the delegation mirror stay on disk (a running
     # task keeps reading them) but leave the tracked tree. --cached only, so
     # nothing is deleted; the staged untracking rides the client's next commit.
@@ -484,24 +508,32 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     # and machine-local ignore sources (global excludes, .git/info/exclude)
     # all look like installed rules while committing nothing for teammates.
     # The marker exists only where this block was installed (scaffold ships it
-    # in .gitignore; upgrade appends it once). Appended at the END: a
-    # directory rule there is total — git cannot re-include files inside an
-    # excluded directory. A client who edits rules under an existing marker
-    # has deliberately opted out, and upgrade respects that.
-    if gitignore.exists() and EPHEMERAL_MARKER not in gitignore.read_text():
+    # in .gitignore; upgrade appends it once, creating the file if absent).
+    # Appended at the END: a directory rule there is total — git cannot
+    # re-include files inside an excluded directory. A client who edits rules
+    # under an existing marker has deliberately opted out, and upgrade
+    # respects that — including in the untracking below, which touches ONLY
+    # paths the committed rules actually ignore. Untracking an opted-back-in
+    # path would delete teammates' copies of it on their next pull.
+    ignore_text = gitignore.read_text() if gitignore.exists() else ""
+    if EPHEMERAL_MARKER not in ignore_text:
         with gitignore.open("a") as fh:
-            fh.write("\n" + EPHEMERAL_MARKER + "\n"
+            fh.write(("\n" if ignore_text else "")
+                     + EPHEMERAL_MARKER + "\n"
                      + "".join(f"{rel}\n" for rel in EPHEMERAL_UNTRACK))
         ensured.append(".gitignore (0025 ephemeral paths appended)")
+        ignore_text = gitignore.read_text()
+    installed = {line.strip() for line in ignore_text.splitlines()}
+    to_untrack = [rel for rel in EPHEMERAL_UNTRACK if rel in installed]
     untracked = subprocess.run(
         ["git", "-C", str(target), "rm", "-r", "--cached", "--ignore-unmatch",
-         "--"] + EPHEMERAL_UNTRACK,
+         "--"] + to_untrack,
         capture_output=True, text=True,
-    )
-    if untracked.returncode != 0:
+    ) if to_untrack else None
+    if untracked and untracked.returncode != 0:
         raise SystemExit("could not untrack ephemeral .factory paths:\n"
                          + untracked.stderr)
-    if untracked.stdout.strip():
+    if untracked and untracked.stdout.strip():
         count = len(untracked.stdout.strip().splitlines())
         ensured.append(f"{count} ephemeral .factory file(s) untracked "
                        "(0025 — still on disk HERE, commit the staged removal; "

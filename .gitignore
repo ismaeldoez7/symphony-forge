@@ -50,18 +50,11 @@ pino-*.log
 .factory/scratchpad.md
 .worktrees/
 
-# Project-local gstack store (.envrc pins GSTACK_HOME here): projects/ is
-# committed — design docs, decisions, learnings. Machine noise, derived
-# caches, and per-session churn logs are not.
-.gstack/sessions/
-.gstack/analytics/
-.gstack/cdp-profile/
-.gstack/tmp/
-.gstack/.*
+# forge gstack: project-local store — projects/ is committed, machine noise is not
+.gstack/*
+!.gstack/projects/
 .gstack/**/brain-cache/
 .gstack/**/timeline.jsonl
-.gstack/slug-cache/
 
 # transitional: machinery moved to factory/; on-disk copy only serves already-running sessions' hooks
 .agents/
-.gstack/

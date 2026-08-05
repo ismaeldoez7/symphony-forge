@@ -7633,11 +7633,66 @@ def test_upgrade_untracks_ephemeral_factory_paths(repo):
         assert subprocess.run(
             ["git", "-C", str(repo), "check-ignore", "-q", "--", probe],
         ).returncode == 0, f"{probe} not effectively ignored after upgrade"
-    # Marker present + client-trimmed rules = deliberate opt-out, respected.
+    # Marker present + client-trimmed rules = deliberate opt-out, respected:
+    # the rule stays gone AND the opted-back-in path stays tracked (untracking
+    # it anyway would delete teammates' copies on their next pull).
     trimmed = gitignore.read_text().replace(".factory/diagnostic-briefs/\n", "")
     gitignore.write_text(trimmed)
-    git(repo, "add", "-A")
+    (diag / "T-2.md").write_text("opted back in\n")
+    git(repo, "add", "-A")  # plain add tracks it — the rule is gone
     git(repo, "commit", "-q", "-m", "client opts a path back in, under the marker")
     proc = upgrade_into(repo)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert gitignore.read_text() == trimmed  # untouched — opt-out respected
+    tracked = subprocess.run(
+        ["git", "-C", str(repo), "ls-files", ".factory"],
+        capture_output=True, text=True).stdout
+    assert ".factory/diagnostic-briefs/T-2.md" in tracked
+
+
+def test_upgrade_repairs_blanket_gstack_ignore(repo):
+    """The legacy blanket `.gstack/` rule hid the committed projects/ store
+    (WORKFLOW.md), and a directory exclude cannot be re-included — upgrade must
+    remove the blanket line, then the corrected block takes effect."""
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.upgrade import GSTACK_MARKER
+    gitignore = repo / ".gitignore"
+    gitignore.write_text("".join(
+        line for line in gitignore.read_text().splitlines(keepends=True)
+        if line.strip() != GSTACK_MARKER) + ".gstack/\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "legacy blanket gstack ignore")
+    proc = upgrade_into(repo)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    lines = {line.strip() for line in gitignore.read_text().splitlines()}
+    assert ".gstack/" not in lines  # blanket rule gone
+    assert GSTACK_MARKER in lines
+    assert subprocess.run(  # projects/ is committable again
+        ["git", "-C", str(repo), "check-ignore", "-q", "--",
+         ".gstack/projects/probe"]).returncode != 0
+    assert subprocess.run(  # session noise still ignored
+        ["git", "-C", str(repo), "check-ignore", "-q", "--",
+         ".gstack/sessions/probe"]).returncode == 0
+
+
+def test_upgrade_refuses_unreadable_run_json_before_writing(repo):
+    """A malformed run.json used to crash the sign-off carry AFTER machinery
+    replacement, leaving a half-upgraded target. Refuse before writing."""
+    (repo / ".factory").mkdir(exist_ok=True)
+    (repo / ".factory" / "run.json").write_text("[not json")
+    sentinel = repo / "factory" / "scripts" / "verify.py"
+    sentinel.unlink()  # any write phase would restore this
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "legacy repo with corrupt run state")
+    proc = upgrade_into(repo)
+    assert proc.returncode != 0
+    assert "run.json" in proc.stdout + proc.stderr
+    assert not sentinel.exists()  # refused BEFORE writing anything
+    # Parseable but not an object refuses the same way.
+    (repo / ".factory" / "run.json").write_text("[]\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "run state is a list")
+    proc = upgrade_into(repo)
+    assert proc.returncode != 0
+    assert "run.json" in proc.stdout + proc.stderr
+    assert not sentinel.exists()
