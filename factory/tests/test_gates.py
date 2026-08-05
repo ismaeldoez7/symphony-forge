@@ -26,6 +26,8 @@ from pathlib import Path
 import pytest
 
 HARNESS = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+from record_signoff import REQUIRED_BRIEF_HEADINGS
 
 
 def run(repo: Path, script: str, *args: str, stdin: str | None = None,
@@ -83,17 +85,6 @@ PLAN_SECTIONS = (
 PLAN_BODY = "\n\n".join(
     f"## {section}\nTest content for {section}." for section in PLAN_SECTIONS
 ) + "\n"
-
-BRIEF_HEADINGS = (
-    "Summary",
-    "Users",
-    "Target Outcome",
-    "Key Flows",
-    "Domain Concepts",
-    "Constraints",
-    "Out of Scope",
-)
-
 
 def git(repo: Path, *args: str) -> str:
     proc = subprocess.run(["git", *GIT_ID, *args], cwd=repo,
@@ -914,9 +905,9 @@ def test_scaffolded_brief_carries_the_canonical_headings(repo):
         flags=re.MULTILINE,
     )
 
-    assert tuple(scaffolded) == BRIEF_HEADINGS
-    assert tuple(live) == BRIEF_HEADINGS
-    assert tuple(plan_headings) == BRIEF_HEADINGS
+    assert tuple(scaffolded) == REQUIRED_BRIEF_HEADINGS
+    assert tuple(live) == REQUIRED_BRIEF_HEADINGS
+    assert tuple(plan_headings) == REQUIRED_BRIEF_HEADINGS
     sign_off(repo)
     assert signed_off(repo)
 
@@ -930,14 +921,14 @@ def test_signoff_refuses_a_brief_missing_a_required_heading(repo):
     assert "at least one confirmed spec in docs/specs/" in out
     assert "plans/roadmap.json with at least one story" in out
     assert "docs/product/BRIEF.md is absent" in out
-    assert ", ".join(BRIEF_HEADINGS) in out
+    assert ", ".join(REQUIRED_BRIEF_HEADINGS) in out
 
     missing = {"Users", "Constraints"}
     brief.write_text(
         "# Product Brief\n\n"
         + "\n".join(
             f"## {heading}\n\nComplete.\n"
-            for heading in BRIEF_HEADINGS
+            for heading in REQUIRED_BRIEF_HEADINGS
             if heading not in missing
         )
     )
@@ -954,7 +945,7 @@ def test_signoff_refuses_a_heading_with_an_empty_body(repo):
         "# Product Brief\n\n"
         + "\n".join(
             f"## {heading}\n\n{empty_body if heading in empty else 'Complete.'}\n"
-            for heading in BRIEF_HEADINGS
+            for heading in REQUIRED_BRIEF_HEADINGS
         )
     )
 
@@ -3804,6 +3795,473 @@ def test_board_binds_evidence_to_the_story_that_owns_it(repo, tmp_path):
     assert "do_POST" not in board and "do_PUT" not in board and "do_DELETE" not in board
 
 
+def test_api_state_carries_project_identity_from_the_shared_parser(repo):
+    from forge_cli.board import aggregate_state
+
+    brief = repo / "docs" / "product" / "BRIEF.md"
+    brief.write_text(
+        "# Deliberately different document title\n\n"
+        + "\n".join(
+            f"## {heading}\n\nCaptured {heading}.\n"
+            for heading in REQUIRED_BRIEF_HEADINGS
+        )
+    )
+
+    # forge init --name AUTHORED this; the directory is "app". The authored
+    # name wins, or a project initialized as "Acme Billing" into ~/acme-billing
+    # reads as its slug on the board.
+    run_state = repo / ".factory" / "run.json"
+    run_state.write_text(json.dumps(
+        {**json.loads(run_state.read_text()), "project": "Acme Billing"}))
+    assert aggregate_state(repo)["project"]["name"] == "Acme Billing"
+    # Falls back to the directory only when nothing authored a name.
+    run_state.write_text(json.dumps(
+        {**json.loads(run_state.read_text()), "project": ""}))
+
+    project = aggregate_state(repo)["project"]
+    assert project == {
+        "name": "app",
+        "sections": {
+            heading: f"Captured {heading}."
+            for heading in REQUIRED_BRIEF_HEADINGS
+        },
+        "missing_sections": [],
+    }
+
+    brief.write_text("# Incomplete\n\n## Summary\n\nCaptured.\n")
+    incomplete = aggregate_state(repo)["project"]
+    assert incomplete["sections"] == {"Summary": "Captured."}
+    assert incomplete["missing_sections"] == list(REQUIRED_BRIEF_HEADINGS[1:])
+
+    brief.unlink()
+    missing = aggregate_state(repo)["project"]
+    assert missing["sections"] == {}
+    assert missing["missing_sections"] == list(REQUIRED_BRIEF_HEADINGS)
+
+
+def test_bundled_example_authors_its_project_name():
+    """The example AUTHORS its name like any scaffolded repo, rather than the
+    board inferring one from the brief's H1 — a brief's H1 is a document
+    title (the scaffold ships '# Product Brief'), which is why
+    test_api_state_carries_project_identity_from_the_shared_parser
+    deliberately titles its brief differently from the project. Without an
+    authored name the example rendered as 'example', its directory."""
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.board import project_identity
+
+    example = HARNESS / "factory" / "board" / "example"
+    assert json.loads(
+        (example / ".factory" / "run.json").read_text())["project"] == "Workshop Dispatch"
+    assert project_identity(example)["name"] == "Workshop Dispatch"
+    # A relative path must still name the project, not render it blank.
+    assert project_identity(Path(".")).get("name")
+
+
+def test_brief_required_headings_have_a_single_owner():
+    import record_signoff
+    from forge_cli import board, doctor
+
+    assert board.REQUIRED_BRIEF_HEADINGS is record_signoff.REQUIRED_BRIEF_HEADINGS
+    assert doctor.REQUIRED_BRIEF_HEADINGS is record_signoff.REQUIRED_BRIEF_HEADINGS
+    assert not hasattr(doctor, "BRIEF_REQUIRED_HEADINGS")
+
+    sources = [
+        (HARNESS / "factory" / "scripts" / "record_signoff.py").read_text(),
+        (HARNESS / "factory" / "scripts" / "forge_cli" / "doctor.py").read_text(),
+        (HARNESS / "factory" / "scripts" / "forge_cli" / "board.py").read_text(),
+    ]
+    assert sum(source.count("REQUIRED_BRIEF_HEADINGS = (") for source in sources) == 1
+    assert sum(source.count('"Summary"') for source in sources) == 1
+
+
+def test_api_state_derives_epic_relationships_and_reverse_unblocks(repo):
+    from forge_cli.board import aggregate_state
+
+    reporting = {
+        "id": "reporting", "title": "Reporting", "objective": "see trends",
+        "source_refs": ["docs/product/BRIEF.md"],
+    }
+    analytics = {
+        "id": "analytics", "title": "Analytics", "objective": "explain trends",
+        "source_refs": ["docs/product/BRIEF.md"],
+    }
+    roadmap = {
+        "generated_by": "human",
+        "epics": [ROADMAP_EPIC, reporting, analytics],
+        "items": [
+            authored_story("BILL-1", "Paid invoices", status="done"),
+            authored_story("BILL-2", "Open invoices", status="pending"),
+            authored_story("REP-1", "Aging report", epic="reporting",
+                           status="pending", depends_on=["BILL-2"]),
+            authored_story("REP-2", "Revenue report", epic="reporting",
+                           status="pending", depends_on=["BILL-1"]),
+            authored_story("ANA-1", "Trend analysis", epic="analytics",
+                           status="pending", depends_on=["BILL-1"]),
+        ],
+    }
+    (repo / "plans" / "roadmap.json").write_text(json.dumps(roadmap))
+
+    state = aggregate_state(repo)
+    stories = {story["key"]: story for story in state["stories"]}
+    assert stories["BILL-1"]["unblocks"] == ["REP-2", "ANA-1"]
+    assert stories["BILL-2"]["unblocks"] == ["REP-1"]
+    assert stories["REP-1"]["unblocks"] == []
+    assert stories["REP-2"]["unblocks"] == []
+    assert stories["ANA-1"]["unblocks"] == []
+    assert stories["REP-1"]["blocked_by"] == ["BILL-2"]
+    assert stories["REP-2"]["blocked_by"] == []
+
+    epics = {epic["id"]: epic for epic in state["epics"]}
+    assert epics["billing"]["stories"] == ["BILL-1", "BILL-2"]
+    assert epics["billing"]["progress"] == {"done": 1, "total": 2}
+    assert epics["reporting"]["stories"] == ["REP-1", "REP-2"]
+    assert epics["reporting"]["progress"] == {"done": 0, "total": 2}
+    assert epics["analytics"]["stories"] == ["ANA-1"]
+    assert epics["analytics"]["progress"] == {"done": 0, "total": 1}
+    assert epics["reporting"]["blocked_by"] == ["billing"]
+    assert epics["reporting"]["unblocks"] == []
+    assert epics["analytics"]["blocked_by"] == ["billing"]
+    assert epics["analytics"]["unblocks"] == []
+    assert epics["billing"]["blocked_by"] == []
+    assert epics["billing"]["unblocks"] == ["reporting", "analytics"]
+
+
+def test_api_story_detail_carries_project_and_resolved_epic(repo):
+    from forge_cli.board import aggregate_state, story_detail
+
+    (repo / "plans" / "roadmap.json").write_text(json.dumps({
+        "generated_by": "human",
+        "epics": [ROADMAP_EPIC],
+        "items": [authored_story("ENG-1", "Invoices", status="pending")],
+    }))
+
+    state = aggregate_state(repo)
+    detail = story_detail(repo, "ENG-1")
+    assert detail is not None
+    assert detail["project"] == state["project"]
+    assert detail["epic"] == state["epics"][0]
+    assert detail["epic"]["id"] == detail["story"]["epic"] == "billing"
+    assert state["stories"][0]["epic"] == "billing"
+    assert not isinstance(state["stories"][0]["epic"], dict)
+
+
+def test_board_default_view_is_the_overview():
+    page = (HARNESS / "factory" / "board" / "index.html").read_text()
+
+    assert '<body data-view="overview">' in page
+    assert 'data-board-view="overview" aria-selected="true"' in page
+    assert 'data-board-view="lifecycle" aria-selected="false"' in page
+    assert page.index('data-board-view="overview"') < page.index(
+        'data-board-view="lifecycle"')
+    assert 'id="overview-view"' in page
+    assert 'id="lifecycle-view" hidden' in page
+    assert 'document.body.dataset.view = view' in page
+    assert '$("overview-view").hidden = view !== "overview"' in page
+    assert '$("lifecycle-view").hidden = view !== "lifecycle"' in page
+    # Both tabs stay in the tab order. A roving tabIndex without an
+    # ArrowLeft/ArrowRight handler stranded keyboard-only users in whichever
+    # view they picked first — with two tabs, keeping both focusable is the
+    # smaller fix than implementing the full tablist key protocol.
+    assert "tabIndex" not in page
+
+    # Adding a default view must not replace any part of the lifecycle render.
+    render = page[page.index("function render(state)"):
+                  page.index("async function poll()")]
+    for existing_affordance in (
+            "renderRunline(state)", "renderProgress(state)",
+            "renderBanner(state)", "renderNext(state)", "renderColhead()",
+            "patchLanes(state)"):
+        assert existing_affordance in render
+
+
+def test_overview_answers_the_four_questions():
+    page = (HARNESS / "factory" / "board" / "index.html").read_text()
+    overview = page[page.index("function renderOverview(state)"):
+                    page.index("/* ═══ overlays", page.index(
+                        "function renderOverview(state)"))]
+
+    questions = [
+        "What is this project?",
+        "What can start now?",
+        "What does each epic deliver?",
+        "Where does each story sit?",
+    ]
+    assert all(question in page for question in questions)
+    assert overview.index(questions[0]) < overview.index(questions[1])
+    assert overview.index(questions[1]) < overview.index(questions[2])
+    assert overview.index(questions[2]) < overview.index(questions[3])
+
+    assert "state.project" in overview and "state.root" not in overview
+    assert "state.frontier" in overview
+    assert "frontier.length" in overview
+    assert "state.epics" in overview and "epic.objective" in overview
+    assert "epic.stories" in overview
+    assert "story.blocked_by" in overview
+    assert "story.unblocks" in overview
+    assert "depends_on" not in overview
+    assert "ageDays(" not in overview and "Date(" not in overview
+    assert not re.search(r"\b(?:wave|layer)\s*\d", overview, re.IGNORECASE)
+    # The board polls, so a rebuild lands mid-interaction: it must restore both
+    # keyboard focus and the drawer's focus-return `opener`, or a live update
+    # silently steals a keyboard user's place.
+    assert "document.activeElement" in overview
+    assert "refocus.focus()" in overview
+    assert "opener = reopener" in overview
+    # A frontier story renders in BOTH sections, so identity is (slot, key):
+    # rebinding on key alone would jump focus to the other section.
+    assert "data-overview-slot" in page
+    assert 'node.dataset.overviewSlot' in overview
+
+
+def test_epic_story_and_task_are_explicitly_labelled():
+    page = (HARNESS / "factory" / "board" / "index.html").read_text()
+
+    make_lane = page[page.index("function makeLane("):
+                     page.index("function rollCount(")]
+    overview = page[page.index("function renderOverview(state)"):
+                    page.index("function showBoardView(")]
+    make_card = page[page.index("function makeCard("):
+                     page.index("function makeLane(")]
+    task_block = page[page.index("function taskBlock("):
+                      page.index("function findingList(")]
+    proof_block = page[page.index("function proofBlock("):
+                       page.index("const RAW_SOURCE")]
+
+    assert 'kindLabel("EPIC")' in make_lane
+    assert 'kindLabel("EPIC")' in overview
+    assert 'kindLabel("STORY")' in make_card
+    assert 'kindLabel("STORY")' in overview
+    assert 'kindLabel("TASK")' in task_block
+    assert 'kindLabel("TASK")' in proof_block
+
+
+def test_drawer_opens_with_a_project_epic_story_breadcrumb():
+    page = (HARNESS / "factory" / "board" / "index.html").read_text()
+    breadcrumb = page[page.index("function drawerBreadcrumb("):
+                      page.index("function drawerBody(")]
+    drawer_body = page[page.index("function drawerBody("):
+                       page.index("function tabBar(")]
+    open_drawer = page[page.index("async function openDrawer("):
+                       page.index("/* ═══ library")]
+
+    assert "detail.project" in breadcrumb
+    assert "detail.epic" in breadcrumb
+    assert "detail.story" in breadcrumb
+    assert 'label: "Project"' in breadcrumb
+    assert 'label: "Epic"' in breadcrumb
+    assert 'label: "Story"' in breadcrumb
+    assert "epicName ?" in breadcrumb  # absent/unknown epic omits the segment
+    assert "drawerBreadcrumb(detail)" in drawer_body
+    assert "fetch(" not in breadcrumb
+    assert open_drawer.count("fetch(") == 1
+    assert "/api/story/" in open_drawer
+
+
+def test_blocked_reads_as_blocked_on_every_surface():
+    page = (HARNESS / "factory" / "board" / "index.html").read_text()
+    progress = page[page.index("function renderProgress(state)"):
+                    page.index("function renderBanner(state)")]
+    card_mark = page[page.index("function cardMark(story"):
+                     page.index("/* ═══ since you last looked")]
+    cards = page[page.index("function patchLanes(state)"):
+                 page.index("/* ═══ overview")]
+    drawer_body = page[page.index("function drawerBody("):
+                       page.index("function tabBar(")]
+
+    assert "sum.blocked + sum.waiting" not in progress
+    assert '["blocked", sum.blocked]' in progress
+    assert '["waiting", sum.waiting]' in progress
+    assert 'sum.blocked, "blocked"' in progress
+    assert 'sum.waiting, "waiting"' in progress
+
+    assert 'story.state === "blocked"' in card_mark
+    assert "blocked by" in card_mark
+    assert 'story.state === "waiting"' in card_mark
+    assert 'return "· waiting"' in card_mark
+    assert "STATE_WORD[story.state]" in cards  # card ARIA label
+    assert "STATE_WORD[s.state]" in drawer_body
+    assert "blocked by" in drawer_body
+    assert "waiting on" not in drawer_body
+
+    # The overview is a fifth state-reporting surface; keep it consistent too.
+    overview = page[page.index("function renderOverview(state)"):
+                    page.index("function showBoardView(")]
+    assert "STATE_WORD[story.state]" in overview
+
+
+def test_board_page_stays_self_contained():
+    page = (HARNESS / "factory" / "board" / "index.html").read_text()
+
+    assert len(re.findall(r"<style(?:\s|>)", page)) == 1
+    assert len(re.findall(r"<script(?:\s|>)", page)) == 1
+    assert not re.search(r"<(?:script|img|iframe)[^>]+\bsrc\s*=", page,
+                         re.IGNORECASE)
+    assert not re.search(r"<link[^>]+\bhref\s*=", page, re.IGNORECASE)
+    assert not re.search(r"@import\s+|url\(\s*['\"]?https?://", page,
+                         re.IGNORECASE)
+
+
+def test_bundled_example_passes_the_production_validators():
+    from factory_lib import load_json
+    from forge_cli.roadmap import (
+        check_dag,
+        check_epic_contract,
+        check_epics,
+        check_item,
+        check_story_contract,
+    )
+    from forge_cli.specs import (
+        missing_required_content,
+        resolve_spec_reference,
+        spec_records,
+    )
+    from record_signoff import workflow_input_problems
+
+    example = HARNESS / "factory" / "board" / "example"
+    roadmap = load_json(example / "plans" / "roadmap.json", default={})
+
+    # These are the production gates used by record_signoff and roadmap
+    # authoring. Tightening any capture contract must refuse this source too.
+    assert workflow_input_problems(example) == []
+    records = spec_records(example)
+    assert len(records) == 1 and all(
+        record["status"] == "confirmed"
+        and missing_required_content(record["_path"].read_text()) == []
+        for record in records
+    )
+    check_epics(roadmap["epics"])
+    for epic in roadmap["epics"]:
+        check_epic_contract(epic, example)
+    known_epics = {epic["id"] for epic in roadmap["epics"]}
+    for position, story in enumerate(roadmap["items"], 1):
+        check_item(story, position)
+        check_story_contract(story, known_epics)
+        resolve_spec_reference(example, story["spec"], confirmed=True)
+    check_dag(roadmap["items"])
+
+
+def test_bundled_example_exercises_frontier_and_blocked():
+    from forge_cli.board import aggregate_state
+
+    example = HARNESS / "factory" / "board" / "example"
+    state = aggregate_state(example)
+    stories = {story["key"]: story for story in state["stories"]}
+
+    assert len(state["frontier"]) >= 2
+    assert all(stories[key]["ready_to_plan"] for key in state["frontier"])
+    blocked = [story for story in stories.values() if story["state"] == "blocked"]
+    assert blocked and all(story["blocked_by"] for story in blocked)
+    assert all(dependency in stories for story in blocked
+               for dependency in story["blocked_by"])
+    assert len(state["epics"]) == 2
+    assert all(epic["stories"] for epic in state["epics"])
+
+
+def test_board_content_survives_all_three_widths():
+    from forge_cli.board import aggregate_state
+
+    example = HARNESS / "factory" / "board" / "example"
+    page = (HARNESS / "factory" / "board" / "index.html").read_text()
+    stylesheet = re.search(r"<style>(.*?)</style>", page, re.DOTALL).group(1)
+    breakpoints = sorted(
+        {int(value) for value in re.findall(
+            r"@media\s*\(max-width:\s*(\d+)px\)", stylesheet)},
+        reverse=True,
+    )
+    assert len(breakpoints) == 2
+    tablet_max, mobile_max = breakpoints
+
+    widths = {"desktop": 1280, "tablet": 768, "mobile": 390}
+    assert widths["desktop"] > tablet_max
+    assert mobile_max < widths["tablet"] <= tablet_max
+    assert widths["mobile"] <= mobile_max
+
+    state = aggregate_state(example)
+    assert state["frontier"]
+    assert all(epic["stories"] for epic in state["epics"])
+    assert any(story["blocked_by"] for story in state["stories"])
+    for question in (
+        "What is this project?",
+        "What can start now?",
+        "What does each epic deliver?",
+        "Where does each story sit?",
+    ):
+        assert question in page
+    assert '<section id="overview-view" role="tabpanel"' in page
+
+    def matching_css(width: int) -> str:
+        """Base rules plus max-width media rules active at this width."""
+        chunks = []
+        cursor = 0
+        while True:
+            start = stylesheet.find("@media", cursor)
+            if start < 0:
+                chunks.append(stylesheet[cursor:])
+                return "".join(chunks)
+            chunks.append(stylesheet[cursor:start])
+            brace = stylesheet.find("{", start)
+            depth = 1
+            end = brace + 1
+            while depth:
+                depth += (stylesheet[end] == "{") - (stylesheet[end] == "}")
+                end += 1
+            condition = stylesheet[start:brace]
+            maximum = re.search(r"max-width:\s*(\d+)px", condition)
+            if maximum and width <= int(maximum.group(1)):
+                chunks.append(stylesheet[brace + 1:end - 1])
+            cursor = end
+
+    content_selectors = {
+        "main", ".wrap", "#overview-view", "#overview", ".overview",
+        ".overview-question", ".overview-answer", ".project-sections",
+        ".project-name", ".project-section", ".frontier-count",
+        ".overview-list", ".overview-list li", ".overview-story",
+        ".epic-deliveries", ".epic-delivery", ".epic-stories",
+        ".story-position", ".dependency-facts",
+    }
+    clipping_properties = {
+        "overflow", "overflow-x", "overflow-y", "clip", "clip-path",
+    }
+    zero_size_properties = {"height", "max-height", "block-size", "max-block-size"}
+
+    for width in widths.values():
+        declarations = []
+        for selectors, body in re.findall(r"([^{}]+)\{([^{}]*)\}", matching_css(width)):
+            if not content_selectors.intersection(
+                    selector.strip() for selector in selectors.split(",")):
+                continue
+            declarations.extend(
+                (name.strip(), value.strip().lower())
+                for name, _, value in (
+                    declaration.partition(":") for declaration in body.split(";"))
+                if name.strip() and value.strip()
+            )
+        assert not any(
+            (name == "display" and value == "none")
+            or (name == "visibility" and value in {"hidden", "collapse"})
+            or (name == "content-visibility" and value == "hidden")
+            or (name in clipping_properties and value in {"hidden", "clip"})
+            or (name in zero_size_properties and re.fullmatch(r"0(?:[a-z%]+)?", value))
+            for name, value in declarations
+        )
+
+    # The page deliberately clips horizontal body overflow. These shrink rules
+    # are what keep Overview content inside that boundary instead of merely
+    # hiding an accidental overflow at narrower bands.
+    compact = re.sub(r"\s+", " ", stylesheet)
+    assert re.search(r"\.overview-answer\s*\{[^}]*min-width:\s*0", compact)
+    assert re.search(
+        r"\.overview-question\s*\{[^}]*grid-template-columns:[^;}]*minmax\(0,",
+        compact,
+    )
+    mobile_css = matching_css(widths["mobile"])
+    for selector in (".overview-question", ".project-sections", ".story-position"):
+        assert re.search(
+            rf"{re.escape(selector)}\s*\{{[^}}]*grid-template-columns:\s*1fr",
+            mobile_css,
+        )
+
+
 def test_recorder_holds_the_task_narrative_contract(repo, tmp_path):
     """objective and acceptance_criteria were prompt convention, so a task
     could reach the board as an id and a title."""
@@ -5673,7 +6131,7 @@ def test_doctor_reports_legacy_capture_without_blocking(repo, capsys):
     brief = repo / "docs" / "product" / "BRIEF.md"
     brief.write_text("\n".join(
         f"## {heading}\n\n{'' if heading in {'Users', 'Constraints'} else 'Captured.'}"
-        for heading in BRIEF_HEADINGS
+        for heading in REQUIRED_BRIEF_HEADINGS
     ))
     specs = repo / "docs" / "specs"
     specs.joinpath("base.md").write_text(
@@ -5702,11 +6160,11 @@ def test_doctor_reports_legacy_capture_without_blocking(repo, capsys):
     brief.unlink()
     report_legacy_capture_gaps(repo)
     out = capsys.readouterr().out
-    assert all(f"{heading}" in out for heading in BRIEF_HEADINGS)
+    assert all(f"{heading}" in out for heading in REQUIRED_BRIEF_HEADINGS)
     assert out.startswith("[opt ] capture/brief docs/product/BRIEF.md:")
 
     brief.write_text("\n".join(
-        f"## {heading}\n\nCaptured." for heading in BRIEF_HEADINGS
+        f"## {heading}\n\nCaptured." for heading in REQUIRED_BRIEF_HEADINGS
     ))
     complete_spec = (
         "---\nstatus: confirmed\n---\n\n# Complete\n\n"
@@ -7746,3 +8204,40 @@ def test_doctor_merge_check_helpers(repo, monkeypatch):
     # No gh on PATH -> unanswerable -> None, never a red advisory row.
     monkeypatch.setattr(doctor.shutil, "which", lambda _: None)
     assert doctor._merge_check_status(fix=False) is None
+
+
+def test_project_name_survives_the_run_state_lifecycle(tmp_path):
+    """The Overview's project name comes from run.json, which intake and
+    pr_ready REWRITE. Injecting the field in a test proves nothing about
+    whether the lifecycle keeps it — a rewrite that dropped `project` would
+    silently regress every client board to its clone-directory slug."""
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.board import project_identity
+
+    target = tmp_path / "acme-billing"
+    proc = subprocess.run(
+        [sys.executable, str(HARNESS / "factory" / "scripts" / "forge.py"),
+         "init", "--name", "Acme Billing", "--target", str(target)],
+        capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    # The authored name, not the directory it was created in.
+    assert project_identity(target)["name"] == "Acme Billing"
+
+    git(target, "add", "-A")
+    git(target, "commit", "-q", "-m", "scaffold")
+    sign_off(target)
+    intake(target)
+    assert project_identity(target)["name"] == "Acme Billing", \
+        "intake rewrote run.json and dropped the authored project name"
+
+    run_state = json.loads((target / ".factory" / "run.json").read_text())
+    assert run_state.get("issue_key"), "intake did not actually write run state"
+
+    # And through SHIP: pr_ready reduces run.json to a stable object
+    # (pr_ready.py:334) — that projection must keep `project`, or every
+    # shipped repo's board would fall back to its directory slug.
+    shipped = {k: run_state[k] for k in ("project",) if k in run_state}
+    shipped["phase"] = "shipped"
+    (target / ".factory" / "run.json").write_text(json.dumps(shipped))
+    assert project_identity(target)["name"] == "Acme Billing", \
+        "the shipped run-state shape dropped the authored project name"
