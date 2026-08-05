@@ -1,13 +1,24 @@
-# Append-only JSONL stores (gstack decisions, learnings): two devs appending
-# between pushes is a union, not a conflict. The driver is registered per
-# clone by the SessionStart hook (merge.jsonl-append.driver -> gstack-jsonl-merge).
-.gstack/**/*.jsonl merge=jsonl-append
-plans/lessons.jsonl merge=jsonl-append
-plans/quickfixes.jsonl merge=jsonl-append
-# Story timelines and worker signals: parallel story branches each append
-# their own lines, and a merge that conflicted here would lose the record of
-# what happened for the sake of line order. `union` is git's BUILT-IN driver,
-# deliberately not jsonl-append: these files must never conflict, and a custom
-# driver is registered per clone by a hook that may not have run.
+# Append-only JSONL stores: two devs appending between pushes is a union, not
+# a conflict. `union` is git's BUILT-IN driver, and everything here uses it.
+#
+# These used to route through a custom `jsonl-append` driver registered per
+# clone by the SessionStart hook. That driver hangs — it forks and never runs
+# its payload, so `git merge` blocks forever rather than failing, and the merge
+# looks like an unresolvable conflict to both git and GitHub. A merge that
+# cannot finish is worse than a merge that conflicts: you cannot tell it from a
+# hostile conflict, and every clone of this template inherited it.
+#
+# The rule that survives: a merge driver this repo depends on must be one git
+# already ships. A driver registered per clone by a hook that may not have run,
+# and that no test exercises, is a dependency on someone else's machine state.
+# Ordering does not need protecting here — every consumer of these ledgers
+# reads them by set membership or by each record's own timestamp, never by
+# line order.
+.gstack/**/*.jsonl merge=union
+plans/lessons.jsonl merge=union
+plans/quickfixes.jsonl merge=union
+# Story timelines and worker signals: parallel story branches each append their
+# own lines, and a merge that conflicted here would lose the record of what
+# happened for the sake of line order.
 .factory/*.jsonl merge=union
 .factory/history/**/*.jsonl merge=union
