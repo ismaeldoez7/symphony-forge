@@ -498,7 +498,9 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
             ensured.append(".gitignore (blanket .gstack/ rule removed — it hid "
                            "the committed projects/ store)")
     gstack_text = gitignore.read_text() if gitignore.exists() else ""
-    if GSTACK_MARKER not in gstack_text:
+    # Exact LINE matches everywhere a marker is consulted: marker text quoted
+    # inside a longer comment must not count as an installed block.
+    if GSTACK_MARKER not in (line.strip() for line in gstack_text.splitlines()):
         with gitignore.open("a") as fh:
             fh.write(("\n" if gstack_text else "")
                      + GSTACK_MARKER + "\n"
@@ -520,24 +522,25 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     # paths the committed rules actually ignore. Untracking an opted-back-in
     # path would delete teammates' copies of it on their next pull.
     ignore_text = gitignore.read_text() if gitignore.exists() else ""
-    if EPHEMERAL_MARKER not in ignore_text:
+    ignore_lines = [line.strip() for line in ignore_text.splitlines()]
+    if EPHEMERAL_MARKER not in ignore_lines:
         with gitignore.open("a") as fh:
             fh.write(("\n" if ignore_text else "")
                      + EPHEMERAL_MARKER + "\n"
                      + "".join(f"{rel}\n" for rel in EPHEMERAL_UNTRACK))
         ensured.append(".gitignore (0025 ephemeral paths appended)")
-        ignore_text = gitignore.read_text()
+        ignore_lines = [line.strip()
+                        for line in gitignore.read_text().splitlines()]
     # Only the marker-owned tail governs, last mention wins: a duplicate
     # positive rule elsewhere in the file must not override an opt-out made
     # under the marker (removing the rule, or negating it below the block).
-    marker_tail = ignore_text.split(EPHEMERAL_MARKER, 1)[1].splitlines()
+    marker_tail = ignore_lines[ignore_lines.index(EPHEMERAL_MARKER) + 1:]
 
     # Exact-path spellings normalized (leading `!`/`/`, trailing `/`) — glob
     # spellings of these paths are outside the opt-out contract.
     def _opted_out(rel: str) -> bool:
         state = True
-        for raw in marker_tail:
-            line = raw.strip()
+        for line in marker_tail:
             if line.lstrip("!").strip("/") == rel.strip("/"):
                 state = line.startswith("!")
         return state
