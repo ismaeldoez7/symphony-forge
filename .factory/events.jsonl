@@ -188,3 +188,7 @@
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-05T06:21:33+00:00", "story": "PH-3", "detail": "PH-3.2 Bind the decomposition to its plan, and make task fields mean something"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T06:32:01+00:00", "story": "PH-3", "detail": "PH-3.2 (write)"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-05T07:24:47+00:00", "story": "PH-3", "detail": "3 task(s)"}
+{"event": "signal-contradiction", "generated_by": "implementer", "at": "2026-08-05T07:54:52+00:00", "story": "PH-3", "detail": "PH-3.2 brief says the leaf task is active and .factory/run.json says phase implementing, but ./forge next reports PH-3 ready for PR gate; stage authority is contradictory before scoped implementation "}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-05T07:55:08+00:00", "story": "PH-3", "detail": "PH-3.2 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-05T07:56:56+00:00", "story": "PH-3", "detail": "PH-3.2: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-05T07:56:56+00:00", "story": "PH-3", "detail": "PH-3.2 Bind the decomposition to its plan, and make task fields mean something"}

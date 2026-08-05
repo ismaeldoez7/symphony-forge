@@ -11,17 +11,19 @@ Stamp project, story, epic, plan_file and the plan digest into the decomposition
 ## Acceptance criteria
 
 - The recorder writes project, story, epic, plan_file and plan_sha256 from .factory/run.json and plans/roadmap.json; agent-supplied values for those keys are dropped, not merged.
-- A decomposition whose plan_sha256 does not match the active plan file is refused, so this handover is digest-bound like every other one.
-- Artifacts recorded before this change stay readable: the new fields are optional in the schema and .factory/history/ artifacts still parse.
+- plan_sha256 is the digest of the plan the RECORDER read, so it is true at record time without asking a producer to hash a file. A supplied digest that disagrees with the active plan is still refused.
+- stage start refuses when the active plan's digest no longer matches the one stamped on the decomposition: the realistic staleness is the plan being edited AFTER the task graph was recorded, which no record-time check can see.
+- Artifacts recorded before this change stay readable: the new fields are optional in the schema and .factory/history/ artifacts still parse, including ones with no plan_sha256 at all.
 - Every task's verify_commands entry is checked with doctor.unrunnable_reason; prose is refused and a real command passes.
 - required_tests may be [] and the task is still accepted, provided verify_commands is runnable.
-- A dependencies entry naming a later task in the array is refused; array order stays the execution sequence.
+- dependencies defaults only when ABSENT — false, 0, '' and {} are refused rather than silently read as an empty list — and may only name an earlier task.
 - The recorder refuses when the roadmap has no story matching run.json rather than inventing an epic.
 
 ## Write scope — nothing outside this
 
 - factory/scripts/record_decomposition_from_json.py
 - factory/schemas/decomposition.json
+- factory/scripts/forge_cli/stages.py
 - factory/tests/test_gates.py
 
 `forge stage done` refuses a change outside this list.
@@ -30,15 +32,17 @@ Stamp project, story, epic, plan_file and the plan digest into the decomposition
 
 - factory/scripts/record_decomposition_from_json.py
 - factory/schemas/decomposition.json
+- factory/scripts/forge_cli/stages.py
 - factory/tests/test_gates.py
 
 ## Tests you must write
 
 - test_decomposition_provenance_overrides_agent_supplied_fields: `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_gates.py)
-- test_decomposition_refuses_a_stale_plan_digest: `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_gates.py)
 - test_decomposition_refuses_prose_verify_commands: `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_gates.py)
 - test_decomposition_accepts_empty_required_tests: `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_gates.py)
 - test_historical_decomposition_artifacts_still_parse: `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_gates.py)
+- test_stage_start_refuses_a_decomposition_whose_plan_moved: `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_gates.py)
+- test_decomposition_refuses_a_falsy_non_list_dependencies: `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_gates.py)
 
 The implementer writes and records the tests; a declared test that does not exist or whose exact command fails refuses the stage.
 
@@ -79,6 +83,7 @@ That promoting doctor.unrunnable_reason from advisory output to a refusal path d
 - When uvx cannot read the shared uv cache under sandboxing, set UV_CACHE_DIR to a writable temporary directory before rerunning the exact test command.
 - Never git add a conflicted file until the resolution is machine-verified (anchored ^marker regex + ast.parse for Python) — content can legitimately contain marker-like strings, and add-after-failed-resolver commits the markers. Separate verification from commit; never chain a may-fail step to a commit via newline.
 - When uvx cannot read the shared uv cache under sandboxing, set UV_CACHE_DIR to a writable temporary directory before rerunning the exact test command.
+- Upgrading a pre-rename repo: run `forge stage migrate --base <sha>` BEFORE re-recording the decomposition, not after. write_skeleton preserves stage status only from PROTECTED authority, which a legacy repo does not have yet — so re-recording first writes protected state with every stage reset to pending, and stage migrate then refuses because the authority already exists. Recoverable only because .factory/stages.json is committed: restore it, remove the freshly written .git/forge pair, then migrate.
 
 ## Implementer contract
 

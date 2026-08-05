@@ -14,11 +14,17 @@
     {
       "id": "PH-3.2",
       "title": "Bind the decomposition to its plan, and make task fields mean something",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-05T06:21:33+00:00",
       "base_sha": "0917de5be87e42a4fd03c20dac9f310d7ca3cd13",
       "dirty_at_start": {},
-      "task_sha256": "fe5d1bbd26fa93cfc958bc2fd4ab9cc1a29fe05b442259ed3729f9ca14ba869d"
+      "task_sha256": "07f1364a0be51a6ccfa63011e49e33392e53d637d3651adb636612167c118ca3",
+      "completed_at": "2026-08-05T07:56:56+00:00",
+      "contract_changed": {
+        "at": "2026-08-05T07:56:56+00:00",
+        "from": "fe5d1bbd26fa93cfc958bc2fd4ab9cc1a29fe05b442259ed3729f9ca14ba869d",
+        "to": "07f1364a0be51a6ccfa63011e49e33392e53d637d3651adb636612167c118ca3"
+      }
     },
     {
       "id": "PH-3.3",
