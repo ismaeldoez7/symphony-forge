@@ -209,7 +209,14 @@ def ensure_onboarding(target: Path, name: str) -> bool:
 
 
 def ensure_jsonl_attributes(target: Path, harness: Path) -> bool:
-    """Add missing harness JSONL merge rules without replacing project rules."""
+    """Add missing harness JSONL merge rules without replacing project rules.
+
+    Only `merge=union` rules ship. These used to be `merge=jsonl-append`, a
+    driver registered per clone by the SessionStart hook — so scaffolding wrote
+    a rule into a client repo that depended on a hook having run on whatever
+    machine merged it. When the driver was absent the rule was inert; when it
+    was present it hung, and the merge blocked forever instead of failing.
+    """
     destination = target / ".gitattributes"
     if not destination.exists():
         shutil.copy2(harness / ".gitattributes", destination)
@@ -217,7 +224,7 @@ def ensure_jsonl_attributes(target: Path, harness: Path) -> bool:
     current = destination.read_text()
     required = [
         line for line in (harness / ".gitattributes").read_text().splitlines()
-        if "merge=jsonl-append" in line
+        if "merge=union" in line
     ]
     missing = [line for line in required if line not in current.splitlines()]
     if not missing:
