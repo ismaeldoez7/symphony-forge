@@ -1,0 +1,31 @@
+{
+  "generated_by": "autoreview",
+  "score": 8,
+  "summary": "Both commands are one-shot operator actions, so throughput is irrelevant and the only real cost is how much of a client repo they read. That was the one genuine performance defect: the stale-reference report loaded whole files from the working tree. It now searches the git index, which streams blobs and skips ignored trees \u2014 the difference between bounded and unbounded on repos like the real target, which carries node_modules/ and dist/.",
+  "blocking_findings": [],
+  "non_blocking_findings": [
+    {
+      "category": "unbounded-read",
+      "area": "forge_cli/upgrade.py",
+      "summary": "read_bytes() allocated every candidate file whole to search for a short marker, so a large tracked archive or generated bundle could exhaust memory \u2014 and it ran after the destructive steps, so the command would have failed only once the tree was already replaced."
+    },
+    {
+      "category": "unbounded-traversal",
+      "area": "forge_cli/upgrade.py",
+      "summary": "The migrated-skills fallback rglob'd the freshly copied tree, descending into an ignored node_modules/ or dist/ inside a client skill despite the git ls-files bound, and re-reporting files already seen from Git."
+    }
+  ],
+  "residual_risks": [
+    "The counterpart check still walks the legacy tree with rglob. That tree is vendored machinery \u2014 65 files in the real target against the harness's 77 \u2014 so it is bounded by construction rather than by a guard.",
+    "stage migrate runs two git subprocesses to validate --base, and the symlink pass runs one cat-file per indexed symlink. Both are once-per-repo operator actions on sets that are normally empty or near-empty."
+  ],
+  "recommendation": "ship",
+  "reviewed_scope": [
+    "factory/scripts/forge_cli/upgrade.py",
+    "factory/scripts/forge_cli/stages.py"
+  ],
+  "skills_used": [],
+  "aspect": "performance",
+  "recorded_at": "2026-08-04T13:49:04+00:00",
+  "commit": "c87a15ac07164ef1c6feeb5d894c861b03586d6d"
+}

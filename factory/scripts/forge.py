@@ -285,6 +285,8 @@ def main() -> None:
     p_sd.set_defaults(func=stages_mod.cmd_done)
     p_sm = st_sub.add_parser(
         "migrate", help="adopt inspected legacy workspace state once")
+    p_sm.add_argument("--base", required=True, metavar="SHA",
+                      help="commit where measurement of adopted stages begins")
     p_sm.add_argument("--confirm-workspace-state", action="store_true")
     p_sm.add_argument("--repo")
     p_sm.set_defaults(func=stages_mod.cmd_migrate)

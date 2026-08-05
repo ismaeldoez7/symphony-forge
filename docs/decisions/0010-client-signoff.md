@@ -1,9 +1,9 @@
 ---
-status: superseded
+status: accepted
 confirmed_by: "vrknetha"
 date: 2026-07-24
 stories: []
-superseded_by: 0014-specs-before-signoff
+extended_by: 0014-specs-before-signoff
 ---
 
 # Client Signoff
@@ -23,3 +23,14 @@ runs.
 Harness fixes flow through the same factory gates as client work — intake,
 saved plan, verify, autoreview evidence — with the maintainer's plan
 approval standing in for client sign-off. No gate is bypassed.
+
+This record is also the ARTIFACT the sign-off gate reads, not only a policy
+statement: decision 0009's successor made sign-off derived rather than
+recorded, so `harness.yaml` pins this file and every gate resolves the answer
+from it. It was briefly marked superseded by 0014, which retired the only
+evidence that this project was ever signed off and left the harness repo
+failing its own gate. 0014 EXTENDS the preconditions for recording sign-off
+(confirmed specs, a derived roadmap); it does not retire this record, and says
+so itself: "From 0010, retained unchanged: the harness maintainer is the
+client for symphony-forge itself." Restored to accepted on maintainer
+confirmation in chat, 2026-08-04.
