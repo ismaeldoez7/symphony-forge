@@ -207,3 +207,10 @@
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-05T10:18:28+00:00", "story": "PH-3", "detail": "PH-3.3 Retire authored waves"}
 {"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-05T10:31:51+00:00", "story": "PH-3"}
 {"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-05T10:36:38+00:00", "story": "PH-3", "detail": "S-0004-3c48: Correct, and factory/prompts/decomposer.md was not the only place the decomposer is told what to emit \u2014 .codex/agents/docs-decomposer.toml carried the same output contract. An agent still authoring a "}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-05T08:43:07+00:00", "story": "FORGE-UPG-1"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-05T08:43:07+00:00", "story": "FORGE-UPG-1"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-05T08:43:07+00:00", "story": "FORGE-UPG-1"}
+{"event": "verify-failed", "generated_by": "orchestrator", "at": "2026-08-05T09:07:49+00:00", "story": "FORGE-UPG-1"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-05T09:30:58+00:00", "story": "FORGE-UPG-1"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-05T09:31:29+00:00", "story": "FORGE-UPG-1", "detail": "passed"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-05T09:31:29+00:00", "story": "FORGE-UPG-1", "detail": "A repo vendored before the factory/ rename can now be carried onto the current harness in one command. `forge upgrade` detects the legacy .agents/ layout, carries the project's skills across, deletes "}

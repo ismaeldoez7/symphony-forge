@@ -21,7 +21,8 @@
       "spec": "docs/specs/delegation-boundary.md",
       "completed_at": "2026-07-30T11:49:30+00:00",
       "history": ".factory/history/FORGE-DELEG-1/",
-      "outcome": "Developers can now see the epic-to-story dependency hierarchy, start dependency-ready stories in separate worktrees, and execute each story's tasks sequentially through a protected, measured delegation boundary that refuses off-contract writes, overlapping workers, stale proof, and incomplete verification."
+      "outcome": "Developers can now see the epic-to-story dependency hierarchy, start dependency-ready stories in separate worktrees, and execute each story's tasks sequentially through a protected, measured delegation boundary that refuses off-contract writes, overlapping workers, stale proof, and incomplete verification.",
+      "epic": null
     },
     {
       "key": "FORGE-UPG-1",
@@ -37,10 +38,14 @@
         "forge stage migrate --base <sha> records that base for each legacy stage it adopts, and refuses a base that does not resolve or is not an ancestor of HEAD"
       ],
       "order": 2,
-      "status": "active",
+      "status": "done",
       "skill": "backend",
       "kind": "feature",
-      "spec": "docs/specs/legacy-upgrade.md"
+      "spec": "docs/specs/legacy-upgrade.md",
+      "completed_at": "2026-08-05T09:31:29+00:00",
+      "history": ".factory/history/FORGE-UPG-1/",
+      "outcome": "A repo vendored before the factory/ rename can now be carried onto the current harness in one command. `forge upgrade` detects the legacy .agents/ layout, carries the project's skills across, deletes the old tree only once every file left in it is provably the machinery being replaced, and otherwise refuses before writing anything \u2014 so a refusal leaves a clean repo you can repair and re-run. It then names the project-owned files still mentioning the retired path instead of editing them. `forge stage migrate --base <sha>` gives a story that was open at upgrade time a measurement origin, so it can still be closed. Four client repos were stranded with no migration path; decision 0016 promised them one and this is it.",
+      "epic": null
     },
     {
       "key": "FORGE-LOCK-1",
@@ -56,7 +61,8 @@
       "status": "pending",
       "skill": "backend",
       "origin": "adhoc",
-      "spec": "docs/specs/repo-system-of-record.md"
+      "spec": "docs/specs/repo-system-of-record.md",
+      "epic": null
     },
     {
       "key": "PH-1",
@@ -75,7 +81,8 @@
       "spec": "docs/specs/project-hierarchy.md",
       "completed_at": "2026-08-04T18:19:05+00:00",
       "history": ".factory/history/PH-1/",
-      "outcome": "A brief or spec that is missing a required section is now refused at the gate that records it, instead of reaching sign-off half-written. Sign-off names every absent BRIEF heading, spec confirm requires Why, Behaviour and Acceptance criteria, and doctor reports legacy documents without blocking anyone. One shared parser answers 'does this document have this section' for all three, and it reads an example as an example: headings inside fenced blocks, HTML comments, raw blocks and container blocks no longer count as structure."
+      "outcome": "A brief or spec that is missing a required section is now refused at the gate that records it, instead of reaching sign-off half-written. Sign-off names every absent BRIEF heading, spec confirm requires Why, Behaviour and Acceptance criteria, and doctor reports legacy documents without blocking anyone. One shared parser answers 'does this document have this section' for all three, and it reads an example as an example: headings inside fenced blocks, HTML comments, raw blocks and container blocks no longer count as structure.",
+      "epic": null
     },
     {
       "key": "PH-2",
@@ -91,7 +98,8 @@
       "order": 5,
       "status": "pending",
       "skill": "backend",
-      "spec": "docs/specs/project-hierarchy.md"
+      "spec": "docs/specs/project-hierarchy.md",
+      "epic": null
     },
     {
       "key": "PH-3",
@@ -106,7 +114,8 @@
       "order": 6,
       "status": "pending",
       "skill": "backend",
-      "spec": "docs/specs/project-hierarchy.md"
+      "spec": "docs/specs/project-hierarchy.md",
+      "epic": null
     },
     {
       "key": "PH-4",
@@ -127,7 +136,8 @@
         "PH-2",
         "PH-3"
       ],
-      "spec": "docs/specs/project-hierarchy.md"
+      "spec": "docs/specs/project-hierarchy.md",
+      "epic": null
     }
   ],
   "generated_by": "human",

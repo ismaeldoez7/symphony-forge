@@ -483,7 +483,16 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     write_manifest(target, commit)
 
     drift = ""
-    if (harness / "harness.yaml").read_text() != (target / "harness.yaml").read_text():
+    # harness.yaml is PROJECT-owned, so an older scaffold may not have one at
+    # all — which is the normal state of the legacy repos this command exists
+    # to upgrade. Reading it unconditionally turned "you have no harness.yaml"
+    # into a traceback at the very end of a successful upgrade.
+    target_harness = target / "harness.yaml"
+    if not target_harness.is_file():
+        drift = ("\nNOTE: no harness.yaml in this repo — the phase contract falls "
+                 "back to the harness default. Copy the harness's harness.yaml if "
+                 "this project needs to own it.")
+    elif (harness / "harness.yaml").read_text() != target_harness.read_text():
         drift = ("\nNOTE: harness.yaml differs from the harness default (project-owned, "
                  "left untouched) — diff manually if the phase contract changed upstream.")
     print(f"Upgraded {target} to symphony-forge @ {commit[:8]}")

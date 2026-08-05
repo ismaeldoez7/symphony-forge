@@ -1477,6 +1477,25 @@ def test_pr_ready_tolerates_harness_upgrade_commits(repo, tmp_path):
     assert code == 0, out
 
 
+def test_upgrade_survives_a_repo_without_harness_yaml(repo, tmp_path):
+    """harness.yaml is PROJECT-owned, so an older scaffold may not have one —
+    which is the normal state of the legacy repos this command exists to
+    upgrade. Reading it unconditionally turned that into a traceback AFTER the
+    writes, leaving the target half-upgraded."""
+    (repo / "harness.yaml").unlink()
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "older scaffold: no harness.yaml")
+    proc = subprocess.run(
+        [sys.executable, str(HARNESS / "factory" / "scripts" / "forge.py"),
+         "upgrade", "--target", str(repo)],
+        cwd=HARNESS, capture_output=True, text=True,
+    )
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert "Traceback" not in output
+    assert "no harness.yaml in this repo" in output
+
+
 def test_upgrade_replaces_machinery_preserves_project(repo, tmp_path):
     # Degrade machinery, add project-owned content + a proposed skill
     (repo / "factory" / "scripts" / "verify.py").unlink()
@@ -3068,9 +3087,15 @@ def test_quickfix_lifecycle_tracks_files_and_enforces_budget(repo):
     code, out = run(repo, "forge.py", "quickfix", "done")
     assert code == 0 and "5 file(s)" in out, out
     assert not active_path.exists()
-    events = [json.loads(line) for line in
-              (repo / "plans" / "quickfixes.jsonl").read_text().splitlines()]
-    assert [event["event"] for event in events] == ["open", "done"]
+    # One record per file now (decision 0022). Each record carries its own
+    # timestamps, so the ledger is a SET of records rather than a sequence —
+    # asserting a line order would re-import the assumption 0022 removed, and
+    # start/done can land inside the same second anyway.
+    events = {json.loads(p.read_text())["event"]: json.loads(p.read_text())
+              for p in (repo / "plans" / "quickfixes").glob("*.json")}
+    assert set(events) == {"open", "done"}
+    assert events["open"]["started_at"] <= events["done"]["completed_at"]
+    events = [events["open"], events["done"]]
     assert events[-1]["files"] == [f"src/file-{number}.py" for number in range(1, 6)]
 
     code, out = hook(repo, {
@@ -3711,7 +3736,8 @@ def test_quickfix_ids_survive_concurrent_worktrees(repo):
     run(repo, "forge.py", "quickfix", "done")
     # a second worktree that has not seen the first ledger row computes the
     # same sequence number; the suffix is what keeps the ids distinct
-    (repo / "plans" / "quickfixes.jsonl").unlink()
+    for record in (repo / "plans" / "quickfixes").glob("*.json"):
+        record.unlink()
     _, second = run(repo, "forge.py", "quickfix", "start", "fix b")
     first_id = re.search(r"Q-0001-[0-9a-f]{4}", first).group(0)
     second_id = re.search(r"Q-0001-[0-9a-f]{4}", second).group(0)
@@ -3892,8 +3918,10 @@ def test_lesson_ledger_validation_dedup_and_relevance(repo):
     code, out = run(repo, "forge.py", "lesson", "relevant", "--files", "docs/x.md")
     assert code == 0 and "orm-n-plus-one" not in out
     # a merge-artifact line fails loudly instead of dropping knowledge
+    # A legacy .jsonl is still read (decision 0022 migrates nothing), and a
+    # malformed line in one must still fail loudly rather than drop knowledge.
     path = repo / "plans" / "lessons.jsonl"
-    path.write_text(path.read_text() + "<<<<<<< HEAD\n")
+    path.write_text("<<<<<<< HEAD\n")
     code, out = run(repo, "forge.py", "lesson", "list")
     assert code != 0 and "merge artifact" in out
 
@@ -4534,14 +4562,20 @@ def test_stage_done_reaps_required_test_descendants(repo, tmp_path):
         "import subprocess, sys\n\n"
         "def test_slice():\n"
         "    subprocess.Popen([sys.executable, '-c', "
-        "\"import time; from pathlib import Path; time.sleep(0.5); "
+        # 5s, not 0.5s. Reaping has to win this race, and a 0.2s margin makes
+        # the test a coin flip under CI load: it failed inside a loaded
+        # 25-minute suite run and passed three times standalone. The wider
+        # delay tests the same thing — the descendant is killed before it can
+        # write — with room for a slow machine, and the wait below still
+        # outlasts the delay so an unreaped process WOULD be caught.
+        "\"import time; from pathlib import Path; time.sleep(5); "
         "Path('src/late.py').write_text('late')\"], "
         "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, "
         "start_new_session=True)\n",
     )
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
-    threading.Event().wait(0.7)
+    threading.Event().wait(6)
     assert not (repo / "src" / "late.py").exists()
 
 
