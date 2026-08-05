@@ -7675,6 +7675,16 @@ def test_upgrade_repairs_blanket_gstack_ignore(repo):
     assert subprocess.run(  # session noise still ignored
         ["git", "-C", str(repo), "check-ignore", "-q", "--",
          ".gstack/sessions/probe"]).returncode == 0
+    # No .gitignore at all: upgrade creates it with BOTH blocks.
+    gitignore.unlink()
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "client with no .gitignore")
+    proc = upgrade_into(repo)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    from forge_cli.upgrade import EPHEMERAL_MARKER
+    created = gitignore.read_text()
+    assert GSTACK_MARKER in created
+    assert EPHEMERAL_MARKER in created
 
 
 def test_upgrade_refuses_unreadable_run_json_before_writing(repo):

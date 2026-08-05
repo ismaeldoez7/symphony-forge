@@ -495,9 +495,11 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
             gitignore.write_text("".join(kept))
             ensured.append(".gitignore (blanket .gstack/ rule removed — it hid "
                            "the committed projects/ store)")
-    if gitignore.exists() and GSTACK_MARKER not in gitignore.read_text():
+    gstack_text = gitignore.read_text() if gitignore.exists() else ""
+    if GSTACK_MARKER not in gstack_text:
         with gitignore.open("a") as fh:
-            fh.write("\n" + GSTACK_MARKER + "\n"
+            fh.write(("\n" if gstack_text else "")
+                     + GSTACK_MARKER + "\n"
                      + "".join(f"{rule}\n" for rule in GSTACK_RULES))
         ensured.append(".gitignore (gstack block appended)")
     # Decision 0025: briefs and the delegation mirror stay on disk (a running
