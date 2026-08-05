@@ -15,19 +15,10 @@
       "id": "PH-2.2",
       "title": "Two epic routes, and --epic required on add",
       "status": "active",
-      "started_at": "2026-08-04T18:51:19+00:00",
-      "base_sha": "d1d419377d7221b758b656c4cc3c908e6122a725",
-      "dirty_at_start": {
-        ".factory/events.jsonl": {
-          "digest": "a5174331653f7b3ac46b476af0d43d658afde8f3ffbba53df24ece04ec4fa207",
-          "git": "1 .M N... 100644 100644 100644 24ae1697ae69f3ed66034a5982365b83069208d3 24ae1697ae69f3ed66034a5982365b83069208d3 .factory/events.jsonl\u0000\u0000100644 24ae1697ae69f3ed66034a5982365b83069208d3 0\t.factory/events.jsonl\u0000\u0000H .factory/events.jsonl\u0000"
-        },
-        ".factory/stages.json": {
-          "digest": "0261c2228b0b17abfa2a601e46c0567cd76a4a39fe966e0efe58c74723f9797c",
-          "git": "1 .M N... 100644 100644 100644 f4bf556276ef0204ec5a8574a6f13d690d1a5fa0 f4bf556276ef0204ec5a8574a6f13d690d1a5fa0 .factory/stages.json\u0000\u0000100644 f4bf556276ef0204ec5a8574a6f13d690d1a5fa0 0\t.factory/stages.json\u0000\u0000H .factory/stages.json\u0000"
-        }
-      },
-      "task_sha256": "13bf0bb24348334f39d939f421033179470b309440a5c2734f0cfd799a88ab25"
+      "started_at": "2026-08-04T19:06:30+00:00",
+      "base_sha": "409aafdacec8c6593ebca4adfe970f5041543da6",
+      "dirty_at_start": {},
+      "task_sha256": "0a364dd8fbc6840dcaf6e15e6b4b1e991cb00d710bba6d332a41e5c3c7c27c6f"
     },
     {
       "id": "PH-2.3",
