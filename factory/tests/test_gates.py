@@ -7638,7 +7638,7 @@ def test_upgrade_untracks_ephemeral_factory_paths(repo):
     # block above, so a file-wide line set would wrongly untrack it — only the
     # marker-owned tail governs, last mention wins. The opted-back-in path
     # stays tracked (untracking it would delete teammates' copies on pull).
-    opted = gitignore.read_text() + "!.factory/diagnostic-briefs/\n"
+    opted = gitignore.read_text() + "!.factory/diagnostic-briefs\n"
     gitignore.write_text(opted)
     (diag / "T-2.md").write_text("opted back in\n")
     git(repo, "add", "-A")  # plain add tracks it — the negation wins

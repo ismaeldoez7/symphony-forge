@@ -528,13 +528,14 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     # under the marker (removing the rule, or negating it below the block).
     marker_tail = ignore_text.split(EPHEMERAL_MARKER, 1)[1].splitlines()
 
+    # Exact-path spellings normalized (leading `!`/`/`, trailing `/`) — glob
+    # spellings of these paths are outside the opt-out contract.
     def _opted_out(rel: str) -> bool:
         state = True
-        for line in marker_tail:
-            if line.strip() == rel:
-                state = False
-            elif line.strip() == "!" + rel:
-                state = True
+        for raw in marker_tail:
+            line = raw.strip()
+            if line.lstrip("!").strip("/") == rel.strip("/"):
+                state = line.startswith("!")
         return state
 
     to_untrack = [rel for rel in EPHEMERAL_UNTRACK if not _opted_out(rel)]
