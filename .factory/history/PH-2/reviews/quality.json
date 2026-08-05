@@ -25,6 +25,6 @@
     "docs/decisions/0021-derived-ordering.md"
   ],
   "aspect": "quality",
-  "recorded_at": "2026-08-05T09:35:31+00:00",
-  "commit": "9ba960ba899c90f692f6c3e00e7cd5a578c4567b"
+  "recorded_at": "2026-08-05T09:50:45+00:00",
+  "commit": "07e14e96b12712686496117c36209b5975a38996"
 }

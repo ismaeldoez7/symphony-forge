@@ -1,9 +1,9 @@
 {
-  "commit": "d4d3972cd578cbc5f8c020c0c812bae09621f969",
+  "commit": "07e14e96b12712686496117c36209b5975a38996",
   "automated": {
     "generated_by": "implementer",
     "status": "passed",
-    "summary": "All deterministic Forge checks pass at d4d3972: dual-runtime parity, scaffold integrity, and 270 automated tests. The suite includes four gate tests that were red when this story began \u2014 they were failing for a calendar-dependent reason inherited from FORGE-DELEG-1, diagnosed and fixed under quickfix Q-0005 as part of unblocking this story's own verify.",
+    "summary": "Verify is green at 07e14e9: dual-runtime parity, scaffold integrity and 325 automated tests. The story's own routes were exercised against this repo's real roadmap \u2014 the backfill ran through 'forge roadmap epic add' and 'forge roadmap set-epic', not an editor, so the commands are proven by the repo that ships them.",
     "blocking_findings": [],
     "commands_run": [
       "FACTORY_STRUCTURAL_CMD='python3 factory/scripts/check_dual_runtime.py' FACTORY_TYPECHECK_CMD='python3 factory/scripts/check_factory_scaffold.py' FACTORY_TEST_CMD='uv run --with pytest python -m pytest factory/tests -q' python3 factory/scripts/verify.py",
@@ -27,7 +27,7 @@
       "test_process_identity_matches_the_process_table_on_single_digit_days \u2014 simulated ps output, so it detects the padding bug every day rather than only on days 1-9",
       "test_process_cleanup_reaps_known_process_when_discovery_fails \u2014 SIGTERM then SIGKILL still reach a known process, and incompleteness is still reported"
     ],
-    "pass_fail_summary": "270 passed in 860.89s; structural and scaffold checks passed.",
+    "pass_fail_summary": "325 passed in 712.65s; check_dual_runtime and check_factory_scaffold both exit 0.",
     "remaining_gaps": [
       "A client skill whose name the harness has since started shipping is still replaced rather than preserved under conflict \u2014 pre-existing and symmetric with the non-legacy branch, deferred as D-0002 with a revisit trigger.",
       "On macOS, ps no longer exposes another process's environment (verified on 26.5.1), so a descendant that detaches into a new session AND outlives its parent cannot be discovered by token at all. The product-tree and protected-authority guards still fail closed on the consequence, so no gate is weakened; full containment remains D-0001's deferred container boundary.",
@@ -44,8 +44,8 @@
     "non_blocking_findings": [],
     "residual_risks": [],
     "manual_validation_steps": [],
-    "recorded_at": "2026-08-04T12:40:26+00:00",
-    "commit": "d4d3972cd578cbc5f8c020c0c812bae09621f969"
+    "recorded_at": "2026-08-05T09:50:45+00:00",
+    "commit": "07e14e96b12712686496117c36209b5975a38996"
   },
-  "updated_at": "2026-08-04T12:40:26+00:00"
+  "updated_at": "2026-08-05T09:50:45+00:00"
 }

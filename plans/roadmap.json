@@ -93,10 +93,13 @@
         "unblocks, leverage and epic gating are derived from depends_on, and no route accepts them as authored input."
       ],
       "order": 5,
-      "status": "pending",
+      "status": "done",
       "skill": "backend",
       "spec": "docs/specs/project-hierarchy.md",
-      "epic": "symphony-forge"
+      "epic": "symphony-forge",
+      "completed_at": "2026-08-05T10:03:36+00:00",
+      "history": ".factory/history/PH-2/",
+      "outcome": "A story on the roadmap now has to say what it is: the three routes that author stories refuse one that omits its epic, narrative, acceptance criteria, skill or an explicit depends_on. Two new commands make that requirement satisfiable after sign-off \u2014 roadmap epic add creates an epic, set-epic points an existing story at one \u2014 and this repo's own roadmap was backfilled through them, so forge roadmap list finally prints its epic above the stories. Legacy roadmaps still load, still flip status and still heal; doctor reports their gaps without blocking, and no longer crashes on the broken state it exists to diagnose."
     },
     {
       "key": "PH-3",
@@ -138,7 +141,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-05T06:29:32+00:00",
+  "updated_at": "2026-08-05T10:03:36+00:00",
   "epics": [
     {
       "id": "symphony-forge",
