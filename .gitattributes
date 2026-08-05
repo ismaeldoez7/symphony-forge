@@ -1,24 +1,17 @@
-# Append-only JSONL stores: two devs appending between pushes is a union, not
-# a conflict. `union` is git's BUILT-IN driver, and everything here uses it.
+# Append-only ledgers are DIRECTORIES: one record per file (decision 0022).
+# plans/lessons/<id>.json, plans/quickfixes/<id>.json. Distinct files do not
+# conflict, so there is nothing to merge and no driver to register — this repo
+# depends on no custom merge driver at all.
 #
-# These used to route through a custom `jsonl-append` driver registered per
-# clone by the SessionStart hook. That driver hangs — it forks and never runs
-# its payload, so `git merge` blocks forever rather than failing, and the merge
-# looks like an unresolvable conflict to both git and GitHub. A merge that
-# cannot finish is worse than a merge that conflicts: you cannot tell it from a
-# hostile conflict, and every clone of this template inherited it.
-#
-# The rule that survives: a merge driver this repo depends on must be one git
-# already ships. A driver registered per clone by a hook that may not have run,
-# and that no test exercises, is a dependency on someone else's machine state.
-# Ordering does not need protecting here — every consumer of these ledgers
-# reads them by set membership or by each record's own timestamp, never by
-# line order.
+# The .jsonl files below are the legacy form, still read so history survives
+# and no repo is forced to migrate. `union` is git's BUILT-IN driver and the
+# only thing keeping them mergeable while they last; it reorders and can
+# DUPLICATE records, which is the behaviour 0022 removes rather than manages.
 .gstack/**/*.jsonl merge=union
 plans/lessons.jsonl merge=union
 plans/quickfixes.jsonl merge=union
-# Story timelines and worker signals: parallel story branches each append their
-# own lines, and a merge that conflicted here would lose the record of what
-# happened for the sake of line order.
+# Story timelines and worker signals: task-scoped, cleaned at every intake and
+# archived at ship, so they never accumulate across stories the way the durable
+# ledgers above did.
 .factory/*.jsonl merge=union
 .factory/history/**/*.jsonl merge=union

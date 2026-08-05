@@ -1,13 +1,16 @@
 ---
-status: accepted
+status: superseded
 confirmed_by: "vrknetha"
 date: 2026-08-04
 stories: []
+superseded_by: 0010-client-signoff
 ---
 
 # Client Signoff
 
 ## Context
+
+> **Superseded by 0010-client-signoff.** This record was minted on a branch that could not see 0010 — the same divergence that had `harness.yaml` pinned two different ways. Both were accepted and both said the same thing; `harness.yaml` pins 0010, so this one is retired rather than left as a second live answer to one question.
 
 This project was signed off once already, on 2026-07-24, against
 `0010-client-signoff` — maintainer plan approval standing in for client

@@ -155,22 +155,12 @@ def _summary(stories: list[dict], specs: list[dict], signals: list[dict],
 def quickfix_ledger(base: Path) -> list[dict]:
     """Closed quickfix windows, for the Library panel.
 
-    # ponytail: skips unreadable lines instead of reusing quickfix.load_events,
-    # which raises. The ledger is JSONL merged across worktrees, so a bad merge
-    # can leave a torn line — and a viewer must not blank the page over one.
+    Reads through the shared ledger helper (decision 0022), so the directory
+    form and any legacy .jsonl both land here, ordered by each record's own
+    timestamp rather than by position in a file a merge could rewrite.
     """
-    path = ledger_path(base)
-    if not path.exists():
-        return []
-    records = []
-    for line in path.read_text().splitlines():
-        try:
-            event = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(event, dict) and event.get("event") == "done":
-            records.append(event)
-    return records
+    from .quickfix import load_events
+    return [event for event in load_events(base) if event.get("event") == "done"]
 
 
 def aggregate_state(base: Path) -> dict:

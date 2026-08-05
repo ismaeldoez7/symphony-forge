@@ -235,6 +235,85 @@ def outside_examples(text: str, matches) -> list:
     ]
 
 
+def ledger_dir(legacy: Path) -> Path:
+    """The directory form of a ledger that used to be one .jsonl file."""
+    return legacy.with_suffix("")
+
+
+def append_ledger_record(legacy: Path, record: dict, record_id: str) -> Path:
+    """Write one record as its own file (decision 0022).
+
+    Many writers appending to ONE file is the only reason these ledgers ever
+    conflicted, and every mechanism built to manage that — a per-clone merge
+    driver, .gitattributes rules, scaffold wiring — existed to paper over it.
+    Distinct files do not conflict, so there is nothing to merge, nothing to
+    order, and no driver to register.
+    """
+    directory = ledger_dir(legacy)
+    directory.mkdir(parents=True, exist_ok=True)
+    safe = re.sub(r"[^A-Za-z0-9._-]", "-", record_id)[:120] or "record"
+    # A microsecond suffix, because two records of the same ledger can be
+    # written inside one second — `quickfix start` then `done` on a fast
+    # machine — and filenames that tie put the ledger in ALPHABETICAL order,
+    # which is how "done" came to precede "open". Filenames are not the
+    # ordering (that is each record's timestamp), but they must not fight it.
+    path = directory / f"{safe}-{datetime.now(timezone.utc):%H%M%S%f}.json"
+    dump_json(path, record)
+    return path
+
+
+def read_ledger_records(legacy: Path) -> list[dict]:
+    """Every record: the directory form plus any legacy .jsonl still present.
+
+    Reading both is what lets a repo adopt the directory form without a
+    migration — history stays readable and nothing is rewritten. Order comes
+    from each record's own timestamp, never from file position, because
+    position was never information and a merge rewrote it anyway.
+    """
+    records: list[dict] = []
+    directory = ledger_dir(legacy)
+    if directory.is_dir():
+        for path in sorted(directory.glob("*.json")):
+            entry = load_json(path, default=None)
+            if isinstance(entry, dict):
+                records.append(entry)
+    if legacy.is_file():
+        for lineno, line in enumerate(legacy.read_text().splitlines(), 1):
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                # LOUD, never skipped: a malformed line is a merge artifact or
+                # a hand edit, and a silently-dropped record is the knowledge
+                # this ledger exists to keep, lost quietly.
+                raise SystemExit(
+                    f"{legacy.name} line {lineno} is not valid JSON (merge "
+                    f"artifact or hand edit?): {line[:80]!r} — repair it; "
+                    "records are managed by the forge commands."
+                )
+            if not isinstance(entry, dict):
+                raise SystemExit(f"{legacy.name} line {lineno} must be a JSON object")
+            records.append(entry)
+    seen: set[str] = set()
+    unique: list[dict] = []
+    for entry in records:
+        key = json.dumps(entry, sort_keys=True)
+        if key not in seen:
+            seen.add(key)
+            unique.append(entry)
+    return sorted(unique, key=_ledger_order)
+
+
+def _ledger_order(record: dict) -> tuple:
+    """Chronological where a record says when it happened, stable otherwise."""
+    for field in ("at", "ts", "timestamp", "started_at", "recorded_at"):
+        value = record.get(field)
+        if isinstance(value, str) and value:
+            return (0, value)
+    return (1, json.dumps(record, sort_keys=True))
+
+
 def parse_sections(text: str) -> dict[str, str]:
     """Map level-two Markdown heading names to their stripped bodies.
 
