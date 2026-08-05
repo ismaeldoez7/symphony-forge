@@ -603,6 +603,30 @@ def _cmd_start_locked(args: argparse.Namespace, base: Path) -> None:
             fail(f"{args.id} cannot re-baseline over path(s) still outside the "
                  f"new task contract: {', '.join(strays[:10])}. Resolve or "
                  "remove those changes before restarting the stage.")
+        # Re-baselining onto a HEAD that already contains this stage's work
+        # sets the baseline to the finished state, so `stage done` then measures
+        # nothing and refuses as an EMPTY diff — with no way back, because
+        # restarting again is what caused it. The repair for a wrong scope must
+        # happen BEFORE the work, so say so instead of silently destroying the
+        # measurement the next command depends on.
+        # COMMITTED work only. Re-baselining over uncommitted work is the
+        # normal repair — the worktree delta survives the new baseline. But a
+        # commit becomes the new baseline itself, so the delta it carried is
+        # gone and nothing can measure it again.
+        head = head_sha(base)
+        committed = [
+            path for path in committed_paths(base, stage.get("base_sha", ""), head)
+            if not path.startswith(WORKFLOW_PATHS)
+        ] if head and stage.get("base_sha") else []
+        if committed:
+            fail(f"{args.id} cannot re-baseline: this stage's work is already "
+                 f"committed in {head[:8]} ({', '.join(sorted(committed)[:5])}), "
+                 "so baselining on top of it would measure an empty diff and "
+                 "strand the stage with no way back. Re-record a changed "
+                 "contract BEFORE the work, not after. To recover now, move the "
+                 "commit off the baseline (git reset --soft to where the stage "
+                 "started) and restart, or close with --incomplete and open a "
+                 "follow-up task for the rest.")
     active_others = [
         other["id"] for other in data.get("stages", [])
         if other is not stage and other.get("status") == "active"

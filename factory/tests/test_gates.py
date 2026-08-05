@@ -38,6 +38,18 @@ def run(repo: Path, script: str, *args: str, stdin: str | None = None,
     return proc.returncode, proc.stdout + proc.stderr
 
 
+
+def jsonl_append_rules(attributes: str) -> list[str]:
+    """Rule lines still routing through the hanging per-clone driver.
+
+    Comments naming it are history, not configuration — the harness explains
+    in .gitattributes why the driver was removed, and that prose must not read
+    as a violation of the rule it documents.
+    """
+    return [line for line in attributes.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+            and "jsonl-append" in line]
+
 def load_factory_lib(repo: Path):
     path = repo / "factory" / "scripts" / "factory_lib.py"
     spec = importlib.util.spec_from_file_location("factory_lib_under_test", path)
@@ -2281,7 +2293,10 @@ def test_scaffold_pins_gstack_into_the_repo(repo):
     envrc = repo / ".envrc"
     assert envrc.exists() and 'GSTACK_HOME="$PWD/.gstack"' in envrc.read_text()
     attrs = repo / ".gitattributes"
-    assert attrs.exists() and "merge=jsonl-append" in attrs.read_text()
+    # union, git's built-in: a scaffolded repo must not inherit a rule that
+    # depends on a per-clone hook having run wherever the merge happens.
+    assert attrs.exists() and "merge=union" in attrs.read_text()
+    assert not jsonl_append_rules(attrs.read_text())
     assert ".gstack/sessions/" in (repo / ".gitignore").read_text()
 
 
@@ -2334,7 +2349,8 @@ def test_upgrade_delivers_gstack_setup_to_older_scaffolds(repo):
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert 'GSTACK_HOME="$PWD/.gstack"' in (repo / ".envrc").read_text()
-    assert "merge=jsonl-append" in (repo / ".gitattributes").read_text()
+    assert "merge=union" in (repo / ".gitattributes").read_text()
+    assert not jsonl_append_rules((repo / ".gitattributes").read_text())
     assert ".gstack/sessions/" in gitignore.read_text()
 
 
@@ -4815,6 +4831,66 @@ def test_stage_start_refuses_to_rebaseline_an_unchanged_active_contract(repo, tm
     write_in_scope(repo, "billing/ledger.py")
     code, out = run(repo, "forge.py", "stage", "start", "T1")
     assert code != 0 and "already active" in out and "erase" in out
+
+
+def test_stage_start_refuses_to_rebaseline_onto_its_own_finished_work(repo, tmp_path):
+    """The repair for a wrong scope must happen BEFORE the work.
+
+    Re-recording mid-stage then restarting sets the baseline to the finished
+    state, so `stage done` measures nothing and refuses as an EMPTY diff — and
+    restarting again is what caused that, so the stage strands with the work
+    complete, reviewed and committed. Refuse the move that creates the trap.
+    """
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "src/core.py")
+    # Only the in-scope path: `git add -A` would sweep in the sign-off and
+    # harness files the fixture wrote, and trip the stray-path guard instead.
+    subprocess.run(["git", "add", "src/core.py"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "the stage's work"], cwd=repo, check=True)
+
+    widened = {**STAGE_TASK,
+               "write_scope": [*STAGE_TASK["write_scope"], "src/extra.py"]}
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps({**DECOMP, "tasks": [widened]}))
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code != 0, out
+    assert "already committed" in out and "empty diff" in out.lower()
+    assert "src/core.py" in out
+
+
+def test_verify_refuses_to_guess_a_toolchain(repo, tmp_path):
+    """An unset command used to default to pnpm, so a Python project recorded a
+    red verify against a package.json it does not have — and a project whose
+    pnpm scripts are no-ops would have recorded green having tested nothing."""
+    start_stage(repo, tmp_path, STAGE_TASK)  # verify runs past the workflow gate
+    # Explicit empties, not deletions: run() merges over os.environ, so a
+    # developer with these exported would otherwise not exercise the refusal.
+    blank = {"FACTORY_STRUCTURAL_CMD": "", "FACTORY_TYPECHECK_CMD": "",
+             "FACTORY_TEST_CMD": ""}
+    code, out = run(repo, "verify.py", env=blank)
+    assert code != 0
+    assert "not configured" in out
+    for variable in ("FACTORY_STRUCTURAL_CMD", "FACTORY_TYPECHECK_CMD",
+                     "FACTORY_TEST_CMD"):
+        assert variable in out
+    assert "pnpm" not in out.split("e.g.")[0]
+
+
+def test_jsonl_ledgers_merge_with_a_builtin_driver(repo):
+    """A merge driver this repo depends on must be one git already ships.
+
+    The custom jsonl-append driver hangs — it forks and never runs its payload,
+    so a merge blocks forever instead of failing, which is indistinguishable
+    from an unresolvable conflict. It was registered per clone by a hook that
+    may not have run, and no test exercised it.
+    """
+    attributes = (HARNESS / ".gitattributes").read_text()
+    assert not jsonl_append_rules(attributes)
+    for pattern in ("plans/lessons.jsonl", "plans/quickfixes.jsonl",
+                    ".factory/*.jsonl"):
+        line = next(l for l in attributes.splitlines() if l.startswith(pattern))
+        assert line.endswith("merge=union"), line
 
 
 def test_stage_done_refuses_a_task_with_no_boundary(repo, tmp_path):
