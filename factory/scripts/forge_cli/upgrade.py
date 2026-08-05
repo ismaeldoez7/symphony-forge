@@ -475,10 +475,19 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     # Decision 0025: briefs and the delegation mirror stay on disk (a running
     # task keeps reading them) but leave the tracked tree. --cached only, so
     # nothing is deleted; the staged untracking rides the client's next commit.
-    # Each rule checked independently: a client may have hand-ignored one
-    # path already, and the first rule must not act as a sentinel for the rest.
+    # Each rule checked independently, and by git's own evaluation rather than
+    # substring matching — a comment mentioning the path, or a rule undone by a
+    # later `!` negation, must not count as an installed rule. Appending at the
+    # END of .gitignore means the added rule wins over any earlier negation.
+    def _effectively_ignored(rel: str) -> bool:
+        probe = rel + "probe" if rel.endswith("/") else rel
+        return subprocess.run(
+            ["git", "-C", str(target), "check-ignore", "-q", "--", probe],
+            capture_output=True,
+        ).returncode == 0
+
     missing_rules = ([rel for rel in EPHEMERAL_UNTRACK
-                      if rel not in gitignore.read_text()]
+                      if not _effectively_ignored(rel)]
                      if gitignore.exists() else [])
     if missing_rules:
         with gitignore.open("a") as fh:

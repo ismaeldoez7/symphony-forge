@@ -7612,17 +7612,21 @@ def test_upgrade_untracks_ephemeral_factory_paths(repo):
     git(repo, "commit", "-q", "-m", "carry the staged untracking")
     proc = upgrade_into(repo)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    # Partial ignore: a client hand-ignored briefs but not the other two.
-    # The first rule must not act as a sentinel — the missing rules come back.
+    # Partial ignore: a client trimmed one rule and NEGATED another, so the
+    # path strings still appear in the file. Substring matching would count
+    # the negation as installed; git's own evaluation must not. The appended
+    # rules land at the end, where they override the earlier negation.
     gitignore = repo / ".gitignore"
     gitignore.write_text("".join(
         line for line in gitignore.read_text().splitlines(keepends=True)
-        if line.strip() not in (".factory/diagnostic-briefs/",
-                                ".factory/delegations.jsonl")))
+        if line.strip() != ".factory/diagnostic-briefs/")
+        + "!.factory/delegations.jsonl\n")
     git(repo, "add", "-A")
-    git(repo, "commit", "-q", "-m", "client trimmed two ignore rules")
+    git(repo, "commit", "-q", "-m", "client trimmed one rule, negated another")
     proc = upgrade_into(repo)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    restored = gitignore.read_text()
-    assert ".factory/diagnostic-briefs/" in restored
-    assert ".factory/delegations.jsonl" in restored
+    for probe in (".factory/diagnostic-briefs/probe",
+                  ".factory/delegations.jsonl"):
+        assert subprocess.run(
+            ["git", "-C", str(repo), "check-ignore", "-q", "--", probe],
+        ).returncode == 0, f"{probe} not effectively ignored after upgrade"
