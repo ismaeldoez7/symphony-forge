@@ -695,23 +695,12 @@ def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> None:
         fail(f"{stage_id} declares no write_scope, so nothing bounds what it may "
              "change. Re-record the decomposition with the paths this task owns, "
              f"then `forge stage start {stage_id}` again.")
-    recorded = stage.get("task_sha256")
-    if recorded and recorded != task_digest(task):
-        # A contract that moved mid-stage is EVIDENCE, not a refusal (0023).
-        # Refusing here forced a re-baseline, and re-baselining after the work
-        # destroyed the delta being measured. Record what changed so review
-        # sees a widened scope and can ask why; the diff is still measured
-        # against the ref this stage started from, so the boundary still binds.
-        stage["contract_changed"] = {
-            "at": now_iso(),
-            "from": recorded,
-            "to": task_digest(task),
-        }
-        append_event(base, "stage-contract-changed", actor="implementer",
-                     story=stage_id,
-                     detail=f"{stage_id}: task contract re-recorded mid-stage")
-        print(f"NOTE: {stage_id}'s task contract changed after the stage "
-              "started; recorded for review. The measured diff is unaffected.")
+    # NOTE: _measure must stay PURE. It runs several times per close — before
+    # the proof, after it, and again under the lock — and product_tree_snapshot
+    # digests every TRACKED file, .factory/events.jsonl included. Appending an
+    # event here changed the tree between the proof snapshot and the final
+    # check, so the stage refused itself. The contract change is ledgered once,
+    # in the serialization block, where stages.json is written anyway.
     # Emptiness is judged on PRODUCT paths only. A stalled run still churns
     # .factory/ — the stage tracker and the events ledger move on every
     # command — so counting workflow paths would make this check pass for
@@ -1020,6 +1009,22 @@ def _finish_stage(base: Path, args: argparse.Namespace, data: dict,
         current.pop("attested_digests", None)
         current["status"] = "done"
         current["completed_at"] = now_iso()
+        # A contract that moved mid-stage is EVIDENCE, not a refusal (0023):
+        # review sees the widened scope and can ask why. Recorded HERE, past
+        # the last snapshot check, because every write before it changes a
+        # tracked file the proof already attested.
+        started_digest = current.get("task_sha256")
+        if started_digest and started_digest != task_digest(locked_task):
+            current["contract_changed"] = {
+                "at": current["completed_at"],
+                "from": started_digest,
+                "to": task_digest(locked_task),
+            }
+            append_event(base, "stage-contract-changed", actor="implementer",
+                         story=data.get("issue", ""),
+                         detail=f"{args.id}: task contract re-recorded mid-stage")
+            print(f"NOTE: {args.id}'s task contract changed after the stage "
+                  "started; recorded for review. The measured diff is unaffected.")
         append_event(base, "stage-done", actor="implementer",
                      story=data.get("issue", ""),
                      detail=f"{args.id} {current.get('title', '')}")
