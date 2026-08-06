@@ -45,9 +45,20 @@ shared, mandatory check, not three idioms:
   symlinked ancestor, or a `..` component that escapes the root is refused.
 - The check runs in the command's **preflight**, before the first mutation, so
   an escape stops the command clean rather than halfway through a partial write.
-- Directory-tree copies (`copytree`) validate their **root destination** before
-  the walk and never follow symlinks into the tree; a wrapper that validates
-  only the top call is not sufficient if the tree can contain links.
+- Directory-tree copies (`copytree`) validate their **root destination** and
+  **every destination entry** before the walk (the preflight walk matches the
+  copy's own traversal); a wrapper that validates only the top call is not
+  sufficient if the destination can contain links. Source content is
+  dereferenced into those validated destinations — the source tree is the
+  harness's own, trusted — and a source symlink is not preserved as a link, so
+  an outward one cannot be recreated in the target as a fresh escape.
+
+> **Correction, 2026-08-06 (during FORGE-BOUNDARY-1).** An earlier draft of this
+> bullet said copies "never follow symlinks into the tree," which read as
+> preserving source links (`copytree symlinks=True`). Implementation and review
+> established the opposite is safe: preserving a source link would recreate an
+> outward one as an escape, so source content is dereferenced (`symlinks=False`)
+> and the preflight walks `followlinks=True` to validate every real destination.
 - Every write site routes through the shared check. A new write site that does
   not is the bug; a test per command asserts the escape is refused.
 

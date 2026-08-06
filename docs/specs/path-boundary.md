@@ -34,9 +34,12 @@ that all three commands call — never three idioms and never an unchecked site.
   or a `..` that escapes the root is refused.
 - The check runs in preflight, before the first mutation, so an escape stops the
   command clean rather than halfway through a partial write.
-- A directory-tree copy validates its root destination before it walks, and does
-  not follow symlinks into the tree — validating only the top call is not enough
-  when the tree can contain links.
+- A directory-tree copy validates its root destination AND every destination
+  entry before it writes — validating only the top call is not enough when the
+  destination can contain links. Source content is dereferenced (materialized)
+  into those validated destinations; the source tree is the harness's own and
+  trusted, and a source symlink is NOT preserved as a link, because an outward
+  one would be recreated in the target as a fresh escape.
 - A legal, in-boundary write behaves exactly as it does today. This changes
   safety, not outcomes.
 

@@ -9141,9 +9141,9 @@ def test_assert_target_destination_refuses_an_in_target_symlink_pointing_outside
 
 
 def test_assert_target_file_destination_refuses_a_directory_or_symlink(tmp_path: Path):
-    # shutil.copy2 treats a directory dst as a container (writes dst/<name>) and
-    # follows a symlink dst, so a file write must reject both even when the
-    # nominal path resolves inside the target.
+    # shutil.copy2 treats a directory dst as a container (writes dst/<name>), so
+    # a file write must reject a non-file dst even when its path resolves inside;
+    # a symlink is judged by where it RESOLVES, not by being a link.
     from forge_cli.scaffold import assert_target_file_destination
 
     target = tmp_path / "target"
@@ -9160,12 +9160,17 @@ def test_assert_target_file_destination_refuses_a_directory_or_symlink(tmp_path:
     with pytest.raises(SystemExit):
         assert_target_file_destination(target, crafted)
 
-    # a symlink file destination that resolves inside is still refused for a
-    # file write (copy2 would follow it and overwrite the linked file).
-    (target / "real.txt").write_text("real\n")
-    (target / "link.txt").symlink_to(target / "real.txt")
+    # a symlink pointing OUTSIDE is refused (assert_target_destination resolves it).
+    (target / "escape.txt").symlink_to(outside / "secret.txt")
     with pytest.raises(SystemExit):
-        assert_target_file_destination(target, target / "link.txt")
+        assert_target_file_destination(target, target / "escape.txt")
+
+    # a symlink to an in-target FILE is legal — copy2 follows it and writes
+    # inside the target (a real config-symlink upgrade path).
+    (target / "real.txt").write_text("real\n")
+    link = target / "link.txt"
+    link.symlink_to(target / "real.txt")
+    assert assert_target_file_destination(target, link) is link
 
     # a genuinely new file destination inside the target passes through.
     dest = target / "new.txt"

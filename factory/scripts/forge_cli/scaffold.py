@@ -275,11 +275,13 @@ def assert_target_destination(target: Path, dst: Path) -> Path:
 def assert_target_file_destination(target: Path, dst: Path) -> Path:
     """assert_target_destination for a destination a FILE is written to.
 
-    Also refuses a symlink or an existing non-file, because shutil.copy2 treats
-    a directory dst as a CONTAINER — it writes dst/<src name>, so a crafted
-    directory holding a symlink there escapes even though dst itself resolves
-    inside — and follows a symlink dst. These are the crafted collisions
-    `--force` skips past `_collisions`; the boundary check alone would pass them.
+    Also refuses an existing NON-FILE (a directory or special file), because
+    shutil.copy2 treats a directory dst as a CONTAINER — it writes dst/<src
+    name>, so a crafted directory holding an outward symlink there escapes even
+    though dst itself resolves inside. A symlink dst is judged by where it
+    RESOLVES: assert_target_destination already refuses one pointing outside,
+    while an in-target symlink to an in-target file is legal (copy2 follows it
+    and writes inside the target — a real config-symlink upgrade path).
 
     Scope (decision 0028): this closes the SYMLINK path-boundary class — a
     destination or ancestor symlink, a `..` traversal, or a crafted directory
@@ -294,8 +296,8 @@ def assert_target_file_destination(target: Path, dst: Path) -> Path:
         all three commands, replacing shutil's path-based copytree/copy2.
     """
     assert_target_destination(target, dst)
-    if dst.is_symlink() or (dst.exists() and not dst.is_file()):
-        fail(f"refusing a file destination that is a symlink or non-file: {dst}")
+    if dst.exists() and not dst.is_file():
+        fail(f"refusing a file destination that is a directory or special file: {dst}")
     return dst
 
 
