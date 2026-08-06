@@ -16,7 +16,10 @@
         "factory/scripts/forge.py",
         "factory/prompts/planner.md",
         ".claude/CLAUDE.md",
-        "factory/tests/test_gates.py"
+        "factory/tests/test_gates.py",
+        ".gitignore",
+        "docs/decisions/0029-plan-approval-in-plan-mode.md",
+        "docs/specs/plan-approval.md"
       ],
       "acceptance_criteria": [
         "plan save digests the plan BODY (excluding the machine-added frontmatter, using the existing body/header split), reads .factory/plan-approval.json, and sets plan_status approved ONLY when a marker exists and its plan_sha256 matches the body digest.",
@@ -60,5 +63,5 @@
   "epic": "symphony-forge",
   "plan_file": "plans/active/FORGE-APPROVE-1-plan-approval-is-a-human-gate-in-plan-mode-not-an-agent-command.md",
   "plan_sha256": "7bd3acf431c920ba5a7e4cce4ffd3d4e68dd0db9f198a00d9f634fe648a6eff6",
-  "commit": "be833180ab95b750aaee0db959f7168236624880"
+  "commit": "9f62b10faa4a6f4506059fe459bc9d9c66e1ae89"
 }
