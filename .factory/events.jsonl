@@ -404,3 +404,5 @@
 {"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-06T07:34:36+00:00", "detail": "path-boundary"}
 {"event": "roadmap-link-spec", "generated_by": "orchestrator", "at": "2026-08-06T07:34:46+00:00", "story": "FORGE-BOUNDARY-1", "detail": "docs/specs/path-boundary.md"}
 {"event": "intake", "generated_by": "orchestrator", "at": "2026-08-06T07:34:46+00:00", "story": "FORGE-BOUNDARY-1", "detail": "Every client-writing command obeys one path-boundary check"}
+{"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-06T11:13:53+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1 approved by vrknetha"}
+{"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-06T11:14:03+00:00", "story": "FORGE-BOUNDARY-1", "detail": "plans/active/FORGE-BOUNDARY-1-every-client-writing-command-obeys-one-path-boundary-check.md"}

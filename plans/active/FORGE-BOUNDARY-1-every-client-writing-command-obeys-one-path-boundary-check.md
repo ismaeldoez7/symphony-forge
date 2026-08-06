@@ -1,4 +1,9 @@
 ---
+issue: FORGE-BOUNDARY-1
+title: Every client-writing command obeys one path-boundary check
+status: approved
+saved: 2026-08-06T11:14:03+00:00
+story: FORGE-BOUNDARY-1
 decisions_reviewed:
   - 0001-determinism-contract
   - 0002-concurrency-one-task-per-branch
@@ -24,6 +29,7 @@ decisions_reviewed:
   - 0026-bundled-example-validated-by-production-validators
   - 0027-responsive-proof-without-a-browser
   - 0028-path-boundary-invariant
+  - 0029-plan-approval-in-plan-mode
 ---
 
 # FORGE-BOUNDARY-1 — Every client-writing command obeys one path-boundary check
@@ -93,8 +99,14 @@ Verbatim from the roadmap story, each with its proof:
    follow symlinks into the tree. Proof: a test with a symlinked tree-root
    destination is refused; tree copies preserve rather than follow source links.
 4. Each command has a per-site escape test, and the recurring repository-escape
-   class has a regression test it cannot silently reopen. Proof: the tests exist
-   and fail if the helper is bypassed at any site.
+   class has a regression test it cannot silently reopen. Proof (grill ruling):
+   the per-site behavioural escape tests **plus a structural scan** that reads the
+   `init`/`adopt`/`upgrade` modules and fails if any raw filesystem-mutating call
+   (`shutil.copy*`/`move`/`copytree`/`rmtree`, `os.mkdir`/`makedirs`/`remove`/
+   `rmdir`/`rename`/`symlink`, `Path.write_text`/`write_bytes`, `open(…,'w'|'a'|
+   'x')`) appears outside the shared helper. Behavioural tests cover the sites
+   that exist today; the structural scan is what fails when a *future* unguarded
+   site is added — the exact way this class recurred five times.
 5. A legal in-boundary run of each command produces the same result as before.
    Proof: the full existing suite stays green with no test weakened.
 
@@ -113,6 +125,16 @@ def assert_target_destination(target: Path, dst: Path) -> Path:
 It follows the existing sign-off-path pattern (`factory_lib.py:388`) for loop
 rejection. `check_record_origin_writable` is reimplemented on top of it, closing
 its own missing-tail-below-symlinked-ancestor gap.
+
+**Boundary semantics (grill ruling): outside is outside.** A destination whose
+resolved path lands outside the resolved target is refused *however it is
+reached* — a symlinked destination, a symlinked ancestor above the target, a
+`..` traversal, **or a symlink living inside the target that points outside it**
+(e.g. `target/logs` → `/var/log`, writing `target/logs/x`). `resolve(strict=
+False)` follows that in-target link out, and the helper does **not** special-case
+it: a legitimate `init`/`adopt`/`upgrade` never writes through a link that leaves
+the target, so refusing cannot break a legal run, and allowing it would reopen
+the exact escape route. The helper's tests include this in-target-symlink case.
 
 **Applying it (Tasks 2–4), one command per task** because each command's sites
 are disjoint and one file plus its tests is a bounded session:
@@ -160,11 +182,13 @@ being protected, 0009 the frozen gate surface unaffected).
 Four sequential tasks in one worktree (0002). Task 1 is the foundation the other
 three consume; each command task is disjoint and bounded.
 
-1. **The shared boundary helper** → AC1 (foundation), AC-loop regression. Scope:
+1. **The shared boundary helper** → AC1 (foundation), AC4 regression. Scope:
    `factory/scripts/forge_cli/scaffold.py`, `factory/tests/test_gates.py`.
    `assert_target_destination`, `check_record_origin_writable` reimplemented on
-   it (closing its own gap), and the helper's unit tests (symlinked ancestor,
-   `..`, symlink loop, legal path passes through).
+   it (closing its own gap), the helper's unit tests (symlinked ancestor, `..`,
+   symlink loop, an **in-target symlink pointing outside** the target, legal path
+   passes through), and the **structural anti-reopen scan** (AC4) that fails on
+   any raw write primitive outside the helper across all three command modules.
 2. **init routes every site through the helper** → AC1–5 for init. Scope:
    `factory/scripts/forge_cli/scaffold.py`, `factory/tests/test_gates.py`.
    Preflight all destinations; fix the three `copytree` roots and their
