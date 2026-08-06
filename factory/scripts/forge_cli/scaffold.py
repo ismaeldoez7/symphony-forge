@@ -219,7 +219,7 @@ def ensure_jsonl_attributes(target: Path, harness: Path) -> bool:
     machine merged it. When the driver was absent the rule was inert; when it
     was present it hung, and the merge blocked forever instead of failing.
     """
-    destination = target / ".gitattributes"
+    destination = assert_target_file_destination(target, target / ".gitattributes")
     if not destination.exists():
         shutil.copy2(harness / ".gitattributes", destination)
         return True

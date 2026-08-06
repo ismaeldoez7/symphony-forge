@@ -9,6 +9,7 @@ exercised through their real CLI surface.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import importlib.util
 import json
@@ -1528,6 +1529,44 @@ def upgrade_into(repo: Path):
          "upgrade", "--target", str(repo)],
         cwd=HARNESS, capture_output=True, text=True,
     )
+
+
+def test_upgrade_refuses_a_symlinked_destination_before_writing(repo, tmp_path):
+    outside = tmp_path / "outside-config.toml"
+    outside.write_text("do not replace\n")
+    destination = repo / ".codex" / "config.toml"
+    destination.unlink()
+    destination.symlink_to(outside)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "symlinked upgrade destination")
+
+    proc = upgrade_into(repo)
+
+    assert proc.returncode != 0
+    assert "refusing destination outside the target" in proc.stdout + proc.stderr
+    assert destination.is_symlink()
+    assert outside.read_text() == "do not replace\n"
+    assert git(repo, "status", "--porcelain") == ""
+
+
+def test_upgrade_refuses_a_symlinked_ancestor_and_leaves_the_target_clean(
+    repo, tmp_path,
+):
+    outside = tmp_path / "outside-workflows"
+    outside.mkdir()
+    workflows = repo / ".github" / "workflows"
+    shutil.rmtree(workflows)
+    workflows.symlink_to(outside, target_is_directory=True)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "symlinked upgrade ancestor")
+
+    proc = upgrade_into(repo)
+
+    assert proc.returncode != 0
+    assert "refusing destination outside the target" in proc.stdout + proc.stderr
+    assert workflows.is_symlink()
+    assert list(outside.iterdir()) == []
+    assert git(repo, "status", "--porcelain") == ""
 
 
 def strip_pin(repo: Path) -> None:
@@ -8852,6 +8891,120 @@ def test_record_origin_refuses_a_symlinked_factory_ancestor(tmp_path: Path):
     (dangling_target / ".factory").symlink_to(tmp_path / "missing-outside")
     with pytest.raises(SystemExit):
         check_record_origin_writable(dangling_target)
+
+
+def test_no_raw_write_primitive_outside_the_boundary_helper():
+    """Keep init, adopt, and upgrade closed against future raw write sites."""
+    modules = {
+        "scaffold.py": HARNESS / "factory" / "scripts" / "forge_cli" / "scaffold.py",
+        "adopt.py": HARNESS / "factory" / "scripts" / "forge_cli" / "adopt.py",
+        "upgrade.py": HARNESS / "factory" / "scripts" / "forge_cli" / "upgrade.py",
+    }
+    assert set(modules) == {"scaffold.py", "adopt.py", "upgrade.py"}
+
+    boundary_helpers = {
+        "assert_target_destination", "assert_target_file_destination",
+    }
+
+    def call_name(call: ast.Call) -> str:
+        func = call.func
+        if isinstance(func, ast.Name):
+            return func.id
+        if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+            return f"{func.value.id}.{func.attr}"
+        if isinstance(func, ast.Attribute):
+            return f"Path.{func.attr}"
+        return ""
+
+    def write_destination(call: ast.Call) -> tuple[str, ast.AST] | None:
+        name = call_name(call)
+        if name.startswith("shutil.copy") or name in {"shutil.move"}:
+            return (name, call.args[1]) if len(call.args) > 1 else None
+        if name == "shutil.rmtree":
+            return (name, call.args[0]) if call.args else None
+        if name in {"os.mkdir", "os.makedirs", "os.remove", "os.rmdir"}:
+            return (name, call.args[0]) if call.args else None
+        if name in {"os.rename", "os.replace", "os.symlink"}:
+            # the created/renamed path is arg 1, not the source at arg 0
+            return (name, call.args[1]) if len(call.args) > 1 else None
+        if name in {"Path.write_text", "Path.write_bytes", "Path.mkdir",
+                    "Path.touch", "Path.unlink"}:
+            return name, call.func.value
+        # Path.rename(dst)/replace(dst): the CREATED path is arg 0, not the
+        # source at func.value. Path.replace needs exactly one arg to tell it
+        # from str.replace(old, new[, count]), which carries two or more.
+        if name == "Path.rename" or (name == "Path.replace" and len(call.args) == 1):
+            return (name, call.args[0]) if call.args else None
+        if name in {"open", "Path.open"}:
+            mode_index = 1 if name == "open" else 0
+            mode = call.args[mode_index] if len(call.args) > mode_index else next(
+                (kw.value for kw in call.keywords if kw.arg == "mode"), None)
+            if not (isinstance(mode, ast.Constant) and isinstance(mode.value, str)
+                    and any(flag in mode.value for flag in "wax+")):
+                return None
+            destination = call.args[0] if name == "open" else call.func.value
+            return name, destination
+        return None
+
+    violations: list[str] = []
+    for module_name, path in modules.items():
+        source = path.read_text()
+        tree = ast.parse(source)
+        parents: dict[ast.AST, ast.AST] = {}
+        for node in ast.walk(tree):
+            for child in ast.iter_child_nodes(node):
+                parents[child] = node
+
+        def owner(node: ast.AST) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+            while node in parents:
+                node = parents[node]
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    return node
+            return None
+
+        routed_names: dict[ast.AST, dict[str, int]] = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if not isinstance(value, ast.Call) or call_name(value) not in boundary_helpers:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            function = owner(node)
+            if function is None:
+                continue
+            for target_node in targets:
+                if isinstance(target_node, ast.Name):
+                    routed_names.setdefault(function, {})[target_node.id] = node.lineno
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            mutation = write_destination(node)
+            if mutation is None:
+                continue
+            primitive, destination = mutation
+            function = owner(node)
+            function_name = function.name if function else "<module>"
+            destination_text = ast.get_source_segment(source, destination) or ""
+            inline = any(
+                isinstance(part, ast.Call) and call_name(part) in boundary_helpers
+                for part in ast.walk(destination)
+            )
+            names = {
+                part.id for part in ast.walk(destination) if isinstance(part, ast.Name)
+            }
+            assigned = routed_names.get(function, {}) if function else {}
+            routed_variable = any(assigned.get(name, node.lineno) < node.lineno
+                                  for name in names)
+            if not inline and not routed_variable:
+                violations.append(
+                    f"{module_name}:{node.lineno} {function_name}: "
+                    f"{primitive} -> {destination_text}"
+                )
+
+    assert not violations, "raw filesystem write bypasses the boundary helper:\n" + \
+        "\n".join(violations)
 
 
 def test_assert_target_destination_refuses_every_escape_route(tmp_path: Path):
