@@ -2,25 +2,24 @@
   "generated_by": "griller",
   "gate": "spec",
   "verdict": "pass",
-  "questions_asked": 3,
-  "summary": "Interrogated docs/specs/plan-approval.md against decision 0029 and the current plan-save/update_run flow. The two design questions that were genuinely the human's \u2014 the enforcement mechanism and whether to keep a CLI fallback \u2014 were put to the user via AskUserQuestion and answered: an ExitPlanMode approval-marker file as the primary gate, with a documented CLI fallback for headless runs. The remaining findings are resolved against the code.",
+  "questions_asked": 2,
+  "summary": "Re-grilled after the mechanism pivot. The original hook-based approach was verified infeasible against Claude Code docs (no plan-mode hook fires; #21282), and the human chose the CLI attributed approve mechanism via AskUserQuestion. The spec now describes forge plan approve --by writing the marker, plan save refusing without a fresh body-digest match, and plan mode as the review step not the enforcement signal.",
   "gaps": [
-    "The marker must bind the EXACT plan approved, or an edit after approval could ride a stale marker. Resolved: the spec's acceptance criteria require the marker to carry the plan digest and plan save to refuse a digest mismatch \u2014 the same freshness/digest rule the grill already enforces (verified in plans.py, which digests the plan for the grill gate).",
-    "ExitPlanMode fires when the agent PRESENTS a plan, not only on approval. Resolved in the spec: the hook writes the marker only on human APPROVAL, not on rejection or edit \u2014 an acceptance criterion, and the implementation detail (which hook event carries the approval) is the plan's job.",
-    "Whether plan-mode unavailability (headless/cron) would deadlock the gate. Resolved by the user's choice to keep a human-confirmed CLI fallback, attributed like decision accept \u2014 the exception, not the path."
+    "The original spec asserted a hook writes the marker on ExitPlanMode approval. Verified infeasible: PostToolUse/PreToolUse do not fire for plan-mode transitions (#21282); ExitPlanMode fires only PermissionRequest, a decision-gate before the human decides, which cannot record that the human approved this plan. Resolved: the enforcement is forge plan approve --by (human chat confirmation, decision-accept trust model); plan mode remains the review presentation.",
+    "The digest must bind what the human approved to what plan save records. Resolved: both digest the plan BODY (not the machine frontmatter); an edit after approval fails the match and is refused."
   ],
   "contradictions": [],
   "resolutions": [
-    "Enforcement is an ExitPlanMode approval-marker file (user-chosen): a hook writes .factory/plan-approval.json on human approval; plan save sets awaiting-approval and refuses approved without a fresh digest-matching marker.",
-    "The CLI fallback stays, human-attributed and audited, for environments without plan mode.",
-    "Every existing plan-save gate (grill, decisions coverage, contradiction, Surface Impact) is preserved \u2014 the spec adds the human gate, it does not replace the others."
+    "Mechanism is forge plan approve --by <name>, refused without a human --by, writing the body-digest marker; plan save sets awaiting-approval and refuses approved without a fresh matching marker.",
+    "Plan mode is the recommended human-review step (ExitPlanMode), documented as review not enforcement, because Claude Code emits no plan-mode hook to enforce against.",
+    "Every existing plan-save gate is preserved; this adds the human gate."
   ],
   "open_items": [
-    "Which Claude Code hook event carries the ExitPlanMode APPROVAL (vs the presentation) is an implementation question for the plan, resolved against the harness hook contract during planning.",
-    "Decision-number and roadmap-file collisions across parallel branches surfaced while setting this up (0028 taken on the parked branch); noted as the same merge-fragility class already deferred, not this story's scope."
+    "Decision 0029 carries the dated correction of the hook approach; it stays accepted because the human directed the corrected mechanism.",
+    "If Claude Code later adds plan-mode hooks (#21282), a follow-up could bind the marker to the plan-mode approval directly; the CLI command remains the auditable path."
   ],
   "issue": "plan-approval",
-  "input_sha256": "72b8250ea5681fd3711d0dcefaac07165596098027c0ae965aabd8f5dbd4cdaa",
-  "recorded_at": "2026-08-06T07:51:31+00:00",
-  "commit": "5dd2e2ccbcebdd2f6754865a87f973f3eec521fb"
+  "input_sha256": "85a5f4c17730c120cfef650b1e110c674bbf797fbf2bba53308d7f26e1bba02b",
+  "recorded_at": "2026-08-06T08:19:07+00:00",
+  "commit": "4cc963b772d66a9de505bda1484430676306b996"
 }
