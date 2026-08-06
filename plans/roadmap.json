@@ -197,7 +197,7 @@
         "Every existing plan-save gate still runs unchanged."
       ],
       "order": 9,
-      "status": "pending",
+      "status": "active",
       "epic": "symphony-forge",
       "skill": "backend",
       "kind": "feature",
@@ -208,7 +208,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-06T07:51:45+00:00",
+  "updated_at": "2026-08-06T07:51:54+00:00",
   "epics": [
     {
       "id": "symphony-forge",
