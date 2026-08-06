@@ -11,6 +11,6 @@
   "non_blocking_findings": [],
   "residual_risks": [],
   "recommendation": "approve-with-caveats",
-  "recorded_at": "2026-08-06T10:25:36+00:00",
-  "commit": "98a2fb5a6645af5e8dc53c8de2264bd7e44149f2"
+  "recorded_at": "2026-08-06T10:45:07+00:00",
+  "commit": "7432d284cc60c9637786e6355df412f1270958c3"
 }
