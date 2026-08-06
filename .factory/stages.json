@@ -1,0 +1,25 @@
+{
+  "issue": "FORGE-BOUNDARY-1",
+  "stages": [
+    {
+      "id": "FORGE-BOUNDARY-1.1",
+      "title": "The shared path-boundary helper and its structural anti-reopen scan",
+      "status": "pending"
+    },
+    {
+      "id": "FORGE-BOUNDARY-1.2",
+      "title": "init routes every write site through the boundary helper",
+      "status": "pending"
+    },
+    {
+      "id": "FORGE-BOUNDARY-1.3",
+      "title": "adopt routes every write site through the boundary helper",
+      "status": "pending"
+    },
+    {
+      "id": "FORGE-BOUNDARY-1.4",
+      "title": "upgrade routes every write site through the boundary helper",
+      "status": "pending"
+    }
+  ]
+}
