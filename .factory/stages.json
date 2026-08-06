@@ -19,7 +19,12 @@
     {
       "id": "FORGE-BOUNDARY-1.2",
       "title": "init routes every write site through the boundary helper",
-      "status": "pending"
+      "status": "done",
+      "started_at": "2026-08-06T12:35:03+00:00",
+      "base_sha": "f3d4dea994098beb2327816a7c0ea42027b5423b",
+      "dirty_at_start": {},
+      "task_sha256": "27fe0d74854006d2aea5db11024155975067cc91d263d528687950ebdc6c2e2c",
+      "completed_at": "2026-08-06T13:32:39+00:00"
     },
     {
       "id": "FORGE-BOUNDARY-1.3",

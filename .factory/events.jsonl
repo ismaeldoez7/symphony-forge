@@ -416,3 +416,6 @@
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-06T12:11:01+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.1 (write)"}
 {"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-06T12:34:47+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.1: task contract re-recorded mid-stage"}
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-06T12:34:47+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.1 The shared path-boundary helper"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-06T12:35:03+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.2 init routes every write site through the boundary helper"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-06T12:43:14+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.2 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-06T13:32:39+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.2 init routes every write site through the boundary helper"}
