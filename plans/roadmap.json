@@ -221,7 +221,7 @@
         "A legal in-boundary write behaves exactly as before \u2014 the refactor changes safety, not outcomes."
       ],
       "order": 10,
-      "status": "pending",
+      "status": "active",
       "epic": "symphony-forge",
       "skill": "backend",
       "kind": "refactor",

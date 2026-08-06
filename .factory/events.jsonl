@@ -403,3 +403,4 @@
 {"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-06T07:33:47+00:00", "detail": "path-boundary: The factory never writes outside the repo it was told to"}
 {"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-06T07:34:36+00:00", "detail": "path-boundary"}
 {"event": "roadmap-link-spec", "generated_by": "orchestrator", "at": "2026-08-06T07:34:46+00:00", "story": "FORGE-BOUNDARY-1", "detail": "docs/specs/path-boundary.md"}
+{"event": "intake", "generated_by": "orchestrator", "at": "2026-08-06T07:34:46+00:00", "story": "FORGE-BOUNDARY-1", "detail": "Every client-writing command obeys one path-boundary check"}
