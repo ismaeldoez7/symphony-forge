@@ -208,6 +208,10 @@ def cmd_save(args: argparse.Namespace) -> None:
             "A human must review it in plan mode, then run "
             "`./forge plan approve --by \"<name>\"` and save the unchanged plan again."
         )
+    # Consume the marker: it authorizes exactly one save (0029). Leaving it
+    # would let a later awaiting-approval reset re-approve the same body with no
+    # fresh human action — the replay hole autoreview flagged.
+    (base / ".factory" / "plan-approval.json").unlink(missing_ok=True)
     append_event(base, "plan-approved", actor="planner-high", story=story,
                  detail=dest.relative_to(base).as_posix())
     print(f"Plan saved to {dest.relative_to(base)} (plan_status: approved)")

@@ -3608,6 +3608,33 @@ def test_plan_save_refuses_an_edited_plan_riding_a_stale_marker(repo, tmp_path):
     assert hashlib.sha256(edited_body.encode()).hexdigest() != approved_digest
 
 
+def test_an_approval_marker_authorizes_only_one_save(repo, tmp_path):
+    # The marker is consumed on the approved save; replaying it (e.g. after a
+    # later awaiting-approval reset of the same body) must require a fresh approve.
+    sign_off(repo)
+    intake(repo)
+    ensure_story(repo, "ENG-1", "Invoices")
+    plan = tmp_path / "once-plan.md"
+    plan.write_text(plan_draft(repo))
+    record_grill(repo, "plan", digest_of=plan)
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
+                    "--story", "ENG-1")
+    assert code != 0 and "awaiting-approval" in out
+    code, out = run(repo, "forge.py", "plan", "approve", "--by", "Client PM")
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
+                    "--story", "ENG-1")
+    assert code == 0 and run_state(repo)["plan_status"] == "approved", out
+    assert not (repo / ".factory" / "plan-approval.json").exists()
+
+    # Same body, marker gone -> save refuses, no silent re-approval.
+    record_grill(repo, "plan", digest_of=plan)
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
+                    "--story", "ENG-1")
+    assert code != 0 and "awaiting-approval" in out
+    assert run_state(repo)["plan_status"] == "awaiting-approval"
+
+
 def test_existing_plan_save_gates_still_run_unchanged(repo, tmp_path):
     sign_off(repo)
     intake(repo)
