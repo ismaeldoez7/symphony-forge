@@ -8962,20 +8962,20 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
                     return node
             return None
 
-        routed_names: dict[ast.AST, dict[str, int]] = {}
+        assignments: dict[ast.AST, dict[str, list[tuple[int, bool]]]] = {}
         for node in ast.walk(tree):
             if not isinstance(node, (ast.Assign, ast.AnnAssign)):
                 continue
             value = node.value
-            if not isinstance(value, ast.Call) or call_name(value) not in boundary_helpers:
-                continue
+            routed = isinstance(value, ast.Call) and call_name(value) in boundary_helpers
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             function = owner(node)
             if function is None:
                 continue
             for target_node in targets:
                 if isinstance(target_node, ast.Name):
-                    routed_names.setdefault(function, {})[target_node.id] = node.lineno
+                    assignments.setdefault(function, {}).setdefault(
+                        target_node.id, []).append((node.lineno, routed))
 
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
@@ -8991,12 +8991,14 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
                 isinstance(part, ast.Call) and call_name(part) in boundary_helpers
                 for part in ast.walk(destination)
             )
-            names = {
-                part.id for part in ast.walk(destination) if isinstance(part, ast.Name)
-            }
-            assigned = routed_names.get(function, {}) if function else {}
-            routed_variable = any(assigned.get(name, node.lineno) < node.lineno
-                                  for name in names)
+            routed_variable = False
+            if function and isinstance(destination, ast.Name):
+                prior = [
+                    assignment for assignment in
+                    assignments.get(function, {}).get(destination.id, [])
+                    if assignment[0] < node.lineno
+                ]
+                routed_variable = bool(prior and max(prior)[1])
             if not inline and not routed_variable:
                 violations.append(
                     f"{module_name}:{node.lineno} {function_name}: "
