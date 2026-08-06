@@ -260,11 +260,23 @@ def assert_target_destination(target: Path, dst: Path) -> Path:
             if base == base.parent:
                 break
             base = base.parent
+    loop = False
     try:
         base.resolve(strict=True)  # raises on a symlink loop / unreadable link
-        resolved_dst = dst.resolve(strict=False)
+    except FileNotFoundError:
+        # A dangling symlink's referent is simply missing — that is NOT a loop,
+        # and it may resolve inside the target (a legal config symlink whose file
+        # copy2 will create). resolve(strict=False) below judges its containment.
+        pass
     except (OSError, RuntimeError):
+        loop = True  # ELOOP or an unreadable link
+    if loop:
         resolved_dst = None
+    else:
+        try:
+            resolved_dst = dst.resolve(strict=False)
+        except (OSError, RuntimeError):
+            resolved_dst = None
     if resolved_dst is None:
         fail(f"refusing destination with an unresolvable symlink: {dst}")
     elif not resolved_dst.is_relative_to(resolved_target):
@@ -358,19 +370,19 @@ def ensure_record_origin(target: Path) -> bool:
     return True
 
 
-def _preflight_copytree(target: Path, src: Path, dst: Path) -> None:
+def _preflight_copytree(target: Path, src: Path, dst: Path,
+                        follow: bool = True) -> None:
     """Validate a merging copy's root and every entry before it can mutate.
 
     A source FILE's destination is validated as a file destination: copytree's
     own copy2 would treat a crafted directory there as a container and follow a
     symlink out, so a plain boundary check on the nominal path is not enough.
+    `follow` MUST match copytree's traversal: True for the dereferencing default
+    (symlinks=False), False when source links are preserved (symlinks=True), so
+    the walk enumerates exactly the destinations the copy will create.
     """
     assert_target_destination(target, dst)
-    # followlinks=True MATCHES copytree's default (symlinks=False) dereferencing:
-    # it descends the same source directory symlinks copytree will, so every
-    # destination copytree writes is validated here. A followlinks=False walk
-    # would skip those descendants and leave a crafted dest symlink unchecked.
-    for current, dirnames, filenames in os.walk(src, followlinks=True):
+    for current, dirnames, filenames in os.walk(src, followlinks=follow):
         dirnames[:] = [
             name for name in dirnames
             if name != "__pycache__" and name != ".DS_Store"
@@ -385,6 +397,18 @@ def _preflight_copytree(target: Path, src: Path, dst: Path) -> None:
             assert_target_destination(target, dst / relative / name)
         for name in filenames:
             assert_target_file_destination(target, dst / relative / name)
+
+
+def guarded_copytree(target: Path, src: Path, dst: Path, *,
+                     symlinks: bool = False, **kwargs) -> None:
+    """The single audited directory-tree copy: validate every destination entry
+    against the boundary (matching copytree's own traversal), then copy. Every
+    copytree call routes through here so the anti-reopen scan can REQUIRE it — a
+    raw shutil.copytree anywhere else is the regression the scan refuses, because
+    its root wrapper alone would not prove the leaves were validated."""
+    _preflight_copytree(target, src, dst, follow=not symlinks)
+    shutil.copytree(src, assert_target_destination(target, dst),
+                    symlinks=symlinks, **kwargs)
 
 
 def _preflight_init(root: Path, target: Path) -> None:
@@ -481,11 +505,11 @@ def cmd_init(args: argparse.Namespace) -> None:
         src = root / tree
         if src.exists():
             # Default symlinks=False MATERIALIZES the trusted source content
-            # into the boundary-checked destination. symlinks=True would instead
-            # recreate a source link verbatim — an outward one would become an
-            # escape — so we deliberately keep the dereferencing copy (0028).
-            shutil.copytree(src, assert_target_destination(target, target / tree),
-                            dirs_exist_ok=True, ignore=ignore)
+            # guarded_copytree dereferences trusted source content into the
+            # boundary-checked destination and validates every leaf; symlinks=True
+            # would recreate an outward source link as an escape (0028).
+            guarded_copytree(target, src, target / tree,
+                             dirs_exist_ok=True, ignore=ignore)
     for rel in COPY_WORKFLOWS:
         src = root / rel
         if src.exists():
@@ -496,17 +520,13 @@ def cmd_init(args: argparse.Namespace) -> None:
     for name in COPY_CODEX:
         dst = target / ".codex" / name
         shutil.copy2(root / ".codex" / name, assert_target_file_destination(target, dst))
-    shutil.copytree(
-        root / ".codex" / "agents",
-        assert_target_destination(target, target / ".codex" / "agents"),
-        dirs_exist_ok=True, ignore=ignore,
-    )
+    guarded_copytree(target, root / ".codex" / "agents",
+                     target / ".codex" / "agents",
+                     dirs_exist_ok=True, ignore=ignore)
     if (root / ".codex" / "skills").is_dir():
-        shutil.copytree(
-            root / ".codex" / "skills",
-            assert_target_destination(target, target / ".codex" / "skills"),
-            dirs_exist_ok=True, ignore=ignore,
-        )
+        guarded_copytree(target, root / ".codex" / "skills",
+                         target / ".codex" / "skills",
+                         dirs_exist_ok=True, ignore=ignore)
     for name in COPY_FILES:
         src = root / name
         if src.exists():

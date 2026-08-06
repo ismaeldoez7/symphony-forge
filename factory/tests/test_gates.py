@@ -9060,6 +9060,16 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
             primitive, destinations = mutation
             function = owner(node)
             function_name = function.name if function else "<module>"
+            # copytree's leaf safety comes from guarded_copytree's per-entry
+            # preflight, which a root wrapper alone does not prove — so every
+            # copytree MUST live inside guarded_copytree and nowhere else.
+            if primitive == "shutil.copytree" and function_name != "guarded_copytree":
+                violations.append(
+                    f"{module_name}:{node.lineno} {function_name}: shutil.copytree "
+                    "must route through guarded_copytree (its root wrapper alone "
+                    "does not validate the copied leaves)"
+                )
+                continue
             for destination, required in destinations:
                 destination_text = ast.get_source_segment(source, destination) or ""
                 # strongest helper wrapping the destination expression inline

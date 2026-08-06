@@ -23,6 +23,7 @@ from .scaffold import (
     assert_target_destination,
     assert_target_file_destination,
     ensure_jsonl_attributes,
+    guarded_copytree,
 )
 
 # Harness-owned: replaced wholesale on upgrade.
@@ -76,10 +77,7 @@ def _replace_path(target: Path, src: Path, dst: Path) -> None:
         (assert_target_destination(target, dst.parent) / dst.name).unlink()
     assert_target_destination(target, dst.parent).mkdir(parents=True, exist_ok=True)
     if src.is_dir():
-        shutil.copytree(
-            src, assert_target_destination(target, dst), ignore=VENDOR_IGNORE,
-            symlinks=False,
-        )
+        guarded_copytree(target, src, dst, ignore=VENDOR_IGNORE, symlinks=False)
     else:
         shutil.copy2(src, assert_target_file_destination(target, dst))
 
@@ -93,10 +91,7 @@ def _keep_path(keep_root: Path, src: Path, dst: Path) -> None:
     replaced by its target's content."""
     assert_target_destination(keep_root, dst.parent).mkdir(parents=True, exist_ok=True)
     if src.is_dir() and not src.is_symlink():
-        shutil.copytree(
-            src, assert_target_destination(keep_root, dst),
-            dirs_exist_ok=True, symlinks=True,
-        )
+        guarded_copytree(keep_root, src, dst, dirs_exist_ok=True, symlinks=True)
     else:
         shutil.copy2(
             src, assert_target_file_destination(keep_root, dst),
@@ -480,10 +475,7 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         dst = target / tree
         if dst.exists():
             shutil.rmtree(assert_target_destination(target, dst))
-        shutil.copytree(
-            src, assert_target_destination(target, dst), ignore=VENDOR_IGNORE,
-            symlinks=False,
-        )
+        guarded_copytree(target, src, dst, ignore=VENDOR_IGNORE, symlinks=False)
     # .claude is mixed ownership: replace only harness-shipped paths; the
     # client's own skills/agents/launch.json survive untouched.
     for rel in CLAUDE_HARNESS_OWNED:
@@ -537,8 +529,7 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         # Same symlink rule as _keep_path: a link kept as a link must come back
         # as a link, or the round trip quietly materializes its referent.
         if kept.is_dir() and not kept.is_symlink():
-            shutil.copytree(
-                kept, assert_target_destination(target, dst), symlinks=True)
+            guarded_copytree(target, kept, dst, symlinks=True)
         else:
             shutil.copy2(
                 kept, assert_target_file_destination(target, dst),
