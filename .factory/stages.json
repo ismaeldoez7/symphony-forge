@@ -3,8 +3,12 @@
   "stages": [
     {
       "id": "FORGE-BOUNDARY-1.1",
-      "title": "The shared path-boundary helper and its structural anti-reopen scan",
-      "status": "pending"
+      "title": "The shared path-boundary helper",
+      "status": "active",
+      "started_at": "2026-08-06T11:18:11+00:00",
+      "base_sha": "6910c384485b03e818f147b1876c02458540d989",
+      "dirty_at_start": {},
+      "task_sha256": "34830dd6fb088845cc96856026ab088e1b603a95af111b5151373bddb8a64d13"
     },
     {
       "id": "FORGE-BOUNDARY-1.2",
