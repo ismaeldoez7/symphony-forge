@@ -20,7 +20,6 @@ from factory_lib import (
 from .common import fail
 from .scaffold import (
     COPY_CODEX, COPY_WORKFLOWS, DOC_CONTRACTS, PROJECT_STARTERS,
-    _preflight_copytree,
     assert_target_destination,
     assert_target_file_destination,
     ensure_jsonl_attributes,
@@ -215,17 +214,20 @@ def _preflight_upgrade(
         assert_target_destination(target, dst.parent)
         assert_target_file_destination(target, dst)
 
-    def replacement(src: Path, dst: Path) -> None:
-        if src.is_dir():
-            _preflight_copytree(target, src, dst)
-        else:
-            file(dst)
+    def replacement(_src: Path, dst: Path) -> None:
+        # _replace_path removes any existing dst (dir, file, or symlink), then
+        # copies fresh — so only the root boundary matters here. A per-leaf or
+        # file-type check against the PRE-removal state would falsely reject a
+        # legal dir<->file type change, or a stale symlink the removal deletes.
+        assert_target_destination(target, dst.parent)
+        assert_target_destination(target, dst)
 
     directory(target)
     for tree in UPGRADE_TREES:
-        src = harness / tree
-        if src.exists():
-            _preflight_copytree(target, src, target / tree)
+        if (harness / tree).exists():
+            # Replacement tree: rmtree'd then copied fresh, so validate the root
+            # boundary, not the pre-removal leaves (same reason as replacement()).
+            directory(target / tree)
     for rel in CLAUDE_HARNESS_OWNED:
         src = harness / ".claude" / rel
         if src.exists():

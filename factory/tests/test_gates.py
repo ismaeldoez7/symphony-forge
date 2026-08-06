@@ -8909,27 +8909,37 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
     # enough. Everything else is satisfied by either guard.
     STRENGTH = {None: 0, "any": 1, "file": 2}
 
-    def call_name(call: ast.Call) -> str:
+    def call_name(call: ast.Call, aliases: dict | None = None) -> str:
+        aliases = aliases or {}
         func = call.func
         if isinstance(func, ast.Name):
             return func.id
         if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
-            return f"{func.value.id}.{func.attr}"
+            return f"{aliases.get(func.value.id, func.value.id)}.{func.attr}"
         if isinstance(func, ast.Attribute):
             return f"Path.{func.attr}"
         return ""
 
-    def helper_kind(call: ast.Call) -> str | None:
-        name = call_name(call)
+    def helper_kind(call: ast.Call, aliases: dict | None = None) -> str | None:
+        name = call_name(call, aliases)
         if name == "assert_target_file_destination":
             return "file"
         if name == "assert_target_destination":
             return "any"
         return None
 
-    def write_destination(call: ast.Call) -> tuple[str, ast.AST, str] | None:
+    # from shutil/os import <primitive> would call the mutation as a bare name
+    # the qualified-name classifier below never sees, so forbid those imports.
+    FORBIDDEN_IMPORTS = {
+        "shutil": {"copy", "copy2", "copyfile", "copytree", "move", "rmtree"},
+        "os": {"mkdir", "makedirs", "remove", "unlink", "rmdir", "rename",
+               "replace", "symlink", "link"},
+    }
+
+    def write_destination(call: ast.Call, aliases: dict | None = None
+                          ) -> tuple[str, ast.AST, str] | None:
         """Return (primitive, destination-node, required helper kind) or None."""
-        name = call_name(call)
+        name = call_name(call, aliases)
         # File copies with container/symlink-follow semantics: need "file".
         if name in {"shutil.copy", "shutil.copy2", "shutil.copyfile",
                     "shutil.move"}:
@@ -8970,6 +8980,22 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
     for module_name, path in modules.items():
         source = path.read_text()
         tree = ast.parse(source)
+        # `import shutil as sh` -> resolve sh.copy2 to shutil.copy2; a
+        # `from shutil import copy2` is forbidden outright (it would call the
+        # primitive as a bare name the classifier never matches).
+        aliases: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.asname:
+                        aliases[alias.asname] = alias.name
+            elif isinstance(node, ast.ImportFrom) and node.module in FORBIDDEN_IMPORTS:
+                for alias in node.names:
+                    if alias.name in FORBIDDEN_IMPORTS[node.module]:
+                        violations.append(
+                            f"{module_name}:{node.lineno}: `from {node.module} "
+                            f"import {alias.name}` bypasses the scan — call it "
+                            f"qualified as {node.module}.{alias.name}")
         parents: dict[ast.AST, ast.AST] = {}
         for node in ast.walk(tree):
             for child in ast.iter_child_nodes(node):
@@ -8988,7 +9014,7 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
             if not isinstance(node, (ast.Assign, ast.AnnAssign)):
                 continue
             value = node.value
-            kind = helper_kind(value) if isinstance(value, ast.Call) else None
+            kind = helper_kind(value, aliases) if isinstance(value, ast.Call) else None
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             function = owner(node)
             if function is None:
@@ -9001,7 +9027,7 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
-            mutation = write_destination(node)
+            mutation = write_destination(node, aliases)
             if mutation is None:
                 continue
             primitive, destination, required = mutation
@@ -9010,7 +9036,7 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
             destination_text = ast.get_source_segment(source, destination) or ""
             # strongest helper wrapping the destination expression inline
             available = max(
-                (STRENGTH[helper_kind(part)] for part in ast.walk(destination)
+                (STRENGTH[helper_kind(part, aliases)] for part in ast.walk(destination)
                  if isinstance(part, ast.Call)),
                 default=0,
             )
