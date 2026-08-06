@@ -1,18 +1,36 @@
 ---
+issue: FORGE-APPROVE-1
+title: Plan approval is a human gate in plan mode, not an agent command
+status: approved
+saved: 2026-08-06T07:56:34+00:00
+story: FORGE-APPROVE-1
 decisions_reviewed:
   - 0001-determinism-contract
+  - 0002-concurrency-one-task-per-branch
+  - 0003-model-tiers-terra-explore-sol-implement
   - 0005-recurring-findings-escalation
   - 0006-lessons-ledger
   - 0007-stage-commit-loop
+  - 0008-loop-health-audit
   - 0009-frozen-gate-integrity
+  - 0010-client-signoff
   - 0011-orchestrator-runs-autoreview
+  - 0012-project-level-memory
   - 0013-always-armed-planning-lock
+  - 0014-specs-before-signoff
   - 0015-plan-contradiction-gate
+  - 0016-machinery-dir-rename
   - 0017-repo-as-system-of-record
   - 0018-delegation-gates
+  - 0021-derived-ordering
+  - 0022-conflict-free-ledgers
+  - 0023-stage-delta-by-ref
   - 0025-evidence-lifetime-contract
+  - 0026-bundled-example-validated-by-production-validators
+  - 0027-responsive-proof-without-a-browser
   - 0029-plan-approval-in-plan-mode
 ---
+
 
 # FORGE-APPROVE-1 — Plan approval is a human gate in plan mode
 
