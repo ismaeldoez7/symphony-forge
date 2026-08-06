@@ -8936,55 +8936,71 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
                "replace", "symlink", "link"},
     }
 
+    def arg_at(call: ast.Call, index: int, *names: str) -> ast.AST | None:
+        """The positional arg at `index`, else a keyword arg named in `names`.
+        Resolves both forms so a keyword call cannot slip past the classifier."""
+        if len(call.args) > index and not isinstance(call.args[index], ast.Starred):
+            return call.args[index]
+        for kw in call.keywords:
+            if kw.arg in names:
+                return kw.value
+        return None
+
     def write_destination(call: ast.Call, aliases: dict | None = None
-                          ) -> tuple[str, ast.AST, str] | None:
+                          ) -> tuple[str, list[tuple[ast.AST, str]]] | None:
         """Return (primitive, [(mutated-path-node, required helper kind), ...]).
 
         A call can mutate more than one path: rename/replace/move also remove
         the SOURCE, so both sides must be inside the boundary.
         """
         name = call_name(call, aliases)
+
+        def one(dest: ast.AST | None, kind: str):
+            return (name, [(dest, kind)]) if dest is not None else None
+
         # File copies with container/symlink-follow semantics: dest needs "file".
         if name in {"shutil.copy", "shutil.copy2", "shutil.copyfile"}:
-            return (name, [(call.args[1], "file")]) if len(call.args) > 1 else None
+            return one(arg_at(call, 1, "dst"), "file")
         if name == "shutil.move":  # writes dest (container) AND removes source
-            return (name, [(call.args[0], "any"), (call.args[1], "file")]) \
-                if len(call.args) > 1 else None
+            paths = [(p, k) for p, k in ((arg_at(call, 0, "src"), "any"),
+                                         (arg_at(call, 1, "dst"), "file")) if p]
+            return (name, paths) if paths else None
         # copytree's root is a directory destination; its per-file copies are
         # validated by _preflight_copytree, so the root only needs containment.
         if name == "shutil.copytree":
-            return (name, [(call.args[1], "any")]) if len(call.args) > 1 else None
+            return one(arg_at(call, 1, "dst"), "any")
         if name == "shutil.rmtree":
-            return (name, [(call.args[0], "any")]) if call.args else None
+            return one(arg_at(call, 0, "path"), "any")
         if name in {"os.mkdir", "os.makedirs", "os.remove", "os.unlink",
                     "os.rmdir"}:
-            return (name, [(call.args[0], "any")]) if call.args else None
+            return one(arg_at(call, 0, "path", "name"), "any")
         if name in {"os.symlink", "os.link"}:  # the created link path is arg 1
-            return (name, [(call.args[1], "any")]) if len(call.args) > 1 else None
+            return one(arg_at(call, 1, "dst"), "any")
         if name in {"os.rename", "os.replace"}:  # source (arg 0) AND dest (arg 1)
-            return (name, [(call.args[0], "any"), (call.args[1], "any")]) \
-                if len(call.args) > 1 else None
+            paths = [(p, "any") for p in (arg_at(call, 0, "src"),
+                                          arg_at(call, 1, "dst")) if p]
+            return (name, paths) if paths else None
         if name in {"Path.write_text", "Path.write_bytes", "Path.mkdir",
                     "Path.touch", "Path.unlink", "Path.rmdir",
                     "Path.symlink_to", "Path.hardlink_to"}:
             return name, [(call.func.value, "any")]
         # Path.rename(dst)/replace(dst): both the source (func.value, removed)
         # and the created dst (arg 0) are mutated. Path.replace needs exactly one
-        # arg to tell it from str.replace(old, new[, count]) (two or more).
-        if name == "Path.rename" or (name == "Path.replace" and len(call.args) == 1):
-            dests = [(call.func.value, "any")]
-            if call.args:
-                dests.append((call.args[0], "any"))
-            return name, dests
+        # argument to tell it from str.replace(old, new[, count]) (two or more).
+        if name == "Path.rename" or (name == "Path.replace"
+                                     and len(call.args) + len(call.keywords) == 1):
+            paths = [(call.func.value, "any")]
+            target = arg_at(call, 0, "target")
+            if target is not None:
+                paths.append((target, "any"))
+            return name, paths
         if name in {"open", "Path.open"}:
-            mode_index = 1 if name == "open" else 0
-            mode = call.args[mode_index] if len(call.args) > mode_index else next(
-                (kw.value for kw in call.keywords if kw.arg == "mode"), None)
+            mode = arg_at(call, 1 if name == "open" else 0, "mode")
             if not (isinstance(mode, ast.Constant) and isinstance(mode.value, str)
                     and any(flag in mode.value for flag in "wax+")):
                 return None
-            destination = call.args[0] if name == "open" else call.func.value
-            return name, [(destination, "any")]
+            dest = call.func.value if name == "Path.open" else arg_at(call, 0, "file")
+            return one(dest, "any")
         return None
 
     violations: list[str] = []
