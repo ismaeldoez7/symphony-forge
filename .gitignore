@@ -46,6 +46,8 @@ pino-*.log
 .factory/briefs/
 .factory/diagnostic-briefs/
 .factory/delegations.jsonl
+# Human plan approval is per-worktree ephemeral state (decision 0025)
+.factory/plan-approval.json
 # Session noise from the PreCompact hook — snapshot, never evidence
 .factory/scratchpad.md
 .worktrees/

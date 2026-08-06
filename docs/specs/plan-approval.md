@@ -17,44 +17,44 @@ planning, grilling, and approving its own plan, then implementing. The always-
 armed lock (0013) blocks product writes without an *approved* plan, but it
 trusts whatever set `approved`.
 
-Claude Code already has the deterministic human gate this is missing: plan mode.
-The harness blocks product actions until the agent calls `ExitPlanMode` and the
-human approves — an approval the agent cannot forge, exactly like `decision
-accept` and client sign-off. Decision 0029 states the design.
+The harness needs a human approval it cannot forge. Plan mode is where the human
+reviews the plan (`ExitPlanMode`), but Claude Code fires no hook on that
+transition (#21282), so plan mode cannot be the enforcement signal. The
+enforcement is an explicit human-attributed approval command — the same trust
+model `decision accept` and client sign-off already use. Decision 0029 states
+the design and records this correction.
 
 ## Behaviour
 
-A plan reaches `approved` only through a human's plan-mode approval, proven by a
+A plan reaches `approved` only through an explicit human approval, proven by a
 marker the agent cannot mint.
 
-- A hook fires on `ExitPlanMode` and, only when the human approves, writes
-  `.factory/plan-approval.json`: the approved plan's digest, approver, timestamp.
+- `forge plan approve --by <name>` writes `.factory/plan-approval.json`: the
+  approved plan's BODY digest, the approver, a timestamp. It is refused without a
+  human `--by` — a human chat confirmation, exactly like `decision accept`.
 - `forge plan save` sets `plan_status` to `awaiting-approval`, never directly to
   `approved`. It refuses to record an approved plan unless a fresh
-  `plan-approval.json` marker matches the plan being saved (digest-bound, the
-  same freshness rule the grill uses). Absent or stale marker → refused.
-- The grill's genuine open questions are put to the human before the plan-mode
-  presentation, so the human approves a plan whose questions they answered.
-- A documented, human-confirmed CLI fallback exists for headless/cron runs where
-  plan mode is unavailable — attributed and audited like `decision accept`, the
-  exception not the path.
+  `plan-approval.json` marker matches the plan being saved (digest-bound over the
+  BODY, the same freshness rule the grill uses). Absent, mismatched, or stale
+  marker → refused.
+- The grill's genuine open questions are put to the human (`AskUserQuestion`)
+  before approval, so the human approves a plan whose questions they answered.
+  Presenting the plan in plan mode is the recommended review step; the attributed
+  `plan approve` is the recorded gate.
 - The marker is ephemeral working state (0025): gitignored, per-worktree, good
   for one save.
 
 ## Acceptance criteria
 
 - `plan save` sets `plan_status` to `awaiting-approval` and refuses to set
-  `approved` unless a fresh `.factory/plan-approval.json` matches the plan's
-  digest; a stale or absent marker is refused with a message naming the missing
-  approval.
-- A hook writes the approval marker on human ExitPlanMode approval and does not
-  write it when the plan is rejected or edited.
-- The marker binds the exact plan approved: saving a plan whose digest differs
-  from the marker is refused, so an edit after approval cannot ride a stale
-  marker.
+  `approved` unless a fresh `.factory/plan-approval.json` matches the plan's body
+  digest; a stale, mismatched, or absent marker is refused with a message naming
+  the missing approval.
+- `forge plan approve --by <name>` writes the approval marker for the current
+  plan's body digest and is refused without a human `--by`.
+- The marker binds the exact plan approved: saving a plan whose body digest
+  differs from the marker (an edit after approval) is refused.
 - Implementation stays blocked (`update_run` refuses the implementing phase)
   until `plan_status` is `approved`, which now requires the human marker.
-- A documented CLI fallback records a human-attributed approval for a plan when
-  plan mode is unavailable, and it is refused without a `--by` human.
 - Every existing plan-save gate (grill freshness, decisions_reviewed coverage,
   contradiction signals, Surface Impact) still runs unchanged.

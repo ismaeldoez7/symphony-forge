@@ -34,24 +34,34 @@ confirmation.
 
 ## Decision
 
-A plan is approved by a human in plan mode, proven by an approval marker the
-agent cannot forge.
+A plan is approved by a human, proven by a marker the agent cannot forge.
 
-- A hook on `ExitPlanMode` writes `.factory/plan-approval.json` when — and only
-  when — the human approves the plan: the approved plan's digest, the approver,
-  and a timestamp.
+> **Correction, 2026-08-06 (during FORGE-APPROVE-1).** This decision originally
+> made a hook on `ExitPlanMode` write the marker. Verification against Claude
+> Code's docs proved that infeasible: **no PreToolUse/PostToolUse hook fires for
+> plan-mode transitions** (GitHub #21282). `ExitPlanMode` fires only a
+> `PermissionRequest` event, which is a permission-DECISION gate fired *before*
+> the human decides — it cannot record that the human approved *this* plan.
+> Confirmed with the human, the mechanism is the CLI approval below, which the
+> harness already trusts for its most critical gates. Plan mode remains the
+> human-review presentation; it is not the enforcement signal.
+
+- `forge plan approve --by <name>` writes `.factory/plan-approval.json`: the
+  approved plan's body digest, the approver, and a timestamp. It requires an
+  explicit human `--by` and is a human chat confirmation, exactly like
+  `decision accept` and client sign-off — the same trust model, not a weaker one.
 - `plan save` sets `plan_status = "awaiting-approval"`, not `approved`. It
   refuses to record an approved plan unless a **fresh** `plan-approval.json`
-  marker matches the plan it is saving (digest-bound, the same freshness rule
-  the grill already uses). A stale or absent marker means the plan was never
-  human-approved, and save refuses.
-- The grill runs before the plan-mode presentation, and its genuine open
-  questions are put to the human (`AskUserQuestion`), so the human approves a
-  plan whose questions they have actually answered — not one the agent both
-  asked and answered.
-- A documented fallback exists for environments without plan mode (headless,
-  cron): an explicit human-confirmed CLI approval, attributed and audited like
-  `decision accept`. It is the exception, not the path.
+  marker matches the plan it is saving (digest-bound over the plan BODY, the
+  same freshness rule the grill uses). A stale, mismatched, or absent marker
+  means the plan was never human-approved, and save refuses.
+- The grill runs before approval, and its genuine open questions are put to the
+  human (`AskUserQuestion`), so the human approves a plan whose questions they
+  actually answered — not one the agent both asked and answered. Presenting the
+  plan in plan mode (`ExitPlanMode`) is the recommended review step; the
+  attributed `plan approve` is the recorded gate.
+- The approve command is the single path (there is no hook to be primary over);
+  it works identically in interactive and headless/cron runs.
 
 ## Consequences
 

@@ -21,6 +21,7 @@ import sys
 import threading
 import urllib.error
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -3081,11 +3082,6 @@ def test_assumptions_archive_compacts_resolved_rows(repo, tmp_path):
 
 def hook(repo: Path, payload: dict) -> tuple[int, str]:
     return run(repo, "pre_tool_use.py", stdin=json.dumps(payload))
-
-
-COMPANION = "node /x/codex-companion.mjs task --model gpt-5.6-sol"
-COMPANION_WRITE = (COMPANION + " --write --prompt-file .factory/briefs/T1.md "
-                   "'build the slice'")
 
 
 def test_hook_denies_unbriefed_write_delegation(repo, tmp_path):

@@ -187,3 +187,8 @@ verify commands are runnable pytest selections. What falsifies the work: a
 an edited plan riding a stale marker; implementation proceeding at
 awaiting-approval; a fallback approval with no `--by`. Each has a test. Review is
 one autoreview pass, three lenses (0011).
+
+## Implementation Assumptions
+
+<!-- Made during implementation, NOT part of the approved plan. Dev: review these before merge; promote any that matter to docs/decisions/. -->
+- 2026-08-06: The ExitPlanMode hook records approver as human-via-exit-plan-mode because Claude Code's documented PostToolUse payload contains the approved plan but no human identity.
