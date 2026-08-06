@@ -2,24 +2,22 @@
   "generated_by": "griller",
   "gate": "spec",
   "verdict": "pass",
-  "questions_asked": 2,
-  "summary": "Re-grilled after the mechanism pivot. The original hook-based approach was verified infeasible against Claude Code docs (no plan-mode hook fires; #21282), and the human chose the CLI attributed approve mechanism via AskUserQuestion. The spec now describes forge plan approve --by writing the marker, plan save refusing without a fresh body-digest match, and plan mode as the review step not the enforcement signal.",
+  "questions_asked": 4,
+  "summary": "Interrogated docs/specs/path-boundary.md against decision 0005 (recurring-class escalation), decision 0028 (the invariant it states), and the actual copytree/symlink handling in the three commands. The one hard technical claim \u2014 that one shared check suffices despite copytree walks \u2014 was verified against the code rather than trusted.",
   "gaps": [
-    "The original spec asserted a hook writes the marker on ExitPlanMode approval. Verified infeasible: PostToolUse/PreToolUse do not fire for plan-mode transitions (#21282); ExitPlanMode fires only PermissionRequest, a decision-gate before the human decides, which cannot record that the human approved this plan. Resolved: the enforcement is forge plan approve --by (human chat confirmation, decision-accept trust model); plan mode remains the review presentation.",
-    "The digest must bind what the human approved to what plan save records. Resolved: both digest the plan BODY (not the machine frontmatter); an edit after approval fails the match and is refused."
+    "The spec says 'one shared check', but copytree cannot validate each internal file through a simple wrapper. Verified this is not a hole: the escape vector is the DESTINATION root (or a dest ancestor) being a symlink pointing outside the target, not the tree's internal files. upgrade's symlinks=True sites (upgrade.py:91,440) PRESERVE links rather than follow them; the symlinks=False sites (77,394; scaffold 324,334,336) follow SOURCE links, and the source is the trusted harness. So 'validate the root destination before the walk' is both sufficient and achievable, which is what the spec says.",
+    "The spec states the invariant but does not enumerate the write sites. That is correct scope: the enumeration is the plan/decomposition's job (a read-only site map is already running), and pinning it in the spec would stale the moment a site moves."
   ],
   "contradictions": [],
   "resolutions": [
-    "Mechanism is forge plan approve --by <name>, refused without a human --by, writing the body-digest marker; plan save sets awaiting-approval and refuses approved without a fresh matching marker.",
-    "Plan mode is the recommended human-review step (ExitPlanMode), documented as review not enforcement, because Claude Code emits no plan-mode hook to enforce against.",
-    "Every existing plan-save gate is preserved; this adds the human gate."
+    "The copytree concern is resolved by the spec's own wording ('validates its root destination before the walk and does not follow symlinks into the tree') once checked against the code \u2014 no spec change needed, the claim holds.",
+    "Site enumeration stays out of the spec and belongs to the plan; the spec's acceptance criteria are about the invariant holding at every site and being regression-tested, which is checkable without naming each site."
   ],
   "open_items": [
-    "Decision 0029 carries the dated correction of the hook approach; it stays accepted because the human directed the corrected mechanism.",
-    "If Claude Code later adds plan-mode hooks (#21282), a follow-up could bind the marker to the plan-mode approval directly; the CLI command remains the auditable path."
+    "Whether the shared helper lives in scaffold.py (already imported by adopt) or a new small module is a plan-level choice, not a spec question."
   ],
-  "issue": "plan-approval",
-  "input_sha256": "85a5f4c17730c120cfef650b1e110c674bbf797fbf2bba53308d7f26e1bba02b",
-  "recorded_at": "2026-08-06T08:19:07+00:00",
-  "commit": "4cc963b772d66a9de505bda1484430676306b996"
+  "issue": "path-boundary",
+  "input_sha256": "d9e07940822ccc9e559fa8157dc8ffa07de078e3c20b2cb6b0ccc458799249f1",
+  "recorded_at": "2026-08-06T07:34:36+00:00",
+  "commit": "2d8349f6077634c086ed76c7dafd8b94543f6679"
 }

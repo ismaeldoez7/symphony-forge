@@ -9,6 +9,7 @@ exercised through their real CLI surface.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import importlib.util
 import json
@@ -1530,6 +1531,44 @@ def upgrade_into(repo: Path):
     )
 
 
+def test_upgrade_refuses_a_symlinked_destination_before_writing(repo, tmp_path):
+    outside = tmp_path / "outside-config.toml"
+    outside.write_text("do not replace\n")
+    destination = repo / ".codex" / "config.toml"
+    destination.unlink()
+    destination.symlink_to(outside)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "symlinked upgrade destination")
+
+    proc = upgrade_into(repo)
+
+    assert proc.returncode != 0
+    assert "refusing destination outside the target" in proc.stdout + proc.stderr
+    assert destination.is_symlink()
+    assert outside.read_text() == "do not replace\n"
+    assert git(repo, "status", "--porcelain") == ""
+
+
+def test_upgrade_refuses_a_symlinked_ancestor_and_leaves_the_target_clean(
+    repo, tmp_path,
+):
+    outside = tmp_path / "outside-workflows"
+    outside.mkdir()
+    workflows = repo / ".github" / "workflows"
+    shutil.rmtree(workflows)
+    workflows.symlink_to(outside, target_is_directory=True)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "symlinked upgrade ancestor")
+
+    proc = upgrade_into(repo)
+
+    assert proc.returncode != 0
+    assert "refusing destination outside the target" in proc.stdout + proc.stderr
+    assert workflows.is_symlink()
+    assert list(outside.iterdir()) == []
+    assert git(repo, "status", "--porcelain") == ""
+
+
 def strip_pin(repo: Path) -> None:
     """A project vendored before the pin key existed."""
     harness_yaml = repo / "harness.yaml"
@@ -2632,6 +2671,43 @@ def test_adopt_refuses_dirty_tree(tmp_path):
     (repo / "wip.txt").write_text("uncommitted\n")
     code, out = adopt(repo)
     assert code != 0 and "uncommitted" in out
+
+
+def test_adopt_refuses_a_symlinked_destination_before_writing(tmp_path):
+    repo = existing_repo(tmp_path)
+    outside = tmp_path / "outside-forge"
+    outside.write_text("do not replace\n")
+    destination = repo / "forge"
+    destination.symlink_to(outside)
+    git(repo, "add", "forge")
+    git(repo, "commit", "-q", "-m", "symlinked adopt destination")
+
+    code, out = adopt(repo)
+
+    assert code != 0
+    assert "refusing destination outside the target" in out
+    assert destination.is_symlink()
+    assert outside.read_text() == "do not replace\n"
+    assert git(repo, "status", "--porcelain") == ""
+
+
+def test_adopt_refuses_a_symlinked_ancestor_and_leaves_the_target_clean(
+    tmp_path,
+):
+    repo = existing_repo(tmp_path)
+    outside = tmp_path / "outside-factory"
+    outside.mkdir()
+    (repo / "factory").symlink_to(outside, target_is_directory=True)
+    git(repo, "add", "factory")
+    git(repo, "commit", "-q", "-m", "symlinked adopt ancestor")
+
+    code, out = adopt(repo)
+
+    assert code != 0
+    assert "refusing destination outside the target" in out
+    assert (repo / "factory").is_symlink()
+    assert list(outside.iterdir()) == []
+    assert git(repo, "status", "--porcelain") == ""
 
 
 # ------------------------------------------------------- project-local gstack
@@ -8394,10 +8470,10 @@ def test_onboarding_section_created_at_init_and_never_duplicated(repo):
     assert text.count("Working in this repo — Symphony Forge") == 1
 
 
-def _init(target: Path):
+def _init(target: Path, *extra: str):
     return subprocess.run(
         [sys.executable, str(HARNESS / "factory" / "scripts" / "forge.py"),
-         "init", "--name", "app", "--target", str(target)],
+         "init", "--name", "app", "--target", str(target), *extra],
         capture_output=True, text=True,
     )
 
@@ -8498,6 +8574,45 @@ def test_init_refuses_symlink_and_blocking_ancestor(tmp_path: Path):
     assert proc.returncode == 1
     assert ".codex" in proc.stdout + proc.stderr
     assert (target2 / ".codex").read_text() == "not a dir\n"
+
+
+def test_init_refuses_a_symlinked_destination_before_writing(tmp_path: Path):
+    target = tmp_path / "app"
+    codex = target / ".codex"
+    codex.mkdir(parents=True)
+    outside = tmp_path / "outside.toml"
+    outside.write_text("do not replace\n")
+    destination = codex / "config.toml"
+    destination.symlink_to(outside)
+
+    proc = _init(target, "--force")
+
+    assert proc.returncode == 1
+    assert "refusing destination outside the target" in proc.stdout + proc.stderr
+    assert destination.is_symlink()
+    assert outside.read_text() == "do not replace\n"
+    assert sorted(str(path.relative_to(target)) for path in target.rglob("*")) == [
+        ".codex",
+        ".codex/config.toml",
+    ]
+
+
+def test_init_refuses_a_symlinked_ancestor_and_leaves_the_target_clean(
+    tmp_path: Path,
+):
+    target = tmp_path / "app"
+    target.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (target / "docs").symlink_to(outside, target_is_directory=True)
+
+    proc = _init(target, "--force")
+
+    assert proc.returncode == 1
+    assert "refusing destination outside the target" in proc.stdout + proc.stderr
+    assert (target / "docs").is_symlink()
+    assert list(outside.iterdir()) == []
+    assert [path.name for path in target.iterdir()] == ["docs"]
 
 
 def test_init_refuses_symlinked_readme(tmp_path: Path):
@@ -8770,3 +8885,303 @@ def test_record_origin_refuses_a_symlinked_factory_ancestor(tmp_path: Path):
     (target / ".factory").symlink_to(outside)
     with pytest.raises(SystemExit):
         check_record_origin_writable(target)
+
+    dangling_target = tmp_path / "dangling-app"
+    dangling_target.mkdir()
+    (dangling_target / ".factory").symlink_to(tmp_path / "missing-outside")
+    with pytest.raises(SystemExit):
+        check_record_origin_writable(dangling_target)
+
+
+def test_no_raw_write_primitive_outside_the_boundary_helper():
+    """Keep init, adopt, and upgrade closed against future raw write sites."""
+    modules = {
+        "scaffold.py": HARNESS / "factory" / "scripts" / "forge_cli" / "scaffold.py",
+        "adopt.py": HARNESS / "factory" / "scripts" / "forge_cli" / "adopt.py",
+        "upgrade.py": HARNESS / "factory" / "scripts" / "forge_cli" / "upgrade.py",
+    }
+    assert set(modules) == {"scaffold.py", "adopt.py", "upgrade.py"}
+
+    # helper "strength": file > any > none. A destination is routed when the
+    # helper wrapping it is at least as strong as the primitive requires.
+    # shutil.copy*/move treat a directory dst as a CONTAINER (write dst/<name>),
+    # so they need the file-specific guard; the plain containment guard is not
+    # enough. Everything else is satisfied by either guard.
+    STRENGTH = {None: 0, "any": 1, "file": 2}
+
+    def call_name(call: ast.Call, aliases: dict | None = None) -> str:
+        aliases = aliases or {}
+        func = call.func
+        if isinstance(func, ast.Name):
+            return func.id
+        if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+            return f"{aliases.get(func.value.id, func.value.id)}.{func.attr}"
+        if isinstance(func, ast.Attribute):
+            return f"Path.{func.attr}"
+        return ""
+
+    def helper_kind(call: ast.Call, aliases: dict | None = None) -> str | None:
+        name = call_name(call, aliases)
+        if name == "assert_target_file_destination":
+            return "file"
+        if name == "assert_target_destination":
+            return "any"
+        return None
+
+    # from shutil/os import <primitive> would call the mutation as a bare name
+    # the qualified-name classifier below never sees, so forbid those imports.
+    FORBIDDEN_IMPORTS = {
+        "shutil": {"copy", "copy2", "copyfile", "copytree", "move", "rmtree"},
+        "os": {"mkdir", "makedirs", "remove", "unlink", "rmdir", "rename",
+               "replace", "symlink", "link"},
+    }
+
+    def arg_at(call: ast.Call, index: int, *names: str) -> ast.AST | None:
+        """The positional arg at `index`, else a keyword arg named in `names`.
+        Resolves both forms so a keyword call cannot slip past the classifier."""
+        if len(call.args) > index and not isinstance(call.args[index], ast.Starred):
+            return call.args[index]
+        for kw in call.keywords:
+            if kw.arg in names:
+                return kw.value
+        return None
+
+    def write_destination(call: ast.Call, aliases: dict | None = None
+                          ) -> tuple[str, list[tuple[ast.AST, str]]] | None:
+        """Return (primitive, [(mutated-path-node, required helper kind), ...]).
+
+        A call can mutate more than one path: rename/replace/move also remove
+        the SOURCE, so both sides must be inside the boundary.
+        """
+        name = call_name(call, aliases)
+
+        def one(dest: ast.AST | None, kind: str):
+            return (name, [(dest, kind)]) if dest is not None else None
+
+        # File copies with container/symlink-follow semantics: dest needs "file".
+        if name in {"shutil.copy", "shutil.copy2", "shutil.copyfile"}:
+            return one(arg_at(call, 1, "dst"), "file")
+        if name == "shutil.move":  # writes dest (container) AND removes source
+            paths = [(p, k) for p, k in ((arg_at(call, 0, "src"), "any"),
+                                         (arg_at(call, 1, "dst"), "file")) if p]
+            return (name, paths) if paths else None
+        # copytree's root is a directory destination; its per-file copies are
+        # validated by _preflight_copytree, so the root only needs containment.
+        if name == "shutil.copytree":
+            return one(arg_at(call, 1, "dst"), "any")
+        if name == "shutil.rmtree":
+            return one(arg_at(call, 0, "path"), "any")
+        if name in {"os.mkdir", "os.makedirs", "os.remove", "os.unlink",
+                    "os.rmdir"}:
+            return one(arg_at(call, 0, "path", "name"), "any")
+        if name in {"os.symlink", "os.link"}:  # the created link path is arg 1
+            return one(arg_at(call, 1, "dst"), "any")
+        if name in {"os.rename", "os.replace"}:  # source (arg 0) AND dest (arg 1)
+            paths = [(p, "any") for p in (arg_at(call, 0, "src"),
+                                          arg_at(call, 1, "dst")) if p]
+            return (name, paths) if paths else None
+        if name in {"Path.write_text", "Path.write_bytes", "Path.mkdir",
+                    "Path.touch", "Path.unlink", "Path.rmdir",
+                    "Path.symlink_to", "Path.hardlink_to"}:
+            return name, [(call.func.value, "any")]
+        # Path.rename(dst)/replace(dst): both the source (func.value, removed)
+        # and the created dst (arg 0) are mutated. Path.replace needs exactly one
+        # argument to tell it from str.replace(old, new[, count]) (two or more).
+        if name == "Path.rename" or (name == "Path.replace"
+                                     and len(call.args) + len(call.keywords) == 1):
+            paths = [(call.func.value, "any")]
+            target = arg_at(call, 0, "target")
+            if target is not None:
+                paths.append((target, "any"))
+            return name, paths
+        if name in {"open", "Path.open"}:
+            mode = arg_at(call, 1 if name == "open" else 0, "mode")
+            if not (isinstance(mode, ast.Constant) and isinstance(mode.value, str)
+                    and any(flag in mode.value for flag in "wax+")):
+                return None
+            dest = call.func.value if name == "Path.open" else arg_at(call, 0, "file")
+            return one(dest, "any")
+        return None
+
+    violations: list[str] = []
+    for module_name, path in modules.items():
+        source = path.read_text()
+        tree = ast.parse(source)
+        # `import shutil as sh` -> resolve sh.copy2 to shutil.copy2; a
+        # `from shutil import copy2` is forbidden outright (it would call the
+        # primitive as a bare name the classifier never matches).
+        aliases: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.asname:
+                        aliases[alias.asname] = alias.name
+            elif isinstance(node, ast.ImportFrom) and node.module in FORBIDDEN_IMPORTS:
+                for alias in node.names:
+                    if alias.name in FORBIDDEN_IMPORTS[node.module]:
+                        violations.append(
+                            f"{module_name}:{node.lineno}: `from {node.module} "
+                            f"import {alias.name}` bypasses the scan — call it "
+                            f"qualified as {node.module}.{alias.name}")
+        parents: dict[ast.AST, ast.AST] = {}
+        for node in ast.walk(tree):
+            for child in ast.iter_child_nodes(node):
+                parents[child] = node
+
+        def owner(node: ast.AST) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+            while node in parents:
+                node = parents[node]
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    return node
+            return None
+
+        # function -> {name -> [(lineno, helper kind or None)]}
+        assignments: dict[ast.AST, dict[str, list[tuple[int, str | None]]]] = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            kind = helper_kind(value, aliases) if isinstance(value, ast.Call) else None
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            function = owner(node)
+            if function is None:
+                continue
+            for target_node in targets:
+                if isinstance(target_node, ast.Name):
+                    assignments.setdefault(function, {}).setdefault(
+                        target_node.id, []).append((node.lineno, kind))
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            mutation = write_destination(node, aliases)
+            if mutation is None:
+                continue
+            primitive, destinations = mutation
+            function = owner(node)
+            function_name = function.name if function else "<module>"
+            # copytree's leaf safety comes from guarded_copytree's per-entry
+            # preflight, which a root wrapper alone does not prove — so every
+            # copytree MUST live inside guarded_copytree and nowhere else.
+            if primitive == "shutil.copytree" and function_name != "guarded_copytree":
+                violations.append(
+                    f"{module_name}:{node.lineno} {function_name}: shutil.copytree "
+                    "must route through guarded_copytree (its root wrapper alone "
+                    "does not validate the copied leaves)"
+                )
+                continue
+            for destination, required in destinations:
+                destination_text = ast.get_source_segment(source, destination) or ""
+                # strongest helper wrapping the destination expression inline
+                available = max(
+                    (STRENGTH[helper_kind(part, aliases)]
+                     for part in ast.walk(destination) if isinstance(part, ast.Call)),
+                    default=0,
+                )
+                # or the LATEST prior assignment of a bare destination variable
+                if function and isinstance(destination, ast.Name):
+                    prior = [
+                        assignment for assignment in
+                        assignments.get(function, {}).get(destination.id, [])
+                        if assignment[0] < node.lineno
+                    ]
+                    if prior:
+                        available = max(available, STRENGTH[max(prior)[1]])
+                if available < STRENGTH[required]:
+                    need = "file-specific" if required == "file" else "boundary"
+                    violations.append(
+                        f"{module_name}:{node.lineno} {function_name}: "
+                        f"{primitive} -> {destination_text} (needs the {need} helper)"
+                    )
+
+    assert not violations, "raw filesystem write bypasses the boundary helper:\n" + \
+        "\n".join(violations)
+
+
+def test_assert_target_destination_refuses_every_escape_route(tmp_path: Path):
+    from forge_cli.scaffold import assert_target_destination
+
+    target = tmp_path / "target"
+    target.mkdir()
+    legal = target / "missing" / "destination.txt"
+    assert assert_target_destination(target, legal) is legal
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    outside_file = outside / "destination.txt"
+    outside_file.write_text("outside\n")
+
+    destination_link = target / "destination-link"
+    destination_link.symlink_to(outside_file)
+
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(tmp_path, target_is_directory=True)
+    target_below_link = linked_parent / target.name
+
+    loop = target / "loop"
+    loop.symlink_to(loop)
+
+    escapes = [
+        destination_link,
+        target_below_link / ".." / outside.name / "destination.txt",
+        target / ".." / outside.name / "destination.txt",
+        # a `..` inside a genuinely-missing suffix must be normalized, not
+        # trusted lexically: missing-dir does not exist, yet `../..` escapes.
+        target / "missing-dir" / ".." / ".." / outside.name / "destination.txt",
+        loop / "destination.txt",
+    ]
+    for destination in escapes:
+        with pytest.raises(SystemExit):
+            assert_target_destination(target_below_link, destination)
+
+
+def test_assert_target_destination_refuses_an_in_target_symlink_pointing_outside(
+        tmp_path: Path):
+    from forge_cli.scaffold import assert_target_destination
+
+    target = tmp_path / "target"
+    target.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (target / "linked-directory").symlink_to(outside, target_is_directory=True)
+
+    destination = target / "linked-directory" / "missing" / "destination.txt"
+    with pytest.raises(SystemExit):
+        assert_target_destination(target, destination)
+
+
+def test_assert_target_file_destination_refuses_a_directory_or_symlink(tmp_path: Path):
+    # shutil.copy2 treats a directory dst as a container (writes dst/<name>), so
+    # a file write must reject a non-file dst even when its path resolves inside;
+    # a symlink is judged by where it RESOLVES, not by being a link.
+    from forge_cli.scaffold import assert_target_file_destination
+
+    target = tmp_path / "target"
+    target.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("do not touch\n")
+
+    # a crafted in-target directory holding a symlink out — the copy2 container
+    # escape: assert_target_destination(dir) alone would pass this.
+    crafted = target / "config"
+    crafted.mkdir()
+    (crafted / "config").symlink_to(outside / "secret.txt")
+    with pytest.raises(SystemExit):
+        assert_target_file_destination(target, crafted)
+
+    # a symlink pointing OUTSIDE is refused (assert_target_destination resolves it).
+    (target / "escape.txt").symlink_to(outside / "secret.txt")
+    with pytest.raises(SystemExit):
+        assert_target_file_destination(target, target / "escape.txt")
+
+    # a symlink to an in-target FILE is legal — copy2 follows it and writes
+    # inside the target (a real config-symlink upgrade path).
+    (target / "real.txt").write_text("real\n")
+    link = target / "link.txt"
+    link.symlink_to(target / "real.txt")
+    assert assert_target_file_destination(target, link) is link
+
+    # a genuinely new file destination inside the target passes through.
+    dest = target / "new.txt"
+    assert assert_target_file_destination(target, dest) is dest

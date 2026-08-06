@@ -20,7 +20,10 @@ from factory_lib import (
 from .common import fail
 from .scaffold import (
     COPY_CODEX, COPY_WORKFLOWS, DOC_CONTRACTS, PROJECT_STARTERS,
+    assert_target_destination,
+    assert_target_file_destination,
     ensure_jsonl_attributes,
+    guarded_copytree,
 )
 
 # Harness-owned: replaced wholesale on upgrade.
@@ -67,30 +70,33 @@ GSTACK_RULES = [".gstack/*", "!.gstack/projects/",
 VENDOR_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
 
 
-def _replace_path(src: Path, dst: Path) -> None:
+def _replace_path(target: Path, src: Path, dst: Path) -> None:
     if dst.is_dir() and not dst.is_symlink():
-        shutil.rmtree(dst)
+        shutil.rmtree(assert_target_destination(target, dst))
     elif dst.exists() or dst.is_symlink():
-        dst.unlink()
-    dst.parent.mkdir(parents=True, exist_ok=True)
+        (assert_target_destination(target, dst.parent) / dst.name).unlink()
+    assert_target_destination(target, dst.parent).mkdir(parents=True, exist_ok=True)
     if src.is_dir():
-        shutil.copytree(src, dst, ignore=VENDOR_IGNORE)
+        guarded_copytree(target, src, dst, ignore=VENDOR_IGNORE, symlinks=False)
     else:
-        shutil.copy2(src, dst)
+        shutil.copy2(src, assert_target_file_destination(target, dst))
 
 
-def _keep_path(src: Path, dst: Path) -> None:
+def _keep_path(keep_root: Path, src: Path, dst: Path) -> None:
     """Copy project-owned state into the temporary preservation tree.
 
     Symlinks are preserved AS symlinks. Dereferencing would copy the referent's
     bytes into the repo under the link's name — and since retirement then
     deletes the original, a link pointing outside the repo would be silently
     replaced by its target's content."""
-    dst.parent.mkdir(parents=True, exist_ok=True)
+    assert_target_destination(keep_root, dst.parent).mkdir(parents=True, exist_ok=True)
     if src.is_dir() and not src.is_symlink():
-        shutil.copytree(src, dst, dirs_exist_ok=True, symlinks=True)
+        guarded_copytree(keep_root, src, dst, dirs_exist_ok=True, symlinks=True)
     else:
-        shutil.copy2(src, dst, follow_symlinks=False)
+        shutil.copy2(
+            src, assert_target_file_destination(keep_root, dst),
+            follow_symlinks=False,
+        )
 
 
 def _check_legacy_retirable(target: Path, harness: Path) -> None:
@@ -117,6 +123,7 @@ def _check_legacy_retirable(target: Path, harness: Path) -> None:
             "machinery. Replace it with a real directory (or remove it) and "
             "re-run. Nothing was written."
         )
+    assert_target_destination(target, legacy)
     if not legacy.is_dir():
         return
     # The whole skills/ subtree is exempt from the counterpart check below
@@ -186,8 +193,81 @@ def _retire_legacy_agents(target: Path) -> bool:
     legacy = target / ".agents"
     if not legacy.is_dir() or legacy.is_symlink():
         return False
-    shutil.rmtree(legacy)
+    shutil.rmtree(assert_target_destination(target, legacy))
     return True
+
+
+def _preflight_upgrade(
+    harness: Path, target: Path, preserved: dict[str, Path],
+) -> None:
+    """Validate every target destination before upgrade's first mutation."""
+
+    def directory(dst: Path) -> None:
+        assert_target_destination(target, dst)
+
+    def file(dst: Path) -> None:
+        assert_target_destination(target, dst.parent)
+        assert_target_file_destination(target, dst)
+
+    def replacement(_src: Path, dst: Path) -> None:
+        # _replace_path removes any existing dst (dir, file, or symlink), then
+        # copies fresh — so only the root boundary matters here. A per-leaf or
+        # file-type check against the PRE-removal state would falsely reject a
+        # legal dir<->file type change, or a stale symlink the removal deletes.
+        assert_target_destination(target, dst.parent)
+        assert_target_destination(target, dst)
+
+    directory(target)
+    for tree in UPGRADE_TREES:
+        if (harness / tree).exists():
+            # Replacement tree: rmtree'd then copied fresh, so validate the root
+            # boundary, not the pre-removal leaves (same reason as replacement()).
+            directory(target / tree)
+    for rel in CLAUDE_HARNESS_OWNED:
+        src = harness / ".claude" / rel
+        if src.exists():
+            replacement(src, target / ".claude" / rel)
+    for rel in COPY_WORKFLOWS:
+        if (harness / rel).exists():
+            file(target / rel)
+    directory(target / ".codex")
+    for name in COPY_CODEX:
+        file(target / ".codex" / name)
+    for sub in ("agents", "skills"):
+        src = harness / ".codex" / sub
+        if src.is_dir():
+            for child in src.iterdir():
+                replacement(child, target / ".codex" / sub / child.name)
+    for name in UPGRADE_FILES:
+        if (harness / name).exists():
+            file(target / name)
+    for src_rel, dst_rel in DOC_CONTRACTS:
+        if (harness / src_rel).exists():
+            file(target / dst_rel)
+
+    # These project-owned entries are deliberately preserved as symlinks.
+    # Their leaf is removed by the factory root replacement before restoration,
+    # so validate the surviving parent boundary here; the restored leaf itself
+    # is routed through the helper once that replacement has made it absent.
+    for rel in preserved:
+        directory((target / rel).parent)
+
+    for rel in (".gitattributes", "README.md", ".gitignore"):
+        file(target / rel)
+    # .envrc is create-if-missing: an existing one (even a symlink to a valid
+    # external file) is left untouched, so only preflight the write case.
+    if not (target / ".envrc").exists():
+        file(target / ".envrc")
+    # harness.yaml is rewritten only when it is a regular non-symlink file; the
+    # mutation skips a symlink, so the preflight must not reject one either.
+    manifest_yaml = target / "harness.yaml"
+    if manifest_yaml.exists() and not manifest_yaml.is_symlink():
+        file(manifest_yaml)
+    for rel in PROJECT_STARTERS:
+        if not (target / rel).exists():
+            file(target / rel)
+    file(target / "constitution" / "VENDORED_FROM")
+    file(target / "constitution" / "VENDOR_MANIFEST.json")
 
 
 def _is_harness_owned(rel: str, harness: Path) -> bool:
@@ -342,14 +422,13 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         )
     _check_legacy_retirable(target, harness)
 
-    preserved: dict[str, Path] = {}
-    keep_root = Path(tempfile.mkdtemp(prefix="forge-upgrade-keep-"))
     # factory/skills is mixed ownership too: the `skills` CLI installs
     # project skills there (skills-lock.json repos like knacklabs-ats carry
     # a dozen). Preserve every child the harness does not ship, plus the
     # evolution dirs (proposed/rejected — client's version always wins).
     client_skill_dirs: list[str] = []
     carried_from_legacy: set[str] = set()
+    preserve_sources: dict[str, Path] = {}
     target_skills = target / "factory" / "skills"
     legacy_skills = target / ".agents" / "skills"
     harness_skill_names = {p.name for p in (harness / "factory" / "skills").iterdir()} \
@@ -365,9 +444,7 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         # legitimately be one. Without the is_symlink() arm it is never
         # preserved, so replacing factory/ deletes project-owned content.
         if src.exists() or src.is_symlink():
-            dest = keep_root / rel
-            _keep_path(src, dest)
-            preserved[rel] = dest
+            preserve_sources[rel] = src
     # `is_dir()` follows symlinks: a symlinked skills root would have iterdir()
     # walk an external directory and copy its contents into factory/skills.
     if legacy_skills.is_dir() and not legacy_skills.is_symlink():
@@ -376,13 +453,20 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
             # The current location wins when a name exists in BOTH. Copying the
             # legacy one on top would merge into whatever the first copy left
             # at that destination — and if that was a symlink, through it.
-            if rel in preserved:
+            if rel in preserve_sources:
                 continue
             if child.name not in harness_skill_names or rel in PRESERVE_IN_AGENTS:
-                dest = keep_root / rel
-                _keep_path(child, dest)
-                preserved[rel] = dest
+                preserve_sources[rel] = child
                 carried_from_legacy.add(child.name)
+
+    _preflight_upgrade(harness, target, preserve_sources)
+
+    keep_root = Path(tempfile.mkdtemp(prefix="forge-upgrade-keep-"))
+    preserved: dict[str, Path] = {}
+    for rel, src in preserve_sources.items():
+        dest = keep_root / rel
+        _keep_path(keep_root, src, dest)
+        preserved[rel] = dest
 
     for tree in UPGRADE_TREES:
         src = harness / tree
@@ -390,57 +474,69 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
             continue
         dst = target / tree
         if dst.exists():
-            shutil.rmtree(dst)
-        shutil.copytree(src, dst, ignore=VENDOR_IGNORE)
+            shutil.rmtree(assert_target_destination(target, dst))
+        guarded_copytree(target, src, dst, ignore=VENDOR_IGNORE, symlinks=False)
     # .claude is mixed ownership: replace only harness-shipped paths; the
     # client's own skills/agents/launch.json survive untouched.
     for rel in CLAUDE_HARNESS_OWNED:
         src = harness / ".claude" / rel
         if src.exists():
-            _replace_path(src, target / ".claude" / rel)
+            _replace_path(target, src, target / ".claude" / rel)
     # .github/workflows/ is mixed ownership: refresh only the harness's own
     # factory workflows, file-by-file, so the project's other workflows survive.
     for rel in COPY_WORKFLOWS:
         src = harness / rel
         if src.exists():
             dst = target / rel
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
-    (target / ".codex").mkdir(exist_ok=True)
+            assert_target_destination(target, dst.parent).mkdir(
+                parents=True, exist_ok=True)
+            shutil.copy2(src, assert_target_file_destination(target, dst))
+    assert_target_destination(target, target / ".codex").mkdir(exist_ok=True)
     for name in COPY_CODEX:
-        shutil.copy2(harness / ".codex" / name, target / ".codex" / name)
+        shutil.copy2(
+            harness / ".codex" / name,
+            assert_target_file_destination(target, target / ".codex" / name),
+        )
     # Same mixed-ownership rule: refresh each harness-shipped agent/skill
     # entry; leave client-added ones alone.
     for sub in ("agents", "skills"):
         src = harness / ".codex" / sub
         if src.is_dir():
             for child in src.iterdir():
-                _replace_path(child, target / ".codex" / sub / child.name)
+                _replace_path(
+                    target, child, target / ".codex" / sub / child.name)
     for name in UPGRADE_FILES:
         src = harness / name
         if src.exists():
-            shutil.copy2(src, target / name)
+            shutil.copy2(
+                src, assert_target_file_destination(target, target / name))
     for src_rel, dst_rel in DOC_CONTRACTS:
         src = harness / src_rel
         if src.exists():
             dst = target / dst_rel
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
+            assert_target_destination(target, dst.parent).mkdir(
+                parents=True, exist_ok=True)
+            shutil.copy2(src, assert_target_file_destination(target, dst))
 
     for rel, kept in preserved.items():
         dst = target / rel
         if dst.is_dir() and not dst.is_symlink():
-            shutil.rmtree(dst)
+            shutil.rmtree(assert_target_destination(target, dst))
         elif dst.exists() or dst.is_symlink():
-            dst.unlink()
-        dst.parent.mkdir(parents=True, exist_ok=True)
+            (assert_target_destination(target, dst.parent) / dst.name).unlink()
+        assert_target_destination(target, dst.parent).mkdir(
+            parents=True, exist_ok=True)
         # Same symlink rule as _keep_path: a link kept as a link must come back
         # as a link, or the round trip quietly materializes its referent.
         if kept.is_dir() and not kept.is_symlink():
-            shutil.copytree(kept, dst, symlinks=True)
+            guarded_copytree(target, kept, dst, symlinks=True)
         else:
-            shutil.copy2(kept, dst, follow_symlinks=False)
-    shutil.rmtree(keep_root, ignore_errors=True)
+            shutil.copy2(
+                kept, assert_target_file_destination(target, dst),
+                follow_symlinks=False,
+            )
+    shutil.rmtree(
+        assert_target_destination(keep_root, keep_root), ignore_errors=True)
 
     retired_legacy = _retire_legacy_agents(target)
 
@@ -448,7 +544,10 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     # append-if-missing (never overwrite — projects may extend these files).
     ensured: list[str] = []
     if not (target / ".envrc").exists():
-        shutil.copy2(harness / ".envrc", target / ".envrc")
+        shutil.copy2(
+            harness / ".envrc",
+            assert_target_file_destination(target, target / ".envrc"),
+        )
         ensured.append(".envrc (run `direnv allow` in the repo)")
     if ensure_jsonl_attributes(target, harness):
         ensured.append(".gitattributes (missing JSONL merge rules added)")
@@ -460,6 +559,7 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     manifest_yaml = target / "harness.yaml"
     if (manifest_yaml.exists() and not manifest_yaml.is_symlink()
             and not SIGNOFF_KEY.search(manifest_yaml.read_text())):
+        manifest_yaml = assert_target_file_destination(target, manifest_yaml)
         legacy = load_json(target / ".factory" / "run.json", default={})
         carried = (legacy.get("client_signoff_record", "")
                    if legacy.get("client_signoff") else "")
@@ -485,7 +585,7 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     from .scaffold import ensure_onboarding
     if ensure_onboarding(target, target.name):
         ensured.append("README.md ('Working in this repo' onboarding section appended)")
-    gitignore = target / ".gitignore"
+    gitignore = assert_target_file_destination(target, target / ".gitignore")
     # The old blanket `.gstack/` rule hid the COMMITTED projects/ store
     # (WORKFLOW.md: design docs, decisions, learnings) — and git cannot
     # re-include inside an excluded directory, so the corrected block below
@@ -564,12 +664,17 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     for rel in PROJECT_STARTERS:
         destination = target / rel
         if not destination.exists():
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(harness / rel, destination)
+            assert_target_destination(target, destination.parent).mkdir(
+                parents=True, exist_ok=True)
+            shutil.copy2(
+                harness / rel,
+                assert_target_file_destination(target, destination),
+            )
             ensured.append(rel)
 
     commit = head_sha(harness) or "unknown"
-    (target / "constitution" / "VENDORED_FROM").write_text(
+    assert_target_file_destination(
+        target, target / "constitution" / "VENDORED_FROM").write_text(
         f"symphony-forge @ {commit}\nUpdate by re-vendoring from the harness repo; do not edit in place.\n"
     )
     # Re-freeze the gate surface at the new vendoring (frozen-gate-integrity).
