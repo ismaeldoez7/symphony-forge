@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import hashlib
 import re
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,10 @@ def parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
         else:
             fields[key] = value.strip("\"'")
     return fields, text[match.end():]
+
+
+def body_sha256(body: str) -> str:
+    return hashlib.sha256(body.encode()).hexdigest()
 
 
 def _stages_progress(base: Path, issue: str, location: str) -> str:
@@ -170,6 +175,15 @@ def cmd_save(args: argparse.Namespace) -> None:
     ]
     if missing_sections:
         fail("the plan is missing required sections: " + ", ".join(missing_sections))
+    plan_digest = body_sha256(body)
+    marker = load_json(base / ".factory" / "plan-approval.json", default={})
+    # Bind to (issue, story) as well as the body: a body digest alone could be
+    # replayed by saving the same text under a different --story/--issue, which
+    # would approve a plan the human never reviewed in that context.
+    approved = (marker.get("plan_sha256") == plan_digest
+                and marker.get("issue") == issue
+                and marker.get("story") == story)
+    status = "approved" if approved else "awaiting-approval"
     title = args.title or state.get("title") or issue
     dest_dir = base / "plans" / "active"
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -177,23 +191,68 @@ def cmd_save(args: argparse.Namespace) -> None:
     decisions = "\n".join(f"  - {decision}" for decision in sorted(reviewed))
     decisions_value = f"\n{decisions}" if decisions else " []"
     header = (
-        f"---\nissue: {issue}\ntitle: {title}\nstatus: approved\n"
+        f"---\nissue: {issue}\ntitle: {title}\nstatus: {status}\n"
         f"saved: {now_iso()}\nstory: {story}\n"
-        f"decisions_reviewed:{decisions_value}\n---\n\n"
+        f"decisions_reviewed:{decisions_value}\n---\n"
     )
     dest.write_text(header + body)
     if state:
-        state["plan_status"] = "approved"
+        state["plan_status"] = status
         state["plan_file"] = dest.relative_to(base).as_posix()
         state["story"] = story
         state["updated_at"] = now_iso()
         dump_json(run_state_path(base), state)
+    if not approved:
+        fail(
+            f"plan saved to {dest.relative_to(base)} with plan_status awaiting-approval. "
+            "A human must review it in plan mode, then run "
+            "`./forge plan approve --by \"<name>\"` and save the unchanged plan again."
+        )
     append_event(base, "plan-approved", actor="planner-high", story=story,
                  detail=dest.relative_to(base).as_posix())
     print(f"Plan saved to {dest.relative_to(base)} (plan_status: approved)")
     print(
         "Decisions made while planning must exist as docs/decisions/ records "
         "(forge.py decision new <slug>) and be referenced in the plan."
+    )
+
+
+def cmd_approve(args: argparse.Namespace) -> None:
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    approver = args.by.strip()
+    if not approver:
+        fail("plan approval requires --by with the human approver's name")
+    state = load_json(run_state_path(base), default={})
+    plan_file = state.get("plan_file")
+    plan = base / plan_file if isinstance(plan_file, str) else None
+    if plan is None or not plan.is_file():
+        # `plan save --issue <key>` with no run.json records no plan_file, so
+        # fall back to the active plan on disk — the one just saved. Ambiguity
+        # (more than one) is refused rather than guessed.
+        active = sorted((base / "plans" / "active").glob("*.md"))
+        if len(active) == 1:
+            plan = active[0]
+        elif active and (issue := state.get("issue_key")):
+            issue_plans = [p for p in active if p.name.startswith(f"{issue}-")]
+            plan = issue_plans[0] if len(issue_plans) == 1 else None
+    if plan is None or not plan.is_file():
+        fail("no current active plan to approve — run `forge plan save` first")
+        return  # unreachable (fail raises); narrows `plan` to a real path below
+    fields, body = parse_frontmatter(plan.read_text())
+    # The approval is for THIS plan in THIS context: bind issue and story so a
+    # matching body cannot be replayed under a different story.
+    marker = {
+        "plan_sha256": body_sha256(body),
+        "issue": fields.get("issue") or state.get("issue_key"),
+        "story": fields.get("story") or state.get("story")
+                 or fields.get("issue") or state.get("issue_key"),
+        "approver": approver,
+        "at": now_iso(),
+    }
+    dump_json(base / ".factory" / "plan-approval.json", marker)
+    print(
+        f"Plan approved by {approver}. Re-run `forge plan save --from <plan-file>` "
+        "with the unchanged plan to continue."
     )
 
 

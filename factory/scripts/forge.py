@@ -87,7 +87,8 @@ def main() -> None:
 
     p_plan = sub.add_parser("plan", help="manage task plans")
     plan_sub = p_plan.add_subparsers(dest="plan_command", required=True)
-    p_save = plan_sub.add_parser("save", help="persist an approved plan into plans/active/")
+    p_save = plan_sub.add_parser(
+        "save", help="validate and persist a plan for human approval")
     p_save.add_argument("--from", dest="source", required=True,
                         help="path to the approved plan file (e.g. the Claude Code plan)")
     p_save.add_argument("--issue", help="issue key (defaults to .factory/run.json)")
@@ -96,6 +97,11 @@ def main() -> None:
                         help="roadmap story key (defaults to the active issue key)")
     p_save.add_argument("--repo", help="target repo (defaults to this repo)")
     p_save.set_defaults(func=plans.cmd_save)
+    p_approve = plan_sub.add_parser(
+        "approve", help="record a human's approval of the current plan body")
+    p_approve.add_argument("--by", required=True, help="the human confirming (not an agent)")
+    p_approve.add_argument("--repo", help="target repo (defaults to this repo)")
+    p_approve.set_defaults(func=plans.cmd_approve)
     p_pl = plan_sub.add_parser("list", help="show plans, roadmap status, and stage progress")
     p_pl.add_argument("--repo")
     p_pl.set_defaults(func=plans.cmd_list)
