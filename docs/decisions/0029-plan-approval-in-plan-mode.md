@@ -77,4 +77,17 @@ A plan is approved by a human, proven by a marker the agent cannot forge.
   contradiction gate (0015): those still run; this adds the human gate they
   assumed but did not enforce.
 - The marker is ephemeral working state (0025), gitignored, per-worktree — it
-  authorizes one save and is not project history.
+  authorizes one save and is not project history. A committed
+  `plan-human-approved` event records who approved and when.
+
+## The trust ceiling (accepted)
+
+This gate has the **same trust model as `decision accept` and client sign-off**:
+the agent runs the command, and the constitutional rule is that a human
+confirmed first. It is disciplinary and audited, **not cryptographically
+unforgeable** — a misbehaving agent could run `plan approve --by` without a real
+human. That is the ceiling of what is achievable while Claude Code fires no hook
+on plan-mode approval (#21282); a truly unforgeable gate needs that hook. This
+was reviewed (autoreview flagged it) and accepted by the human as parity with
+the harness's existing critical gates, not a regression from them. If plan-mode
+hooks land, a follow-up binds the marker to the hook and removes the ceiling.

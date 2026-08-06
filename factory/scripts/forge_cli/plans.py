@@ -227,16 +227,19 @@ def cmd_approve(args: argparse.Namespace) -> None:
     plan = base / plan_file if isinstance(plan_file, str) else None
     if plan is None or not plan.is_file():
         # `plan save --issue <key>` with no run.json records no plan_file, so
-        # fall back to the active plan on disk — the one just saved. Ambiguity
-        # (more than one) is refused rather than guessed.
+        # fall back to the active plan on disk. An explicit --issue selects
+        # among several; a single active plan needs no selector; anything
+        # ambiguous is refused rather than guessed.
+        issue = args.issue or state.get("issue_key")
         active = sorted((base / "plans" / "active").glob("*.md"))
-        if len(active) == 1:
-            plan = active[0]
-        elif active and (issue := state.get("issue_key")):
+        if issue:
             issue_plans = [p for p in active if p.name.startswith(f"{issue}-")]
             plan = issue_plans[0] if len(issue_plans) == 1 else None
+        elif len(active) == 1:
+            plan = active[0]
     if plan is None or not plan.is_file():
-        fail("no current active plan to approve — run `forge plan save` first")
+        fail("no current active plan to approve — pass --issue <key> to select "
+             "one, or run `forge plan save` first")
         return  # unreachable (fail raises); narrows `plan` to a real path below
     fields, body = parse_frontmatter(plan.read_text())
     # The approval is for THIS plan in THIS context: bind issue and story so a
@@ -250,6 +253,12 @@ def cmd_approve(args: argparse.Namespace) -> None:
         "at": now_iso(),
     }
     dump_json(base / ".factory" / "plan-approval.json", marker)
+    # A committed audit trail of who approved and when — the marker itself is
+    # ephemeral (0025), so the event is the durable record of the human gate.
+    # actor is the allowlisted "human"; the approver's name is the detail.
+    append_event(base, "plan-human-approved", actor="human",
+                 story=marker["story"] or "",
+                 detail=f"{marker['issue']} approved by {approver}")
     print(
         f"Plan approved by {approver}. Re-run `forge plan save --from <plan-file>` "
         "with the unchanged plan to continue."

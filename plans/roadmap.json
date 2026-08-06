@@ -190,10 +190,10 @@
       "title": "Plan approval is a human gate in plan mode, not an agent command",
       "story": "As a project owner, I want a plan to reach 'approved' only through my explicit approval in plan mode, so that an agent can never plan, grill, and approve its own work then implement it unchecked.",
       "acceptance_criteria": [
-        "plan save sets plan_status to awaiting-approval and refuses approved without a fresh .factory/plan-approval.json whose digest matches the plan being saved.",
-        "A hook writes the approval marker on human ExitPlanMode approval, and not on rejection or edit.",
-        "Implementation stays blocked until plan_status is approved, which now requires the human marker.",
-        "A documented human-confirmed CLI fallback records an attributed approval for headless runs, refused without --by.",
+        "plan save sets plan_status to awaiting-approval and refuses approved without a fresh .factory/plan-approval.json whose digest matches the plan body, bound to the issue and story.",
+        "forge plan approve --by <name> writes the approval marker for the current plan's body digest, issue and story, and is refused without a human --by; it is a human chat confirmation like decision accept.",
+        "Implementation stays blocked until plan_status is approved, which now requires the human-attributed marker.",
+        "The marker binds the exact plan and context: saving an edited plan, or the same body under a different issue/story, is refused.",
         "Every existing plan-save gate still runs unchanged."
       ],
       "order": 9,
