@@ -34,7 +34,11 @@
     {
       "id": "FORGE-BOUNDARY-1.4",
       "title": "upgrade routes every write site through the boundary helper",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-06T13:58:27+00:00",
+      "base_sha": "d15a419d5c2ee4a5a55e0b8b343ccdce5670e07a",
+      "dirty_at_start": {},
+      "task_sha256": "b3a262f0a9e169e5d4dd042ff196cc650761ea38c571a80e70b74e64f2559b77"
     }
   ]
 }

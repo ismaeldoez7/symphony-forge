@@ -120,6 +120,7 @@
       ],
       "write_scope": [
         "factory/scripts/forge_cli/upgrade.py",
+        "factory/scripts/forge_cli/scaffold.py",
         "factory/tests/test_gates.py"
       ],
       "acceptance_criteria": [
@@ -154,5 +155,5 @@
   ],
   "project": "",
   "plan_sha256": "3c546c1053ce40d5ffcb801cfadaada94f1d6aff56931a31c515312d22b9fea3",
-  "commit": "e8cc0afd36125fd621cf44b6b8acdab3c70c7c6d"
+  "commit": "d15a419d5c2ee4a5a55e0b8b343ccdce5670e07a"
 }
