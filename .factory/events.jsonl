@@ -377,3 +377,6 @@
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-06T08:22:22+00:00", "story": "FORGE-APPROVE-1", "detail": "1 task(s)"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-06T08:30:48+00:00", "story": "FORGE-APPROVE-1", "detail": "FORGE-APPROVE-1.1 (write)"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-06T09:13:11+00:00", "story": "FORGE-APPROVE-1", "detail": "1 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-06T09:17:55+00:00", "story": "FORGE-APPROVE-1", "detail": "FORGE-APPROVE-1.1 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-06T09:19:51+00:00", "story": "FORGE-APPROVE-1", "detail": "FORGE-APPROVE-1.1: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-06T09:19:51+00:00", "story": "FORGE-APPROVE-1", "detail": "FORGE-APPROVE-1.1 plan save requires a human approval marker; forge plan approve --by writes it"}
