@@ -2602,6 +2602,24 @@ def test_adopt_vendors_harness_and_preserves_project(tmp_path):
     assert code != 0 and "upgrade" in out
 
 
+def test_readopt_does_not_rewrite_the_record_origin(tmp_path):
+    repo = existing_repo(tmp_path)
+    marker = repo / ".factory" / "record-origin.json"
+    marker.parent.mkdir(parents=True)
+    marker.write_text(json.dumps({
+        "date": "2025-01-02T03:04:05+00:00",
+        "commit": head(repo),
+        "preceding_commits": 7,
+    }, indent=2) + "\n")
+    original = marker.read_bytes()
+    git(repo, "add", ".factory/record-origin.json")
+    git(repo, "commit", "-q", "-m", "existing forge record boundary")
+
+    code, out = adopt(repo)
+    assert code == 0, out
+    assert marker.read_bytes() == original
+
+
 def test_adopt_refuses_dirty_tree(tmp_path):
     repo = existing_repo(tmp_path)
     (repo / "wip.txt").write_text("uncommitted\n")
@@ -3419,6 +3437,73 @@ def test_quickfix_lifecycle_tracks_files_and_enforces_budget(repo):
     assert code == 0 and "deny" in out
 
 
+def test_quickfix_records_files_inside_an_active_story(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "quickfix", "start", "repair active story")
+    assert code == 0, out
+
+    active_path = repo / ".factory" / "quickfix.json"
+    for number in range(1, 7):
+        code, out = hook(repo, {
+            "tool_name": "Edit", "permission_mode": "default",
+            "tool_input": {"file_path": str(repo / "src" / f"story-{number}.py")},
+        })
+        assert code == 0 and "deny" not in out, out
+    code, out = hook(repo, {
+        "tool_name": "Edit", "permission_mode": "default",
+        "tool_input": {"file_path": str(repo / "src" / "story-6.py")},
+    })
+    assert code == 0 and "deny" not in out, out
+    assert json.loads(active_path.read_text())["files"] == [
+        f"src/story-{number}.py" for number in range(1, 7)
+    ]
+
+
+def test_quickfix_budget_still_refuses_over_limit_when_unplanned(repo):
+    code, out = run(repo, "forge.py", "quickfix", "start", "bounded repair")
+    assert code == 0, out
+    active_path = repo / ".factory" / "quickfix.json"
+
+    for number in range(1, 6):
+        code, out = hook(repo, {
+            "tool_name": "Edit", "permission_mode": "default",
+            "tool_input": {"file_path": str(repo / "src" / f"bounded-{number}.py")},
+        })
+        assert code == 0 and "deny" not in out, out
+    code, out = hook(repo, {
+        "tool_name": "Edit", "permission_mode": "default",
+        "tool_input": {"file_path": str(repo / "src" / "bounded-6.py")},
+    })
+    assert code == 0 and "deny" in out and "scope exceeded" in out
+    assert json.loads(active_path.read_text())["files"] == [
+        f"src/bounded-{number}.py" for number in range(1, 6)
+    ]
+
+
+def test_quickfix_recording_authorizes_nothing(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    code, out = run(repo, "forge.py", "quickfix", "start", "zero-budget probe")
+    assert code == 0, out
+
+    active_path = repo / ".factory" / "quickfix.json"
+    active = json.loads(active_path.read_text())
+    active["max_files"] = 0
+    active_path.write_text(json.dumps(active, indent=2) + "\n")
+
+    code, out = hook(repo, {
+        "tool_name": "Edit", "permission_mode": "default",
+        "tool_input": {"file_path": str(repo / "src" / "recorded.py")},
+    })
+    assert code == 0 and "deny" in out and "scope exceeded" in out
+    assert json.loads(active_path.read_text())["files"] == []
+
+
 # ---------------------------------------------------------------- plan grill
 
 def test_plan_save_requires_a_fresh_same_issue_grill(repo, tmp_path):
@@ -3837,6 +3922,30 @@ def test_api_state_carries_project_identity_from_the_shared_parser(repo):
     missing = aggregate_state(repo)["project"]
     assert missing["sections"] == {}
     assert missing["missing_sections"] == list(REQUIRED_BRIEF_HEADINGS)
+
+
+def test_board_reports_the_record_boundary(repo):
+    from forge_cli.board import aggregate_state
+
+    state = aggregate_state(repo)
+    assert state["record_origin"] == json.loads(
+        (repo / ".factory" / "record-origin.json").read_text()
+    )
+    assert state["record_origin"]["preceding_commits"] == 0
+
+    page = (HARNESS / "factory" / "board" / "index.html").read_text()
+    boundary = (
+        "record begins here; ${esc(recordOrigin.preceding_commits)} "
+        "commits precede it"
+    )
+    assert boundary in page
+    # A real count renders the number; a null (shallow) count renders the
+    # boundary without one; no marker renders nothing.
+    assert "Number.isInteger(recordOrigin.preceding_commits)" in page
+    assert '`<p class="record-boundary">record begins here</p>`' in page
+
+    (repo / ".factory" / "record-origin.json").unlink()
+    assert aggregate_state(repo)["record_origin"] is None
 
 
 def test_bundled_example_authors_its_project_name():
@@ -4422,6 +4531,124 @@ def test_event_ledger_merges_instead_of_conflicting(repo):
     assert '"story": "A"' in ledger.read_text(), (
         "the pruned lines did NOT come back — if this ever fails, pruning has "
         "become safe and pr_ready could move rather than copy the timeline")
+
+
+def test_forge_history_filters_by_story_type_and_date(repo):
+    ledger = repo / ".factory" / "events.jsonl"
+    ledger.parent.mkdir(exist_ok=True)
+    events = [
+        {"event": "intake", "at": "2026-07-01T09:00:00+00:00",
+         "story": "ENG-1", "detail": "first"},
+        {"event": "future-emitter-event", "at": "2026-07-02T10:00:00+00:00",
+         "story": "ENG-1", "detail": "second"},
+        {"event": "future-emitter-event", "at": "2026-07-03T11:00:00+00:00",
+         "story": "ENG-2", "detail": "third"},
+        {"event": "stage-done", "at": "2026-07-04T12:00:00+00:00",
+         "detail": "unattributed"},
+        {"event": "legacy-event", "story": "ENG-1", "detail": "undated"},
+    ]
+    ledger.write_text("".join(json.dumps(event) + "\n" for event in events))
+
+    code, out = run(repo, "forge.py", "history", "--story", "ENG-1")
+    assert code == 0, out
+    assert "first" in out and "second" in out and "undated" in out
+    assert "third" not in out and "unattributed" not in out
+
+    code, out = run(repo, "forge.py", "history", "--event", "future-emitter-event")
+    assert code == 0, out
+    assert "second" in out and "third" in out
+    assert "first" not in out and "unattributed" not in out
+
+    code, out = run(repo, "forge.py", "history", "--since", "2026-07-03")
+    assert code == 0, out
+    assert "third" in out and "unattributed" in out
+    assert "first" not in out and "second" not in out
+
+    code, out = run(repo, "forge.py", "history", "--until", "2026-07-02")
+    assert code == 0, out
+    assert "first" in out and "second" in out
+    assert "third" not in out and "unattributed" not in out and "undated" not in out
+
+    code, out = run(
+        repo, "forge.py", "history", "--story", "ENG-1",
+        "--event", "future-emitter-event", "--since", "2026-07-02",
+        "--until", "2026-07-02",
+    )
+    assert code == 0, out
+    assert "second" in out
+    assert "first" not in out and "third" not in out
+
+
+def test_forge_history_names_unattributed_events(repo):
+    ledger = repo / ".factory" / "events.jsonl"
+    ledger.parent.mkdir(exist_ok=True)
+    events = [
+        {"event": "intake", "at": "2026-07-01T09:00:00+00:00",
+         "story": "ENG-1", "detail": "attributed"},
+        {"event": "spec-confirmed", "at": "2026-07-01T10:00:00+00:00",
+         "detail": "missing story"},
+    ]
+    ledger.write_text("".join(json.dumps(event) + "\n" for event in events))
+
+    code, out = run(repo, "forge.py", "history")
+    assert code == 0, out
+    assert "Story: ENG-1" in out and "attributed" in out
+    assert "Unattributed events (no story)" in out and "missing story" in out
+
+
+def test_forge_history_is_read_only(repo):
+    ledger = repo / ".factory" / "events.jsonl"
+    ledger.parent.mkdir(exist_ok=True)
+    ledger.write_text(
+        '{"event": "intake", "at": "2026-07-01T09:00:00+00:00", '
+        '"story": "ENG-1"}\n'
+    )
+
+    def factory_snapshot():
+        return {
+            path.relative_to(repo): (path.read_bytes(), path.stat().st_mtime_ns)
+            for path in (repo / ".factory").rglob("*") if path.is_file()
+        }
+
+    before = factory_snapshot()
+    code, out = run(repo, "forge.py", "history")
+    assert code == 0, out
+    assert factory_snapshot() == before
+
+
+def test_pr_link_event_survives_a_clone_with_no_remote(repo, tmp_path):
+    before = (repo / ".factory" / "run.json").read_bytes()
+    reference = "https://github.com/acme/widgets/pull/42"
+    code, out = run(repo, "forge.py", "pr-link", "ENG-1", reference)
+    assert code == 0, out
+    assert (repo / ".factory" / "run.json").read_bytes() == before
+    linked = json.loads(
+        (repo / ".factory" / "events.jsonl").read_text().splitlines()[-1])
+    assert linked["event"] == "pr-linked"
+    assert linked["story"] == "ENG-1"
+    assert linked["detail"] == reference
+
+    git(repo, "add", "-f", ".factory/events.jsonl")
+    git(repo, "commit", "-q", "-m", "link shipped PR")
+    clone = tmp_path / "clone"
+    git(repo.parent, "clone", "-q", str(repo), str(clone))
+    git(clone, "remote", "remove", "origin")
+    assert git(clone, "remote") == ""
+
+    code, out = run(clone, "forge.py", "history", "--story", "ENG-1")
+    assert code == 0, out
+    assert "pr-linked" in out and reference in out
+
+
+def test_forge_history_shows_the_pr_link(repo):
+    reference = "acme/widgets#42"
+    code, out = run(repo, "forge.py", "pr-link", "ENG-1", reference)
+    assert code == 0, out
+
+    code, out = run(repo, "forge.py", "history", "--story", "ENG-1")
+    assert code == 0, out
+    assert "Story: ENG-1" in out
+    assert "pr-linked" in out and reference in out
 
 
 def test_decisions_name_the_stories_they_govern(repo, tmp_path):
@@ -6223,6 +6450,44 @@ def test_doctor_reports_an_epicless_roadmap_without_blocking(repo, capsys):
     assert "MOD-1" not in out
 
 
+def test_doctor_reports_an_unmarked_outcomeless_done_item(repo, capsys):
+    from forge_cli.doctor import report_legacy_roadmap_gaps
+    from forge_cli.roadmap import load_roadmap
+
+    roadmap = repo / "plans" / "roadmap.json"
+    roadmap.write_text(json.dumps({
+        "generated_by": "human",
+        "epics": [ROADMAP_EPIC],
+        "items": [
+            {"key": "GAP-1", "title": "Silent gap", "status": "done",
+             "epic": "billing"},
+            {"key": "OLD-1", "title": "Marked history", "status": "done",
+             "epic": "billing", "predates_outcome_contract": True},
+            {"key": "DONE-1", "title": "Recorded outcome", "status": "done",
+             "epic": "billing", "outcome": "Customers can pay invoices."},
+        ],
+    }))
+
+    assert len(load_roadmap(repo)["items"]) == 3
+    assert report_legacy_roadmap_gaps(repo) is None
+    out = capsys.readouterr().out
+    assert "[opt ] roadmap/outcome GAP-1: done without an outcome" in out
+    assert "OLD-1" not in out
+    assert "DONE-1" not in out
+
+
+def test_precontract_stories_are_marked_without_synthesized_outcomes():
+    roadmap = json.loads((HARNESS / "plans" / "roadmap.json").read_text())
+    items = {item["key"]: item for item in roadmap["items"]}
+
+    for key in ("FORGE-INIT-1", "harness-v2-wedge"):
+        item = items[key]
+        assert item["status"] == "done"
+        assert item["epic"] == "symphony-forge"
+        assert item["predates_outcome_contract"] is True
+        assert "outcome" not in item
+
+
 DELEGATE_TASK = {**STAGE_TASK, "required_tests": [{
                      "id": "test_slice",
                      "path": "factory/tests/test_gates.py",
@@ -7976,6 +8241,57 @@ def test_init_into_nonempty_noncolliding_target(tmp_path: Path):
     assert custom.read_text() == "local = true\n"
 
 
+def test_init_writes_a_record_origin_marker_with_preceding_count(tmp_path: Path):
+    target = tmp_path / "app"
+    note = target / "docs" / "notes" / "origin.md"
+    note.parent.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(target)], check=True)
+    note.write_text("first\n")
+    git(target, "add", "docs/notes/origin.md")
+    git(target, "commit", "-q", "-m", "first pre-forge commit")
+    note.write_text("second\n")
+    git(target, "add", "docs/notes/origin.md")
+    git(target, "commit", "-q", "-m", "second pre-forge commit")
+    before = head(target)
+
+    proc = _init(target)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    marker = json.loads((target / ".factory" / "record-origin.json").read_text())
+    assert set(marker) == {"date", "commit", "preceding_commits"}
+    assert marker["date"]
+    assert marker["commit"] == before
+    assert marker["preceding_commits"] == 2
+
+
+def test_record_origin_records_unknown_count_for_a_shallow_clone(tmp_path: Path):
+    """A shallow clone counts only its local commits. An honest boundary must
+    not persist a truncated number it will claim forever — it records null, and
+    the board (which gates the count on Number.isInteger) omits it."""
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.scaffold import ensure_record_origin
+
+    source = tmp_path / "source"
+    subprocess.run(["git", "init", "-q", str(source)], check=True)
+    for n in range(3):
+        (source / "f.txt").write_text(f"{n}\n")
+        git(source, "add", "f.txt")
+        git(source, "commit", "-q", "-m", f"commit {n}")
+
+    shallow = tmp_path / "shallow"
+    subprocess.run(["git", "clone", "-q", "--depth", "1",
+                    f"file://{source}", str(shallow)], check=True)
+    (shallow / ".factory").mkdir()
+
+    assert ensure_record_origin(shallow) is True
+    marker = json.loads((shallow / ".factory" / "record-origin.json").read_text())
+    assert marker["preceding_commits"] is None  # unknown, not the truncated 1
+    assert marker["commit"] and marker["date"]
+
+    # The board still shows the boundary for a null count — just no number.
+    page = (HARNESS / "factory" / "board" / "index.html").read_text()
+    assert '`<p class="record-boundary">record begins here</p>`' in page
+
+
 def test_init_refuses_colliding_target(tmp_path: Path):
     target = tmp_path / "app"
     target.mkdir()
@@ -8241,3 +8557,39 @@ def test_project_name_survives_the_run_state_lifecycle(tmp_path):
     (target / ".factory" / "run.json").write_text(json.dumps(shipped))
     assert project_identity(target)["name"] == "Acme Billing", \
         "the shipped run-state shape dropped the authored project name"
+
+
+def test_record_origin_skips_a_repo_with_an_existing_forge_record(tmp_path: Path):
+    """Re-adopting a pre-marker Forge repo must NOT stamp a boundary at HEAD:
+    the existing committed events ARE the record, so counting them as
+    'preceding' would falsely claim the record begins after work the board can
+    already show. The honest act is to leave the origin unclaimed."""
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.scaffold import ensure_record_origin
+
+    target = tmp_path / "prior-forge"
+    subprocess.run(["git", "init", "-q", str(target)], check=True)
+    (target / "x.txt").write_text("work\n")
+    git(target, "add", "x.txt")
+    git(target, "commit", "-q", "-m", "pre-existing forge work")
+    (target / ".factory").mkdir()
+    (target / ".factory" / "events.jsonl").write_text(
+        '{"event": "shipped", "at": "2026-01-01T00:00:00+00:00", "story": "OLD-1"}\n')
+
+    assert ensure_record_origin(target) is False
+    assert not (target / ".factory" / "record-origin.json").exists()
+
+
+def test_record_origin_refuses_a_symlinked_factory_ancestor(tmp_path: Path):
+    """A symlinked .factory would land the marker outside the target — the
+    repository-escape class. Preflight must refuse before any write."""
+    sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+    from forge_cli.scaffold import check_record_origin_writable
+
+    target = tmp_path / "app"
+    target.mkdir()
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    (target / ".factory").symlink_to(outside)
+    with pytest.raises(SystemExit):
+        check_record_origin_writable(target)
