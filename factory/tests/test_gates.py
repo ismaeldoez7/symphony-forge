@@ -8902,9 +8902,12 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
     }
     assert set(modules) == {"scaffold.py", "adopt.py", "upgrade.py"}
 
-    boundary_helpers = {
-        "assert_target_destination", "assert_target_file_destination",
-    }
+    # helper "strength": file > any > none. A destination is routed when the
+    # helper wrapping it is at least as strong as the primitive requires.
+    # shutil.copy*/move treat a directory dst as a CONTAINER (write dst/<name>),
+    # so they need the file-specific guard; the plain containment guard is not
+    # enough. Everything else is satisfied by either guard.
+    STRENGTH = {None: 0, "any": 1, "file": 2}
 
     def call_name(call: ast.Call) -> str:
         func = call.func
@@ -8916,25 +8919,42 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
             return f"Path.{func.attr}"
         return ""
 
-    def write_destination(call: ast.Call) -> tuple[str, ast.AST] | None:
+    def helper_kind(call: ast.Call) -> str | None:
         name = call_name(call)
-        if name.startswith("shutil.copy") or name in {"shutil.move"}:
-            return (name, call.args[1]) if len(call.args) > 1 else None
+        if name == "assert_target_file_destination":
+            return "file"
+        if name == "assert_target_destination":
+            return "any"
+        return None
+
+    def write_destination(call: ast.Call) -> tuple[str, ast.AST, str] | None:
+        """Return (primitive, destination-node, required helper kind) or None."""
+        name = call_name(call)
+        # File copies with container/symlink-follow semantics: need "file".
+        if name in {"shutil.copy", "shutil.copy2", "shutil.copyfile",
+                    "shutil.move"}:
+            return (name, call.args[1], "file") if len(call.args) > 1 else None
+        # copytree's root is a directory destination; its per-file copies are
+        # validated by _preflight_copytree, so the root only needs containment.
+        if name == "shutil.copytree":
+            return (name, call.args[1], "any") if len(call.args) > 1 else None
         if name == "shutil.rmtree":
-            return (name, call.args[0]) if call.args else None
-        if name in {"os.mkdir", "os.makedirs", "os.remove", "os.rmdir"}:
-            return (name, call.args[0]) if call.args else None
-        if name in {"os.rename", "os.replace", "os.symlink"}:
-            # the created/renamed path is arg 1, not the source at arg 0
-            return (name, call.args[1]) if len(call.args) > 1 else None
+            return (name, call.args[0], "any") if call.args else None
+        if name in {"os.mkdir", "os.makedirs", "os.remove", "os.unlink",
+                    "os.rmdir"}:
+            return (name, call.args[0], "any") if call.args else None
+        if name in {"os.rename", "os.replace", "os.symlink", "os.link"}:
+            # the created/renamed/linked path is arg 1, not the source at arg 0
+            return (name, call.args[1], "any") if len(call.args) > 1 else None
         if name in {"Path.write_text", "Path.write_bytes", "Path.mkdir",
-                    "Path.touch", "Path.unlink"}:
-            return name, call.func.value
+                    "Path.touch", "Path.unlink", "Path.rmdir",
+                    "Path.symlink_to", "Path.hardlink_to"}:
+            return name, call.func.value, "any"
         # Path.rename(dst)/replace(dst): the CREATED path is arg 0, not the
         # source at func.value. Path.replace needs exactly one arg to tell it
         # from str.replace(old, new[, count]), which carries two or more.
         if name == "Path.rename" or (name == "Path.replace" and len(call.args) == 1):
-            return (name, call.args[0]) if call.args else None
+            return (name, call.args[0], "any") if call.args else None
         if name in {"open", "Path.open"}:
             mode_index = 1 if name == "open" else 0
             mode = call.args[mode_index] if len(call.args) > mode_index else next(
@@ -8943,7 +8963,7 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
                     and any(flag in mode.value for flag in "wax+")):
                 return None
             destination = call.args[0] if name == "open" else call.func.value
-            return name, destination
+            return name, destination, "any"
         return None
 
     violations: list[str] = []
@@ -8962,12 +8982,13 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
                     return node
             return None
 
-        assignments: dict[ast.AST, dict[str, list[tuple[int, bool]]]] = {}
+        # function -> {name -> [(lineno, helper kind or None)]}
+        assignments: dict[ast.AST, dict[str, list[tuple[int, str | None]]]] = {}
         for node in ast.walk(tree):
             if not isinstance(node, (ast.Assign, ast.AnnAssign)):
                 continue
             value = node.value
-            routed = isinstance(value, ast.Call) and call_name(value) in boundary_helpers
+            kind = helper_kind(value) if isinstance(value, ast.Call) else None
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             function = owner(node)
             if function is None:
@@ -8975,7 +8996,7 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
             for target_node in targets:
                 if isinstance(target_node, ast.Name):
                     assignments.setdefault(function, {}).setdefault(
-                        target_node.id, []).append((node.lineno, routed))
+                        target_node.id, []).append((node.lineno, kind))
 
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
@@ -8983,26 +9004,30 @@ def test_no_raw_write_primitive_outside_the_boundary_helper():
             mutation = write_destination(node)
             if mutation is None:
                 continue
-            primitive, destination = mutation
+            primitive, destination, required = mutation
             function = owner(node)
             function_name = function.name if function else "<module>"
             destination_text = ast.get_source_segment(source, destination) or ""
-            inline = any(
-                isinstance(part, ast.Call) and call_name(part) in boundary_helpers
-                for part in ast.walk(destination)
+            # strongest helper wrapping the destination expression inline
+            available = max(
+                (STRENGTH[helper_kind(part)] for part in ast.walk(destination)
+                 if isinstance(part, ast.Call)),
+                default=0,
             )
-            routed_variable = False
+            # or the LATEST prior assignment of a bare destination variable
             if function and isinstance(destination, ast.Name):
                 prior = [
                     assignment for assignment in
                     assignments.get(function, {}).get(destination.id, [])
                     if assignment[0] < node.lineno
                 ]
-                routed_variable = bool(prior and max(prior)[1])
-            if not inline and not routed_variable:
+                if prior:
+                    available = max(available, STRENGTH[max(prior)[1]])
+            if available < STRENGTH[required]:
+                need = "file-specific" if required == "file" else "boundary"
                 violations.append(
                     f"{module_name}:{node.lineno} {function_name}: "
-                    f"{primitive} -> {destination_text}"
+                    f"{primitive} -> {destination_text} (needs the {need} helper)"
                 )
 
     assert not violations, "raw filesystem write bypasses the boundary helper:\n" + \
