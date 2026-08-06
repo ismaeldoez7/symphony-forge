@@ -1,0 +1,100 @@
+{
+  "generated_by": "docs-decomposer",
+  "user_facing": false,
+  "doc_roots": [
+    "docs/specs/plan-approval.md",
+    "plans/active/FORGE-APPROVE-1-plan-approval-is-a-human-gate-in-plan-mode-not-an-agent-command.md"
+  ],
+  "tasks": [
+    {
+      "id": "FORGE-APPROVE-1.1",
+      "title": "The ExitPlanMode approval hook writes a digest-bound marker",
+      "objective": "Add a PostToolUse hook on ExitPlanMode that writes .factory/plan-approval.json (plan digest, approver, timestamp) ONLY when the human approves the plan, and nothing when it is rejected or edited.",
+      "dependencies": [],
+      "write_scope": [
+        "factory/scripts/plan_approval_hook.py",
+        ".claude/settings.json",
+        ".gitignore",
+        "factory/tests/test_gates.py"
+      ],
+      "acceptance_criteria": [
+        "A new factory/scripts/plan_approval_hook.py runs as a PostToolUse hook matching ExitPlanMode, wired in .claude/settings.json alongside the existing PreToolUse and Stop hooks.",
+        "On a hook payload representing an APPROVED ExitPlanMode, it writes .factory/plan-approval.json with plan_sha256 (sha256 of the plan content it was shown), an approver, and an ISO timestamp.",
+        "On a payload representing a REJECTED or edited ExitPlanMode, it writes no marker and leaves any existing one untouched.",
+        ".factory/plan-approval.json is gitignored as ephemeral per-worktree working state (decision 0025).",
+        "The hook fails closed: a malformed payload writes no marker rather than a false one, and never raises in a way that blocks the tool."
+      ],
+      "verify_commands": [
+        "uv run --with pytest python -m pytest factory/tests/test_gates.py -q -k \"plan_approval or approval_hook or exitplanmode\""
+      ],
+      "required_tests": [
+        {
+          "id": "test_approval_hook_writes_marker_only_on_approval",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_approval_hook_ignores_rejection_and_malformed_payload",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "The one thing that matters: the marker is written ONLY on genuine human approval. If the hook writes on presentation, rejection, or a malformed payload, an agent could mint its own approval \u2014 the exact hole this story closes. Verify the approval-result key it reads is the real Claude Code PostToolUse signal, not an assumption, and that fail-closed means no marker."
+    },
+    {
+      "id": "FORGE-APPROVE-1.2",
+      "title": "plan save requires a fresh matching marker; CLI fallback for headless",
+      "objective": "Make forge plan save set awaiting-approval and refuse approved unless a fresh .factory/plan-approval.json matches the plan body digest, add a human-attributed forge plan approve --by fallback, and document the plan-mode approval step \u2014 every existing plan-save gate preserved.",
+      "dependencies": [
+        "FORGE-APPROVE-1.1"
+      ],
+      "write_scope": [
+        "factory/scripts/forge_cli/plans.py",
+        "factory/scripts/forge.py",
+        "factory/prompts/planner.md",
+        ".claude/CLAUDE.md",
+        "factory/tests/test_gates.py"
+      ],
+      "acceptance_criteria": [
+        "plan save digests the plan BODY (excluding the machine-added frontmatter, using the existing body/header split), reads .factory/plan-approval.json, and sets plan_status approved ONLY when a marker exists and its plan_sha256 matches the body digest.",
+        "With no marker, or a marker whose digest does not match (an edit after approval), plan save writes the plan as awaiting-approval and refuses to approve, with a message naming the missing plan-mode approval.",
+        "Implementation stays blocked: update_run refuses the implementing phase while plan_status is awaiting-approval, unchanged in mechanism (it already requires approved).",
+        "forge plan approve --by <name> writes a human-attributed marker for the current plan's body digest; it is refused without --by. This is the documented headless fallback.",
+        "Every existing plan-save gate runs first and unchanged: grill freshness, decisions_reviewed coverage, contradiction signals, and the Surface Impact section check. Their existing tests stay green with no weakening.",
+        "factory/prompts/planner.md and .claude/CLAUDE.md describe the plan-mode approval step and the CLI fallback."
+      ],
+      "verify_commands": [
+        "uv run --with pytest python -m pytest factory/tests/test_gates.py -q -k \"plan_save or plan_approve or awaiting or plan_gate\""
+      ],
+      "required_tests": [
+        {
+          "id": "test_plan_save_refuses_approved_without_a_matching_marker",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_plan_save_refuses_an_edited_plan_riding_a_stale_marker",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_plan_approve_fallback_requires_a_human_by",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_existing_plan_save_gates_still_run_unchanged",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "That the digest is over the BODY the human approved, not the file with its machine frontmatter \u2014 otherwise the bind never matches and the gate is either always-open or always-closed. And that NO existing plan-save gate was weakened to make the new flow pass: a relaxed grill/decisions/contradiction check is a blocking finding. The fallback must be genuinely human-attributed (refused without --by), or it reopens the self-approval hole."
+    }
+  ],
+  "project": "",
+  "story": "FORGE-APPROVE-1",
+  "epic": "symphony-forge",
+  "plan_file": "plans/active/FORGE-APPROVE-1-plan-approval-is-a-human-gate-in-plan-mode-not-an-agent-command.md",
+  "plan_sha256": "a2721b4d4af69702731c6c0343a01bb9c3107f15fd68d89ba5750fc0cf65be6b",
+  "commit": "f31f47ef6357e24dcdd4fa2011881a1a802f8bef"
+}

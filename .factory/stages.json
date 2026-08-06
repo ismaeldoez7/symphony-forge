@@ -1,0 +1,15 @@
+{
+  "issue": "FORGE-APPROVE-1",
+  "stages": [
+    {
+      "id": "FORGE-APPROVE-1.1",
+      "title": "The ExitPlanMode approval hook writes a digest-bound marker",
+      "status": "pending"
+    },
+    {
+      "id": "FORGE-APPROVE-1.2",
+      "title": "plan save requires a fresh matching marker; CLI fallback for headless",
+      "status": "pending"
+    }
+  ]
+}
