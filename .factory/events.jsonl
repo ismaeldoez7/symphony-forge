@@ -399,3 +399,5 @@
 {"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-06T10:45:07+00:00", "story": "FORGE-APPROVE-1"}
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-06T10:45:07+00:00", "story": "FORGE-APPROVE-1"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-06T10:45:15+00:00", "story": "FORGE-APPROVE-1", "detail": "Plan approval is now a human gate an agent cannot forge. forge plan save no longer records a plan as approved on its own \u2014 it saves the plan as awaiting-approval and approves only when a fresh approva"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-06T07:32:59+00:00", "story": "FORGE-BOUNDARY-1", "detail": "no spec (adhoc)"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-06T07:33:47+00:00", "detail": "path-boundary: The factory never writes outside the repo it was told to"}
