@@ -243,14 +243,15 @@ def record_origin_path(target: Path) -> Path:
 def assert_target_destination(target: Path, dst: Path) -> Path:
     """Return dst when it resolves inside target; refuse every other path.
 
-    dst may not exist yet, so only its genuinely-missing suffix is joined
-    lexically; the deepest ancestor that IS on disk is resolved STRICTLY. That
-    strict resolve raises on a symlink loop or unreadable link on every Python,
-    unlike resolve(strict=False), which since 3.13 leaves an unresolved loop
-    lexically in the result and would silently pass it (autoreview P2).
+    Containment uses resolve(strict=False), which follows symlinks and `..`
+    through dst's existing prefix — a `..` inside a missing tail can still land
+    back on a real in-target symlink, so a purely lexical check is unsafe. A
+    symlink LOOP is caught separately: resolve(strict=False) stopped raising on
+    loops in 3.13+, so the deepest ancestor that IS on disk is resolved STRICTLY,
+    which still raises on a loop or unreadable link on every Python version.
     """
     resolved_target = target.resolve()
-    base, missing = dst, []
+    base = dst
     while True:
         try:
             base.lstat()  # a real dir-entry (incl. a symlink) stops the walk;
@@ -258,18 +259,15 @@ def assert_target_destination(target: Path, dst: Path) -> Path:
         except OSError:
             if base == base.parent:
                 break
-            missing.append(base.name)
             base = base.parent
     try:
-        resolved = base.resolve(strict=True).joinpath(*reversed(missing))
+        base.resolve(strict=True)  # raises on a symlink loop / unreadable link
+        resolved_dst = dst.resolve(strict=False)
     except (OSError, RuntimeError):
-        resolved = None
-    if resolved is None:
+        resolved_dst = None
+    if resolved_dst is None:
         fail(f"refusing destination with an unresolvable symlink: {dst}")
-    # normpath collapses `..` in the genuinely-missing (symlink-free) suffix
-    # against the fully-resolved base; is_relative_to is lexical, so an
-    # unnormalized `..` — e.g. new/../../outside — would otherwise slip through.
-    elif not Path(os.path.normpath(resolved)).is_relative_to(resolved_target):
+    elif not resolved_dst.is_relative_to(resolved_target):
         fail(f"refusing destination outside the target: {dst}")
     return dst
 
