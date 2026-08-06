@@ -199,7 +199,7 @@ arrive by re-vendoring.
 def ensure_onboarding(target: Path, name: str) -> bool:
     """Append the onboarding section to the target README (create if absent).
     Returns True when something was written — idempotent via the heading."""
-    readme = target / "README.md"
+    readme = assert_target_destination(target, target / "README.md")
     if not readme.exists():
         readme.write_text(f"# {name}\n{ONBOARDING_SECTION}")
         return True
@@ -274,6 +274,33 @@ def assert_target_destination(target: Path, dst: Path) -> Path:
     return dst
 
 
+def assert_target_file_destination(target: Path, dst: Path) -> Path:
+    """assert_target_destination for a destination a FILE is written to.
+
+    Also refuses a symlink or an existing non-file, because shutil.copy2 treats
+    a directory dst as a CONTAINER — it writes dst/<src name>, so a crafted
+    directory holding a symlink there escapes even though dst itself resolves
+    inside — and follows a symlink dst. These are the crafted collisions
+    `--force` skips past `_collisions`; the boundary check alone would pass them.
+
+    Scope (decision 0028): this closes the SYMLINK path-boundary class — a
+    destination or ancestor symlink, a `..` traversal, or a crafted directory
+    that resolves or writes outside the target. Two DEEPER classes are
+    deliberately out of scope and deferred to a follow-up story, not defended
+    here (they are pre-existing and need a different I/O model, not a path check):
+      - HARD LINK inode-aliasing: a regular file hard-linked to an inode outside
+        the target — no path escapes, but copy2 truncates the shared inode.
+      - TOCTOU races: a concurrent writer swapping a validated path for an
+        outward symlink between this check and the write. Closing either needs
+        unlink-before-write / descriptor-relative (openat, O_NOFOLLOW) I/O across
+        all three commands, replacing shutil's path-based copytree/copy2.
+    """
+    assert_target_destination(target, dst)
+    if dst.is_symlink() or (dst.exists() and not dst.is_file()):
+        fail(f"refusing a file destination that is a symlink or non-file: {dst}")
+    return dst
+
+
 def check_record_origin_writable(target: Path) -> None:
     """Reject a marker path that would write outside the target or is not a
     regular file. Called in a caller's preflight so an adopt/init never fails
@@ -331,6 +358,107 @@ def ensure_record_origin(target: Path) -> bool:
     return True
 
 
+def _preflight_copytree(target: Path, src: Path, dst: Path) -> None:
+    """Validate a merging copy's root and every entry before it can mutate.
+
+    A source FILE's destination is validated as a file destination: copytree's
+    own copy2 would treat a crafted directory there as a container and follow a
+    symlink out, so a plain boundary check on the nominal path is not enough.
+    """
+    assert_target_destination(target, dst)
+    # followlinks=True MATCHES copytree's default (symlinks=False) dereferencing:
+    # it descends the same source directory symlinks copytree will, so every
+    # destination copytree writes is validated here. A followlinks=False walk
+    # would skip those descendants and leave a crafted dest symlink unchecked.
+    for current, dirnames, filenames in os.walk(src, followlinks=True):
+        dirnames[:] = [
+            name for name in dirnames
+            if name != "__pycache__" and name != ".DS_Store"
+            and not name.endswith(".pyc")
+        ]
+        filenames = [
+            name for name in filenames
+            if name != ".DS_Store" and not name.endswith(".pyc")
+        ]
+        relative = Path(current).relative_to(src)
+        for name in dirnames:
+            assert_target_destination(target, dst / relative / name)
+        for name in filenames:
+            assert_target_file_destination(target, dst / relative / name)
+
+
+def _preflight_init(root: Path, target: Path) -> None:
+    """Validate every init destination before the first filesystem mutation."""
+    assert_target_destination(target, target)
+
+    for tree in COPY_TREES:
+        src = root / tree
+        if src.exists():
+            _preflight_copytree(target, src, target / tree)
+    for rel in COPY_WORKFLOWS:
+        if (root / rel).exists():
+            dst = target / rel
+            assert_target_destination(target, dst.parent)
+            assert_target_file_destination(target, dst)
+
+    codex = target / ".codex"
+    assert_target_destination(target, codex)
+    for name in COPY_CODEX:
+        assert_target_file_destination(target, codex / name)
+    _preflight_copytree(target, root / ".codex" / "agents", codex / "agents")
+    if (root / ".codex" / "skills").is_dir():
+        _preflight_copytree(target, root / ".codex" / "skills", codex / "skills")
+
+    for name in COPY_FILES:
+        if (root / name).exists():
+            assert_target_file_destination(target, target / name)
+    for src_rel, dst_rel in DOC_CONTRACTS:
+        if (root / src_rel).exists():
+            dst = target / dst_rel
+            assert_target_destination(target, dst.parent)
+            assert_target_file_destination(target, dst)
+    for rel in PROJECT_STARTERS:
+        if (root / rel).exists():
+            dst = target / rel
+            assert_target_destination(target, dst.parent)
+            assert_target_file_destination(target, dst)
+
+    for rel in (
+        "harness.yaml",
+        "constitution/VENDORED_FROM",
+        "constitution/VENDOR_MANIFEST.json",
+        "docs/product/DISCOVERY.md",
+        "prototype/README.md",
+        ".factory/run.json",
+        "AGENTS.md",
+        "README.md",
+    ):
+        assert_target_file_destination(target, target / rel)
+
+    brief_dst = target / "docs" / "product" / "BRIEF.md"
+    assert_target_destination(target, brief_dst.parent)
+    if (root / "harness" / "nestjs-react" / "BRIEF_TEMPLATE.md").exists():
+        assert_target_file_destination(target, brief_dst)
+    for rel in (
+        "docs/decisions",
+        "docs/architecture",
+        "docs/specs",
+        "prototype",
+        "plans/active",
+        "plans/completed",
+        "plans/debt",
+        ".factory/reviews",
+    ):
+        assert_target_destination(target, target / rel)
+    for sub in ("active", "completed", "debt"):
+        assert_target_file_destination(target, target / "plans" / sub / ".gitkeep")
+
+    git_dir = target / ".git"
+    if not git_dir.exists():
+        assert_target_destination(target, git_dir)
+    check_record_origin_writable(target)
+
+
 def cmd_init(args: argparse.Namespace) -> None:
     root = repo_root()
     target = Path(args.target or args.name).resolve()
@@ -344,42 +472,57 @@ def cmd_init(args: argparse.Namespace) -> None:
                 f"would overwrite or write through:\n  {listing}{more}\n"
                 "use --force to overwrite them."
             )
-    target.mkdir(parents=True, exist_ok=True)
+    _preflight_init(root, target)
+    assert_target_destination(target, target).mkdir(parents=True, exist_ok=True)
 
     # Same rule as upgrade's VENDOR_IGNORE: build and OS noise never vendors.
     ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
     for tree in COPY_TREES:
         src = root / tree
         if src.exists():
-            shutil.copytree(src, target / tree, dirs_exist_ok=True, ignore=ignore)
+            # Default symlinks=False MATERIALIZES the trusted source content
+            # into the boundary-checked destination. symlinks=True would instead
+            # recreate a source link verbatim — an outward one would become an
+            # escape — so we deliberately keep the dereferencing copy (0028).
+            shutil.copytree(src, assert_target_destination(target, target / tree),
+                            dirs_exist_ok=True, ignore=ignore)
     for rel in COPY_WORKFLOWS:
         src = root / rel
         if src.exists():
             dst = target / rel
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
-    (target / ".codex").mkdir(exist_ok=True)
+            assert_target_destination(target, dst.parent).mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, assert_target_file_destination(target, dst))
+    assert_target_destination(target, target / ".codex").mkdir(exist_ok=True)
     for name in COPY_CODEX:
-        shutil.copy2(root / ".codex" / name, target / ".codex" / name)
-    shutil.copytree(root / ".codex" / "agents", target / ".codex" / "agents", dirs_exist_ok=True, ignore=ignore)
+        dst = target / ".codex" / name
+        shutil.copy2(root / ".codex" / name, assert_target_file_destination(target, dst))
+    shutil.copytree(
+        root / ".codex" / "agents",
+        assert_target_destination(target, target / ".codex" / "agents"),
+        dirs_exist_ok=True, ignore=ignore,
+    )
     if (root / ".codex" / "skills").is_dir():
-        shutil.copytree(root / ".codex" / "skills", target / ".codex" / "skills", dirs_exist_ok=True, ignore=ignore)
+        shutil.copytree(
+            root / ".codex" / "skills",
+            assert_target_destination(target, target / ".codex" / "skills"),
+            dirs_exist_ok=True, ignore=ignore,
+        )
     for name in COPY_FILES:
         src = root / name
         if src.exists():
-            shutil.copy2(src, target / name)
+            shutil.copy2(src, assert_target_file_destination(target, target / name))
     for src_rel, dst_rel in DOC_CONTRACTS:
         src = root / src_rel
         if src.exists():
             dst = target / dst_rel
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
+            assert_target_destination(target, dst.parent).mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, assert_target_file_destination(target, dst))
     for rel in PROJECT_STARTERS:
         src = root / rel
         if src.exists():
             dst = target / rel
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
+            assert_target_destination(target, dst.parent).mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, assert_target_file_destination(target, dst))
 
     # A new client has signed nothing off: clear the harness's own sign-off pin
     # so a scaffold cannot inherit THIS project's gate. (harness.yaml is
@@ -388,7 +531,7 @@ def cmd_init(args: argparse.Namespace) -> None:
     # so signing off later never shows up as gate drift.)
     manifest_yaml = target / "harness.yaml"
     if manifest_yaml.exists():
-        manifest_yaml.write_text(
+        assert_target_destination(target, manifest_yaml).write_text(
             re.sub(r"^signoff_record:.*$", 'signoff_record: ""',
                    manifest_yaml.read_text(), count=1, flags=re.MULTILINE)
         )
@@ -400,43 +543,54 @@ def cmd_init(args: argparse.Namespace) -> None:
         ).stdout.strip()
     except subprocess.CalledProcessError:
         commit = "unknown"
-    (target / "constitution" / "VENDORED_FROM").write_text(
+    assert_target_destination(target, target / "constitution" / "VENDORED_FROM").write_text(
         f"symphony-forge @ {commit}\nUpdate by re-vendoring from the harness repo; do not edit in place.\n"
     )
     # Freeze the gate surface from birth (frozen-gate-integrity): the manifest
     # is what check_vendor_integrity.py compares against until the next vendoring.
     from check_vendor_integrity import write_manifest
+    assert_target_destination(target, target / "constitution" / "VENDOR_MANIFEST.json")
     write_manifest(target, commit)
 
     brief_src = root / "harness" / "nestjs-react" / "BRIEF_TEMPLATE.md"
     brief_dst = target / "docs" / "product" / "BRIEF.md"
-    brief_dst.parent.mkdir(parents=True, exist_ok=True)
+    assert_target_destination(target, brief_dst.parent).mkdir(parents=True, exist_ok=True)
     if brief_src.exists():
-        shutil.copy2(brief_src, brief_dst)
-    (target / "docs" / "product" / "DISCOVERY.md").write_text(
+        shutil.copy2(brief_src, assert_target_file_destination(target, brief_dst))
+    assert_target_destination(target, target / "docs" / "product" / "DISCOVERY.md").write_text(
         DISCOVERY_TEMPLATE.format(name=args.name)
     )
-    (target / "docs" / "decisions").mkdir(parents=True, exist_ok=True)
-    (target / "docs" / "architecture").mkdir(parents=True, exist_ok=True)
-    (target / "docs" / "specs").mkdir(parents=True, exist_ok=True)
-    (target / "prototype").mkdir(parents=True, exist_ok=True)
-    (target / "prototype" / "README.md").write_text(PROTOTYPE_README)
+    assert_target_destination(
+        target, target / "docs" / "decisions"
+    ).mkdir(parents=True, exist_ok=True)
+    assert_target_destination(
+        target, target / "docs" / "architecture"
+    ).mkdir(parents=True, exist_ok=True)
+    assert_target_destination(target, target / "docs" / "specs").mkdir(parents=True, exist_ok=True)
+    assert_target_destination(target, target / "prototype").mkdir(parents=True, exist_ok=True)
+    assert_target_destination(
+        target, target / "prototype" / "README.md"
+    ).write_text(PROTOTYPE_README)
     for sub in ("active", "completed", "debt"):
         plan_dir = target / "plans" / sub
-        plan_dir.mkdir(parents=True, exist_ok=True)
-        (plan_dir / ".gitkeep").touch()
-    (target / ".factory" / "reviews").mkdir(parents=True, exist_ok=True)
+        assert_target_destination(target, plan_dir).mkdir(parents=True, exist_ok=True)
+        assert_target_destination(target, plan_dir / ".gitkeep").touch()
+    assert_target_destination(
+        target, target / ".factory" / "reviews"
+    ).mkdir(parents=True, exist_ok=True)
     dump_json(
-        target / ".factory" / "run.json",
+        assert_target_destination(target, target / ".factory" / "run.json"),
         {"project": args.name, "created_at": now_iso()},
     )
 
     agents_md = (root / "AGENTS.md").read_text().replace("Symphony Forge", args.name, 1)
-    (target / "AGENTS.md").write_text(agents_md)
+    assert_target_destination(target, target / "AGENTS.md").write_text(agents_md)
     ensure_onboarding(target, args.name)
 
     if not (target / ".git").exists():
-        subprocess.run(["git", "init", "-q"], cwd=target, check=True)
+        assert_target_destination(target, target / ".git")
+        subprocess.run(["git", "init", "-q"],
+                       cwd=assert_target_destination(target, target), check=True)
     ensure_record_origin(target)
 
     print(f"Scaffolded {args.name} at {target}")

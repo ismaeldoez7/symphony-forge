@@ -8394,10 +8394,10 @@ def test_onboarding_section_created_at_init_and_never_duplicated(repo):
     assert text.count("Working in this repo — Symphony Forge") == 1
 
 
-def _init(target: Path):
+def _init(target: Path, *extra: str):
     return subprocess.run(
         [sys.executable, str(HARNESS / "factory" / "scripts" / "forge.py"),
-         "init", "--name", "app", "--target", str(target)],
+         "init", "--name", "app", "--target", str(target), *extra],
         capture_output=True, text=True,
     )
 
@@ -8498,6 +8498,45 @@ def test_init_refuses_symlink_and_blocking_ancestor(tmp_path: Path):
     assert proc.returncode == 1
     assert ".codex" in proc.stdout + proc.stderr
     assert (target2 / ".codex").read_text() == "not a dir\n"
+
+
+def test_init_refuses_a_symlinked_destination_before_writing(tmp_path: Path):
+    target = tmp_path / "app"
+    codex = target / ".codex"
+    codex.mkdir(parents=True)
+    outside = tmp_path / "outside.toml"
+    outside.write_text("do not replace\n")
+    destination = codex / "config.toml"
+    destination.symlink_to(outside)
+
+    proc = _init(target, "--force")
+
+    assert proc.returncode == 1
+    assert "refusing destination outside the target" in proc.stdout + proc.stderr
+    assert destination.is_symlink()
+    assert outside.read_text() == "do not replace\n"
+    assert sorted(str(path.relative_to(target)) for path in target.rglob("*")) == [
+        ".codex",
+        ".codex/config.toml",
+    ]
+
+
+def test_init_refuses_a_symlinked_ancestor_and_leaves_the_target_clean(
+    tmp_path: Path,
+):
+    target = tmp_path / "app"
+    target.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (target / "docs").symlink_to(outside, target_is_directory=True)
+
+    proc = _init(target, "--force")
+
+    assert proc.returncode == 1
+    assert "refusing destination outside the target" in proc.stdout + proc.stderr
+    assert (target / "docs").is_symlink()
+    assert list(outside.iterdir()) == []
+    assert [path.name for path in target.iterdir()] == ["docs"]
 
 
 def test_init_refuses_symlinked_readme(tmp_path: Path):
@@ -8828,3 +8867,35 @@ def test_assert_target_destination_refuses_an_in_target_symlink_pointing_outside
     destination = target / "linked-directory" / "missing" / "destination.txt"
     with pytest.raises(SystemExit):
         assert_target_destination(target, destination)
+
+
+def test_assert_target_file_destination_refuses_a_directory_or_symlink(tmp_path: Path):
+    # shutil.copy2 treats a directory dst as a container (writes dst/<name>) and
+    # follows a symlink dst, so a file write must reject both even when the
+    # nominal path resolves inside the target.
+    from forge_cli.scaffold import assert_target_file_destination
+
+    target = tmp_path / "target"
+    target.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("do not touch\n")
+
+    # a crafted in-target directory holding a symlink out — the copy2 container
+    # escape: assert_target_destination(dir) alone would pass this.
+    crafted = target / "config"
+    crafted.mkdir()
+    (crafted / "config").symlink_to(outside / "secret.txt")
+    with pytest.raises(SystemExit):
+        assert_target_file_destination(target, crafted)
+
+    # a symlink file destination that resolves inside is still refused for a
+    # file write (copy2 would follow it and overwrite the linked file).
+    (target / "real.txt").write_text("real\n")
+    (target / "link.txt").symlink_to(target / "real.txt")
+    with pytest.raises(SystemExit):
+        assert_target_file_destination(target, target / "link.txt")
+
+    # a genuinely new file destination inside the target passes through.
+    dest = target / "new.txt"
+    assert assert_target_file_destination(target, dest) is dest
