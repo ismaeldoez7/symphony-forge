@@ -2,28 +2,25 @@
   "generated_by": "griller",
   "gate": "spec",
   "verdict": "pass",
-  "questions_asked": 5,
-  "summary": "Interrogated docs/specs/project-record.md against the Opus record audit that produced it, the active decision corpus, and the artifacts it claims to read. One claim was verified rather than trusted (that .factory/events.jsonl is cumulative) and held. Three findings were resolved into the spec: a PR link with three candidate homes and therefore no contract, an unresolved conflict between quickfix budgeting and task write scopes, and an acceptance criterion that invited the fabrication the spec elsewhere forbids.",
+  "questions_asked": 3,
+  "summary": "Interrogated docs/specs/plan-approval.md against decision 0029 and the current plan-save/update_run flow. The two design questions that were genuinely the human's \u2014 the enforcement mechanism and whether to keep a CLI fallback \u2014 were put to the user via AskUserQuestion and answered: an ExitPlanMode approval-marker file as the primary gate, with a documented CLI fallback for headless runs. The remaining findings are resolved against the code.",
   "gaps": [
-    "'The link is recorded where the work is recorded \u2014 an outcome, a quickfix record, or an event' named three homes, which is no contract at all: three writers, three readers, and no single place that answers 'which PR shipped this'.",
-    "The spec asserted that every authorizing path claims files against the quickfix budget, without resolving the conflict already flagged during PH-4: inside an approved story a task's write scope already bounds the work, so a second competing five-file budget would refuse honest edits.",
-    "'backfilled from evidence that exists (their plans, their archives, their PRs)' contradicted the spec's own boundary that history is never reconstructed. An outcome states what someone can now do; deriving one from a plan months later is reconstruction presented as record."
+    "The marker must bind the EXACT plan approved, or an edit after approval could ride a stale marker. Resolved: the spec's acceptance criteria require the marker to carry the plan digest and plan save to refuse a digest mismatch \u2014 the same freshness/digest rule the grill already enforces (verified in plans.py, which digests the plan for the grill gate).",
+    "ExitPlanMode fires when the agent PRESENTS a plan, not only on approval. Resolved in the spec: the hook writes the marker only on human APPROVAL, not on rejection or edit \u2014 an acceptance criterion, and the implementation detail (which hook event carries the approval) is the plan's job.",
+    "Whether plan-mode unavailability (headless/cron) would deadlock the gate. Resolved by the user's choice to keep a human-confirmed CLI fallback, attributed like decision accept \u2014 the exception, not the path."
   ],
-  "contradictions": [
-    "The Behaviour section said the two outcome-less stories may be 'backfilled ... or marked', while Boundaries said 'no synthesised outcomes for past work', and the acceptance criteria repeated the permissive form. A spec that permits and forbids the same act cannot gate anything."
-  ],
+  "contradictions": [],
   "resolutions": [
-    "PR linkage narrowed to ONE home: an event in .factory/events.jsonl. Verified cumulative rather than assumed \u2014 pr_ready.py:299 COPIES story events into the archive and explicitly does not prune ('a union-merged file cannot be pruned (decision 0017)'); the live ledger stands at 333 lines including PH-4's 64 archived ones. It already spans stories, so the link survives a clone with no remote and forge history surfaces it with no second reader.",
-    "Recording and bounding separated in the spec: an open window RECORDS every product file it touches on any authorizing path, while the five-file BUDGET binds only where the quickfix is itself the authorization. Resolves the conflict rather than deferring it, and matches why the budget exists.",
-    "Backfill removed. The two pre-contract stories are MARKED as predating the outcome gate; acceptance criteria rewritten to match and the permissive clause deleted, so the spec no longer both permits and forbids reconstruction.",
-    "The claim that forge history can read only .factory/events.jsonl was checked against pr_ready's archive path before being kept. Had it pruned, the command would have had to union the archives and the criterion would have been wrong."
+    "Enforcement is an ExitPlanMode approval-marker file (user-chosen): a hook writes .factory/plan-approval.json on human approval; plan save sets awaiting-approval and refuses approved without a fresh digest-matching marker.",
+    "The CLI fallback stays, human-attributed and audited, for environments without plan mode.",
+    "Every existing plan-save gate (grill, decisions coverage, contradiction, Surface Impact) is preserved \u2014 the spec adds the human gate, it does not replace the others."
   ],
   "open_items": [
-    "Whether plans/roadmap.json should become a conflict-free directory like the 0022 ledgers is named in the spec's Boundaries as a separate decision, not resolved here. It has already lost items to merges twice, so it is real but distinct from record completeness.",
-    "The audit's finding that .factory/briefs/ is no longer durable after decision 0025 is not addressed by this spec. It is a capture question about what a worker was told; folding it in would widen the story past what its acceptance criteria can check."
+    "Which Claude Code hook event carries the ExitPlanMode APPROVAL (vs the presentation) is an implementation question for the plan, resolved against the harness hook contract during planning.",
+    "Decision-number and roadmap-file collisions across parallel branches surfaced while setting this up (0028 taken on the parked branch); noted as the same merge-fragility class already deferred, not this story's scope."
   ],
-  "issue": "project-record",
-  "input_sha256": "c6964e5cae49f49b54e32fb7da8858f3750b649eb9f17c1cbd23b14285fb8448",
-  "recorded_at": "2026-08-05T21:22:19+00:00",
-  "commit": "552b9d21205757d7d5ff536806026dcaac14b7a2"
+  "issue": "plan-approval",
+  "input_sha256": "72b8250ea5681fd3711d0dcefaac07165596098027c0ae965aabd8f5dbd4cdaa",
+  "recorded_at": "2026-08-06T07:51:31+00:00",
+  "commit": "5dd2e2ccbcebdd2f6754865a87f973f3eec521fb"
 }

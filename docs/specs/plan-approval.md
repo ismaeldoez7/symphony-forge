@@ -1,7 +1,7 @@
 ---
 slug: plan-approval
 title: A plan is approved by a human, not by the agent that wrote it
-status: draft
+status: confirmed
 saved: 2026-08-06T07:50:29+00:00
 ---
 
