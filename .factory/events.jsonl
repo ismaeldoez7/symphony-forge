@@ -366,3 +366,4 @@
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-06T07:03:55+00:00", "story": "PH-5", "detail": "https://github.com/knacklabs/symphony-forge/pull/43"}
 {"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-06T07:50:29+00:00", "detail": "plan-approval: A plan is approved by a human, not by the agent that wrote it"}
 {"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-06T07:51:31+00:00", "detail": "plan-approval"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-06T07:51:45+00:00", "story": "FORGE-APPROVE-1", "detail": "docs/specs/plan-approval.md"}
