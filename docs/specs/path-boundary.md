@@ -1,7 +1,7 @@
 ---
 slug: path-boundary
 title: The factory never writes outside the repo it was told to
-status: draft
+status: confirmed
 saved: 2026-08-06T07:33:47+00:00
 ---
 
