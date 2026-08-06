@@ -2,28 +2,24 @@
   "generated_by": "griller",
   "gate": "spec",
   "verdict": "pass",
-  "questions_asked": 5,
-  "summary": "Interrogated docs/specs/project-record.md against the Opus record audit that produced it, the active decision corpus, and the artifacts it claims to read. One claim was verified rather than trusted (that .factory/events.jsonl is cumulative) and held. Three findings were resolved into the spec: a PR link with three candidate homes and therefore no contract, an unresolved conflict between quickfix budgeting and task write scopes, and an acceptance criterion that invited the fabrication the spec elsewhere forbids.",
+  "questions_asked": 2,
+  "summary": "Re-grilled after the mechanism pivot. The original hook-based approach was verified infeasible against Claude Code docs (no plan-mode hook fires; #21282), and the human chose the CLI attributed approve mechanism via AskUserQuestion. The spec now describes forge plan approve --by writing the marker, plan save refusing without a fresh body-digest match, and plan mode as the review step not the enforcement signal.",
   "gaps": [
-    "'The link is recorded where the work is recorded \u2014 an outcome, a quickfix record, or an event' named three homes, which is no contract at all: three writers, three readers, and no single place that answers 'which PR shipped this'.",
-    "The spec asserted that every authorizing path claims files against the quickfix budget, without resolving the conflict already flagged during PH-4: inside an approved story a task's write scope already bounds the work, so a second competing five-file budget would refuse honest edits.",
-    "'backfilled from evidence that exists (their plans, their archives, their PRs)' contradicted the spec's own boundary that history is never reconstructed. An outcome states what someone can now do; deriving one from a plan months later is reconstruction presented as record."
+    "The original spec asserted a hook writes the marker on ExitPlanMode approval. Verified infeasible: PostToolUse/PreToolUse do not fire for plan-mode transitions (#21282); ExitPlanMode fires only PermissionRequest, a decision-gate before the human decides, which cannot record that the human approved this plan. Resolved: the enforcement is forge plan approve --by (human chat confirmation, decision-accept trust model); plan mode remains the review presentation.",
+    "The digest must bind what the human approved to what plan save records. Resolved: both digest the plan BODY (not the machine frontmatter); an edit after approval fails the match and is refused."
   ],
-  "contradictions": [
-    "The Behaviour section said the two outcome-less stories may be 'backfilled ... or marked', while Boundaries said 'no synthesised outcomes for past work', and the acceptance criteria repeated the permissive form. A spec that permits and forbids the same act cannot gate anything."
-  ],
+  "contradictions": [],
   "resolutions": [
-    "PR linkage narrowed to ONE home: an event in .factory/events.jsonl. Verified cumulative rather than assumed \u2014 pr_ready.py:299 COPIES story events into the archive and explicitly does not prune ('a union-merged file cannot be pruned (decision 0017)'); the live ledger stands at 333 lines including PH-4's 64 archived ones. It already spans stories, so the link survives a clone with no remote and forge history surfaces it with no second reader.",
-    "Recording and bounding separated in the spec: an open window RECORDS every product file it touches on any authorizing path, while the five-file BUDGET binds only where the quickfix is itself the authorization. Resolves the conflict rather than deferring it, and matches why the budget exists.",
-    "Backfill removed. The two pre-contract stories are MARKED as predating the outcome gate; acceptance criteria rewritten to match and the permissive clause deleted, so the spec no longer both permits and forbids reconstruction.",
-    "The claim that forge history can read only .factory/events.jsonl was checked against pr_ready's archive path before being kept. Had it pruned, the command would have had to union the archives and the criterion would have been wrong."
+    "Mechanism is forge plan approve --by <name>, refused without a human --by, writing the body-digest marker; plan save sets awaiting-approval and refuses approved without a fresh matching marker.",
+    "Plan mode is the recommended human-review step (ExitPlanMode), documented as review not enforcement, because Claude Code emits no plan-mode hook to enforce against.",
+    "Every existing plan-save gate is preserved; this adds the human gate."
   ],
   "open_items": [
-    "Whether plans/roadmap.json should become a conflict-free directory like the 0022 ledgers is named in the spec's Boundaries as a separate decision, not resolved here. It has already lost items to merges twice, so it is real but distinct from record completeness.",
-    "The audit's finding that .factory/briefs/ is no longer durable after decision 0025 is not addressed by this spec. It is a capture question about what a worker was told; folding it in would widen the story past what its acceptance criteria can check."
+    "Decision 0029 carries the dated correction of the hook approach; it stays accepted because the human directed the corrected mechanism.",
+    "If Claude Code later adds plan-mode hooks (#21282), a follow-up could bind the marker to the plan-mode approval directly; the CLI command remains the auditable path."
   ],
-  "issue": "project-record",
-  "input_sha256": "c6964e5cae49f49b54e32fb7da8858f3750b649eb9f17c1cbd23b14285fb8448",
-  "recorded_at": "2026-08-05T21:22:19+00:00",
-  "commit": "552b9d21205757d7d5ff536806026dcaac14b7a2"
+  "issue": "plan-approval",
+  "input_sha256": "85a5f4c17730c120cfef650b1e110c674bbf797fbf2bba53308d7f26e1bba02b",
+  "recorded_at": "2026-08-06T08:19:07+00:00",
+  "commit": "4cc963b772d66a9de505bda1484430676306b996"
 }

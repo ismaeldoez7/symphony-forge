@@ -184,10 +184,34 @@
       "completed_at": "2026-08-06T06:53:58+00:00",
       "history": ".factory/history/PH-5/",
       "outcome": "The repo can now tell you what it built. forge history reads the committed event timeline filtered by story, type, or date and shows events no story owns instead of hiding them. Quickfix windows record every file they touch, so an ad-hoc change is no longer a why with no what. A merged PR is linked to its work by a durable event that survives a clone with no remote \u2014 forge pr-link. forge init and adopt stamp an honest 'record begins here' boundary (silent when it cannot be trusted), and forge doctor flags any shipped story with neither an outcome nor a predates-the-contract marker \u2014 the two that predate it now carry that marker rather than a fabricated outcome."
+    },
+    {
+      "key": "FORGE-APPROVE-1",
+      "title": "Plan approval is a human gate in plan mode, not an agent command",
+      "story": "As a project owner, I want a plan to reach 'approved' only through my explicit approval in plan mode, so that an agent can never plan, grill, and approve its own work then implement it unchecked.",
+      "acceptance_criteria": [
+        "plan save sets plan_status to awaiting-approval and refuses approved without a fresh .factory/plan-approval.json whose digest matches the plan body, bound to the issue and story.",
+        "forge plan approve --by <name> writes the approval marker for the current plan's body digest, issue and story, and is refused without a human --by; it is a human chat confirmation like decision accept.",
+        "Implementation stays blocked until plan_status is approved, which now requires the human-attributed marker.",
+        "The marker binds the exact plan and context: saving an edited plan, or the same body under a different issue/story, is refused.",
+        "Every existing plan-save gate still runs unchanged."
+      ],
+      "order": 9,
+      "status": "done",
+      "epic": "symphony-forge",
+      "skill": "backend",
+      "kind": "feature",
+      "depends_on": [
+        "PH-5"
+      ],
+      "spec": "docs/specs/plan-approval.md",
+      "completed_at": "2026-08-06T10:45:15+00:00",
+      "history": ".factory/history/FORGE-APPROVE-1/",
+      "outcome": "Plan approval is now a human gate an agent cannot forge. forge plan save no longer records a plan as approved on its own \u2014 it saves the plan as awaiting-approval and approves only when a fresh approval marker matches that exact plan body under the same issue and story. A human creates that marker with forge plan approve --by \"<name>\" after reviewing the plan in plan mode, and the marker is consumed on the approved save so it authorizes exactly one save. The result: no product code can be written without a plan a human actually approved, closing the self-approval hole where an agent could plan, grill, and approve its own work. It carries the same trust model as decision accept and client sign-off, with a committed plan-human-approved audit event recording who approved and when."
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-06T06:53:58+00:00",
+  "updated_at": "2026-08-06T10:45:15+00:00",
   "epics": [
     {
       "id": "symphony-forge",

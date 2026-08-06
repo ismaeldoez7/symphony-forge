@@ -21,6 +21,7 @@ import sys
 import threading
 import urllib.error
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -226,6 +227,12 @@ def save_plan(repo: Path, tmp_path: Path) -> tuple[int, str]:
     plan = tmp_path / "plan.md"
     plan.write_text(plan_draft(repo))
     record_grill(repo, "plan", digest_of=plan)  # grill bound to THIS draft
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
+                    "--story", story)
+    if code == 0 or "awaiting-approval" not in out:
+        return code, out
+    code, out = run(repo, "forge.py", "plan", "approve", "--by", "Gate Test Human")
+    assert code == 0, out
     return run(repo, "forge.py", "plan", "save", "--from", str(plan), "--story", story)
 
 
@@ -3506,6 +3513,167 @@ def test_quickfix_recording_authorizes_nothing(repo, tmp_path):
 
 # ---------------------------------------------------------------- plan grill
 
+def test_plan_save_refuses_approved_without_a_matching_marker(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    ensure_story(repo, "ENG-1", "Invoices")
+    plan = tmp_path / "approval-plan.md"
+    plan.write_text(plan_draft(repo))
+    record_grill(repo, "plan", digest_of=plan)
+
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
+                    "--story", "ENG-1")
+
+    assert code != 0
+    assert "awaiting-approval" in out
+    assert "review it in plan mode" in out
+    assert "forge plan approve" in out
+    active = next((repo / "plans" / "active").glob("ENG-1-*.md"))
+    assert "status: awaiting-approval" in active.read_text()
+    assert run_state(repo)["plan_status"] == "awaiting-approval"
+    code, out = run(repo, "update_run.py", "--phase", "implementing")
+    assert code != 0 and "requires an approved, saved plan" in out
+
+
+def test_plan_approve_requires_a_human_by_and_binds_the_body_digest(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    ensure_story(repo, "ENG-1", "Invoices")
+    plan = tmp_path / "approval-plan.md"
+    plan.write_text(plan_draft(repo))
+    record_grill(repo, "plan", digest_of=plan)
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
+                    "--story", "ENG-1")
+    assert code != 0 and "awaiting-approval" in out
+
+    code, out = run(repo, "forge.py", "plan", "approve")
+    assert code != 0 and "--by" in out
+    code, out = run(repo, "forge.py", "plan", "approve", "--by", "  ")
+    assert code != 0 and "human approver" in out
+    code, out = run(repo, "forge.py", "plan", "approve", "--by", "Client PM")
+    assert code == 0, out
+
+    active = next((repo / "plans" / "active").glob("ENG-1-*.md"))
+    persisted_body = active.read_text().split("---\n", 2)[2]
+    marker = json.loads((repo / ".factory" / "plan-approval.json").read_text())
+    assert marker["plan_sha256"] == hashlib.sha256(persisted_body.encode()).hexdigest()
+    assert marker["approver"] == "Client PM"
+    assert marker["issue"] == "ENG-1" and marker["story"] == "ENG-1"
+    assert marker["at"]
+    assert git(repo, "check-ignore", ".factory/plan-approval.json") == (
+        ".factory/plan-approval.json"
+    )
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
+                    "--story", "ENG-1")
+    assert code == 0, out
+    assert run_state(repo)["plan_status"] == "approved"
+
+    # The marker cannot be replayed in a DIFFERENT context: a marker whose
+    # body digest matches but whose story is another one does NOT approve —
+    # the human reviewed this plan for THIS story, not that one.
+    marker_path = repo / ".factory" / "plan-approval.json"
+    tampered = {**marker, "story": "ENG-2"}
+    marker_path.write_text(json.dumps(tampered))
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
+                    "--story", "ENG-1")
+    assert code != 0 and "awaiting-approval" in out
+    assert run_state(repo)["plan_status"] == "awaiting-approval"
+
+
+def test_plan_save_refuses_an_edited_plan_riding_a_stale_marker(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    ensure_story(repo, "ENG-1", "Invoices")
+    plan = tmp_path / "approval-plan.md"
+    plan.write_text(plan_draft(repo))
+    record_grill(repo, "plan", digest_of=plan)
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
+                    "--story", "ENG-1")
+    assert code != 0 and "awaiting-approval" in out
+    code, out = run(repo, "forge.py", "plan", "approve", "--by", "Client PM")
+    assert code == 0, out
+    approved_digest = json.loads(
+        (repo / ".factory" / "plan-approval.json").read_text()
+    )["plan_sha256"]
+
+    plan.write_text(plan_draft(repo, body=PLAN_BODY + "\nEdited after approval.\n"))
+    record_grill(repo, "plan", digest_of=plan)
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
+                    "--story", "ENG-1")
+
+    assert code != 0 and "awaiting-approval" in out
+    assert run_state(repo)["plan_status"] == "awaiting-approval"
+    active = next((repo / "plans" / "active").glob("ENG-1-*.md"))
+    edited_body = active.read_text().split("---\n", 2)[2]
+    assert hashlib.sha256(edited_body.encode()).hexdigest() != approved_digest
+
+
+def test_an_approval_marker_authorizes_only_one_save(repo, tmp_path):
+    # The marker is consumed on the approved save; replaying it (e.g. after a
+    # later awaiting-approval reset of the same body) must require a fresh approve.
+    sign_off(repo)
+    intake(repo)
+    ensure_story(repo, "ENG-1", "Invoices")
+    plan = tmp_path / "once-plan.md"
+    plan.write_text(plan_draft(repo))
+    record_grill(repo, "plan", digest_of=plan)
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
+                    "--story", "ENG-1")
+    assert code != 0 and "awaiting-approval" in out
+    code, out = run(repo, "forge.py", "plan", "approve", "--by", "Client PM")
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
+                    "--story", "ENG-1")
+    assert code == 0 and run_state(repo)["plan_status"] == "approved", out
+    assert not (repo / ".factory" / "plan-approval.json").exists()
+
+    # Same body, marker gone -> save refuses, no silent re-approval.
+    record_grill(repo, "plan", digest_of=plan)
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
+                    "--story", "ENG-1")
+    assert code != 0 and "awaiting-approval" in out
+    assert run_state(repo)["plan_status"] == "awaiting-approval"
+
+
+def test_existing_plan_save_gates_still_run_unchanged(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    ensure_story(repo, "ENG-1", "Invoices")
+    plan = tmp_path / "gate-plan.md"
+    plan.write_text(plan_draft(repo))
+
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan))
+    assert code != 0 and "grill" in out.lower() and "awaiting-approval" not in out
+
+    plan.write_text(plan_draft(repo, decisions=[]))
+    record_grill(repo, "plan", digest_of=plan)
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan))
+    assert code != 0 and "missing active decisions" in out
+    assert "awaiting-approval" not in out
+
+    plan.write_text(plan_draft(repo))
+    record_grill(repo, "plan", digest_of=plan)
+    code, out = run(repo, "forge.py", "signal", "raise", "--kind", "contradiction",
+                    "--by", "implementer", "-m", "plan contradicts a decision")
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan))
+    assert code != 0 and "open contradiction" in out.lower()
+    assert "awaiting-approval" not in out
+    signal_id = json.loads(
+        (repo / ".factory" / "signals.jsonl").read_text().splitlines()[0]
+    )["id"]
+    run(repo, "forge.py", "signal", "resolve", signal_id, "--notes", "resolved")
+
+    body_without_surface = "\n\n".join(
+        f"## {section}\nComplete."
+        for section in PLAN_SECTIONS if section != "Surface Impact"
+    )
+    plan.write_text(plan_draft(repo, body=body_without_surface))
+    record_grill(repo, "plan", digest_of=plan)
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan))
+    assert code != 0 and "Surface Impact" in out
+    assert "awaiting-approval" not in out
+
 def test_plan_save_requires_a_fresh_same_issue_grill(repo, tmp_path):
     sign_off(repo)
     intake(repo)
@@ -3525,8 +3693,12 @@ def test_plan_save_requires_a_fresh_same_issue_grill(repo, tmp_path):
     record_grill(repo, "plan", digest_of=other)
     code, out = save_plan_raw(repo, tmp_path)
     assert code != 0 and "THIS input" in out
-    # passing grill bound to THIS draft -> save works
+    # passing grill bound to THIS draft reaches the human approval gate
     code, out = record_grill(repo, "plan", digest_of=plan_file)
+    assert code == 0, out
+    code, out = save_plan_raw(repo, tmp_path)
+    assert code != 0 and "awaiting-approval" in out, out
+    code, out = run(repo, "forge.py", "plan", "approve", "--by", "Gate Test Human")
     assert code == 0, out
     code, out = save_plan_raw(repo, tmp_path)
     assert code == 0, out
@@ -3595,6 +3767,11 @@ def test_plan_save_requires_decision_coverage_and_no_open_contradiction(repo, tm
     )["id"]
     run(repo, "forge.py", "signal", "resolve", signal_id,
         "--notes", "plan updated to follow the decision")
+    code, out = run(repo, "forge.py", "plan", "save", "--from", str(draft),
+                    "--story", "ENG-1")
+    assert code != 0 and "awaiting-approval" in out, out
+    code, out = run(repo, "forge.py", "plan", "approve", "--by", "Gate Test Human")
+    assert code == 0, out
     code, out = run(repo, "forge.py", "plan", "save", "--from", str(draft),
                     "--story", "ENG-1")
     assert code == 0, out
