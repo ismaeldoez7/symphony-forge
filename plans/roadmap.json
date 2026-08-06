@@ -229,7 +229,7 @@
         "PH-5"
       ],
       "origin": "adhoc",
-      "spec_debt_reason": "Consolidation of the RECURRING repository-escape class per decision 0005 and 0028; a refactor of existing init/adopt/upgrade write sites onto one shared boundary check, not a new capability \u2014 its design authority is decision 0028, not a confirmed spec."
+      "spec": "docs/specs/path-boundary.md"
     }
   ],
   "generated_by": "human",
