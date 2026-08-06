@@ -413,3 +413,6 @@
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-06T11:22:23+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.1 (write)"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-06T11:26:20+00:00", "story": "FORGE-BOUNDARY-1", "detail": "4 task(s)"}
 {"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-06T11:26:32+00:00", "story": "FORGE-BOUNDARY-1", "detail": "S-0001-f59a: Correct catch \u2014 the cross-module structural scan cannot pass at Task 1 (scaffold.py still holds init's unmigrated raw calls; init is Task 2, adopt/upgrade are Tasks 3-4). The decomposition is amended "}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-06T12:11:01+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.1 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-06T12:34:47+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.1: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-06T12:34:47+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.1 The shared path-boundary helper"}
