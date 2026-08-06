@@ -429,3 +429,7 @@
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-06T13:58:27+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.4 upgrade routes every write site through the boundary helper"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-06T14:08:06+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.4 (write)"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-06T14:21:58+00:00", "story": "FORGE-BOUNDARY-1", "detail": "4 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-06T14:51:22+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.4 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-06T14:53:54+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.4: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-06T14:53:54+00:00", "story": "FORGE-BOUNDARY-1", "detail": "FORGE-BOUNDARY-1.4 upgrade routes every write site through the boundary helper"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-06T15:04:07+00:00", "story": "FORGE-BOUNDARY-1"}

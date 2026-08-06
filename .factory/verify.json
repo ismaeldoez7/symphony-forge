@@ -1,0 +1,28 @@
+{
+  "ok": true,
+  "completed_at": "2026-08-06T15:04:07+00:00",
+  "commit": "552dde88de4c10778482305cab7740f913749772",
+  "results": [
+    {
+      "command": "python3 factory/scripts/check_dual_runtime.py",
+      "exit_code": 0,
+      "stdout": "check_dual_runtime: clean.\n",
+      "stderr": "",
+      "phase": "structural"
+    },
+    {
+      "command": "python3 factory/scripts/check_factory_scaffold.py",
+      "exit_code": 0,
+      "stdout": "Factory scaffold OK\n",
+      "stderr": "",
+      "phase": "typecheck"
+    },
+    {
+      "command": "uv run --with pytest python -m pytest factory/tests -q",
+      "exit_code": 0,
+      "stdout": "........................................................................ [ 18%]\n........................................................................ [ 37%]\n........................................................................ [ 55%]\n........................................................................ [ 74%]\n........................................................................ [ 92%]\n.............................                                            [100%]\n389 passed in 577.16s (0:09:37)\n",
+      "stderr": "",
+      "phase": "tests"
+    }
+  ]
+}
