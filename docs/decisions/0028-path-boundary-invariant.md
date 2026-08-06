@@ -1,6 +1,6 @@
 ---
-status: proposed
-confirmed_by: ""
+status: accepted
+confirmed_by: "vrknetha"
 date: 2026-08-06
 stories: [FORGE-BOUNDARY-1]
 supersedes: ""
