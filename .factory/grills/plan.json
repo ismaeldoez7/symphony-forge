@@ -4,7 +4,7 @@
   "issue": "FORGE-APPROVE-1",
   "verdict": "pass",
   "questions_asked": 3,
-  "summary": "Interrogated the FORGE-APPROVE-1 plan against decision 0029, the confirmed plan-approval spec, and the actual plan-save/update_run/hook code. The genuine open questions were the human's and were put to them via AskUserQuestion and answered: the enforcement mechanism (ExitPlanMode approval-marker file) and keeping a CLI fallback. The plan itself was then approved by the human IN PLAN MODE via ExitPlanMode \u2014 dogfooding the exact gate this story makes mandatory, before it exists in code. Remaining findings resolved against the code.",
+  "summary": "Re-grilled after the mechanism pivot to CLI attributed approve. The hook approach was verified infeasible (Claude Code #21282: no plan-mode hook fires); the human chose the CLI mechanism. The plan is now one task: the plan-save gate plus forge plan approve --by, digest-bound over the plan body, decision-accept trust model. Existing plan-save gates preserved.",
   "gaps": [
     "The digest must bind what the human APPROVED to what plan save records, or an edit after approval rides a stale marker. Resolved: both the marker and the gate digest the plan BODY (not the file with its machine frontmatter), which plans.py already separates; AC3's test locks the bind. Verified against plans.py's existing body/header split.",
     "The hook must write the marker only on APPROVAL, not on the ExitPlanMode presentation. Resolved: PostToolUse fires after the human decides and carries the approval result; the hook keys on that result; AC2's rejection test fails if it writes on reject.",
@@ -12,16 +12,16 @@
   ],
   "contradictions": [],
   "resolutions": [
-    "Enforcement is the ExitPlanMode approval marker (human-chosen); plan save sets awaiting-approval and refuses approved without a fresh digest-matching marker.",
-    "The CLI fallback stays for headless runs, human-attributed and refused without --by.",
-    "Every existing plan-save gate (grill, decisions coverage, contradiction, Surface Impact) is preserved; this adds the human gate, does not replace them.",
-    "Two tasks: the ExitPlanMode hook + marker, then the plan-save gate + digest bind + CLI fallback."
+    "Mechanism is forge plan approve --by <name>, refused without a human --by, writing the body-digest marker; plan save sets awaiting-approval and refuses approved without a fresh match.",
+    "Plan mode is the review step (ExitPlanMode), documented as review not enforcement, because Claude Code emits no plan-mode hook.",
+    "One task now: the plan-save gate and the approve command; the hook task was dropped.",
+    "Every existing plan-save gate preserved."
   ],
   "open_items": [
     "Decision 0029 is ACCEPTED (confirmed_by vrknetha), satisfying the decomposition gate.",
     "Decision-number and roadmap-file merge collisions across parallel branches (0028 taken on the parked FORGE-BOUNDARY-1 branch) are the known merge-fragility class, deferred, not this story."
   ],
-  "input_sha256": "dc236d3e576132f952da9c9ee293be4b364ed39e868254213341956993552adb",
-  "recorded_at": "2026-08-06T07:56:33+00:00",
-  "commit": "b61f049a0834b054ae31a5adad1426993ca43c7d"
+  "input_sha256": "7bd3acf431c920ba5a7e4cce4ffd3d4e68dd0db9f198a00d9f634fe648a6eff6",
+  "recorded_at": "2026-08-06T08:21:42+00:00",
+  "commit": "be833180ab95b750aaee0db959f7168236624880"
 }

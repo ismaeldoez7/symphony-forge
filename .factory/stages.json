@@ -3,19 +3,13 @@
   "stages": [
     {
       "id": "FORGE-APPROVE-1.1",
-      "title": "The ExitPlanMode approval hook writes a digest-bound marker",
+      "title": "plan save requires a human approval marker; forge plan approve --by writes it",
       "status": "active",
       "started_at": "2026-08-06T07:57:50+00:00",
       "base_sha": "0afcc1efc6f2b5af13b4050c4442d23a320fec42",
       "dirty_at_start": {},
       "task_sha256": "2d2dce57f8ab412cb6e642a7699b65613d33656c3b18409c4fd2d2affb1cca30",
-      "incomplete": "ExitPlanMode fires no PostToolUse hook (Claude Code #21282); the hook approach is infeasible. Pivoted to the CLI attributed approve mechanism per decision 0029's correction \u2014 the hook, its wiring, and its tests are removed.",
-      "updated_at": "2026-08-06T08:17:11+00:00"
-    },
-    {
-      "id": "FORGE-APPROVE-1.2",
-      "title": "plan save requires a fresh matching marker; CLI fallback for headless",
-      "status": "pending"
+      "incomplete": "ExitPlanMode fires no PostToolUse hook (Claude Code #21282); the hook approach is infeasible. Pivoted to the CLI attributed approve mechanism per decision 0029's correction \u2014 the hook, its wiring, and its tests are removed."
     }
   ]
 }
