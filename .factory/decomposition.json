@@ -78,7 +78,7 @@
     {
       "id": "FORGE-BOUNDARY-1.3",
       "title": "adopt routes every write site through the boundary helper",
-      "objective": "Route every adopt write site through assert_target_destination in a preflight before the first mutation, replacing vendor_file's partial local check and covering the ~18 currently-unguarded sites. copytree/rmtree roots validated before the walk; tree copies preserve source symlinks. Add per-command escape tests (adopt has none today); every existing adopt test stays green unweakened.",
+      "objective": "Route every adopt write site through assert_target_destination in a preflight before the first mutation, replacing vendor_file's partial local check and covering the ~18 currently-unguarded sites. copytree/rmtree roots validated before the walk; tree copies dereference source content (copytree symlinks=False), preflighted followlinks=True to match it (per the copy2/copytree boundary lesson). Add per-command escape tests (adopt has none today); every existing adopt test stays green unweakened.",
       "dependencies": [
         "FORGE-BOUNDARY-1.1"
       ],
@@ -112,7 +112,7 @@
     {
       "id": "FORGE-BOUNDARY-1.4",
       "title": "upgrade routes every write site through the boundary helper",
-      "objective": "Route every upgrade write site through assert_target_destination: copytree/rmtree roots validated before the walk, the ~15 direct writes, and the two partial checks (.agents root, harness.yaml leaf) routed through the helper while keeping their legacy-content validation. Tree copies preserve source symlinks. Add per-site escape tests. Now that all three commands route through the helper, add the structural anti-reopen scan (AC4). Existing upgrade tests stay green.",
+      "objective": "Route every upgrade write site through assert_target_destination: copytree/rmtree roots validated before the walk, the ~15 direct writes, and the two partial checks (.agents root, harness.yaml leaf) routed through the helper while keeping their legacy-content validation. Tree copies dereference source (symlinks=False). Add per-site escape tests. Now that all three commands route through the helper, add the structural anti-reopen scan (AC4). Existing upgrade tests stay green.",
       "dependencies": [
         "FORGE-BOUNDARY-1.1",
         "FORGE-BOUNDARY-1.2",
@@ -154,5 +154,5 @@
   ],
   "project": "",
   "plan_sha256": "3c546c1053ce40d5ffcb801cfadaada94f1d6aff56931a31c515312d22b9fea3",
-  "commit": "6910c384485b03e818f147b1876c02458540d989"
+  "commit": "e8cc0afd36125fd621cf44b6b8acdab3c70c7c6d"
 }

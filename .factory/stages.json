@@ -9,12 +9,7 @@
       "base_sha": "6910c384485b03e818f147b1876c02458540d989",
       "dirty_at_start": {},
       "task_sha256": "2fa957c7a6208bf6ef43f4918584f6bfd83483e4196f20939a726213a61394ed",
-      "completed_at": "2026-08-06T12:34:47+00:00",
-      "contract_changed": {
-        "at": "2026-08-06T12:34:47+00:00",
-        "from": "34830dd6fb088845cc96856026ab088e1b603a95af111b5151373bddb8a64d13",
-        "to": "2fa957c7a6208bf6ef43f4918584f6bfd83483e4196f20939a726213a61394ed"
-      }
+      "completed_at": "2026-08-06T12:34:47+00:00"
     },
     {
       "id": "FORGE-BOUNDARY-1.2",
@@ -29,7 +24,11 @@
     {
       "id": "FORGE-BOUNDARY-1.3",
       "title": "adopt routes every write site through the boundary helper",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-06T13:33:33+00:00",
+      "base_sha": "e8cc0afd36125fd621cf44b6b8acdab3c70c7c6d",
+      "dirty_at_start": {},
+      "task_sha256": "34a943472dd76f45bd619f5b1a5ab0e045e319b93071145f571e583900c8102a"
     },
     {
       "id": "FORGE-BOUNDARY-1.4",
