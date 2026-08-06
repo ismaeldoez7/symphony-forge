@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -239,6 +240,40 @@ def record_origin_path(target: Path) -> Path:
     return target / ".factory" / "record-origin.json"
 
 
+def assert_target_destination(target: Path, dst: Path) -> Path:
+    """Return dst when it resolves inside target; refuse every other path.
+
+    dst may not exist yet, so only its genuinely-missing suffix is joined
+    lexically; the deepest ancestor that IS on disk is resolved STRICTLY. That
+    strict resolve raises on a symlink loop or unreadable link on every Python,
+    unlike resolve(strict=False), which since 3.13 leaves an unresolved loop
+    lexically in the result and would silently pass it (autoreview P2).
+    """
+    resolved_target = target.resolve()
+    base, missing = dst, []
+    while True:
+        try:
+            base.lstat()  # a real dir-entry (incl. a symlink) stops the walk;
+            break          # lstat does not follow the final component itself
+        except OSError:
+            if base == base.parent:
+                break
+            missing.append(base.name)
+            base = base.parent
+    try:
+        resolved = base.resolve(strict=True).joinpath(*reversed(missing))
+    except (OSError, RuntimeError):
+        resolved = None
+    if resolved is None:
+        fail(f"refusing destination with an unresolvable symlink: {dst}")
+    # normpath collapses `..` in the genuinely-missing (symlink-free) suffix
+    # against the fully-resolved base; is_relative_to is lexical, so an
+    # unnormalized `..` — e.g. new/../../outside — would otherwise slip through.
+    elif not Path(os.path.normpath(resolved)).is_relative_to(resolved_target):
+        fail(f"refusing destination outside the target: {dst}")
+    return dst
+
+
 def check_record_origin_writable(target: Path) -> None:
     """Reject a marker path that would write outside the target or is not a
     regular file. Called in a caller's preflight so an adopt/init never fails
@@ -247,12 +282,7 @@ def check_record_origin_writable(target: Path) -> None:
     marker = record_origin_path(target)
     if marker.is_symlink() or (marker.exists() and not marker.is_file()):
         fail(f"refusing invalid record-origin path: {marker}")
-    # Every ancestor between target and the marker must resolve inside target,
-    # or a symlinked `.factory` would land the file outside it.
-    resolved_target = target.resolve()
-    if marker.parent.exists() and not (
-            marker.parent.resolve().is_relative_to(resolved_target)):
-        fail(f"refusing record-origin outside the target via a symlink: {marker}")
+    assert_target_destination(target, marker)
 
 
 def ensure_record_origin(target: Path) -> bool:

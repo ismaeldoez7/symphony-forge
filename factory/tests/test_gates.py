@@ -8770,3 +8770,61 @@ def test_record_origin_refuses_a_symlinked_factory_ancestor(tmp_path: Path):
     (target / ".factory").symlink_to(outside)
     with pytest.raises(SystemExit):
         check_record_origin_writable(target)
+
+    dangling_target = tmp_path / "dangling-app"
+    dangling_target.mkdir()
+    (dangling_target / ".factory").symlink_to(tmp_path / "missing-outside")
+    with pytest.raises(SystemExit):
+        check_record_origin_writable(dangling_target)
+
+
+def test_assert_target_destination_refuses_every_escape_route(tmp_path: Path):
+    from forge_cli.scaffold import assert_target_destination
+
+    target = tmp_path / "target"
+    target.mkdir()
+    legal = target / "missing" / "destination.txt"
+    assert assert_target_destination(target, legal) is legal
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    outside_file = outside / "destination.txt"
+    outside_file.write_text("outside\n")
+
+    destination_link = target / "destination-link"
+    destination_link.symlink_to(outside_file)
+
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(tmp_path, target_is_directory=True)
+    target_below_link = linked_parent / target.name
+
+    loop = target / "loop"
+    loop.symlink_to(loop)
+
+    escapes = [
+        destination_link,
+        target_below_link / ".." / outside.name / "destination.txt",
+        target / ".." / outside.name / "destination.txt",
+        # a `..` inside a genuinely-missing suffix must be normalized, not
+        # trusted lexically: missing-dir does not exist, yet `../..` escapes.
+        target / "missing-dir" / ".." / ".." / outside.name / "destination.txt",
+        loop / "destination.txt",
+    ]
+    for destination in escapes:
+        with pytest.raises(SystemExit):
+            assert_target_destination(target_below_link, destination)
+
+
+def test_assert_target_destination_refuses_an_in_target_symlink_pointing_outside(
+        tmp_path: Path):
+    from forge_cli.scaffold import assert_target_destination
+
+    target = tmp_path / "target"
+    target.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (target / "linked-directory").symlink_to(outside, target_is_directory=True)
+
+    destination = target / "linked-directory" / "missing" / "destination.txt"
+    with pytest.raises(SystemExit):
+        assert_target_destination(target, destination)
