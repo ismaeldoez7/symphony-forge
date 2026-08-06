@@ -2634,6 +2634,43 @@ def test_adopt_refuses_dirty_tree(tmp_path):
     assert code != 0 and "uncommitted" in out
 
 
+def test_adopt_refuses_a_symlinked_destination_before_writing(tmp_path):
+    repo = existing_repo(tmp_path)
+    outside = tmp_path / "outside-forge"
+    outside.write_text("do not replace\n")
+    destination = repo / "forge"
+    destination.symlink_to(outside)
+    git(repo, "add", "forge")
+    git(repo, "commit", "-q", "-m", "symlinked adopt destination")
+
+    code, out = adopt(repo)
+
+    assert code != 0
+    assert "refusing destination outside the target" in out
+    assert destination.is_symlink()
+    assert outside.read_text() == "do not replace\n"
+    assert git(repo, "status", "--porcelain") == ""
+
+
+def test_adopt_refuses_a_symlinked_ancestor_and_leaves_the_target_clean(
+    tmp_path,
+):
+    repo = existing_repo(tmp_path)
+    outside = tmp_path / "outside-factory"
+    outside.mkdir()
+    (repo / "factory").symlink_to(outside, target_is_directory=True)
+    git(repo, "add", "factory")
+    git(repo, "commit", "-q", "-m", "symlinked adopt ancestor")
+
+    code, out = adopt(repo)
+
+    assert code != 0
+    assert "refusing destination outside the target" in out
+    assert (repo / "factory").is_symlink()
+    assert list(outside.iterdir()) == []
+    assert git(repo, "status", "--porcelain") == ""
+
+
 # ------------------------------------------------------- project-local gstack
 
 def test_scaffold_delivers_factory_workflows(repo):
