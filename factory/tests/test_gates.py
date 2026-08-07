@@ -3497,6 +3497,316 @@ def test_bash_write_guard_classifies_only_real_product_writes(repo):
     assert not decision("echo x > plans/roadmap.json")
 
 
+def mark_harness_source(repo: Path) -> None:
+    marker = repo / ".factory" / "harness-source.json"
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text('{"role": "harness-source", "repo": "symphony-forge"}\n')
+
+
+def test_harness_repo_locks_machinery_writes_without_a_plan(repo, tmp_path):
+    mark_harness_source(repo)
+    machinery = repo / "factory" / "scripts" / "pre_tool_use.py"
+    for tool_name in ("Edit", "Write"):
+        code, out = hook(repo, {
+            "tool_name": tool_name,
+            "permission_mode": "default",
+            "tool_input": {"file_path": str(machinery)},
+        })
+        assert code == 0 and "deny" in out and "PLAN MODE" in out
+    for rel in (
+        "constitution/09-agent-conduct.md",
+        "harness/nestjs-react/SCAFFOLD_PROMPT.md",
+        ".claude/settings.json",
+        ".codex/config.toml",
+    ):
+        code, out = hook(repo, {
+            "tool_name": "Write",
+            "permission_mode": "default",
+            "tool_input": {"file_path": str(repo / rel)},
+        })
+        assert code == 0 and "deny" in out and "PLAN MODE" in out, rel
+    code, out = hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": "printf x > factory/scripts/pre_tool_use.py"},
+    })
+    assert code == 0 and "deny" in out and "PLAN MODE" in out
+
+    # The repo-kind marker itself is product-locked: while the lock is armed it
+    # can be neither rewritten nor DELETED, so flipping source->client takes the
+    # same ceremony as any machinery change. (An earlier draft put the marker in
+    # the freely-writable allowlist, where a silent `rm` would unlock everything.)
+    marker_rel = ".factory/harness-source.json"
+    code, out = hook(repo, {
+        "tool_name": "Write",
+        "permission_mode": "default",
+        "tool_input": {"file_path": str(repo / marker_rel)},
+    })
+    assert code == 0 and "deny" in out and "repo-kind marker" in out
+    for command in (f"rm {marker_rel}", f"git rm {marker_rel}",
+                    f"git -C . rm {marker_rel}", f"git -c x=y rm {marker_rel}",
+                    f"git mv {marker_rel} factory/scripts/moved.py"):
+        code, out = hook(repo, {
+            "tool_name": "Bash",
+            "permission_mode": "default",
+            "tool_input": {"command": command},
+        })
+        assert code == 0 and "deny" in out and "repo-kind marker" in out, command
+
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps(DECOMP))
+    assert code == 0, out
+    # With the plan approved and decomposition recorded, machinery writes AND
+    # the marker's own edit/delete are permitted — ceremony-gated, not frozen.
+    for payload in (
+        {"tool_name": "Edit", "permission_mode": "default",
+         "tool_input": {"file_path": str(machinery)}},
+        {"tool_name": "Bash", "permission_mode": "default",
+         "tool_input": {"command": "printf x > factory/scripts/pre_tool_use.py"}},
+        {"tool_name": "Write", "permission_mode": "default",
+         "tool_input": {"file_path": str(repo / marker_rel)}},
+        {"tool_name": "Bash", "permission_mode": "default",
+         "tool_input": {"command": f"rm {marker_rel}"}},
+    ):
+        code, out = hook(repo, payload)
+        assert code == 0 and "deny" not in out, out
+
+
+def test_client_repo_leaves_vendored_machinery_writable(repo):
+    assert not (repo / ".factory" / "harness-source.json").exists()
+    machinery = repo / "factory" / "scripts" / "pre_tool_use.py"
+    for payload in (
+        {"tool_name": "Edit", "permission_mode": "default",
+         "tool_input": {"file_path": str(machinery)}},
+        {"tool_name": "Write", "permission_mode": "default",
+         "tool_input": {"file_path": str(machinery)}},
+        {"tool_name": "Bash", "permission_mode": "default",
+         "tool_input": {"command": "printf x > factory/scripts/pre_tool_use.py"}},
+    ):
+        code, out = hook(repo, payload)
+        assert code == 0 and "deny" not in out, out
+
+
+def test_harness_quickfix_claims_machinery_files_against_budget(repo):
+    mark_harness_source(repo)
+    code, out = run(repo, "forge.py", "quickfix", "start", "repair machinery")
+    assert code == 0, out
+
+    expected = [f"factory/scripts/repair-{number}.py" for number in range(1, 6)]
+    for rel in expected:
+        code, out = hook(repo, {
+            "tool_name": "Edit", "permission_mode": "default",
+            "tool_input": {"file_path": str(repo / rel)},
+        })
+        assert code == 0 and "deny" not in out, out
+    code, out = hook(repo, {
+        "tool_name": "Edit", "permission_mode": "default",
+        "tool_input": {"file_path": str(repo / "factory/scripts/repair-6.py")},
+    })
+    assert code == 0 and "deny" in out and "scope exceeded" in out
+
+    code, out = run(repo, "forge.py", "quickfix", "done")
+    assert code == 0 and "5 file(s)" in out, out
+    events = [json.loads(path.read_text())
+              for path in (repo / "plans" / "quickfixes").glob("*.json")]
+    done = [event for event in events if event.get("event") == "done"]
+    assert len(done) == 1
+    assert done[0]["files"] == expected
+
+
+def test_harness_quickfix_cannot_delete_the_repo_kind_marker(repo):
+    # The attack: open a quickfix, rm the marker as the first claimed file to
+    # flip the repo to client-mode, then flood machinery past the 5-file budget.
+    # The marker is plan-only, so the window can never touch it.
+    mark_harness_source(repo)
+    code, out = run(repo, "forge.py", "quickfix", "start", "sneaky")
+    assert code == 0, out
+    # Direct deletion of the marker, and deletion of an ANCESTOR that contains
+    # it (`rm -r .factory`, `git rm .factory`) — all refused. (`rm -rf` is caught
+    # even earlier by the blanket rm-rf policy; use `rm -r` to exercise this path.)
+    # Common drift vectors — direct deletion of the marker and of the ancestor
+    # .factory that contains it — are refused. (cwd games, git -C, indirect
+    # pathspecs, and arbitrary code are the documented 0013 residual; the PIN
+    # test below is what makes the budget robust against ALL of them.)
+    for command in ("rm .factory/harness-source.json",
+                    "git rm .factory/harness-source.json",
+                    "mv .factory/harness-source.json plans/decoy.json",
+                    "rm -r .factory", "git rm .factory"):
+        code, out = hook(repo, {
+            "tool_name": "Bash", "permission_mode": "default",
+            "tool_input": {"command": command},
+        })
+        assert code == 0 and "deny" in out, command
+        assert "repo-kind marker" in out or "recorded state" in out, command
+    code, out = hook(repo, {
+        "tool_name": "Write", "permission_mode": "default",
+        "tool_input": {"file_path": str(repo / ".factory" / "harness-source.json")},
+    })
+    assert code == 0 and "deny" in out and "repo-kind marker" in out
+    # Classification held: machinery is still product, still claimed against budget.
+    code, out = hook(repo, {
+        "tool_name": "Edit", "permission_mode": "default",
+        "tool_input": {"file_path": str(repo / "factory" / "scripts" / "x.py")},
+    })
+    assert code == 0 and "deny" not in out, out
+
+
+def test_quickfix_pins_repo_kind_so_marker_deletion_cannot_escape_budget(repo):
+    # The structural guarantee (decision 0030): a quickfix pins the repo kind at
+    # start, so even if the marker is removed mid-window by an UNCAUGHT vector,
+    # classification stays 'harness' and machinery keeps being claimed against
+    # the budget. Without the pin, the deletion would flip the repo to client and
+    # let unlimited machinery writes bypass the 5-file budget.
+    from forge_cli.repo_kind import is_harness_source_repo
+    mark_harness_source(repo)
+    code, out = run(repo, "forge.py", "quickfix", "start", "pinned")
+    assert code == 0, out
+    (repo / ".factory" / "harness-source.json").unlink()  # marker gone (any vector)
+    assert not is_harness_source_repo(repo)  # live classification would say client
+    for number in range(1, 6):  # ...but the window still claims machinery
+        code, out = hook(repo, {
+            "tool_name": "Edit", "permission_mode": "default",
+            "tool_input": {"file_path": str(repo / "factory" / "scripts" / f"m{number}.py")},
+        })
+        assert code == 0 and "deny" not in out, out
+    code, out = hook(repo, {  # 6th exceeds the pinned budget — still product
+        "tool_name": "Edit", "permission_mode": "default",
+        "tool_input": {"file_path": str(repo / "factory" / "scripts" / "m6.py")},
+    })
+    assert code == 0 and "deny" in out and "scope exceeded" in out
+    # And the pin cannot be laundered away by closing the window: a harness-pinned
+    # window whose marker went missing refuses to close until it is restored.
+    code, out = run(repo, "forge.py", "quickfix", "done")
+    assert code != 0 and "missing" in out, out
+    (repo / ".factory" / "harness-source.json").write_text('{"role": "harness-source"}\n')
+    code, out = run(repo, "forge.py", "quickfix", "done")
+    assert code == 0, out
+
+
+def test_harness_quickfix_allows_benign_root_destination(repo):
+    # The ancestor-marker guard must fire only on marker DELETION, not on a
+    # benign create-into-root destination like `cp/mv <src> .` (whose parsed
+    # target is the repo root). Those are ordinary product writes, budget-claimed.
+    mark_harness_source(repo)
+    code, out = run(repo, "forge.py", "quickfix", "start", "benign")
+    assert code == 0, out
+    for command in ("cp /tmp/tool .", "mv /tmp/tool ."):
+        code, out = hook(repo, {
+            "tool_name": "Bash", "permission_mode": "default",
+            "tool_input": {"command": command},
+        })
+        assert code == 0 and "repo-kind marker" not in out, command
+
+
+def test_harness_quickfix_refuses_opaque_machinery_deletes(repo):
+    # The 5-file budget is only honest if each claimed slot is a bounded file. A
+    # recursive/globbed/brace-expanded DELETE of machinery would spend one slot on
+    # an unbounded set, so a quickfix refuses it; explicit single-file ops stay
+    # allowed, and — critically — read-OUT copies (product source, external dest)
+    # are NOT blocked (they modify nothing in the repo).
+    mark_harness_source(repo)
+    (repo / "factory" / "scripts").mkdir(parents=True, exist_ok=True)
+    code, out = run(repo, "forge.py", "quickfix", "start", "opaque")
+    assert code == 0, out
+    for command in ("rm -r factory/scripts",
+                    "rm factory/scripts/*.py",
+                    "rm factory/scripts/f{1..6}.py",       # brace expansion
+                    "git rm -r factory/scripts",
+                    "cp -R /tmp/tree factory/scripts/new",  # recursive copy INTO machinery
+                    "cp /tmp/x/*.py factory/scripts/"):     # glob source INTO machinery
+        code, out = hook(repo, {
+            "tool_name": "Bash", "permission_mode": "default",
+            "tool_input": {"command": command},
+        })
+        assert code == 0 and "deny" in out, command
+    for command in ("rm factory/scripts/one.py",              # explicit single file
+                    "sed -i 's/foo.*/bar/' factory/scripts/x.py",  # sed regex, not a glob
+                    "cp -R factory/scripts /tmp/backup",      # read-OUT: nothing written in-repo
+                    "cp factory/scripts/*.py /tmp/backup"):   # read-OUT glob source
+        code, out = hook(repo, {
+            "tool_name": "Bash", "permission_mode": "default",
+            "tool_input": {"command": command},
+        })
+        assert code == 0 and "deny" not in out, command
+
+
+def test_harness_quickfix_counts_each_file_copied_into_a_machinery_dir(repo):
+    # `cp <src> factory/scripts/` creates factory/scripts/<basename>; six such
+    # copies must spend six budget slots (resolved per created file), not one for
+    # the shared directory — so the sixth is refused.
+    mark_harness_source(repo)
+    (repo / "factory" / "scripts").mkdir(parents=True, exist_ok=True)
+    code, out = run(repo, "forge.py", "quickfix", "start", "copies")
+    assert code == 0, out
+    for number in range(1, 6):
+        code, out = hook(repo, {
+            "tool_name": "Bash", "permission_mode": "default",
+            "tool_input": {"command": f"cp /tmp/a{number} factory/scripts/"},
+        })
+        assert code == 0 and "deny" not in out, out
+    code, out = hook(repo, {
+        "tool_name": "Bash", "permission_mode": "default",
+        "tool_input": {"command": "cp /tmp/a6 factory/scripts/"},
+    })
+    assert code == 0 and "deny" in out and "scope exceeded" in out
+
+
+def test_scaffolded_client_has_no_harness_source_marker(tmp_path, monkeypatch):
+    # Exercise a REAL vendoring path: a harness source that carries the marker
+    # must not copy it into a client via `forge init`, or the client would
+    # classify its vendored machinery as product and lock it during planning.
+    import argparse
+    from forge_cli import scaffold
+    from forge_cli.repo_kind import is_harness_source_repo
+    source = _copy_harness_source(tmp_path)
+    marker = source / ".factory" / "harness-source.json"
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text('{"role": "harness-source", "repo": "symphony-forge"}\n')
+    assert is_harness_source_repo(source)
+
+    monkeypatch.setattr(scaffold, "repo_root", lambda: source)
+    target = tmp_path / "client-app"
+    scaffold.cmd_init(argparse.Namespace(
+        name="client-app", target=str(target), force=False, stack="nestjs-react",
+    ))
+    assert not (target / ".factory" / "harness-source.json").exists()
+    assert not is_harness_source_repo(target)
+
+
+def test_harness_repo_keeps_docs_and_planning_surfaces_writable(repo):
+    mark_harness_source(repo)
+    for rel in (
+        "docs/notes.md",
+        "plans/draft.md",
+        ".factory/scratchpad.md",
+        "prototype/probe.md",
+        ".github/workflows/probe.yml",
+        ".gstack/projects/probe.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "WORKFLOW.md",
+        "harness.yaml",
+        "README.md",
+        ".gitignore",
+        ".gitattributes",
+        ".envrc",
+    ):
+        code, out = hook(repo, {
+            "tool_name": "Write", "permission_mode": "default",
+            "tool_input": {"file_path": str(repo / rel)},
+        })
+        assert code == 0 and "deny" not in out, rel
+
+    code, out = hook(repo, {
+        "tool_name": "Write", "permission_mode": "default",
+        "tool_input": {"file_path": str(repo / ".factory" / "run.json")},
+    })
+    assert code == 0 and "deny" in out and "never hand-written" in out
+
+
 def test_quickfix_lifecycle_tracks_files_and_enforces_budget(repo):
     code, out = run(repo, "forge.py", "quickfix", "start", "repair parser")
     assert code == 0 and "Q-" in out, out
