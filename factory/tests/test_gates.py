@@ -3934,6 +3934,309 @@ def test_quickfix_recording_authorizes_nothing(repo, tmp_path):
     assert json.loads(active_path.read_text())["files"] == []
 
 
+def open_lite(repo: Path) -> dict:
+    code, out = run(repo, "forge.py", "mode", "lite",
+                    "--by", "Ada", "--reason", "ship a bounded change")
+    assert code == 0, out
+    return json.loads((repo / ".factory" / "quickfix.json").read_text())
+
+
+def write_lite_reviews(repo: Path, *, blocker: str | None = None,
+                       commit: str | None = None) -> None:
+    reviews = repo / ".factory" / "reviews"
+    reviews.mkdir(exist_ok=True)
+    for aspect in ("quality", "performance", "security"):
+        (reviews / f"{aspect}.json").write_text(json.dumps({
+            "generated_by": "autoreview",
+            "score": 9,
+            "summary": "clean",
+            "blocking_findings": [blocker] if blocker and aspect == "quality" else [],
+            "skills_used": ["review-animations"],
+            "commit": commit or head(repo),
+        }))
+
+
+def test_mode_lite_opens_window_with_profile_and_base_sha(repo):
+    base_sha = head(repo)
+    active = open_lite(repo)
+    assert active["profile"] == "lite"
+    assert active["base_sha"] == base_sha
+    assert active["by"] == "Ada"
+    assert active["reason"] == "ship a bounded change"
+
+    (repo / "src").mkdir()
+    (repo / "src" / "lite.py").write_text("enabled = True\n")
+    git(repo, "add", "src/lite.py")
+    git(repo, "commit", "-q", "-m", "bounded lite fix")
+    write_lite_reviews(repo)
+    code, out = run(repo, "forge.py", "mode", "done")
+    assert code == 0 and "1 file(s)" in out, out
+    done = [json.loads(path.read_text())
+            for path in (repo / "plans" / "quickfixes").glob("*.json")
+            if json.loads(path.read_text()).get("event") == "done"]
+    assert len(done) == 1
+    assert done[0]["profile"] == "lite"
+    assert done[0]["base_sha"] == base_sha
+    assert done[0]["by"] == "Ada"
+    assert done[0]["files"] == ["src/lite.py"]
+    assert sorted(done[0]["reviews"]) == ["performance", "quality", "security"]
+    assert not (repo / ".factory" / "reviews").exists()
+
+    code, out = run(repo, "forge.py", "mode", "full")
+    assert code != 0 and "invalid choice" in out
+
+
+def test_mode_done_refuses_dirty_product_tree(repo):
+    open_lite(repo)
+    (repo / "src").mkdir()
+    (repo / "src" / "dirty.py").write_text("dirty = True\n")
+
+    code, out = run(repo, "forge.py", "mode", "done")
+
+    assert code != 0 and "commit the fix first" in out, out
+    assert (repo / ".factory" / "quickfix.json").exists()
+
+
+def test_mode_done_refuses_over_budget_committed_diff(repo):
+    open_lite(repo)
+    (repo / "src").mkdir()
+    for number in range(5):
+        (repo / "src" / f"fix_{number}.py").write_text(f"value = {number}\n")
+    git(repo, "add", "src")
+    git(repo, "commit", "-q", "-m", "maximum-size lite fix")
+    write_lite_reviews(repo)
+
+    code, out = run(repo, "forge.py", "mode", "done")
+
+    assert code == 0 and "5 file(s)" in out, out
+
+    open_lite(repo)
+    for number in range(6):
+        (repo / "src" / f"extra_{number}.py").write_text(f"value = {number}\n")
+    git(repo, "add", "src")
+    git(repo, "commit", "-q", "-m", "oversized lite fix")
+
+    code, out = run(repo, "forge.py", "mode", "done")
+
+    assert code != 0 and "touches 6 product files" in out and "bound is 5" in out, out
+    assert (repo / ".factory" / "quickfix.json").exists()
+
+
+def test_mode_done_requires_clean_reviews_at_head(repo):
+    active = open_lite(repo)
+    (repo / "src").mkdir()
+    (repo / "src" / "reviewed.py").write_text("reviewed = True\n")
+    git(repo, "add", "src/reviewed.py")
+    git(repo, "commit", "-q", "-m", "reviewed lite fix")
+
+    code, out = run(repo, "forge.py", "mode", "done")
+    assert code != 0 and ".factory/reviews/quality.json" in out, out
+
+    write_lite_reviews(repo, commit=active["base_sha"])
+    code, out = run(repo, "forge.py", "mode", "done")
+    assert code != 0 and "must be stamped at HEAD" in out, out
+
+    write_lite_reviews(repo, blocker="fix this")
+    code, out = run(repo, "forge.py", "mode", "done")
+    assert code != 0 and "quality review must have no blockers" in out, out
+    assert (repo / ".factory" / "reviews").exists()
+
+    write_lite_reviews(repo)
+    code, out = run(repo, "forge.py", "mode", "done")
+    assert code == 0, out
+    done = [json.loads(path.read_text())
+            for path in (repo / "plans" / "quickfixes").glob("*.json")
+            if json.loads(path.read_text()).get("event") == "done"][-1]
+    assert done["files"] == ["src/reviewed.py"]
+    assert all(not review["blocking_findings"] for review in done["reviews"].values())
+    assert not (repo / ".factory" / "reviews").exists()
+
+
+def test_record_review_accepts_open_lite_window_post_ship(repo):
+    sign_off(repo)
+    shipped_state = run_state(repo)
+    shipped_state["phase"] = "shipped"
+    (repo / ".factory" / "run.json").write_text(json.dumps(shipped_state))
+    open_lite(repo)
+
+    code, out = run(
+        repo, "record_review_from_json.py", "--aspect", "quality",
+        stdin=json.dumps(review_payload()),
+    )
+
+    assert code == 0, out
+    recorded = json.loads((repo / ".factory" / "reviews" / "quality.json").read_text())
+    assert recorded["commit"] == head(repo)
+    assert run_state(repo) == shipped_state
+
+
+def test_lite_window_does_not_unlock_verify_or_test_recording(repo):
+    sign_off(repo)
+    open_lite(repo)
+
+    verify_code, verify_out = run(repo, "verify.py", "--print-only")
+    test_code, test_out = run(
+        repo, "record_test_from_json.py", "--kind", "automated",
+        stdin=json.dumps({"generated_by": "implementer", "status": "passed"}),
+    )
+
+    assert verify_code != 0 and "approved, saved plan" in verify_out, verify_out
+    assert test_code != 0 and "approved, saved plan" in test_out, test_out
+    assert not (repo / ".factory" / "verify.json").exists()
+    assert not (repo / ".factory" / "tests.json").exists()
+
+
+def test_forge_fix_refuses_without_lite_window(repo):
+    code, out = run(repo, "forge.py", "fix", "repair the parser")
+    assert code != 0 and "open lite window" in out.lower(), out
+
+
+def test_forge_fix_records_terra_high_write_delegation(repo, tmp_path):
+    code, out = run(repo, "forge.py", "mode", "lite",
+                    "--by", "Ada", "--reason", "bounded delivery")
+    assert code == 0, out
+    window = json.loads((repo / ".factory" / "quickfix.json").read_text())
+    before = head(repo)
+    companion_env = fake_companion_env(tmp_path)
+    companion_cache = (Path(companion_env["HOME"]) / ".claude" / "plugins" /
+                       "cache" / "openai-codex" / "codex")
+    companion = next(companion_cache.glob("*/scripts/codex-companion.mjs"))
+    companion.write_text(
+        "import fs from 'node:fs';\n"
+        "fs.mkdirSync('src', {recursive:true});\n"
+        "fs.writeFileSync('src/fixed.py', 'fixed = true\\n');\n"
+        "process.stdout.write(JSON.stringify({ok:true}));\n"
+    )
+
+    code, out = run(
+        repo, "forge.py", "fix", "repair the parser",
+        env=companion_env,
+    )
+    assert code == 0, out
+    assert head(repo) == before
+
+    rows = [json.loads(line) for line in
+            delegation_ledger(repo).read_text().splitlines() if line.strip()]
+    entry = rows[-1]
+    assert entry["launch_status"] == "succeeded"
+    assert entry["task"] == window["id"]
+    assert entry["model"] == "gpt-5.6-terra"
+    assert entry["effort"] == "high"
+    assert entry["write"] is True
+    assert entry["mode"] == "lite"
+    active = json.loads((repo / ".factory" / "quickfix.json").read_text())
+    assert active["files"] == ["src/fixed.py"]
+
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from factory_lib import validate_payload
+        validate_payload(repo, "delegation", entry)
+    finally:
+        sys.path.pop(0)
+
+
+def test_modes_lite_pins_parse_and_dual_runtime_green(repo):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        from forge_cli.delegate import mode_run_config
+        assert mode_run_config(repo, "lite") == ("gpt-5.6-terra", "high", 5)
+    finally:
+        sys.path.pop(0)
+
+    code, out = run(repo, "check_dual_runtime.py")
+    assert code == 0, out
+
+
+def test_lite_window_authorizes_product_write(repo):
+    code, out = run(repo, "forge.py", "mode", "lite",
+                    "--by", "Ada", "--reason", "bounded delivery")
+    assert code == 0, out
+
+    code, out = hook(repo, {
+        "tool_name": "Edit",
+        "permission_mode": "default",
+        "tool_input": {"file_path": str(repo / "src" / "lite.py")},
+    })
+    assert code == 0 and "deny" not in out, out
+
+
+def test_mode_list_shows_open_lite_window(repo):
+    code, out = run(repo, "forge.py", "mode", "lite",
+                    "--by", "Ada", "--reason", "finish the slice")
+    assert code == 0, out
+
+    code, out = run(repo, "forge.py", "mode", "list")
+    assert code == 0
+    assert "[OPEN LITE]" in out and "finish the slice" in out
+
+    code, out = run(repo, "forge.py", "next", "--repo", str(repo))
+    assert code == 0
+    assert "OPEN LITE WINDOW" in out
+    assert "one review is required" in out and "./forge mode done" in out
+
+    code, out = run(repo, "session_start.py", stdin="{}")
+    assert code == 0, out
+    context = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    assert "OPEN LITE WINDOW" in context
+    assert "one review is required" in context and "./forge mode done" in context
+
+
+def test_docs_describe_three_planning_lock_exits():
+    decision = (
+        HARNESS / "docs" / "decisions" /
+        "0013-always-armed-planning-lock.md"
+    ).read_text().lower()
+    entry_contract = (
+        HARNESS / "docs" / "memory" / "factory-entry-contract.md"
+    ).read_text().lower()
+    workflow = (HARNESS / "WORKFLOW.md").read_text().lower()
+    model_tiers = (
+        HARNESS / "docs" / "decisions" /
+        "0003-model-tiers-terra-explore-sol-implement.md"
+    ).read_text().lower()
+
+    for contract in (decision, entry_contract, workflow):
+        assert "three" in contract
+        assert "approved plan" in contract
+        assert "quickfix" in contract
+        assert "lite" in contract
+        assert "forge mode lite" in contract
+    assert "0031" in model_tiers
+    assert "lite" in model_tiers and "terra" in model_tiers
+
+
+# The stage's verify command selects this exact required test by keyword.
+test_docs_describe_three_planning_lock_exits.docs_third_exit = True
+
+
+def test_forge_skill_maps_lite_mode_phrase():
+    skill = (HARNESS / ".claude" / "skills" / "forge" / "SKILL.md").read_text()
+
+    assert '"use lite mode"' in skill
+    assert "./forge mode lite" in skill
+    assert "<!-- canon: factory/skills/forge.md -->" in skill
+
+
+# The stage's verify command selects this exact required test by keyword.
+test_forge_skill_maps_lite_mode_phrase.forge_skill_lite = True
+
+
+def test_quickfix_profile_behavior_unchanged(repo):
+    code, out = run(repo, "forge.py", "quickfix", "start", "repair parser")
+    assert code == 0 and "Quickfix" in out and "0/5 files" in out, out
+    active_path = repo / ".factory" / "quickfix.json"
+    active = json.loads(active_path.read_text())
+    assert active["profile"] == "quickfix"
+
+    # Old active windows without a profile still behave as quickfixes.
+    active.pop("profile")
+    active_path.write_text(json.dumps(active, indent=2) + "\n")
+    code, out = run(repo, "forge.py", "quickfix", "list")
+    assert code == 0 and "[OPEN]" in out and "repair parser" in out
+    code, out = run(repo, "forge.py", "quickfix", "done")
+    assert code == 0 and "Quickfix" in out, out
+
+
 # ---------------------------------------------------------------- plan grill
 
 def test_plan_save_refuses_approved_without_a_matching_marker(repo, tmp_path):
@@ -5615,9 +5918,26 @@ def fake_companion_home(tmp_path: Path) -> Path:
     return home
 
 
+def fake_companion_env(tmp_path: Path) -> dict[str, str]:
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir(exist_ok=True)
+    fake_ps = fake_bin / "ps"
+    fake_ps.write_text(
+        "#!/bin/sh\n"
+        "if [ \"$2\" = \"lstart=\" ]; then\n"
+        "  echo 'Thu Aug 7 00:00:00 2026'\n"
+        "fi\n"
+    )
+    fake_ps.chmod(0o755)
+    return {
+        "HOME": str(fake_companion_home(tmp_path)),
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+
+
 def launch_fake(repo: Path, tmp_path: Path, stage_id: str) -> None:
     code, out = run(repo, "forge.py", "delegate", stage_id,
-                    env={"HOME": str(fake_companion_home(tmp_path))})
+                    env=fake_companion_env(tmp_path))
     assert code == 0, out
 
 
@@ -6065,7 +6385,8 @@ def test_stage_done_runs_environment_prefixed_required_test(repo, tmp_path):
     start_stage(repo, tmp_path, task)
     write_in_scope(repo, "src/core.py")
     write_in_scope(repo, path, "def test_slice():\n    pass\n")
-    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    code, out = run(repo, "forge.py", "stage", "done", "T1",
+                    env=fake_companion_env(tmp_path))
     assert code == 0, out
 
 
@@ -7159,7 +7480,7 @@ def test_delegate_records_ledger_entry(repo, tmp_path):
     unlisted.parent.mkdir(parents=True)
     unlisted.write_text("process.exit(9);\n")
     code, out = run(repo, "forge.py", "delegate", "T1",
-                    env={"HOME": str(home_path)})
+                    env=fake_companion_env(tmp_path))
     assert code == 0, out
     lines = [json.loads(x) for x in
              delegation_ledger(repo).read_text().splitlines() if x.strip()]
