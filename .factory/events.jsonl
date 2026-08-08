@@ -615,3 +615,5 @@
 {"event": "intake", "generated_by": "orchestrator", "at": "2026-08-08T16:14:45+00:00", "story": "FORGE-BOARD-4", "detail": "Project-state audit + legacy pr-link backfill (deterministic core)"}
 {"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-08T16:31:28+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4 approved by vrknetha"}
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-08T16:31:28+00:00", "story": "FORGE-BOARD-4", "detail": "plans/active/FORGE-BOARD-4-project-state-audit-legacy-pr-link-backfill-deterministic-core.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-08T16:33:02+00:00", "story": "FORGE-BOARD-4", "detail": "3 task(s)"}
+{"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-08T16:33:02+00:00", "story": "FORGE-BOARD-4"}

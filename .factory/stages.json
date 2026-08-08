@@ -1,0 +1,20 @@
+{
+  "issue": "FORGE-BOARD-4",
+  "stages": [
+    {
+      "id": "FORGE-BOARD-4.1",
+      "title": "forge project audit (contract-driven detector)",
+      "status": "pending"
+    },
+    {
+      "id": "FORGE-BOARD-4.2",
+      "title": "forge project backfill + continuous cadence",
+      "status": "pending"
+    },
+    {
+      "id": "FORGE-BOARD-4.3",
+      "title": "Dogfood: backfill this repo + close D-0011",
+      "status": "pending"
+    }
+  ]
+}
