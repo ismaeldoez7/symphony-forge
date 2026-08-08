@@ -30,6 +30,7 @@ import pytest
 HARNESS = Path(__file__).resolve().parents[2]
 FORGE_INIT_FIXTURE = HARNESS / ".factory" / "history" / "FORGE-INIT-1"
 sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+from forge_cli.stages import task_digest
 from record_signoff import REQUIRED_BRIEF_HEADINGS
 
 
@@ -135,6 +136,23 @@ def record_grill(repo: Path, gate: str, verdict: str = "pass",
     extra = ["--input-digest", str(digest_of)] if digest_of else []
     return run(repo, "record_grill_from_json.py", "--gate", gate, *extra,
                stdin=json.dumps(payload))
+
+
+def record_task_grill(repo: Path, task: dict,
+                      verdict: str = "pass") -> tuple[int, str]:
+    payload = {"generated_by": "griller", "gate": "task", "verdict": verdict,
+               "gaps": [], "contradictions": [], "resolutions": []}
+    return run(
+        repo, "record_grill_from_json.py", "--gate", "task",
+        "--task", task["id"], "--task-digest", task_digest(task),
+        stdin=json.dumps(payload),
+    )
+
+
+def delegate_task_grill_test(test):
+    """Keep the required test IDs selectable by the stage's focused keyword."""
+    test.delegate_task_grill = True
+    return test
 
 
 def active_decision_ids(repo: Path) -> list[str]:
@@ -2988,6 +3006,44 @@ def test_next_tags_steps_with_roles(repo):
 
 # ------------------------------------------------------------ handover grills
 
+def test_record_task_grill_writes_per_id_file(repo):
+    task_id = "FORGE-BOARD-2.1"
+    digest = "a" * 64
+    payload = {"generated_by": "griller", "gate": "task", "task_id": task_id,
+               "verdict": "pass",
+               "gaps": [], "contradictions": [], "resolutions": []}
+
+    code, out = run(repo, "record_grill_from_json.py", "--gate", "task",
+                    "--task", task_id, "--task-digest", digest,
+                    stdin=json.dumps(payload))
+
+    assert code == 0, out
+    recorded = json.loads(
+        (repo / ".factory" / "grills" / "tasks" / f"{task_id}.json").read_text()
+    )
+    assert recorded["verdict"] == "pass"
+    assert recorded["gate"] == "task"
+    assert recorded["task_id"] == task_id
+    assert not (repo / ".factory" / "grills" / "task.json").exists()
+
+
+def test_record_task_grill_binds_digest(repo):
+    task_id = "FORGE-BOARD-2.1"
+    task_digest = "0123456789abcdef" * 4
+    payload = {"generated_by": "griller", "gate": "task", "verdict": "pass",
+               "gaps": [], "contradictions": [], "resolutions": []}
+
+    code, out = run(repo, "record_grill_from_json.py", "--gate", "task",
+                    "--task", task_id, "--task-digest", task_digest,
+                    stdin=json.dumps(payload))
+
+    assert code == 0, out
+    recorded = json.loads(
+        (repo / ".factory" / "grills" / "tasks" / f"{task_id}.json").read_text()
+    )
+    assert recorded["input_sha256"] == task_digest
+
+
 def test_grill_recorder_refuses_pass_with_unresolved_findings(repo):
     seed_signoff_inputs(repo)
     code, out = record_grill(repo, "signoff",
@@ -5444,6 +5500,38 @@ def test_bundled_example_exercises_frontier_and_blocked():
     assert all(epic["stories"] for epic in state["epics"])
 
 
+def test_board_shows_task_grill_status():
+    from forge_cli.board import story_detail
+
+    example = HARNESS / "factory" / "board" / "example"
+    detail = story_detail(example, "RETURN-1")
+    assert detail is not None
+    assert detail["tasks"][0]["proof"]["grill"]["verdict"] == "pass"
+
+    page = (HARNESS / "factory" / "board" / "index.html").read_text()
+    dossier = page[page.index("function taskDossier(t)"):
+                   page.index("function findingList(")]
+    assert "proof.grill" in dossier
+    assert "<b>Grill</b>" in dossier
+
+
+def test_board_shows_done_story_pr_link():
+    from forge_cli.board import aggregate_state, story_detail
+
+    example = HARNESS / "factory" / "board" / "example"
+    state = aggregate_state(example)
+    story = next(item for item in state["stories"] if item["key"] == "RETURN-1")
+    assert story["state"] == "shipped"
+    assert story["pr_link"] == "https://github.com/example/workshop-dispatch/pull/12"
+    assert story_detail(example, "RETURN-1")["story"]["pr_link"] == story["pr_link"]
+
+    page = (HARNESS / "factory" / "board" / "index.html").read_text()
+    drawer_body = page[page.index("function drawerBody()"):
+                       page.index("function tabBar()")]
+    assert 's.state === "shipped"' in drawer_body
+    assert "prReference(s)" in drawer_body
+
+
 def test_board_content_survives_all_three_widths():
     from forge_cli.board import aggregate_state
 
@@ -6247,6 +6335,12 @@ def fake_companion_env(tmp_path: Path) -> dict[str, str]:
 
 
 def launch_fake(repo: Path, tmp_path: Path, stage_id: str) -> None:
+    # The write delegation gate (decision 0032) refuses without a fresh per-task
+    # grill; record one bound to the recorded contract before launching.
+    from factory_lib import load_json, protected_decomposition_state_path
+    decomp = load_json(protected_decomposition_state_path(repo), default={})
+    task = next(t for t in decomp.get("tasks", []) if t.get("id") == stage_id)
+    record_task_grill(repo, task)
     code, out = run(repo, "forge.py", "delegate", stage_id,
                     env=fake_companion_env(tmp_path))
     assert code == 0, out
@@ -6276,6 +6370,8 @@ def start_stage(repo: Path, tmp_path: Path, task: dict, stage_id: str = "T1",
     save_plan(repo, tmp_path)
     code, out = run(repo, "record_decomposition_from_json.py",
                     stdin=json.dumps({**DECOMP, "tasks": [task]}))
+    assert code == 0, out
+    code, out = record_task_grill(repo, task)
     assert code == 0, out
     code, out = run(repo, "forge.py", "stage", "start", stage_id)
     assert code == 0, out
@@ -7030,6 +7126,8 @@ def test_stage_done_ledgers_a_contract_rewritten_mid_stage(repo, tmp_path):
     widened = {**DECOMP, "tasks": [{**STAGE_TASK, "write_scope": ["src/", "billing/"]}]}
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(widened))
     assert code == 0, out
+    code, out = record_task_grill(repo, widened["tasks"][0])
+    assert code == 0, out
     # A changed contract is a changed brief, so decision 0018 still wants a
     # launch bound to it. Ledgering the change removes the re-baseline, not
     # the delegation binding.
@@ -7188,6 +7286,8 @@ def test_stage_start_never_moves_the_baseline(repo, tmp_path):
 
     # ...and the ref still points where it did, so the work stays measurable.
     assert git(repo, "rev-parse", "refs/forge/stage/T1") == baseline
+    code, out = record_task_grill(repo, widened)
+    assert code == 0, out
     code, out = run(repo, "forge.py", "delegate", "T1",
                     env={"HOME": str(fake_companion_home(tmp_path))})
     assert code == 0, out
@@ -7774,6 +7874,8 @@ def test_delegate_derives_write_from_stage_state(repo, tmp_path):
     code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
                     env={"HOME": home})
     assert code == 0 and "--write" not in out and "Write access: NO" in out
+    code, out = record_task_grill(repo, DELEGATE_TASK)
+    assert code == 0, out
     run(repo, "forge.py", "stage", "start", "T1")
     code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
                     env={"HOME": home})
@@ -7782,6 +7884,81 @@ def test_delegate_derives_write_from_stage_state(repo, tmp_path):
     code, out = run(repo, "forge.py", "delegate", "T1", "--read-only", "--print-only",
                     env={"HOME": home})
     assert code == 0 and "--write" not in out
+
+
+@delegate_task_grill_test
+def test_delegate_refuses_without_task_grill(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    grill = repo / ".factory" / "grills" / "tasks" / "T1.json"
+    grill.unlink()
+    command = (
+        "python3 factory/scripts/record_grill_from_json.py --gate task "
+        f"--task T1 --task-digest {task_digest(STAGE_TASK)}"
+    )
+
+    code, out = run(repo, "forge.py", "delegate", "T1",
+                    env=fake_companion_env(tmp_path))
+    assert code != 0 and "Task grill required" in out and command in out
+    assert not delegation_ledger(repo).exists()
+
+    code, out = record_task_grill(repo, STAGE_TASK, verdict="blocked")
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "delegate", "T1",
+                    env=fake_companion_env(tmp_path))
+    assert code != 0 and "verdict is 'blocked'" in out and command in out
+    assert not delegation_ledger(repo).exists()
+
+
+@delegate_task_grill_test
+def test_delegate_refuses_stale_task_grill(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    payload = {"generated_by": "griller", "gate": "task", "verdict": "pass",
+               "gaps": [], "contradictions": [], "resolutions": []}
+    code, out = run(
+        repo, "record_grill_from_json.py", "--gate", "task", "--task", "T1",
+        "--task-digest", "0" * 64, stdin=json.dumps(payload),
+    )
+    assert code == 0, out
+
+    code, out = run(repo, "forge.py", "delegate", "T1",
+                    env=fake_companion_env(tmp_path))
+    assert code != 0 and "STALE" in out
+    assert "record_grill_from_json.py --gate task --task T1 --task-digest" in out
+    assert task_digest(STAGE_TASK) in out
+    assert not delegation_ledger(repo).exists()
+
+
+@delegate_task_grill_test
+def test_delegate_passes_with_fresh_task_grill(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+
+    code, out = run(repo, "forge.py", "delegate", "T1",
+                    env=fake_companion_env(tmp_path))
+
+    assert code == 0, out
+    entries = [
+        json.loads(line)
+        for line in delegation_ledger(repo).read_text().splitlines()
+    ]
+    assert entries[-1]["launch_status"] == "succeeded"
+    assert entries[-1]["task_sha256"] == task_digest(STAGE_TASK)
+
+
+@delegate_task_grill_test
+def test_delegate_readonly_unaffected_by_task_grill(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    (repo / ".factory" / "grills" / "tasks" / "T1.json").unlink()
+
+    code, out = run(repo, "forge.py", "delegate", "T1", "--read-only",
+                    env=fake_companion_env(tmp_path))
+
+    assert code == 0, out
+    entries = [
+        json.loads(line)
+        for line in delegation_ledger(repo).read_text().splitlines()
+    ]
+    assert entries[-1]["launch_status"] == "succeeded"
+    assert entries[-1]["write"] is False
 
 
 def test_delegate_records_ledger_entry(repo, tmp_path):
@@ -7937,6 +8114,8 @@ def test_workspace_decomposition_mirror_cannot_forge_task_contract(
     forged["tasks"][0]["write_scope"] = ["billing/"]
     mirror.write_text(json.dumps(forged))
     code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code == 0, out
+    code, out = record_task_grill(repo, STAGE_TASK)
     assert code == 0, out
     code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
                     env={"HOME": str(fake_companion_home(tmp_path))})
