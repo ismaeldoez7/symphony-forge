@@ -336,7 +336,7 @@
         "Done-story details are reconstructed only from committed evidence (task list from archived decomposition.json, ACs from the archived plan); true evidence-gaps (e.g. never-written outcomes, stub stories) are marked, never synthesized (project-record honesty rule)."
       ],
       "order": 15,
-      "status": "pending",
+      "status": "active",
       "epic": "traceable-board",
       "skill": "backend",
       "kind": "feature",
@@ -363,7 +363,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-08T16:14:34+00:00",
+  "updated_at": "2026-08-08T16:14:45+00:00",
   "epics": [
     {
       "id": "symphony-forge",
