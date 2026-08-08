@@ -336,7 +336,7 @@
         "The 11 pre-automation done stories are pr-linked or marked so check_board_complete passes, unblocking D-0011 (board-invariant push:main can then be enabled).",
         "Done-story details are reconstructed only from committed evidence (task list from archived decomposition.json, ACs from the archived plan); true evidence-gaps (e.g. never-written outcomes, stub stories) are marked, never synthesized (project-record honesty rule)."
       ],
-      "order": 15,
+      "order": 16,
       "status": "done",
       "epic": "traceable-board",
       "skill": "backend",
@@ -355,7 +355,7 @@
         "A knacklabs-upgrade-project skill (the forge-upgrade sibling to knacklabs-migrate-project) orchestrates: machinery upgrade, the audit, deterministic backfills, then guided re-authoring of pending stories (agent proposes ACs/spec/epic, human confirms), and verifies check_vendor_integrity + check_board_complete.",
         "Re-authoring only touches pending/active stories (forward intent), never synthesizes history for done stories; the skill is idempotent and re-runnable."
       ],
-      "order": 16,
+      "order": 17,
       "status": "pending",
       "epic": "traceable-board",
       "skill": "fullstack",
@@ -364,6 +364,26 @@
         "FORGE-BOARD-4"
       ],
       "spec": "docs/specs/traceable-board.md"
+    },
+    {
+      "key": "FORGE-BOARD-3",
+      "title": "Ad-hoc capture + simplification: one capture path, stories-only board mirror",
+      "story": "As a dev, I capture an ad-hoc 'what about X' with one command as visible spec-debt (no acceptance criteria demanded at capture), and the board mirrors STORIES only, so the epic/story/task/PR mapping is unambiguous and nothing evaporates into chat.",
+      "acceptance_criteria": [
+        "roadmap add --no-spec no longer requires or accepts --ac; the ad-hoc story lands as spec-debt in 'Needs spec', unplannable until spec confirm + link-spec.",
+        "WORKFLOW.md 'Source of Truth' mirrors stories only (task state is not mirrored into the tracker), removing the 'are tasks tickets?' ambiguity.",
+        "Manual forge pr-link is documented as a degraded-mode fallback only (Gate B's pr-link.yml automates it), not a routine step."
+      ],
+      "order": 15,
+      "status": "done",
+      "epic": "traceable-board",
+      "skill": "backend",
+      "kind": "refactor",
+      "depends_on": [],
+      "spec": "docs/specs/traceable-board.md",
+      "completed_at": "2026-08-08T13:15:20+00:00",
+      "history": ".factory/history/FORGE-BOARD-3/",
+      "outcome": "Ad-hoc capture no longer demands acceptance criteria: roadmap add --no-spec --reason works with no --ac, landing the idea as spec-debt that is still unplannable until spec confirm + link-spec (decision 0014 preserved), while --spec stories still require --ac. WORKFLOW.md now mirrors STORIES only (decomposition and task state stay in the repo), removing the are-tasks-tickets ambiguity, and manual forge pr-link is documented as a CI-unavailable fallback since Gate B automates it."
     }
   ],
   "generated_by": "human",
