@@ -5,6 +5,7 @@
       "title": "Harness v2 Week-One Wedge",
       "status": "done",
       "epic": "symphony-forge",
+      "backfill_evidence_missing": true,
       "predates_outcome_contract": true
     },
     {
@@ -326,6 +327,45 @@
       "outcome": "The factory now records only a task LIST at decomposition and gates each task's detailed contract behind a just-in-time grill: forge delegate <task> refuses a write launch without a fresh, digest-bound passing per-task grill (decision 0032, amending 0007). A task's write_scope/tests/acceptance are authored against what earlier tasks actually built, then grilled, then delegated \u2014 so speculative upfront contracts that produce wrong code are gated out. The board renders each task's JIT grill status and a done story's PR link."
     },
     {
+      "key": "FORGE-BOARD-4",
+      "title": "Project-state audit + legacy pr-link backfill (deterministic core)",
+      "story": "As the harness, I provide a deterministic forge audit that reports every board-completeness and story-shape gap, and I backfill legacy done stories' pr-links from real GitHub merge records (marking genuine gaps, never fabricating), so an upgraded client's board converges to complete and D-0011's red-main invariant can be enabled.",
+      "acceptance_criteria": [
+        "A deterministic forge command reports, per repo: done stories missing pr-link/outcome/history; pending stories missing epic/skill/acceptance_criteria/spec; and machinery/vendor drift. Pure over its inputs, CI-runnable, testable.",
+        "Legacy done stories get their pr-link recovered from the real GitHub merge record (gh) and recorded via forge pr-link; a genuinely-unrecoverable one is marked predates_outcome_contract. No PR number is fabricated.",
+        "The 11 pre-automation done stories are pr-linked or marked so check_board_complete passes, unblocking D-0011 (board-invariant push:main can then be enabled).",
+        "Done-story details are reconstructed only from committed evidence (task list from archived decomposition.json, ACs from the archived plan); true evidence-gaps (e.g. never-written outcomes, stub stories) are marked, never synthesized (project-record honesty rule)."
+      ],
+      "order": 16,
+      "status": "done",
+      "epic": "traceable-board",
+      "skill": "backend",
+      "kind": "feature",
+      "depends_on": [],
+      "spec": "docs/specs/traceable-board.md",
+      "completed_at": "2026-08-08T17:12:07+00:00",
+      "history": ".factory/history/FORGE-BOARD-4/",
+      "outcome": "Symphony Forge now has a deterministic, contract-driven forge project audit that composes the harness's current validators (so it auto-detects any new requirement as Symphony changes) and rides harness-health.yml's schedule, making project-state drift a continuous check. forge project backfill honestly recovers legacy pr-links from real GitHub merge records (ZERO-match marks predates, TWO+-ambiguous reports, cards reconstructed only from committed evidence, never fabricating). Run on this repo it linked 10 legacy done stories to their real PRs and marked the one evidence-less stub, so check_board_complete passes and board-invariant now enforces on push:main, closing D-0011."
+    },
+    {
+      "key": "FORGE-BOARD-5",
+      "title": "knacklabs-upgrade-project skill (machinery upgrade + guided re-authoring)",
+      "story": "As a dev upgrading an existing client, I run one skill that upgrades the vendored machinery (forge upgrade + doctor --fix), runs the FORGE-BOARD-4 audit, applies the deterministic backfills, and guides me through re-authoring pending stories that are missing details (propose + I confirm) \u2014 repeatably, so each run reconverges the board to the current enforced bar.",
+      "acceptance_criteria": [
+        "A knacklabs-upgrade-project skill (the forge-upgrade sibling to knacklabs-migrate-project) orchestrates: machinery upgrade, the audit, deterministic backfills, then guided re-authoring of pending stories (agent proposes ACs/spec/epic, human confirms), and verifies check_vendor_integrity + check_board_complete.",
+        "Re-authoring only touches pending/active stories (forward intent), never synthesizes history for done stories; the skill is idempotent and re-runnable."
+      ],
+      "order": 17,
+      "status": "pending",
+      "epic": "traceable-board",
+      "skill": "fullstack",
+      "kind": "feature",
+      "depends_on": [
+        "FORGE-BOARD-4"
+      ],
+      "spec": "docs/specs/traceable-board.md"
+    },
+    {
       "key": "FORGE-BOARD-3",
       "title": "Ad-hoc capture + simplification: one capture path, stories-only board mirror",
       "story": "As a dev, I capture an ad-hoc 'what about X' with one command as visible spec-debt (no acceptance criteria demanded at capture), and the board mirrors STORIES only, so the epic/story/task/PR mapping is unambiguous and nothing evaporates into chat.",
@@ -347,7 +387,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-08T13:15:20+00:00",
+  "updated_at": "2026-08-08T17:12:07+00:00",
   "epics": [
     {
       "id": "symphony-forge",

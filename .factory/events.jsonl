@@ -610,6 +610,43 @@
 {"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-08T06:51:36+00:00", "story": "FORGE-BOARD-2", "detail": "pass"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-08T06:51:50+00:00", "story": "FORGE-BOARD-2", "detail": "The factory now records only a task LIST at decomposition and gates each task's detailed contract behind a just-in-time grill: forge delegate <task> refuses a write launch without a fresh, digest-boun"}
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T06:53:08+00:00", "story": "FORGE-BOARD-2", "detail": "knacklabs/symphony-forge#57"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-08T16:14:33+00:00", "story": "FORGE-BOARD-4", "detail": "docs/specs/traceable-board.md"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-08T16:14:34+00:00", "story": "FORGE-BOARD-5", "detail": "docs/specs/traceable-board.md"}
+{"event": "intake", "generated_by": "orchestrator", "at": "2026-08-08T16:14:45+00:00", "story": "FORGE-BOARD-4", "detail": "Project-state audit + legacy pr-link backfill (deterministic core)"}
+{"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-08T16:31:28+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4 approved by vrknetha"}
+{"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-08T16:31:28+00:00", "story": "FORGE-BOARD-4", "detail": "plans/active/FORGE-BOARD-4-project-state-audit-legacy-pr-link-backfill-deterministic-core.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-08T16:33:02+00:00", "story": "FORGE-BOARD-4", "detail": "3 task(s)"}
+{"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-08T16:33:02+00:00", "story": "FORGE-BOARD-4"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-08T16:33:19+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.1 forge project audit (contract-driven detector)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-08T16:38:17+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.1 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-08T16:39:50+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.1 forge project audit (contract-driven detector)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-08T16:40:10+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2 forge project backfill + continuous cadence"}
+{"event": "signal-scope-change", "generated_by": "implementer", "at": "2026-08-08T16:41:28+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2 requires wiring 'forge project backfill', but factory/scripts/forge.py owns the project subparser and is outside the declared write scope; add that file to scope or explicitly define a"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-08T16:43:15+00:00", "story": "FORGE-BOARD-4", "detail": "S-0001-0963: Correct \u2014 registering 'forge project backfill' needs the project subparser in factory/scripts/forge.py. I am widening 4.2's write_scope to include factory/scripts/forge.py (0023 ledgered) and re-recor"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-08T16:43:37+00:00", "story": "FORGE-BOARD-4", "detail": "3 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-08T16:43:54+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2 (write)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-08T16:51:29+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-08T16:53:19+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-08T16:53:19+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2 forge project backfill + continuous cadence"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-08T16:56:36+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.3 Dogfood: backfill this repo + close D-0011"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "FORGE-UPG-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/27"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "FORGE-LOCK-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/49"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "PH-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/32"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "PH-2", "detail": "https://github.com/knacklabs/symphony-forge/pull/38"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "PH-3", "detail": "https://github.com/knacklabs/symphony-forge/pull/41"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "FORGE-APPROVE-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/44"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "FORGE-BOUNDARY-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/46"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "FORGE-VENDOR-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/48"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "FORGE-MODES-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/50"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T17:00:51+00:00", "story": "FORGE-DELEG-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/24"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-08T17:02:48+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.3 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-08T17:07:48+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.3 Dogfood: backfill this repo + close D-0011"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-08T17:10:52+00:00", "story": "FORGE-BOARD-4"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-08T17:11:29+00:00", "story": "FORGE-BOARD-4"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-08T17:11:29+00:00", "story": "FORGE-BOARD-4"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-08T17:11:29+00:00", "story": "FORGE-BOARD-4"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-08T17:11:54+00:00", "story": "FORGE-BOARD-4", "detail": "pass"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-08T17:12:07+00:00", "story": "FORGE-BOARD-4", "detail": "Symphony Forge now has a deterministic, contract-driven forge project audit that composes the harness's current validators (so it auto-detects any new requirement as Symphony changes) and rides harnes"}
 {"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-08T12:18:20+00:00", "story": "FORGE-BOARD-3", "detail": "docs/specs/traceable-board.md"}
 {"event": "intake", "generated_by": "orchestrator", "at": "2026-08-08T12:18:44+00:00", "story": "FORGE-BOARD-3", "detail": "Ad-hoc capture + simplification: one capture path, stories-only board mirror"}
 {"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-08T12:58:42+00:00", "story": "FORGE-BOARD-3", "detail": "FORGE-BOARD-3 approved by vrknetha"}
@@ -629,3 +666,4 @@
 {"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-08T13:15:19+00:00", "story": "FORGE-BOARD-3", "detail": "pass"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-08T13:15:20+00:00", "story": "FORGE-BOARD-3", "detail": "Ad-hoc capture no longer demands acceptance criteria: roadmap add --no-spec --reason works with no --ac, landing the idea as spec-debt that is still unplannable until spec confirm + link-spec (decisio"}
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T13:16:18+00:00", "story": "FORGE-BOARD-3", "detail": "knacklabs/symphony-forge#59"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T17:13:24+00:00", "story": "FORGE-BOARD-4", "detail": "knacklabs/symphony-forge#60"}

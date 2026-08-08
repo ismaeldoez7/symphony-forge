@@ -29,6 +29,9 @@ from .events import append_event
 LIFECYCLE_FIELDS = {"status", "completed_at", "history", "assignee", "outcome"}
 ITEM_SKILLS = {"frontend", "backend", "fullstack"}
 ITEM_KINDS = {"feature", "refactor"}
+STORY_CONTRACT_FIELDS = (
+    "epic", "story", "acceptance_criteria", "skill", "depends_on",
+)
 
 
 def roadmap_path(base: Path) -> Path:
@@ -146,18 +149,42 @@ def _blank(value: object) -> bool:
     return value is None
 
 
+def missing_story_contract_fields(
+    item: dict, *, require_acceptance_criteria: bool = True,
+) -> list[str]:
+    """Collect missing authoring fields without invoking the fatal CLI gate."""
+    missing = []
+    for field in STORY_CONTRACT_FIELDS:
+        if field == "acceptance_criteria" and not require_acceptance_criteria:
+            continue
+        if field not in item or (field != "depends_on" and _blank(item[field])):
+            missing.append(field)
+    return missing
+
+
+def pending_story_problems(base: Path) -> list[str]:
+    """Report incomplete pending stories without changing authoring behavior."""
+    problems = []
+    for item in load_items(base):
+        if item.get("status", "pending") != "pending":
+            continue
+        missing = missing_story_contract_fields(item)
+        if "spec" not in item or _blank(item["spec"]):
+            missing.append("spec")
+        if missing:
+            problems.append(
+                f"{item.get('key', '<unknown>')}: missing required fields: "
+                f"{', '.join(missing)}"
+            )
+    return problems
+
+
 def check_story_contract(item: dict, known_epics: set[str], *,
                          require_acceptance_criteria: bool = True) -> None:
     """Require the narrative and hierarchy fields only at authoring routes."""
-    missing = []
-    required_fields = ["epic", "story", "skill"]
-    if require_acceptance_criteria:
-        required_fields.append("acceptance_criteria")
-    for field in required_fields:
-        if field not in item or _blank(item[field]):
-            missing.append(field)
-    if "depends_on" not in item:
-        missing.append("depends_on")
+    missing = missing_story_contract_fields(
+        item, require_acceptance_criteria=require_acceptance_criteria,
+    )
     if missing:
         fail(f"roadmap item {item.get('key', '<unknown>')}: missing required fields: "
              f"{', '.join(missing)}")
