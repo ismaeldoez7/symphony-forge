@@ -38,7 +38,7 @@
     {
       "id": "FORGE-BOARD-4.3",
       "title": "Dogfood: backfill this repo + close D-0011",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-08T16:56:36+00:00",
       "base_sha": "d7158ae392e235eaf278398df4d99a95d6481aa5",
       "dirty_at_start": {
@@ -59,7 +59,8 @@
           "git": "1 .M N... 100644 100644 100644 d4dc3a80c33fc92f230224e63629174b2693df7e d4dc3a80c33fc92f230224e63629174b2693df7e plans/active/FORGE-BOARD-4-project-state-audit-legacy-pr-link-backfill-deterministic-core.md\u0000\u0000100644 d4dc3a80c33fc92f230224e63629174b2693df7e 0\tplans/active/FORGE-BOARD-4-project-state-audit-legacy-pr-link-backfill-deterministic-core.md\u0000\u0000H plans/active/FORGE-BOARD-4-project-state-audit-legacy-pr-link-backfill-deterministic-core.md\u0000"
         }
       },
-      "task_sha256": "38485db9a80db0ee23301e843a7f0ed39d7b21b5f100cd35edc55a6015283a16"
+      "task_sha256": "38485db9a80db0ee23301e843a7f0ed39d7b21b5f100cd35edc55a6015283a16",
+      "completed_at": "2026-08-08T17:07:48+00:00"
     }
   ]
 }
