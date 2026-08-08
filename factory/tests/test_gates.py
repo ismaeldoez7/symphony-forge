@@ -2233,6 +2233,90 @@ def test_set_epic_points_a_story_at_a_known_epic(repo):
     assert code != 0 and "not a known epic" in out, out
 
 
+def test_roadmap_fill_sets_blank_field_on_pending(repo):
+    seed_signoff_inputs(repo)
+    ensure_story(repo, "ENG-9", "Reports")
+    path = repo / "plans" / "roadmap.json"
+    data = json.loads(path.read_text())
+    item = next(item for item in data["items"] if item["key"] == "ENG-9")
+    item.pop("spec")
+    data["epics"].append({"id": "billing"})
+    path.write_text(json.dumps(data, indent=2) + "\n")
+    args = (
+        "roadmap", "fill", "ENG-9",
+        "--story", "As a finance lead, I see monthly reports.",
+        "--ac", "the report lists every invoice",
+        "--skill", "backend", "--epic", "billing",
+        "--spec", "docs/specs/base.md", "--depends-on", "SIGNOFF-0",
+    )
+
+    code, out = run(repo, "forge.py", *args)
+    assert code == 0, out
+    item = roadmap_items(repo)["ENG-9"]
+    assert item["story"] == "As a finance lead, I see monthly reports."
+    assert item["acceptance_criteria"] == ["the report lists every invoice"]
+    assert item["skill"] == "backend"
+    assert item["epic"] == "billing"
+    assert item["spec"] == "docs/specs/base.md"
+    assert item["depends_on"] == ["SIGNOFF-0"]
+    events = [json.loads(line) for line in
+              (repo / ".factory" / "events.jsonl").read_text().splitlines()]
+    filled = [event for event in events if event["event"] == "roadmap-filled"]
+    assert len(filled) == 1 and filled[0]["story"] == "ENG-9"
+
+    roadmap_before = path.read_bytes()
+    events_before = (repo / ".factory" / "events.jsonl").read_bytes()
+    code, out = run(repo, "forge.py", *args)
+    assert code == 0 and "already has the requested values" in out, out
+    assert path.read_bytes() == roadmap_before
+    assert (repo / ".factory" / "events.jsonl").read_bytes() == events_before
+
+
+def test_roadmap_fill_refuses_nonblank_field(repo):
+    ensure_story(repo, "ENG-9", "Reports")
+    path = repo / "plans" / "roadmap.json"
+    data = json.loads(path.read_text())
+    item = next(item for item in data["items"] if item["key"] == "ENG-9")
+    item["story"] = "Existing story"
+    path.write_text(json.dumps(data, indent=2) + "\n")
+    before = path.read_bytes()
+
+    code, out = run(repo, "forge.py", "roadmap", "fill", "ENG-9",
+                    "--story", "Replacement story")
+    assert code != 0 and "story" in out and "already non-blank" in out, out
+    assert path.read_bytes() == before
+
+
+def test_roadmap_fill_refuses_active_card(repo):
+    ensure_story(repo, "ENG-9", "Reports")
+    path = repo / "plans" / "roadmap.json"
+    data = json.loads(path.read_text())
+    item = next(item for item in data["items"] if item["key"] == "ENG-9")
+    item["status"] = "active"
+    path.write_text(json.dumps(data, indent=2) + "\n")
+    before = path.read_bytes()
+
+    code, out = run(repo, "forge.py", "roadmap", "fill", "ENG-9",
+                    "--story", "A story")
+    assert code != 0 and "active" in out and "pending" in out, out
+    assert path.read_bytes() == before
+
+
+def test_roadmap_fill_refuses_done_card(repo):
+    ensure_story(repo, "ENG-9", "Reports")
+    path = repo / "plans" / "roadmap.json"
+    data = json.loads(path.read_text())
+    item = next(item for item in data["items"] if item["key"] == "ENG-9")
+    item["status"] = "done"
+    path.write_text(json.dumps(data, indent=2) + "\n")
+    before = path.read_bytes()
+
+    code, out = run(repo, "forge.py", "roadmap", "fill", "ENG-9",
+                    "--story", "A story")
+    assert code != 0 and "done" in out and "pending" in out, out
+    assert path.read_bytes() == before
+
+
 def test_roadmap_add_requires_a_known_epic(repo):
     sign_off(repo)
     code, out = add_epic(repo)
@@ -4955,7 +5039,7 @@ def _backfill_events(repo: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
-def test_project_backfill_links_recoverable_story(repo):
+def test_project_backfill_unique_match_still_links(repo):
     key = "BOARD-210"
     pr = _merged_pr(42, f"{key} ship the board", f"feat/{key}-ship-board")
 
@@ -4968,18 +5052,53 @@ def test_project_backfill_links_recoverable_story(repo):
     assert [event["detail"] for event in links] == [pr["url"]]
 
 
-def test_project_backfill_marks_zero_match_predates(repo):
+def test_project_backfill_zero_match_does_not_predate(repo, capsys):
     key = "BOARD-211"
 
     counts = _backfill_done_story(repo, key, [])
 
+    out = capsys.readouterr().out
     item = roadmap_items(repo)[key]
-    assert counts["predates"] == 1
-    assert item["predates_outcome_contract"] is True
+    assert counts["unresolved"] == 1
+    assert f"SKIP {key}: unresolved provenance" in out
+    assert "predates_outcome_contract" not in item
     assert not any(
         event.get("event") == "pr-linked" and event.get("story") == key
         for event in _backfill_events(repo)
     )
+
+
+def test_project_backfill_zero_match_stays_red(repo):
+    key = "BOARD-216"
+    add_story_history(repo, key)
+
+    _backfill_done_story(repo, key, [])
+
+    code, out = run(repo, "check_board_complete.py")
+    assert code != 0, out
+    assert f"{key}: missing pr-linked event" in out
+
+
+def test_project_mark_predates_is_human_confirmed(repo):
+    key = "BOARD-217"
+    reason = "Shipped before durable outcome and PR-link records existed"
+    board_story(repo, key, outcome="")
+
+    code, out = run(
+        repo, "forge.py", "project", "mark-predates", key,
+        "--reason", reason, "--repo", str(repo),
+    )
+
+    assert code == 0, out
+    assert roadmap_items(repo)[key]["predates_outcome_contract"] is True
+    confirmations = [
+        event for event in _backfill_events(repo)
+        if event.get("event") == "project-mark-predates"
+        and event.get("story") == key
+    ]
+    assert len(confirmations) == 1
+    assert confirmations[0]["generated_by"] == "human"
+    assert confirmations[0]["detail"] == reason
 
 
 def test_project_backfill_reports_ambiguous_without_guessing(repo, capsys):
@@ -5079,7 +5198,8 @@ def test_project_backfill_is_idempotent(repo):
     second = backfill_project(repo, gh=gh_fixture)
 
     assert first["linked"] == 1
-    assert second == {"linked": 0, "predates": 0, "ambiguous": 0, "reconstructed": 0}
+    assert second == {"linked": 0, "unresolved": 0, "ambiguous": 0,
+                      "reconstructed": 0}
     assert calls == 1
     assert (repo / "plans" / "roadmap.json").read_bytes() == before["roadmap"]
     assert (repo / ".factory" / "events.jsonl").read_bytes() == before["events"]
