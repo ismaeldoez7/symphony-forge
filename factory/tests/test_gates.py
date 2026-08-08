@@ -4869,6 +4869,36 @@ def test_gate_b_workflows_link_the_branch_and_check_main():
     assert "python3 factory/scripts/check_board_complete.py" in invariant
 
 
+def test_project_audit_reports_gaps(repo):
+    done_key = "BOARD-204"
+    pending_key = "BOARD-205"
+    board_story(repo, done_key, outcome="")
+    ensure_story(repo, pending_key)
+    roadmap = repo / "plans" / "roadmap.json"
+    data = json.loads(roadmap.read_text())
+    pending = next(item for item in data["items"] if item["key"] == pending_key)
+    pending.pop("spec")
+    roadmap.write_text(json.dumps(data, indent=2) + "\n")
+    (repo / "factory" / "prompts" / "planner.md").write_text("drift\n")
+
+    code, out = run(repo, "forge.py", "project", "audit", "--repo", str(repo))
+
+    assert code != 0, out
+    assert f"[done-story] {done_key}: missing pr-linked event" in out
+    assert f"[done-story] {done_key}: missing outcome" in out
+    assert f"[done-story] {done_key}: missing .factory/history/{done_key}/ directory" in out
+    assert (f"[pending-story] {pending_key}: missing required fields: "
+            "epic, story, acceptance_criteria, skill, depends_on, spec") in out
+    assert "[vendor-drift] edited: factory/prompts/planner.md" in out
+
+
+def test_project_audit_clean_repo_exits_zero(repo):
+    code, out = run(repo, "forge.py", "project", "audit", "--repo", str(repo))
+
+    assert code == 0, out
+    assert "Project audit OK: no project-state gaps." in out
+
+
 # ------------------------------------------------------------ parallelization
 
 def test_roadmap_parallel_frontier(repo, tmp_path):

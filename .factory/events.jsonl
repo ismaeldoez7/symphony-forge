@@ -617,3 +617,5 @@
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-08T16:31:28+00:00", "story": "FORGE-BOARD-4", "detail": "plans/active/FORGE-BOARD-4-project-state-audit-legacy-pr-link-backfill-deterministic-core.md"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-08T16:33:02+00:00", "story": "FORGE-BOARD-4", "detail": "3 task(s)"}
 {"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-08T16:33:02+00:00", "story": "FORGE-BOARD-4"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-08T16:33:19+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.1 forge project audit (contract-driven detector)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-08T16:38:17+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.1 (write)"}

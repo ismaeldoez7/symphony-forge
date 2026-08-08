@@ -4,7 +4,11 @@
     {
       "id": "FORGE-BOARD-4.1",
       "title": "forge project audit (contract-driven detector)",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-08T16:33:19+00:00",
+      "base_sha": "d6c5ffc5c5036c2a6b11f3c3d4a10c91fb156795",
+      "dirty_at_start": {},
+      "task_sha256": "cb82e341f4157bf2e062905bc3ac6dc94d7c74a85c29807329131032ac00f00c"
     },
     {
       "id": "FORGE-BOARD-4.2",

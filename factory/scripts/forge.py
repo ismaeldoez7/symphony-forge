@@ -22,6 +22,7 @@ from forge_cli import fix as fix_mod
 from forge_cli import findings as findings_mod
 from forge_cli import lessons as lessons_mod
 from forge_cli import outcome as outcome_mod
+from forge_cli import project as project_mod
 from forge_cli import quickfix as quickfix_mod
 from forge_cli import scratchpad as scratchpad_mod
 from forge_cli import stages as stages_mod
@@ -65,6 +66,13 @@ def main() -> None:
     p_board.add_argument("--port", type=int, default=8765)
     p_board.add_argument("--repo")
     p_board.set_defaults(func=board_mod.cmd_board)
+
+    p_project = sub.add_parser("project", help="inspect project-level contract gaps")
+    project_sub = p_project.add_subparsers(dest="project_command", required=True)
+    p_project_audit = project_sub.add_parser(
+        "audit", help="check done stories, pending story shape, and vendor integrity")
+    p_project_audit.add_argument("--repo")
+    p_project_audit.set_defaults(func=project_mod.cmd_audit)
 
     p_init = sub.add_parser("init", help="scaffold a new client repo from this harness")
     p_init.add_argument("--name", required=True)
