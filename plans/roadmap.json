@@ -337,12 +337,15 @@
         "Done-story details are reconstructed only from committed evidence (task list from archived decomposition.json, ACs from the archived plan); true evidence-gaps (e.g. never-written outcomes, stub stories) are marked, never synthesized (project-record honesty rule)."
       ],
       "order": 15,
-      "status": "active",
+      "status": "done",
       "epic": "traceable-board",
       "skill": "backend",
       "kind": "feature",
       "depends_on": [],
-      "spec": "docs/specs/traceable-board.md"
+      "spec": "docs/specs/traceable-board.md",
+      "completed_at": "2026-08-08T17:12:07+00:00",
+      "history": ".factory/history/FORGE-BOARD-4/",
+      "outcome": "Symphony Forge now has a deterministic, contract-driven forge project audit that composes the harness's current validators (so it auto-detects any new requirement as Symphony changes) and rides harness-health.yml's schedule, making project-state drift a continuous check. forge project backfill honestly recovers legacy pr-links from real GitHub merge records (ZERO-match marks predates, TWO+-ambiguous reports, cards reconstructed only from committed evidence, never fabricating). Run on this repo it linked 10 legacy done stories to their real PRs and marked the one evidence-less stub, so check_board_complete passes and board-invariant now enforces on push:main, closing D-0011."
     },
     {
       "key": "FORGE-BOARD-5",
@@ -364,7 +367,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-08T17:01:04+00:00",
+  "updated_at": "2026-08-08T17:12:07+00:00",
   "epics": [
     {
       "id": "symphony-forge",
