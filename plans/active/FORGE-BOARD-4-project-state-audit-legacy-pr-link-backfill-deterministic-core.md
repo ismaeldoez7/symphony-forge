@@ -188,8 +188,3 @@ invariant), **0009** (vendor integrity — the audit reads, never patches gates)
 - **Live (4.3):** `forge project audit` lists the 11; `forge project backfill`
   links/marks them; `check_board_complete.py` exits 0; `board-invariant.yml`
   enabled; D-0011 resolved.
-
-## Implementation Assumptions
-
-<!-- Made during implementation, NOT part of the approved plan. Dev: review these before merge; promote any that matter to docs/decisions/. -->
-- 2026-08-08: Project backfill marks an evidence-less done card with backfill_evidence_missing=true and reconstructs only fields explicitly represented in its archived plan or history decomposition.

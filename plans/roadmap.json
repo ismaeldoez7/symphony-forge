@@ -5,6 +5,7 @@
       "title": "Harness v2 Week-One Wedge",
       "status": "done",
       "epic": "symphony-forge",
+      "backfill_evidence_missing": true,
       "predates_outcome_contract": true
     },
     {
@@ -363,7 +364,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-08T16:14:45+00:00",
+  "updated_at": "2026-08-08T17:01:04+00:00",
   "epics": [
     {
       "id": "symphony-forge",

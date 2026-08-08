@@ -1,12 +1,8 @@
 name: board-invariant
 
-# push:main is intentionally DISABLED for now. The check fails on legacy `done`
-# stories that predate the pr-link automation (they carry no `pr-linked` event),
-# so enabling it on main before those stories are backfilled would red main.
-# Backfill (add pr-links or `predates_outcome_contract` markers) then re-enable
-# `push: branches: [main]` in the project-record/backfill story. Tracked as a
-# deferral. Runnable now via workflow_dispatch to see the outstanding gaps.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

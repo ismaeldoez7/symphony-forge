@@ -626,3 +626,17 @@
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-08T16:43:37+00:00", "story": "FORGE-BOARD-4", "detail": "3 task(s)"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-08T16:43:54+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2 (write)"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-08T16:51:29+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-08T16:53:19+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-08T16:53:19+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2 forge project backfill + continuous cadence"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-08T16:56:36+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.3 Dogfood: backfill this repo + close D-0011"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "FORGE-UPG-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/27"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "FORGE-LOCK-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/49"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "PH-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/32"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "PH-2", "detail": "https://github.com/knacklabs/symphony-forge/pull/38"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "PH-3", "detail": "https://github.com/knacklabs/symphony-forge/pull/41"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "FORGE-APPROVE-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/44"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "FORGE-BOUNDARY-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/46"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "FORGE-VENDOR-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/48"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T16:58:48+00:00", "story": "FORGE-MODES-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/50"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-08T17:00:51+00:00", "story": "FORGE-DELEG-1", "detail": "https://github.com/knacklabs/symphony-forge/pull/24"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-08T17:02:48+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.3 (write)"}
