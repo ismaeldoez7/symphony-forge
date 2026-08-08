@@ -4,16 +4,30 @@
     {
       "id": "FORGE-BOARD-4.1",
       "title": "forge project audit (contract-driven detector)",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-08T16:33:19+00:00",
       "base_sha": "d6c5ffc5c5036c2a6b11f3c3d4a10c91fb156795",
       "dirty_at_start": {},
-      "task_sha256": "cb82e341f4157bf2e062905bc3ac6dc94d7c74a85c29807329131032ac00f00c"
+      "task_sha256": "cb82e341f4157bf2e062905bc3ac6dc94d7c74a85c29807329131032ac00f00c",
+      "completed_at": "2026-08-08T16:39:50+00:00"
     },
     {
       "id": "FORGE-BOARD-4.2",
       "title": "forge project backfill + continuous cadence",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-08T16:40:09+00:00",
+      "base_sha": "68282513c4e272444d3119fa862bca4e2e6ba269",
+      "dirty_at_start": {
+        ".factory/events.jsonl": {
+          "digest": "d6b03312cf78ad3b42f1d94ae0b64799f28631557baba3ec55e68d58a7aa5a81",
+          "git": "1 .M N... 100644 100644 100644 e190033df593b32c65c82d9042de6278a1d2e637 e190033df593b32c65c82d9042de6278a1d2e637 .factory/events.jsonl\u0000\u0000100644 e190033df593b32c65c82d9042de6278a1d2e637 0\t.factory/events.jsonl\u0000\u0000H .factory/events.jsonl\u0000"
+        },
+        ".factory/stages.json": {
+          "digest": "3f8932fd7494f23152caa9b9702c18f0e2af7e1826b698a7f4998549d34e5a78",
+          "git": "1 .M N... 100644 100644 100644 df839c8bc3750fb6f797ade5de3f5ce29a905dcc df839c8bc3750fb6f797ade5de3f5ce29a905dcc .factory/stages.json\u0000\u0000100644 df839c8bc3750fb6f797ade5de3f5ce29a905dcc 0\t.factory/stages.json\u0000\u0000H .factory/stages.json\u0000"
+        }
+      },
+      "task_sha256": "061125c7d8cdde949da8230a7fdc8c4937c036a830fb64d75d5400ac598b403c"
     },
     {
       "id": "FORGE-BOARD-4.3",

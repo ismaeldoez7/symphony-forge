@@ -46,6 +46,7 @@
       ],
       "write_scope": [
         "factory/scripts/forge_cli/project.py",
+        "factory/scripts/forge.py",
         ".github/workflows/harness-health.yml",
         "factory/tests/test_gates.py"
       ],
@@ -115,5 +116,5 @@
   "project": "",
   "plan_file": "plans/active/FORGE-BOARD-4-project-state-audit-legacy-pr-link-backfill-deterministic-core.md",
   "plan_sha256": "a594e7929dfa2f6d04bb57972508621df879ee701521ee02057d4af28f813284",
-  "commit": "ef30df962e1158412e780d83298aeecf56006a6a"
+  "commit": "68282513c4e272444d3119fa862bca4e2e6ba269"
 }

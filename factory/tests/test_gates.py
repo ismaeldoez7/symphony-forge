@@ -4899,6 +4899,168 @@ def test_project_audit_clean_repo_exits_zero(repo):
     assert "Project audit OK: no project-state gaps." in out
 
 
+def _backfill_done_story(repo: Path, key: str, records: list[dict], **over):
+    board_story(repo, key, **over)
+    git(repo, "add", "plans/roadmap.json")
+    git(repo, "commit", "-q", "-m", f"legacy done story {key}")
+    from forge_cli.project import backfill_project
+    return backfill_project(repo, gh=lambda _base: records)
+
+
+def _merged_pr(number: int, title: str, branch: str) -> dict:
+    return {
+        "number": number,
+        "title": title,
+        "url": f"https://github.com/acme/widgets/pull/{number}",
+        "headRefName": branch,
+    }
+
+
+def _backfill_events(repo: Path) -> list[dict]:
+    path = repo / ".factory" / "events.jsonl"
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text().splitlines()]
+
+
+def test_project_backfill_links_recoverable_story(repo):
+    key = "BOARD-210"
+    pr = _merged_pr(42, f"{key} ship the board", f"feat/{key}-ship-board")
+
+    counts = _backfill_done_story(repo, key, [pr])
+
+    events = _backfill_events(repo)
+    links = [event for event in events
+             if event.get("event") == "pr-linked" and event.get("story") == key]
+    assert counts["linked"] == 1
+    assert [event["detail"] for event in links] == [pr["url"]]
+
+
+def test_project_backfill_marks_zero_match_predates(repo):
+    key = "BOARD-211"
+
+    counts = _backfill_done_story(repo, key, [])
+
+    item = roadmap_items(repo)[key]
+    assert counts["predates"] == 1
+    assert item["predates_outcome_contract"] is True
+    assert not any(
+        event.get("event") == "pr-linked" and event.get("story") == key
+        for event in _backfill_events(repo)
+    )
+
+
+def test_project_backfill_reports_ambiguous_without_guessing(repo, capsys):
+    key = "BOARD-212"
+    records = [
+        _merged_pr(51, f"{key} first candidate", "feat/other-work"),
+        _merged_pr(52, "Unrelated title", f"fix/{key}-second-candidate"),
+    ]
+
+    counts = _backfill_done_story(repo, key, records)
+
+    out = capsys.readouterr().out
+    assert counts["ambiguous"] == 1
+    assert f"SKIP {key}: ambiguous" in out
+    assert records[0]["url"] in out and records[1]["url"] in out
+    assert not any(
+        event.get("event") == "pr-linked" and event.get("story") == key
+        for event in _backfill_events(repo)
+    )
+
+
+def test_project_backfill_reconstructs_card_from_evidence_only(repo):
+    evidenced = "BOARD-213"
+    evidence_less = "BOARD-214"
+    for key in (evidenced, evidence_less):
+        board_story(repo, key)
+    roadmap = repo / "plans" / "roadmap.json"
+    data = json.loads(roadmap.read_text())
+    data["items"] = [
+        item for item in data["items"]
+        if item.get("key") not in {evidenced, evidence_less}
+    ]
+    data["items"].extend([
+        {"key": evidenced, "status": "done"},
+        {"key": evidence_less, "status": "done"},
+    ])
+    roadmap.write_text(json.dumps(data, indent=2) + "\n")
+
+    plan = repo / "plans" / "completed" / f"{evidenced}-legacy.md"
+    plan.parent.mkdir(parents=True, exist_ok=True)
+    plan.write_text(
+        f"---\nissue: {evidenced}\ntitle: Recovered board title\n"
+        f"story: {evidenced}\n---\n\n# Legacy plan\n"
+    )
+    history = repo / ".factory" / "history" / evidenced
+    history.mkdir(parents=True, exist_ok=True)
+    decomposition = history / "decomposition.json"
+    decomposition.write_text(json.dumps({
+        "story": evidenced,
+        "epic": "recovered-epic",
+        "acceptance_criteria": ["Recovered criterion"],
+    }))
+    git(repo, "add", "plans/roadmap.json", "plans/completed")
+    git(repo, "add", "-f", ".factory/history")
+    git(repo, "commit", "-q", "-m", "committed legacy evidence")
+
+    # Working-tree claims are not evidence and must not be copied.
+    plan.write_text(plan.read_text().replace("Recovered board title", "Invented title"))
+    decomposition.write_text(json.dumps({"epic": "invented-epic", "skill": "frontend"}))
+    from forge_cli.project import backfill_project
+    records = [
+        _merged_pr(61, f"{evidenced} shipped", "feat/unrelated"),
+        _merged_pr(62, f"{evidence_less} shipped", "fix/unrelated"),
+    ]
+    backfill_project(repo, gh=lambda _base: records)
+
+    items = roadmap_items(repo)
+    assert items[evidenced]["title"] == "Recovered board title"
+    assert items[evidenced]["epic"] == "recovered-epic"
+    assert items[evidenced]["acceptance_criteria"] == ["Recovered criterion"]
+    assert "skill" not in items[evidenced]
+    assert "backfill_evidence_missing" not in items[evidenced]
+    assert items[evidence_less]["backfill_evidence_missing"] is True
+    for field in ("title", "epic", "story", "acceptance_criteria", "skill", "spec"):
+        assert field not in items[evidence_less]
+
+
+def test_project_backfill_is_idempotent(repo):
+    key = "BOARD-215"
+    board_story(repo, key)
+    git(repo, "add", "plans/roadmap.json")
+    git(repo, "commit", "-q", "-m", "legacy done story")
+    pr = _merged_pr(71, f"{key} shipped", f"feat/{key}-ship")
+    calls = 0
+
+    def gh_fixture(_base):
+        nonlocal calls
+        calls += 1
+        return [pr]
+
+    from forge_cli.project import backfill_project
+    first = backfill_project(repo, gh=gh_fixture)
+    before = {
+        "roadmap": (repo / "plans" / "roadmap.json").read_bytes(),
+        "events": (repo / ".factory" / "events.jsonl").read_bytes(),
+    }
+    second = backfill_project(repo, gh=gh_fixture)
+
+    assert first["linked"] == 1
+    assert second == {"linked": 0, "predates": 0, "ambiguous": 0, "reconstructed": 0}
+    assert calls == 1
+    assert (repo / "plans" / "roadmap.json").read_bytes() == before["roadmap"]
+    assert (repo / ".factory" / "events.jsonl").read_bytes() == before["events"]
+
+
+def test_harness_health_runs_project_audit_without_backfill():
+    workflow = (HARNESS / ".github" / "workflows" / "harness-health.yml").read_text()
+
+    assert "python3 factory/scripts/forge.py project audit" in workflow
+    assert "project_rc" in workflow
+    assert "project backfill" not in workflow
+
+
 # ------------------------------------------------------------ parallelization
 
 def test_roadmap_parallel_frontier(repo, tmp_path):

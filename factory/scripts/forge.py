@@ -73,6 +73,10 @@ def main() -> None:
         "audit", help="check done stories, pending story shape, and vendor integrity")
     p_project_audit.add_argument("--repo")
     p_project_audit.set_defaults(func=project_mod.cmd_audit)
+    p_project_backfill = project_sub.add_parser(
+        "backfill", help="repair legacy done-story cards and PR links")
+    p_project_backfill.add_argument("--repo")
+    p_project_backfill.set_defaults(func=project_mod.cmd_backfill)
 
     p_init = sub.add_parser("init", help="scaffold a new client repo from this harness")
     p_init.add_argument("--name", required=True)

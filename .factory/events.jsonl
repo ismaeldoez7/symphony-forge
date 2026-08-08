@@ -619,3 +619,10 @@
 {"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-08T16:33:02+00:00", "story": "FORGE-BOARD-4"}
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-08T16:33:19+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.1 forge project audit (contract-driven detector)"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-08T16:38:17+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.1 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-08T16:39:50+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.1 forge project audit (contract-driven detector)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-08T16:40:10+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2 forge project backfill + continuous cadence"}
+{"event": "signal-scope-change", "generated_by": "implementer", "at": "2026-08-08T16:41:28+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2 requires wiring 'forge project backfill', but factory/scripts/forge.py owns the project subparser and is outside the declared write scope; add that file to scope or explicitly define a"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-08T16:43:15+00:00", "story": "FORGE-BOARD-4", "detail": "S-0001-0963: Correct \u2014 registering 'forge project backfill' needs the project subparser in factory/scripts/forge.py. I am widening 4.2's write_scope to include factory/scripts/forge.py (0023 ledgered) and re-recor"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-08T16:43:37+00:00", "story": "FORGE-BOARD-4", "detail": "3 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-08T16:43:54+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2 (write)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-08T16:51:29+00:00", "story": "FORGE-BOARD-4", "detail": "FORGE-BOARD-4.2 (write)"}

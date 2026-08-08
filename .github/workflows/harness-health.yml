@@ -24,20 +24,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Loop-health audit + gate integrity
+      - name: Loop-health + project audit + gate integrity
         id: health
         run: |
           set +e
           AUDIT_OUT=$(python3 factory/scripts/forge.py audit 2>&1)
           AUDIT_N=$(printf '%s\n' "$AUDIT_OUT" | grep -c '^- ')
+          PROJECT_OUT=$(python3 factory/scripts/forge.py project audit 2>&1)
+          PROJECT_RC=$?
           DRIFT_OUT=$(python3 factory/scripts/check_vendor_integrity.py 2>&1)
           DRIFT_RC=$?
           set -e
           echo "audit_n=${AUDIT_N:-0}" >> "$GITHUB_OUTPUT"
+          echo "project_rc=$PROJECT_RC" >> "$GITHUB_OUTPUT"
           echo "drift_rc=$DRIFT_RC" >> "$GITHUB_OUTPUT"
           {
             echo 'report<<REPORT_EOF'
-            printf '%s\n\n%s\n' "$AUDIT_OUT" "$DRIFT_OUT"
+            printf '%s\n\n%s\n\n%s\n' "$AUDIT_OUT" "$PROJECT_OUT" "$DRIFT_OUT"
             echo 'REPORT_EOF'
           } >> "$GITHUB_OUTPUT"
       - name: Check whether the vendored harness is behind
@@ -83,7 +86,7 @@ jobs:
           Review it like any harness upgrade: \`git diff\`, then linters + gate tests run in CI. Merging is the human step — the workflow never merges (frozen-gate doctrine, decision 0009)."
           fi
       - name: Open or update the harness-health issue
-        if: steps.health.outputs.audit_n != '0' || steps.health.outputs.drift_rc != '0'
+        if: steps.health.outputs.audit_n != '0' || steps.health.outputs.project_rc != '0' || steps.health.outputs.drift_rc != '0'
         env:
           GH_TOKEN: ${{ github.token }}
           REPORT: ${{ steps.health.outputs.report }}
@@ -103,7 +106,7 @@ jobs:
             gh issue create --title "$TITLE" --body "$BODY" --label maintenance || gh issue create --title "$TITLE" --body "$BODY"
           fi
       - name: Close the harness-health issue when clean
-        if: steps.health.outputs.audit_n == '0' && steps.health.outputs.drift_rc == '0'
+        if: steps.health.outputs.audit_n == '0' && steps.health.outputs.project_rc == '0' && steps.health.outputs.drift_rc == '0'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
