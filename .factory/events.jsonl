@@ -708,3 +708,10 @@
 {"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-09T03:32:39+00:00", "story": "FORGE-BOARD-7"}
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-09T03:32:56+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.1 three hygiene primitives"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-09T03:42:46+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.1 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-09T03:44:48+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.1 three hygiene primitives"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-09T03:45:06+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.2 forge sanitise command"}
+{"event": "signal-scope-change", "generated_by": "implementer", "at": "2026-08-09T03:47:10+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.2 requires sanitise to reuse check_repo_budget's tracked-cruft globs, but check_repo_budget.py exposes no reusable constant/helper and is outside this stage's write scope; either add tha"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-09T03:48:12+00:00", "story": "FORGE-BOARD-7", "detail": "S-0001-8a4a: Factor, don't duplicate. Widening 7.2's write_scope to include factory/scripts/check_repo_budget.py: extract its tracked-cruft globs into a reusable module-level constant (e.g. CRUFT_GLOBS) that both "}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-09T03:48:13+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.2 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-09T03:48:28+00:00", "story": "FORGE-BOARD-7", "detail": "3 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-09T03:56:18+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.2 (write)"}

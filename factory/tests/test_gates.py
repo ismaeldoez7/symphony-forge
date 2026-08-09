@@ -3402,6 +3402,114 @@ def test_secret_cruft_scan_repo_wide(repo):
     assert {path: path.read_bytes() for path in before} == before
 
 
+def test_sanitise_fixes_safe_reports_rest(repo, monkeypatch, capsys):
+    from forge_cli import doctor, sanitise
+
+    roadmap_path = repo / "plans" / "roadmap.json"
+    ensure_story(repo, "SAN-1", "Sanitise")
+    data = json.loads(roadmap_path.read_text())
+    data["items"].append({**data["items"][0], "status": "done"})
+    roadmap_path.write_text(json.dumps(data))
+
+    tracked = repo / "src" / "__pycache__" / "app.cpython-312.pyc"
+    tracked.parent.mkdir(parents=True)
+    tracked.write_bytes(b"\x00bytecode")
+    git(repo, "add", "-f", str(tracked))
+    secret = repo / "src" / "credentials.py"
+    secret.write_text('API_KEY = "sk-' + ("x" * 24) + '"\n')
+    git(repo, "add", str(secret))
+    dropping = repo / ".factory" / "orphan.tmp.json"
+    dropping.write_text("{}\n")
+    evidence = repo / ".factory" / "tests.json"
+    evidence.write_text('{"evidence": true}\n')
+    (repo / ".factory" / "quickfix.json").write_text(json.dumps({
+        "id": "Q-0001-test", "reason": "unfinished cleanup",
+    }))
+    def failing_doctor(_args):
+        print("forge doctor: required tool missing")
+        raise SystemExit(1)
+
+    monkeypatch.setattr(doctor, "cmd_doctor", failing_doctor)
+
+    with pytest.raises(SystemExit) as exc:
+        sanitise.cmd_sanitise(argparse.Namespace(repo=str(repo), check=False))
+
+    assert exc.value.code == 1
+    out = capsys.readouterr().out
+    assert "[FIXED] [roadmap-drift]" in out
+    assert "[FIXED] [tracked-cruft]" in out
+    for reported in (
+        "[board-done-story]", "[secret]", "[stale-task-state]", "[open-window]",
+        "[untracked-cruft]", "[doctor]",
+    ):
+        assert reported in out
+    assert len(json.loads(roadmap_path.read_text())["items"]) == 1
+    assert tracked.exists()
+    proc = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", str(tracked.relative_to(repo))],
+        cwd=repo, capture_output=True, text=True,
+    )
+    assert proc.returncode != 0
+    assert evidence.read_text() == '{"evidence": true}\n'
+    code, help_out = run(repo, "forge.py", "sanitise", "--help")
+    assert code == 0 and "--check" in help_out
+
+
+def test_sanitise_check_is_read_only(repo, monkeypatch):
+    from forge_cli import doctor, sanitise
+
+    roadmap_path = repo / "plans" / "roadmap.json"
+    ensure_story(repo, "SAN-1", "Sanitise")
+    data = json.loads(roadmap_path.read_text())
+    data["items"].append({**data["items"][0], "status": "done"})
+    roadmap_path.write_text(json.dumps(data))
+    tracked = repo / "factory" / "__pycache__" / "tool.cpython-312.pyc"
+    tracked.parent.mkdir(parents=True)
+    tracked.write_bytes(b"\x00bytecode")
+    git(repo, "add", "-f", str(tracked))
+    monkeypatch.setattr(
+        doctor, "cmd_doctor", lambda _args: print("forge doctor: ready"),
+    )
+    before = {
+        "roadmap": roadmap_path.read_bytes(),
+        "cruft": tracked.read_bytes(),
+        "status": git(repo, "status", "--porcelain=v1", "-uall"),
+        "tracked": git(repo, "ls-files", "-z"),
+    }
+
+    with pytest.raises(SystemExit) as exc:
+        sanitise.cmd_sanitise(argparse.Namespace(repo=str(repo), check=True))
+
+    assert exc.value.code == 1
+    assert roadmap_path.read_bytes() == before["roadmap"]
+    assert tracked.read_bytes() == before["cruft"]
+    assert git(repo, "status", "--porcelain=v1", "-uall") == before["status"]
+    assert git(repo, "ls-files", "-z") == before["tracked"]
+
+
+def test_sanitise_never_deletes_task_evidence(repo, monkeypatch):
+    from forge_cli import doctor, sanitise
+
+    evidence = [
+        repo / ".factory" / "decomposition.json",
+        repo / ".factory" / "tests.json",
+        repo / ".factory" / "reviews" / "quality.json",
+    ]
+    for path in evidence:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('{"evidence": true}\n')
+    before = {path: path.read_bytes() for path in evidence}
+    monkeypatch.setattr(
+        doctor, "cmd_doctor", lambda _args: print("forge doctor: ready"),
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        sanitise.cmd_sanitise(argparse.Namespace(repo=str(repo), check=False))
+
+    assert exc.value.code == 1
+    assert {path: path.read_bytes() for path in evidence} == before
+
+
 def test_context_scan_refuses_secrets_and_oversized_files(repo):
     inbox = repo / "docs" / "context"
     (inbox / "client-email.txt").write_text(

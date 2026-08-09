@@ -4,16 +4,30 @@
     {
       "id": "FORGE-BOARD-7.1",
       "title": "three hygiene primitives",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-09T03:32:56+00:00",
       "base_sha": "64546650375844adaf28406746693e2aabaeeff0",
       "dirty_at_start": {},
-      "task_sha256": "ff86936c41ea6c973c1c5d75078ccacb94c96bd34fd9a1e68142c233e13529f4"
+      "task_sha256": "ff86936c41ea6c973c1c5d75078ccacb94c96bd34fd9a1e68142c233e13529f4",
+      "completed_at": "2026-08-09T03:44:48+00:00"
     },
     {
       "id": "FORGE-BOARD-7.2",
       "title": "forge sanitise command",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-09T03:45:06+00:00",
+      "base_sha": "8f9a6901653c9edfb14fca5883f059adeaad6bd4",
+      "dirty_at_start": {
+        ".factory/events.jsonl": {
+          "digest": "ebfc3e63544297bbb0f38cddf5306ae603464d57b83b1b173c08665bb5729cba",
+          "git": "1 .M N... 100644 100644 100644 9661a3d323cb90151bde3f9e00e5e0112adc0381 9661a3d323cb90151bde3f9e00e5e0112adc0381 .factory/events.jsonl\u0000\u0000100644 9661a3d323cb90151bde3f9e00e5e0112adc0381 0\t.factory/events.jsonl\u0000\u0000H .factory/events.jsonl\u0000"
+        },
+        ".factory/stages.json": {
+          "digest": "ed6355ea86ab6899acc959deb33208aa64ab208f137e1c6360fec7165a64b8e2",
+          "git": "1 .M N... 100644 100644 100644 b2a83eddca387afa30dfc01a8091ab8310542e7a b2a83eddca387afa30dfc01a8091ab8310542e7a .factory/stages.json\u0000\u0000100644 b2a83eddca387afa30dfc01a8091ab8310542e7a 0\t.factory/stages.json\u0000\u0000H .factory/stages.json\u0000"
+        }
+      },
+      "task_sha256": "25718e535eb30f6feb5e9d853896426b222d34e2066cba23ece77bd67fc673a2"
     },
     {
       "id": "FORGE-BOARD-7.3",

@@ -53,6 +53,7 @@
       "write_scope": [
         "factory/scripts/forge_cli/sanitise.py",
         "factory/scripts/forge.py",
+        "factory/scripts/check_repo_budget.py",
         "factory/tests/test_gates.py"
       ],
       "acceptance_criteria": [
@@ -122,5 +123,5 @@
   "project": "",
   "plan_file": "plans/active/FORGE-BOARD-7-knacklabs-sanitise-project-skill-deterministic-repo-hygiene.md",
   "plan_sha256": "4e79a3278f9c51c30c997f823746d92674c21e29bdfd1f47365e1269d2b5f69d",
-  "commit": "3dca570f28bf2e87653e34dd21f98ea4f546ce87"
+  "commit": "8f9a6901653c9edfb14fca5883f059adeaad6bd4"
 }

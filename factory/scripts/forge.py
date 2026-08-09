@@ -25,6 +25,7 @@ from forge_cli import outcome as outcome_mod
 from forge_cli import project as project_mod
 from forge_cli import quickfix as quickfix_mod
 from forge_cli import scratchpad as scratchpad_mod
+from forge_cli import sanitise as sanitise_mod
 from forge_cli import stages as stages_mod
 from forge_cli import gstack as gstack_mod
 from forge_cli import history as history_mod
@@ -42,6 +43,13 @@ def main() -> None:
     p_doc.add_argument("--fast", action="store_true",
                        help="millisecond existence-only check (what the session hook runs)")
     p_doc.set_defaults(func=doctor.cmd_doctor)
+
+    p_sanitise = sub.add_parser(
+        "sanitise", help="report repo hygiene issues and apply only safe fixes")
+    p_sanitise.add_argument(
+        "--check", action="store_true", help="report issues without changing anything")
+    p_sanitise.add_argument("--repo")
+    p_sanitise.set_defaults(func=sanitise_mod.cmd_sanitise)
 
     p_next = sub.add_parser("next", help="where am I and what do I do now (deterministic)")
     p_next.add_argument("--repo")

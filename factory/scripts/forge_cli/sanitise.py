@@ -1,12 +1,18 @@
-"""Read-only repo hygiene reporters used by ``forge sanitise``."""
+"""Compose repo hygiene checks and apply only explicitly safe repairs."""
 from __future__ import annotations
 
+import argparse
+import io
+import json
 import subprocess
+from contextlib import redirect_stdout
 from pathlib import Path
 
-from factory_lib import clean_git_env
+from check_repo_budget import tracked_cruft
+from factory_lib import clean_git_env, repo_root
+from intake import stale_task_state
 
-from . import context
+from . import context, doctor, project, quickfix, roadmap
 from .common import fail
 
 
@@ -63,3 +69,121 @@ def secret_cruft_findings(base: Path) -> dict[str, list[str]]:
         "secrets": source_secret_findings(base),
         "untracked_droppings": untracked_droppings(base),
     }
+
+
+def _roadmap_drift(base: Path) -> bool:
+    path = roadmap.roadmap_path(base)
+    if not path.exists():
+        return False
+    try:
+        items = json.loads(path.read_text()).get("items", [])
+    except (json.JSONDecodeError, AttributeError):
+        return True
+    _, duplicates = roadmap.heal_items(items)
+    return duplicates > 0
+
+
+def _doctor_report(base: Path) -> tuple[bool, list[str]]:
+    output = io.StringIO()
+    failed = False
+    with redirect_stdout(output):
+        try:
+            doctor.cmd_doctor(argparse.Namespace(
+                fix=False, fast=False, repo=str(base),
+            ))
+        except SystemExit as exc:
+            failed = exc.code not in (None, 0)
+    return failed, output.getvalue().splitlines()
+
+
+def _untrack_cruft(base: Path, paths: list[str]) -> str | None:
+    proc = subprocess.run(
+        ["git", "rm", "--cached", "--", *paths], cwd=base,
+        capture_output=True, text=True, env=clean_git_env(),
+    )
+    if proc.returncode != 0:
+        return proc.stderr.strip() or proc.stdout.strip() or "git rm --cached failed"
+    return None
+
+
+def cmd_sanitise(args: argparse.Namespace) -> None:
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    check = bool(getattr(args, "check", False))
+    resolved: list[tuple[str, str]] = []
+    unresolved: list[tuple[str, str]] = []
+
+    if _roadmap_drift(base):
+        if check:
+            unresolved.append(("roadmap-drift", "plans/roadmap.json needs roadmap heal"))
+        else:
+            try:
+                roadmap.cmd_heal(argparse.Namespace(repo=str(base)))
+            except SystemExit as exc:
+                unresolved.append(("roadmap-drift", str(exc)))
+            else:
+                resolved.append(("roadmap-drift", "healed plans/roadmap.json"))
+
+    cruft = tracked_cruft(base)
+    if cruft:
+        detail = f"{len(cruft)} tracked cruft file(s): {', '.join(cruft)}"
+        if check:
+            unresolved.append(("tracked-cruft", detail))
+        else:
+            error = _untrack_cruft(base, cruft)
+            if error:
+                unresolved.append(("tracked-cruft", error))
+            else:
+                resolved.append((
+                    "tracked-cruft",
+                    f"untracked with git rm --cached: {', '.join(cruft)}",
+                ))
+
+    try:
+        gaps = project.project_gaps(base)
+    except (json.JSONDecodeError, SystemExit) as exc:
+        gaps = []
+        unresolved.append(("board-audit", str(exc)))
+    for gap in gaps:
+        unresolved.append((f"board-{gap['kind']}", gap["detail"]))
+
+    hygiene = secret_cruft_findings(base)
+    unresolved.extend(("secret", finding) for finding in hygiene["secrets"])
+    unresolved.extend(
+        ("untracked-cruft", finding) for finding in hygiene["untracked_droppings"]
+    )
+    unresolved.extend(
+        ("stale-task-state", str(path.relative_to(base)))
+        for path in stale_task_state(base)
+    )
+
+    window = quickfix.load_active(base)
+    if window:
+        unresolved.append((
+            "open-window",
+            f"{window.get('id', '?')}: {window.get('reason', 'no reason recorded')}",
+        ))
+
+    doctor_failed, doctor_lines = _doctor_report(base)
+    if doctor_failed:
+        detail = next(
+            (line for line in reversed(doctor_lines) if line.strip()),
+            "doctor checks failed",
+        )
+        unresolved.append(("doctor", detail))
+
+    print("\nSanitise report:")
+    for kind, detail in resolved:
+        print(f"- [FIXED] [{kind}] {detail}")
+    for kind, detail in unresolved:
+        status = "ISSUE" if check else "UNRESOLVED"
+        print(f"- [{status}] [{kind}] {detail}")
+    if doctor_lines:
+        print("- [doctor-report]")
+        for line in doctor_lines:
+            print(f"    {line}")
+    if not resolved and not unresolved:
+        print("- [OK] no issues found")
+
+    issue_count = len(resolved) + len(unresolved) if check else len(unresolved)
+    if issue_count:
+        raise SystemExit(1)
