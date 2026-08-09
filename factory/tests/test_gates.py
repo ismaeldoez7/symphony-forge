@@ -5429,6 +5429,25 @@ def test_project_backfill_body_match_respects_word_boundary(repo):
     assert counts["linked"] == 0
 
 
+def test_project_backfill_body_mentions_are_ambiguous_not_guessed(repo, capsys):
+    # D-0014's body match is best-effort: two PRs that both MENTION the key (an
+    # implementer and, say, a revert) collapse to ambiguous and link neither, so
+    # a non-owning mention cannot silently become the story's shipping provenance.
+    key = "BOARD-213"
+    prs = [
+        {"number": 30, "title": "chore: work", "headRefName": "chore/a",
+         "url": "https://github.com/acme/widgets/pull/30", "body": f"Implements {key}."},
+        {"number": 31, "title": "chore: revert", "headRefName": "chore/b",
+         "url": "https://github.com/acme/widgets/pull/31", "body": f"Reverts {key}."},
+    ]
+    counts = _backfill_done_story(repo, key, prs)
+    out = capsys.readouterr().out
+    assert counts["linked"] == 0 and counts["ambiguous"] == 1
+    assert "ambiguous" in out
+    assert [e for e in _backfill_events(repo)
+            if e.get("event") == "pr-linked" and e.get("story") == key] == []
+
+
 def test_project_backfill_zero_match_does_not_predate(repo, capsys):
     key = "BOARD-211"
 

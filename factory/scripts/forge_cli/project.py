@@ -160,8 +160,14 @@ def _reconstruct_card(base: Path, item: dict) -> bool:
 def _matches(key: str, records: list[dict]) -> list[dict]:
     branch = re.compile(rf"^(?:feat|fix)/{re.escape(key)}-")
     # A non-conventional PR (title/branch don't match) can still name the story
-    # key in its BODY — recover those deterministically (D-0014). Word-boundary
-    # so FORGE-BOARD-1 does not match FORGE-BOARD-10.
+    # key in its BODY — recover those deterministically (D-0014). This is a
+    # best-effort backfill signal, NOT proof of ownership: a lone PR that only
+    # mentions the key (a revert / "blocked by" / "supersedes") would mislink, so
+    # backfill_project treats 2+ matches as ambiguous and links neither; a wrong
+    # single-match link is correctable via manual `forge pr-link`. The trailing
+    # \b guards FORGE-BOARD-1 against FORGE-BOARD-10 and ASSUMES namespaced keys —
+    # a repo mixing bare (BOARD-1) and namespaced (FORGE-BOARD-1) keys would need
+    # (?<![\w-]) / (?![\w-]) instead of \b.
     body_ref = re.compile(rf"\b{re.escape(key)}\b")
     found = []
     seen = set()
