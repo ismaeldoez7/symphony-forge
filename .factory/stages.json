@@ -38,7 +38,7 @@
     {
       "id": "FORGE-BOARD-7.3",
       "title": "skill + update-triggered cadence + docs",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-09T04:07:49+00:00",
       "base_sha": "ba5ffc0194a9d1ab7dbadc26bac0705bd0839da3",
       "dirty_at_start": {
@@ -51,7 +51,8 @@
           "git": "1 .M N... 100644 100644 100644 02196a52e953740f610281182eb7a4f257a86352 02196a52e953740f610281182eb7a4f257a86352 .factory/stages.json\u0000\u0000100644 02196a52e953740f610281182eb7a4f257a86352 0\t.factory/stages.json\u0000\u0000H .factory/stages.json\u0000"
         }
       },
-      "task_sha256": "0b09783a933f63a1c075531cc17340c3cd2451f031298f9f561b77362436464b"
+      "task_sha256": "0b09783a933f63a1c075531cc17340c3cd2451f031298f9f561b77362436464b",
+      "completed_at": "2026-08-09T04:16:09+00:00"
     }
   ]
 }

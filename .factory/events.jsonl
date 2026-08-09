@@ -719,3 +719,9 @@
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-09T04:07:28+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.2 forge sanitise command"}
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-09T04:07:49+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.3 skill + update-triggered cadence + docs"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-09T04:14:39+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.3 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-09T04:16:09+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.3 skill + update-triggered cadence + docs"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-09T04:19:32+00:00", "story": "FORGE-BOARD-7"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-09T04:21:06+00:00", "story": "FORGE-BOARD-7", "detail": "passed"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-09T04:26:20+00:00", "story": "FORGE-BOARD-7"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-09T04:26:20+00:00", "story": "FORGE-BOARD-7"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-09T04:26:20+00:00", "story": "FORGE-BOARD-7"}
