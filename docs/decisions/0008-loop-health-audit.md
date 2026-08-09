@@ -25,10 +25,9 @@ since flagging, no consolidating decision or refactor story), stale deferrals
 (open > 60 days), decayed lessons (globs matching zero tracked files), and
 review drift (latest shipped task's findings carry no structure, so
 clustering is blind). It runs at ship cadence — `pr_ready` prints the
-summary, `forge next` surfaces the count — and at calendar cadence: the
-daily `harness-health` workflow runs it in CI and maintains a "Harness
-health" issue, so idle repos decay visibly too. ADVISORY, never a ship
-gate.
+summary, `forge next` surfaces the count — and on real activity: the
+`harness-health` workflow runs it in CI on `push:main` and manual
+`workflow_dispatch`, not a daily cron. ADVISORY, never a ship gate.
 
 ## Consequences
 
