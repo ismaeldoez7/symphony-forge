@@ -49,6 +49,11 @@ this repo (cloned once, per machine)             your app repo (its own repo, it
   guides pending-story re-authoring with `forge roadmap fill`, re-verifies,
   and reports `forge next`; app code, completed stories, plans, docs, and
   evidence remain yours.
+- **Sanitise**: say *"Sanitise this repo"* to run the installed
+  `knacklabs-sanitise-project` skill on demand. It starts with
+  `forge sanitise --check` when you want a report, applies only Forge's safe
+  fixes when asked, and routes every item needing judgment to its explicit
+  resolve command.
 - **Never**: don't fork this repo (shared history means every upgrade becomes
   a merge into your app code, and the harness's own run state collides with
   yours) and don't use GitHub's template feature (clean copy once, but NO
@@ -113,9 +118,10 @@ refactor story, decision 0005); ledgered lessons — *"what did we learn about
 these files?"*; parked scope whose trigger fired — *"did any deferral come
 due?"*; and the loop-health audit — *"are the watchers themselves decaying?"*
 (ignored escalations, stale deferrals, dead lessons: `forge audit`, run at
-every ship, surfaced by `forge next`, and run daily in CI by the
-`harness-health` workflow — which also opens an automated `forge upgrade`
-PR when the vendored harness falls behind; merging it stays human).
+every ship, surfaced by `forge next`, and run on pushes to `main` or manual
+dispatch by the `harness-health` workflow — which also opens an automated
+`forge upgrade` PR when the vendored harness falls behind; merging it stays
+human).
 
 Human-only, always: **accepting a decision** (sign-off, epics, promotions) —
 the one command a person types themselves. The agent drafts the record,
@@ -138,6 +144,7 @@ your behalf, not for you to type.
 | new project | "Set up a new KnackLabs project called X" | `knacklabs-new-project` skill → `./forge init` | scaffolded repo |
 | existing repo | "Migrate this repo into the harness" | `knacklabs-migrate-project` skill → `./forge adopt` | vendored machinery; old context → `docs/context/` |
 | harness refresh | "Upgrade this repo to the latest harness" | `knacklabs-upgrade-project` skill → audit, upgrade, backfill, guided pending-story fill | reviewed and re-verified machinery upgrade |
+| repo hygiene | "Sanitise this repo" | `knacklabs-sanitise-project` skill → `forge sanitise` / `--check` on demand | safe fixes plus an explicit unresolved-items report |
 | any phase, lost | "What now?" | `/forge` skill → `./forge next` | — |
 | 0a discovery | "Let's run office hours" | gstack `/office-hours` | `docs/product/DISCOVERY.md`, `BRIEF.md`; design docs + decisions in `.gstack/projects/` (in-repo via `.envrc`) |
 | 0b prototype | build freely; save/confirm specs as capabilities emerge | ponytail (lite) allowed | `prototype/` + `docs/specs/` |

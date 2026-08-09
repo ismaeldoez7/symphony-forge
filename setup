@@ -63,7 +63,7 @@ run_python() {
 }
 
 install_bootstrap_skills() {
-  for SKILL in knacklabs-new-project knacklabs-migrate-project knacklabs-upgrade-project; do
+  for SKILL in knacklabs-new-project knacklabs-migrate-project knacklabs-upgrade-project knacklabs-sanitise-project; do
     SOURCE="$HERE/install/claude/$SKILL/SKILL.md"
 
     [ -f "$SOURCE" ] ||

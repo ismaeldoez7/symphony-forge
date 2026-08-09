@@ -8,6 +8,14 @@ argument wiring only.
 """
 from __future__ import annotations
 
+import sys
+
+# Read-only commands (e.g. `forge sanitise --check`) must not mutate the tree.
+# Importing submodules would otherwise write __pycache__/*.pyc, which both
+# breaks the read-only contract and gets reported as untracked cruft by the
+# very command that triggered it. Set this before any local import.
+sys.dont_write_bytecode = True
+
 import argparse
 
 from forge_cli import adopt as adopt_mod
@@ -25,6 +33,7 @@ from forge_cli import outcome as outcome_mod
 from forge_cli import project as project_mod
 from forge_cli import quickfix as quickfix_mod
 from forge_cli import scratchpad as scratchpad_mod
+from forge_cli import sanitise as sanitise_mod
 from forge_cli import stages as stages_mod
 from forge_cli import gstack as gstack_mod
 from forge_cli import history as history_mod
@@ -42,6 +51,13 @@ def main() -> None:
     p_doc.add_argument("--fast", action="store_true",
                        help="millisecond existence-only check (what the session hook runs)")
     p_doc.set_defaults(func=doctor.cmd_doctor)
+
+    p_sanitise = sub.add_parser(
+        "sanitise", help="report repo hygiene issues and apply only safe fixes")
+    p_sanitise.add_argument(
+        "--check", action="store_true", help="report issues without changing anything")
+    p_sanitise.add_argument("--repo")
+    p_sanitise.set_defaults(func=sanitise_mod.cmd_sanitise)
 
     p_next = sub.add_parser("next", help="where am I and what do I do now (deterministic)")
     p_next.add_argument("--repo")
@@ -159,6 +175,11 @@ def main() -> None:
     p_md = mode_sub.add_parser("done", help="close the active workflow mode window")
     p_md.add_argument("--repo")
     p_md.set_defaults(func=quickfix_mod.cmd_mode_done)
+    p_ma = mode_sub.add_parser(
+        "abandon", help="close a crashed workflow mode window without claiming completion")
+    p_ma.add_argument("--reason", required=True, help="why the window cannot be completed")
+    p_ma.add_argument("--repo")
+    p_ma.set_defaults(func=quickfix_mod.cmd_mode_abandon)
 
     p_fix = sub.add_parser("fix", help="launch a bounded fix in an open lite window")
     p_fix.add_argument("description")
