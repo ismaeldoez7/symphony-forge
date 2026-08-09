@@ -1,8 +1,8 @@
 ---
 status: accepted
 confirmed_by: "Ravi"
-date: 2026-07-22
-stories: []
+date: 2026-08-09
+stories: [FORGE-BOARD-7]
 ---
 
 # The improvement loops are themselves audited (forge audit)
