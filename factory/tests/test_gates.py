@@ -5183,7 +5183,7 @@ def test_check_pr_ticket_fails_missing_done_flip(repo):
 
     code, out = check_pr_ticket(repo, base, f"feat/{key}-gate-a")
 
-    assert code != 0 and "no ticket resolves" in out, out
+    assert code != 0 and "no completed work record" in out, out
 
 
 def test_check_pr_ticket_fails_missing_history(repo):
@@ -5198,7 +5198,7 @@ def test_check_pr_ticket_fails_missing_history(repo):
 
     code, out = check_pr_ticket(repo, base, f"feat/{key}-gate-a")
 
-    assert code != 0 and "no ticket resolves" in out, out
+    assert code != 0 and "no completed work record" in out, out
 
 
 def test_check_pr_ticket_window_passes(repo):
@@ -5219,7 +5219,8 @@ def test_check_pr_ticket_window_passes(repo):
     assert code == 0 and f"window {window_id}" in out, out
 
 
-def test_check_pr_ticket_fails_two_resolved_records(repo):
+def test_check_pr_ticket_two_declared_records_pass(repo):
+    # A review-driven PR can complete two work records; declaring BOTH passes.
     first, second = "BOARD-104", "BOARD-105"
     base = pr_ticket_base(repo, first, second)
     complete_story(repo, first)
@@ -5231,7 +5232,24 @@ def test_check_pr_ticket_fails_two_resolved_records(repo):
         repo, base, f"feat/{first}-gate-a", f"Ticket: {second}\n",
     )
 
-    assert code != 0 and "2 work records resolve" in out, out
+    assert code == 0, out
+    assert f"story {first}" in out and f"story {second}" in out, out
+
+
+def test_check_pr_ticket_fails_when_a_completed_record_is_undeclared(repo):
+    # Two records complete, only one declared -> fail. Closes the declare-1-of-N
+    # loophole: every completed record must be named, not just one.
+    first, second = "BOARD-108", "BOARD-109"
+    base = pr_ticket_base(repo, first, second)
+    complete_story(repo, first)
+    complete_story(repo, second)
+    git(repo, "add", "plans/roadmap.json", ".factory/history")
+    git(repo, "commit", "-q", "-m", "complete two stories")
+
+    code, out = check_pr_ticket(repo, base, f"feat/{first}-gate-a")  # only first declared
+
+    assert code != 0, out
+    assert "must be declared" in out and second in out, out
 
 
 # -------------------------------------------------- Gate B: board completeness
