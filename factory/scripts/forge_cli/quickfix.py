@@ -148,16 +148,7 @@ def cmd_done(args: argparse.Namespace) -> None:
         fail("no quickfix is open")
     if profile_of(active) != QUICKFIX:
         fail("a lite window is open — finish it with `./forge mode done`")
-    # The window pins the repo kind so marker deletion mid-window can't escape the
-    # budget — but that protection must be durable: if a harness-pinned window
-    # ends with the marker gone, closing it would flip the repo to client-mode
-    # permanently (every later factory/ write then bypasses the lock). Refuse to
-    # close until the marker is restored, so the pin cannot be laundered away.
-    if active.get("harness_source") and not is_harness_source_repo(base):
-        fail("this window was opened as the harness source repo, but "
-             ".factory/harness-source.json is now missing — restore it before "
-             "closing, or the repo would silently become a client and unlock all "
-             "machinery.")
+    _require_harness_marker(base, active)
     event = {
         "event": "done",
         "id": active["id"],
@@ -171,6 +162,43 @@ def cmd_done(args: argparse.Namespace) -> None:
     quickfix_path(base).unlink()
     print(f"Quickfix {active['id']} done ({len(event['files'])} file(s)): "
           f"{active['reason']}")
+
+
+def _require_harness_marker(base: Path, active: dict) -> None:
+    """Keep a harness-pinned window from laundering marker deletion."""
+    if active.get("harness_source") and not is_harness_source_repo(base):
+        fail("this window was opened as the harness source repo, but "
+             ".factory/harness-source.json is now missing — restore it before "
+             "closing, or the repo would silently become a client and unlock all "
+             "machinery.")
+
+
+def cmd_mode_abandon(args: argparse.Namespace) -> None:
+    """Close a crashed mode window without claiming completion."""
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    active = load_active(base)
+    if not active:
+        fail("no mode window is open")
+    reason = args.reason.strip()
+    if not reason:
+        fail("abandoning a mode window needs --reason")
+    _require_harness_marker(base, active)
+    event = {
+        "event": "abandoned",
+        "id": active["id"],
+        "profile": profile_of(active),
+        "reason": reason,
+        "opened_reason": active["reason"],
+        "started_at": active["started_at"],
+        "completed_at": now_iso(),
+        "files": active.get("files", []),
+    }
+    for field in ("by", "base_sha"):
+        if field in active:
+            event[field] = active[field]
+    _append(base, event)
+    quickfix_path(base).unlink()
+    print(f"Mode window {active['id']} abandoned: {reason}")
 
 
 def cmd_mode_done(args: argparse.Namespace) -> None:
@@ -267,15 +295,17 @@ def cmd_list(args: argparse.Namespace) -> None:
     if active and profile_of(active) == QUICKFIX:
         print(f"[OPEN] {active['id']} {len(active.get('files', []))}/"
               f"{active.get('max_files', MAX_FILES)} — {active['reason']}")
-    closures = {event["id"] for event in events if event.get("event") == "done"}
+    closures = {
+        event["id"]: event
+        for event in events if event.get("event") in {"done", "abandoned"}
+    }
     for event in events:
         if (event.get("event") != "open" or event["id"] not in closures
                 or profile_of(event) != QUICKFIX):
             continue
-        done = next(item for item in events
-                    if item.get("event") == "done" and item["id"] == event["id"])
-        print(f"[done] {event['id']} {len(done.get('files', []))} file(s) — "
-              f"{event['reason']}")
+        closure = closures[event["id"]]
+        print(f"[{closure['event']}] {event['id']} "
+              f"{len(closure.get('files', []))} file(s) — {closure['reason']}")
     if not any(profile_of(event) == QUICKFIX for event in events):
         print("No quickfixes recorded.")
 
@@ -288,13 +318,15 @@ def cmd_mode_list(args: argparse.Namespace) -> None:
         profile = profile_of(active).upper()
         print(f"[OPEN {profile}] {active['id']} {len(active.get('files', []))}/"
               f"{active.get('max_files', MAX_FILES)} — {active['reason']}")
-    closures = {event["id"] for event in events if event.get("event") == "done"}
+    closures = {
+        event["id"]: event
+        for event in events if event.get("event") in {"done", "abandoned"}
+    }
     for event in events:
         if event.get("event") != "open" or event["id"] not in closures:
             continue
-        done = next(item for item in events
-                    if item.get("event") == "done" and item["id"] == event["id"])
-        print(f"[done {profile_of(event)}] {event['id']} "
-              f"{len(done.get('files', []))} file(s) — {event['reason']}")
+        closure = closures[event["id"]]
+        print(f"[{closure['event']} {profile_of(event)}] {event['id']} "
+              f"{len(closure.get('files', []))} file(s) — {closure['reason']}")
     if not active and not events:
         print("No mode windows recorded.")

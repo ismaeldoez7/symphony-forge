@@ -4,7 +4,11 @@
     {
       "id": "FORGE-BOARD-7.1",
       "title": "three hygiene primitives",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-09T03:32:56+00:00",
+      "base_sha": "64546650375844adaf28406746693e2aabaeeff0",
+      "dirty_at_start": {},
+      "task_sha256": "ff86936c41ea6c973c1c5d75078ccacb94c96bd34fd9a1e68142c233e13529f4"
     },
     {
       "id": "FORGE-BOARD-7.2",

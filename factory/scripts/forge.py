@@ -159,6 +159,11 @@ def main() -> None:
     p_md = mode_sub.add_parser("done", help="close the active workflow mode window")
     p_md.add_argument("--repo")
     p_md.set_defaults(func=quickfix_mod.cmd_mode_done)
+    p_ma = mode_sub.add_parser(
+        "abandon", help="close a crashed workflow mode window without claiming completion")
+    p_ma.add_argument("--reason", required=True, help="why the window cannot be completed")
+    p_ma.add_argument("--repo")
+    p_ma.set_defaults(func=quickfix_mod.cmd_mode_abandon)
 
     p_fix = sub.add_parser("fix", help="launch a bounded fix in an open lite window")
     p_fix.add_argument("description")

@@ -1407,6 +1407,25 @@ def test_intake_preserves_signoff_and_refuses_to_clobber_evidence(repo, tmp_path
     assert not (repo / ".factory" / "decomposition.json").exists()
 
 
+def test_stale_task_state_reports_not_clears(repo):
+    from intake import stale_task_state
+
+    stale = [
+        repo / ".factory" / "decomposition.json",
+        repo / ".factory" / "verify.json",
+        repo / ".factory" / "reviews" / "quality.json",
+    ]
+    for path in stale:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('{"evidence": true}\n')
+    before = {path: path.read_bytes() for path in stale}
+
+    reported = stale_task_state(repo)
+
+    assert set(reported) == set(stale)
+    assert {path: path.read_bytes() for path in stale} == before
+
+
 def test_intake_after_ship_needs_no_discard(repo, tmp_path):
     """pr_ready writes phase 'shipped' after archiving; intake must read that
     as archived. Otherwise the next intake demands --discard-active, which
@@ -3358,6 +3377,31 @@ def test_assumptions_ledger_gates_pr_ready(repo, tmp_path):
 
 # --------------------------------------------------------------- repo hygiene
 
+def test_secret_cruft_scan_repo_wide(repo):
+    from forge_cli.sanitise import secret_cruft_findings
+
+    source = repo / "src" / "credentials.py"
+    source.parent.mkdir()
+    source.write_text('API_KEY = "sk-' + ('x' * 24) + '"\n')
+    git(repo, "add", "src/credentials.py")
+    ds_store = repo / ".DS_Store"
+    ds_store.write_bytes(b"finder noise\n")
+    factory_junk = repo / ".factory" / "orphan.tmp.json"
+    factory_junk.write_text("{}\n")
+    before = {
+        path: path.read_bytes() for path in (source, ds_store, factory_junk)
+    }
+
+    findings = secret_cruft_findings(repo)
+
+    assert any(item.startswith("src/credentials.py: line 1: API secret key")
+               for item in findings["secrets"])
+    assert findings["untracked_droppings"] == [
+        ".DS_Store", ".factory/orphan.tmp.json",
+    ]
+    assert {path: path.read_bytes() for path in before} == before
+
+
 def test_context_scan_refuses_secrets_and_oversized_files(repo):
     inbox = repo / "docs" / "context"
     (inbox / "client-email.txt").write_text(
@@ -4271,6 +4315,46 @@ def test_mode_lite_opens_window_with_profile_and_base_sha(repo):
 
     code, out = run(repo, "forge.py", "mode", "full")
     assert code != 0 and "invalid choice" in out
+
+
+def test_mode_abandon_closes_crashed_window(repo):
+    active = open_lite(repo)
+    (repo / "src").mkdir()
+    crashed_change = repo / "src" / "crashed.py"
+    crashed_change.write_text("unfinished = True\n")
+    partial_reviews = repo / ".factory" / "reviews"
+    partial_reviews.mkdir(exist_ok=True)
+    (partial_reviews / "quality.json").write_text("{}\n")
+
+    code, out = run(repo, "forge.py", "mode", "done")
+    assert code != 0 and "commit the fix first" in out, out
+
+    code, out = run(
+        repo, "forge.py", "mode", "abandon", "--reason", "worker crashed",
+    )
+    assert code == 0 and active["id"] in out and "worker crashed" in out, out
+    assert not (repo / ".factory" / "quickfix.json").exists()
+    assert crashed_change.read_text() == "unfinished = True\n"
+    assert (partial_reviews / "quality.json").exists()
+
+    abandoned = [
+        json.loads(path.read_text())
+        for path in (repo / "plans" / "quickfixes").glob("*.json")
+        if json.loads(path.read_text()).get("event") == "abandoned"
+    ]
+    assert len(abandoned) == 1
+    assert abandoned[0]["id"] == active["id"]
+    assert abandoned[0]["profile"] == "lite"
+    assert abandoned[0]["reason"] == "worker crashed"
+    assert abandoned[0]["opened_reason"] == "ship a bounded change"
+
+    code, out = run(repo, "forge.py", "mode", "list")
+    assert code == 0 and "[abandoned lite]" in out and "worker crashed" in out, out
+
+    code, out = run(
+        repo, "forge.py", "mode", "abandon", "--reason", "already closed",
+    )
+    assert code != 0 and "no mode window is open" in out, out
 
 
 def test_mode_done_refuses_dirty_product_tree(repo):
