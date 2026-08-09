@@ -99,32 +99,44 @@ def main() -> int:
     }
     completed_window_ids = completed_windows(root, added)
 
-    resolved = {
-        ("story", candidate)
-        for candidate in candidates
-        if candidate in completed_stories
-    } | {
-        ("window", candidate)
-        for candidate in candidates
-        if candidate in completed_window_ids
-    }
+    # A PR must declare EVERY work record it completes — not exactly one. A
+    # single review-driven effort legitimately spans more than one window (do
+    # the work, close it, review, reopen a window to apply the fixes), and every
+    # such window must be accounted for, not just one with the rest left
+    # undeclared. Declaring all of them keeps the PR fully traceable.
+    completed = (
+        {("story", key) for key in completed_stories}
+        | {("window", wid) for wid in completed_window_ids}
+    )
+    undeclared = {(kind, key) for kind, key in completed if key not in candidates}
 
-    if len(resolved) != 1:
+    if not completed:
+        print(
+            "PR ticket check FAILED: no completed work record in "
+            f"{args.base}..HEAD — a PR must complete a roadmap story (done-flip "
+            "with added history) or a work window (added done record)."
+        )
+        return 1
+    if undeclared:
+        missing = ", ".join(f"{kind}:{key}" for kind, key in sorted(undeclared))
         if not candidates:
-            print("PR ticket check FAILED: no ticket was found in the branch or PR body.")
-        elif not resolved:
             print(
-                "PR ticket check FAILED: no ticket resolves; the ticket must "
-                "resolve to a story done-flip or addition, with added history, "
-                "or to an added window done record."
+                "PR ticket check FAILED: no ticket was found in the branch or PR "
+                f"body. Declare every completed work record: {missing}."
             )
         else:
-            names = ", ".join(f"{kind}:{key}" for kind, key in sorted(resolved))
-            print(f"PR ticket check FAILED: {len(resolved)} work records resolve: {names}.")
+            print(
+                "PR ticket check FAILED: every completed work record must be "
+                f"declared, but these are not: {missing}. Add a `Ticket:` line "
+                "for each (or a feat/<key>- branch)."
+            )
         return 1
 
-    kind, key = next(iter(resolved))
-    print(f"PR ticket check OK: {kind} {key} is complete in {args.base}..HEAD.")
+    names = ", ".join(f"{kind} {key}" for kind, key in sorted(completed))
+    print(
+        f"PR ticket check OK: {len(completed)} work record(s) complete and "
+        f"declared in {args.base}..HEAD: {names}."
+    )
     return 0
 
 
