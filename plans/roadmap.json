@@ -418,9 +418,9 @@
       "title": "knacklabs-sanitise-project skill (deterministic repo hygiene)",
       "story": "As a dev or CI, I run one deterministic sanitise that keeps the client repo canonical (health, roadmap drift, orphaned windows, stale task state, board completeness + PR-links, secrets/cruft), fixing what is mechanically fixable and reporting the rest without ever fabricating, so a vendored client cannot silently rot.",
       "acceptance_criteria": [
-        "A deterministic sanitise (a forge command composing doctor/roadmap heal/project audit + orphaned-window and stale-task-state cleanup + a cruft scan) fixes what is mechanically fixable and REPORTS the rest; it is runnable on demand and in CI and exits nonzero iff unresolved issues remain.",
+        "A deterministic sanitise (a forge command composing doctor/roadmap heal/project audit + orphaned-window and stale-task-state detection + a cruft scan) fixes what is mechanically fixable and REPORTS the rest; it is runnable on demand and in CI and exits nonzero iff unresolved issues remain.",
         "It never fabricates records (no synthesized outcomes/pr-links); every action is an existing-or-added deterministic command, not a judgement call.",
-        "Orphaned mode/quickfix windows and stale task-scoped .factory state (from a crash, not a ship) are detected and safely cleared/closed; board completeness + PR-linkage are verified via forge project audit.",
+        "Orphaned mode/quickfix windows and stale task-scoped .factory state (from a crash, not a ship) are detected and REPORTED (clearing stays the human-gated intake --discard-active / mode abandon); board completeness + PR-linkage are verified via forge project audit.",
         "A knacklabs-sanitise-project skill wraps the command as the dev-facing entrypoint, registered in setup (installs to both runtimes)."
       ],
       "order": 19,

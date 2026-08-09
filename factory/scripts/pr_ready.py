@@ -289,6 +289,13 @@ plan_grill = root / ".factory" / "grills" / "plan.json"
 if plan_grill.exists():
     (history / "grills").mkdir(exist_ok=True)
     shutil.copy2(plan_grill, history / "grills" / "plan.json")
+# Task grills are task-scoped like plan.json (the JIT per-task grill, 0032/0025):
+# archive the whole tasks/ dir so a story's per-task interrogation is preserved,
+# not cleaned away. (D-0013.)
+task_grills = root / ".factory" / "grills" / "tasks"
+if task_grills.is_dir() and any(task_grills.iterdir()):
+    (history / "grills").mkdir(exist_ok=True)
+    shutil.copytree(task_grills, history / "grills" / "tasks", dirs_exist_ok=True)
 # Recorded before the archive below, or the ship event is left behind.
 append_event(root, "shipped", actor="orchestrator", story=issue_key,
              detail=(outcome_record or {}).get("outcome", "")[:200])
@@ -325,6 +332,9 @@ for artifact in (decomposition_state_path(root), verify_state_path(root),
         artifact.unlink()
 if review_dir(root).is_dir():
     shutil.rmtree(review_dir(root))
+task_grills_dir = root / ".factory" / "grills" / "tasks"
+if task_grills_dir.is_dir():
+    shutil.rmtree(task_grills_dir)  # archived above (D-0013)
 # STABLE content only: no per-task fields, no timestamps — two story
 # branches shipping in parallel write byte-identical run.json.
 project_state = {

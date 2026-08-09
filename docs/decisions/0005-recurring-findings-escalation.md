@@ -40,3 +40,7 @@ unrelated ship hostage.
 - The escalation consumes roadmap capacity deliberately (a refactor story)
   instead of invisibly (endless per-task fixes).
 - Doctrine lives in WORKFLOW.md "Recurring Findings — a design signal".
+- Provenance-note categories are NOT defect classes and do not escalate:
+  `reviewed-separately` records that an artifact's code changed after the review
+  was recorded (a review-vs-code timing note, not a defect), so its recurrence
+  is expected and routes to no consolidation.

@@ -3,7 +3,8 @@
   "lesson": "Never pipe a gating command through tail/grep inside an && chain \u2014 the shell reports the pipe's LAST command, so a red suite reads as green. Second occurrence this session. Redirect to a file and test the command's own exit code.",
   "source": "session 2026-08-05: pushed a red suite to origin/main",
   "applies_to": [
-    "any gating command: pytest, verify.py, pr_ready"
+    "factory/scripts/verify.py",
+    "factory/scripts/pr_ready.py"
   ],
   "severity": "high",
   "generated_by": "orchestrator",

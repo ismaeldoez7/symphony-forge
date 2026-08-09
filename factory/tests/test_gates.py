@@ -435,6 +435,10 @@ def test_full_lifecycle_and_archive(repo, tmp_path):
                     stdin=json.dumps(DECOMP))
     assert code == 0, out
     write_passing_artifacts(repo)
+    # D-0013: a per-task grill must be archived into history like plan.json.
+    task_grills = repo / ".factory" / "grills" / "tasks"
+    task_grills.mkdir(parents=True, exist_ok=True)
+    (task_grills / "ENG-1.1.json").write_text('{"gate": "task", "verdict": "pass"}\n')
     code, out = run(repo, "update_run.py", "--decomposition-status", "recorded")
     assert code == 0, out
     code, out = run(repo, "pr_ready.py")
@@ -456,6 +460,9 @@ def test_full_lifecycle_and_archive(repo, tmp_path):
         assert not (repo / ".factory" / name).exists()
     assert not (repo / ".factory" / "reviews").exists()
     assert not (repo / ".factory" / "grills" / "plan.json").exists()
+    # D-0013: task grills archived into history, then removed from the live tree.
+    assert (history / "grills" / "tasks" / "ENG-1.1.json").exists()
+    assert not (repo / ".factory" / "grills" / "tasks").exists()
     live = run_state(repo)
     assert live["phase"] == "shipped" and signed_off(repo)
     assert "client_signoff" not in live  # derived from harness.yaml, never stored
@@ -5407,6 +5414,56 @@ def test_project_backfill_unique_match_still_links(repo):
              if event.get("event") == "pr-linked" and event.get("story") == key]
     assert counts["linked"] == 1
     assert [event["detail"] for event in links] == [pr["url"]]
+
+
+def test_project_backfill_matches_pr_by_body(repo):
+    # D-0014: a PR whose title/branch don't match but whose BODY names the key.
+    key = "BOARD-212"
+    pr = {
+        "number": 24,
+        "title": "chore: archive completed work",
+        "url": "https://github.com/acme/widgets/pull/24",
+        "headRefName": "chore/cleanup",
+        "body": f"Archives the completed {key} story.",
+    }
+    counts = _backfill_done_story(repo, key, [pr])
+    links = [e for e in _backfill_events(repo)
+             if e.get("event") == "pr-linked" and e.get("story") == key]
+    assert counts["linked"] == 1
+    assert [e["detail"] for e in links] == [pr["url"]]
+
+
+def test_project_backfill_body_match_respects_word_boundary(repo):
+    # BOARD-21 must NOT match a body that only names BOARD-210.
+    key = "BOARD-21"
+    pr = {
+        "number": 25,
+        "title": "chore: cleanup",
+        "url": "https://github.com/acme/widgets/pull/25",
+        "headRefName": "chore/x",
+        "body": "Relates to BOARD-210 only.",
+    }
+    counts = _backfill_done_story(repo, key, [pr])
+    assert counts["linked"] == 0
+
+
+def test_project_backfill_body_mentions_are_ambiguous_not_guessed(repo, capsys):
+    # D-0014's body match is best-effort: two PRs that both MENTION the key (an
+    # implementer and, say, a revert) collapse to ambiguous and link neither, so
+    # a non-owning mention cannot silently become the story's shipping provenance.
+    key = "BOARD-213"
+    prs = [
+        {"number": 30, "title": "chore: work", "headRefName": "chore/a",
+         "url": "https://github.com/acme/widgets/pull/30", "body": f"Implements {key}."},
+        {"number": 31, "title": "chore: revert", "headRefName": "chore/b",
+         "url": "https://github.com/acme/widgets/pull/31", "body": f"Reverts {key}."},
+    ]
+    counts = _backfill_done_story(repo, key, prs)
+    out = capsys.readouterr().out
+    assert counts["linked"] == 0 and counts["ambiguous"] == 1
+    assert "ambiguous" in out
+    assert [e for e in _backfill_events(repo)
+            if e.get("event") == "pr-linked" and e.get("story") == key] == []
 
 
 def test_project_backfill_zero_match_does_not_predate(repo, capsys):
