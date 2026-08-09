@@ -715,3 +715,7 @@
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-09T03:48:13+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.2 (write)"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-09T03:48:28+00:00", "story": "FORGE-BOARD-7", "detail": "3 task(s)"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-09T03:56:18+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.2 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-09T04:07:28+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.2: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-09T04:07:28+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.2 forge sanitise command"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-09T04:07:49+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.3 skill + update-triggered cadence + docs"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-09T04:14:39+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7.3 (write)"}

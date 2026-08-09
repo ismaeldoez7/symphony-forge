@@ -106,6 +106,32 @@ def test_upgrade_project_skill_uses_fill_not_import():
     assert "Never select or rewrite a completed" in skill
 
 
+def test_sanitise_skill_structure_and_registration():
+    skill_path = (
+        HARNESS / "install" / "claude" / "knacklabs-sanitise-project" / "SKILL.md"
+    )
+    skill = skill_path.read_text()
+    setup = (HARNESS / "setup").read_text()
+
+    assert skill_path.is_file()
+    assert "name: knacklabs-sanitise-project" in skill
+    assert '"$TARGET/forge" sanitise --check --repo "$TARGET"' in skill
+    assert '"$TARGET/forge" sanitise --repo "$TARGET"' in skill
+    assert "on-demand maintenance action" in skill
+    for resolve_command in (
+        '"$TARGET/forge" pr-link',
+        '"$TARGET/forge" project mark-predates',
+        '"$TARGET/forge" roadmap fill',
+        "--discard-active",
+        '"$TARGET/forge" mode abandon',
+    ):
+        assert resolve_command in skill
+    assert '"$HOME/.claude/skills"' in setup
+    assert '"$HOME/.codex/skills"' in setup
+    bootstrap_loop = re.search(r"for SKILL in ([^;]+); do", setup)
+    assert bootstrap_loop
+    assert "knacklabs-sanitise-project" in bootstrap_loop.group(1).split()
+
 
 def jsonl_append_rules(attributes: str) -> list[str]:
     """Rule lines still routing through the hanging per-clone driver.
@@ -5465,6 +5491,17 @@ def test_harness_health_runs_project_audit_without_backfill():
     assert "python3 factory/scripts/forge.py project audit" in workflow
     assert "project_rc" in workflow
     assert "project backfill" not in workflow
+
+
+def test_harness_health_has_no_daily_cron():
+    workflow = (HARNESS / ".github" / "workflows" / "harness-health.yml").read_text()
+
+    assert "schedule:" not in workflow
+    assert "cron:" not in workflow
+    assert "workflow_dispatch:" in workflow
+    assert "push:" in workflow
+    assert "branches: [main]" in workflow
+    assert "if: steps.staleness.outputs.behind == '1'" in workflow
 
 
 # ------------------------------------------------------------ parallelization
