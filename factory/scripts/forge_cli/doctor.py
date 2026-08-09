@@ -235,7 +235,16 @@ def fast_status(home: Path | None = None) -> tuple[list[str], list[str]]:
 
 
 def _github_slug(repo: str | None = None) -> str:
-    code, out = run_quiet(["git", "remote", "get-url", "origin"], cwd=repo)
+    # Inline (not run_quiet) so the branch-protection lookup can target the
+    # --repo checkout via cwd rather than the process's working directory.
+    try:
+        proc = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=15, cwd=repo,
+        )
+        code, out = proc.returncode, (proc.stdout + proc.stderr).strip()
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        code, out = 1, str(exc)
     if code != 0:
         return ""
     url = out.strip()
