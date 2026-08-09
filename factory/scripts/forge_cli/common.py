@@ -9,9 +9,10 @@ def fail(msg: str) -> None:
     sys.exit(1)
 
 
-def run_quiet(cmd: list[str]) -> tuple[int, str]:
+def run_quiet(cmd: list[str], cwd: str | None = None) -> tuple[int, str]:
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15,
+                              cwd=cwd)
         return proc.returncode, (proc.stdout + proc.stderr).strip()
     except (OSError, subprocess.TimeoutExpired) as exc:
         return 1, str(exc)

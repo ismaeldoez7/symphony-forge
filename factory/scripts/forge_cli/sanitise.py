@@ -76,9 +76,12 @@ def _roadmap_drift(base: Path) -> bool:
     if not path.exists():
         return False
     try:
-        items = json.loads(path.read_text()).get("items", [])
-    except (json.JSONDecodeError, AttributeError):
-        return True
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return False  # malformed JSON: surfaced by project_gaps, never auto-healed
+    items = data.get("items") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        return False  # unexpected shape: report via project_gaps, never heal garbage
     _, duplicates = roadmap.heal_items(items)
     return duplicates > 0
 
@@ -140,7 +143,7 @@ def cmd_sanitise(args: argparse.Namespace) -> None:
 
     try:
         gaps = project.project_gaps(base)
-    except (json.JSONDecodeError, SystemExit) as exc:
+    except (json.JSONDecodeError, SystemExit, TypeError, AttributeError, KeyError) as exc:
         gaps = []
         unresolved.append(("board-audit", str(exc)))
     for gap in gaps:
@@ -177,7 +180,10 @@ def cmd_sanitise(args: argparse.Namespace) -> None:
     for kind, detail in unresolved:
         status = "ISSUE" if check else "UNRESOLVED"
         print(f"- [{status}] [{kind}] {detail}")
-    if doctor_lines:
+    if doctor_failed:
+        # Advisories (doctor exit 0) are informational, not issues: surface the
+        # full doctor detail only when doctor actually failed, so --check does
+        # not dump a scary report and then exit 0.
         print("- [doctor-report]")
         for line in doctor_lines:
             print(f"    {line}")

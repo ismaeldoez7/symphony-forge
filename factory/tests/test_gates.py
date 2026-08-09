@@ -3536,6 +3536,65 @@ def test_sanitise_never_deletes_task_evidence(repo, monkeypatch):
     assert {path: path.read_bytes() for path in evidence} == before
 
 
+def test_sanitise_check_writes_no_bytecode(repo):
+    # Regression: the in-process tests above import forge_cli before running, so
+    # they cannot see that a SUBPROCESS `forge sanitise --check` used to write
+    # __pycache__/*.pyc during import and then report it as its own cruft. Run it
+    # through forge.py and assert the tree gains no bytecode (read-only contract).
+    ensure_story(repo, "SAN-1", "Sanitise")
+    before = set(repo.rglob("*.pyc")) | set(repo.rglob("__pycache__"))
+    before_status = git(repo, "status", "--porcelain=v1", "-uall")
+    run(repo, "forge.py", "sanitise", "--check")
+    after = set(repo.rglob("*.pyc")) | set(repo.rglob("__pycache__"))
+    assert after == before, f"--check wrote bytecode: {sorted(after - before)}"
+    assert git(repo, "status", "--porcelain=v1", "-uall") == before_status
+
+
+def test_sanitise_survives_malformed_roadmap(repo, monkeypatch):
+    from forge_cli import doctor, sanitise
+
+    monkeypatch.setattr(doctor, "cmd_doctor", lambda _a: print("forge doctor: ready"))
+    roadmap_path = repo / "plans" / "roadmap.json"
+    for bad in ('{"items": null}', "[]", '{"items": {"a": 1}}', "{}"):
+        roadmap_path.write_text(bad)
+        # Malformed roadmap must be REPORTED, never crash sanitise with an
+        # AttributeError/TypeError/KeyError. A clean SystemExit (issues) is fine.
+        try:
+            sanitise.cmd_sanitise(argparse.Namespace(repo=str(repo), check=True))
+        except SystemExit:
+            pass
+
+
+def test_sanitise_never_prints_secret_value(repo, monkeypatch, capsys):
+    from forge_cli import doctor, sanitise
+
+    monkeypatch.setattr(doctor, "cmd_doctor", lambda _a: print("forge doctor: ready"))
+    secret_value = "sk-" + "z" * 24
+    (repo / "src").mkdir(exist_ok=True)
+    leak = repo / "src" / "leak.py"
+    leak.write_text(f'API_KEY = "{secret_value}"\n')
+    git(repo, "add", str(leak))
+
+    with pytest.raises(SystemExit):
+        sanitise.cmd_sanitise(argparse.Namespace(repo=str(repo), check=True))
+
+    out = capsys.readouterr().out
+    assert "[secret]" in out and "src/leak.py" in out
+    assert secret_value not in out  # label + line only, never the secret value
+
+
+def test_doctor_github_slug_respects_repo_target(tmp_path):
+    # Regression for --repo threading: the branch-protection slug lookup must read
+    # the TARGET repo's origin remote, not the current working directory's.
+    from forge_cli import doctor
+
+    other = tmp_path / "client"
+    other.mkdir()
+    git(other, "init", "-q")
+    git(other, "remote", "add", "origin", "https://github.com/acme/widget.git")
+    assert doctor._github_slug(str(other)) == "acme/widget"
+
+
 def test_context_scan_refuses_secrets_and_oversized_files(repo):
     inbox = repo / "docs" / "context"
     (inbox / "client-email.txt").write_text(

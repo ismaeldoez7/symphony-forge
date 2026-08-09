@@ -8,6 +8,14 @@ argument wiring only.
 """
 from __future__ import annotations
 
+import sys
+
+# Read-only commands (e.g. `forge sanitise --check`) must not mutate the tree.
+# Importing submodules would otherwise write __pycache__/*.pyc, which both
+# breaks the read-only contract and gets reported as untracked cruft by the
+# very command that triggered it. Set this before any local import.
+sys.dont_write_bytecode = True
+
 import argparse
 
 from forge_cli import adopt as adopt_mod

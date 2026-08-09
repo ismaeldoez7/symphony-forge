@@ -44,7 +44,9 @@ Use the command that matches each reported item:
   `"$TARGET/forge" roadmap fill "$STORY" --story "$USER_STORY" --ac "$CRITERION" --skill "$SKILL" --epic "$EPIC" --spec "$CONFIRMED_SPEC" --repo "$TARGET"`.
 - Only when the user confirms stale task evidence can be abandoned, start the
   replacement task with
-  `python3 "$TARGET/factory/scripts/intake.py" --issue "$ISSUE" --title "$TITLE" --discard-active`.
+  `cd "$TARGET" && python3 factory/scripts/intake.py --issue "$ISSUE" --title "$TITLE" --discard-active`.
+  `intake.py` resolves the repo from the working directory, so this destructive
+  step MUST run from inside `$TARGET` — never from the harness or another repo.
 - Close a crashed developer window with
   `"$TARGET/forge" mode abandon --reason "$REASON" --repo "$TARGET"`.
 
