@@ -1,0 +1,20 @@
+{
+  "issue": "FORGE-BOARD-7",
+  "stages": [
+    {
+      "id": "FORGE-BOARD-7.1",
+      "title": "three hygiene primitives",
+      "status": "pending"
+    },
+    {
+      "id": "FORGE-BOARD-7.2",
+      "title": "forge sanitise command",
+      "status": "pending"
+    },
+    {
+      "id": "FORGE-BOARD-7.3",
+      "title": "skill + update-triggered cadence + docs",
+      "status": "pending"
+    }
+  ]
+}

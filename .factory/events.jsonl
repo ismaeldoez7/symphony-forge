@@ -704,3 +704,5 @@
 {"event": "intake", "generated_by": "orchestrator", "at": "2026-08-09T03:17:43+00:00", "story": "FORGE-BOARD-7", "detail": "knacklabs-sanitise-project skill (deterministic repo hygiene)"}
 {"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-09T03:31:09+00:00", "story": "FORGE-BOARD-7", "detail": "FORGE-BOARD-7 approved by vrknetha"}
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-09T03:31:09+00:00", "story": "FORGE-BOARD-7", "detail": "plans/active/FORGE-BOARD-7-knacklabs-sanitise-project-skill-deterministic-repo-hygiene.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-09T03:32:39+00:00", "story": "FORGE-BOARD-7", "detail": "3 task(s)"}
+{"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-09T03:32:39+00:00", "story": "FORGE-BOARD-7"}
