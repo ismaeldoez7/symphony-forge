@@ -58,7 +58,7 @@ def _github_merge_records(base: Path) -> list[dict]:
         proc = subprocess.run(
             [
                 "gh", "pr", "list", "--state", "merged", "--limit", "10000",
-                "--json", "number,title,url,headRefName",
+                "--json", "number,title,url,headRefName,body",
             ],
             cwd=base,
             capture_output=True,
@@ -159,14 +159,20 @@ def _reconstruct_card(base: Path, item: dict) -> bool:
 
 def _matches(key: str, records: list[dict]) -> list[dict]:
     branch = re.compile(rf"^(?:feat|fix)/{re.escape(key)}-")
+    # A non-conventional PR (title/branch don't match) can still name the story
+    # key in its BODY — recover those deterministically (D-0014). Word-boundary
+    # so FORGE-BOARD-1 does not match FORGE-BOARD-10.
+    body_ref = re.compile(rf"\b{re.escape(key)}\b")
     found = []
     seen = set()
     for record in records:
         title = record.get("title")
         head = record.get("headRefName")
+        body = record.get("body")
         if not (
             isinstance(title, str) and title.startswith(key)
             or isinstance(head, str) and branch.match(head)
+            or isinstance(body, str) and body_ref.search(body)
         ):
             continue
         identity = record.get("url") or record.get("number")
