@@ -3053,6 +3053,13 @@ def test_adopt_refuses_a_symlinked_ancestor_and_leaves_the_target_clean(
 
 # ------------------------------------------------------- project-local gstack
 
+def test_pr_link_commit_skips_ci():
+    # D-0017: without [skip ci], the bot-attributed synchronize wave is held
+    # action_required and strands the PR's checks behind a manual re-trigger.
+    workflow = (HARNESS / ".github" / "workflows" / "pr-link.yml").read_text()
+    assert "[skip ci]" in workflow.split("git commit -m")[1].splitlines()[0]
+
+
 def test_scaffold_delivers_factory_workflows(repo):
     # forge init vendors the harness factory workflows (by allowlist, not by
     # copying the whole .github tree).
