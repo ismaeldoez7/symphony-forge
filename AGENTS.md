@@ -101,8 +101,8 @@ A task is not PR-ready until all of these exist:
 - The planning lock is always armed: use plan mode or a bounded, ledgered quickfix.
 - Do not decompose by document file or arbitrary file count.
 - Do not bypass `verify.py` with ad hoc validation commands.
-- Evidence enters `.factory/` only via a recording command validating
-  `factory/schemas/` (incl. a pinned `generated_by`) — never by hand.
+- Evidence enters `.factory/` only via schema-validated recorders (pinned `generated_by`), never by hand.
+- Narration budget (conduct §8): one line per state change; findings always; process chatter never.
 - Review = ONE autoreview pass run by the orchestrating session directly —
   never a Codex review job (decision 0011), never nested reviewers.
 - One worktree/story; sequential tasks; dependency-ready stories may parallelize (0002). Delegation/proof commands are trusted inputs; observed descendant cleanup is not hostile-code containment.
