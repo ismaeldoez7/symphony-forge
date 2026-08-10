@@ -25,6 +25,8 @@ For EACH pending file, in order:
    `... mark <file> --ignored --notes "<why>"`.
 
 Rules:
+- One line per file processed (conduct §8); the harvest artifacts carry the
+  detail, not the narration.
 - Never delete or edit files under `docs/context/` — they are the raw record.
 - Never mark harvested without outputs; never fabricate a "why" the source
   does not state (quote or paraphrase the source, cite it).

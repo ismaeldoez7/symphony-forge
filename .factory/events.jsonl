@@ -806,3 +806,4 @@
 {"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-10T15:28:19+00:00", "story": "FORGE-TERSE-2", "detail": "FORGE-TERSE-2 approved by Ravi"}
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-10T15:28:19+00:00", "story": "FORGE-TERSE-2", "detail": "plans/active/FORGE-TERSE-2-narration-budget-in-the-constitution-prompt-pointers.md"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-10T15:28:49+00:00", "story": "FORGE-TERSE-2", "detail": "1 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-10T15:28:49+00:00", "story": "FORGE-TERSE-2", "detail": "FORGE-TERSE-2.1 Conduct section 8 + AGENTS.md non-negotiable + prompt clauses"}

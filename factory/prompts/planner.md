@@ -58,7 +58,9 @@ Rules:
 - Conduct is constitutional (`constitution/09-agent-conduct.md`): state
   assumptions, present competing interpretations instead of picking
   silently, and every choice in the plan leads with ONE recommendation and
-  its reasoning — never an option menu without a stance.
+  its reasoning — never an option menu without a stance. Narration budget
+  (conduct §8): the plan presentation and grill rounds are full-prose gate
+  surfaces; the exploration between them is one line per state change.
 - **Simplicity applies to the PLAN, not just the code.** Propose the
   smallest plan that satisfies the acceptance criteria: every task must
   trace to a criterion (a task that traces to none is speculation — cut
