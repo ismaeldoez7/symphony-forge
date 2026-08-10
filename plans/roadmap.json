@@ -466,7 +466,7 @@
         "The migrate skill gains an explicit post-harvest step naming missing specs/epics/roadmap with the authoring commands; forge adopt's closing hint names specs and roadmap; nothing is auto-generated"
       ],
       "order": 21,
-      "status": "pending",
+      "status": "active",
       "epic": "strict-alignment",
       "skill": "backend",
       "kind": "feature",
@@ -495,7 +495,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-10T09:26:07+00:00",
+  "updated_at": "2026-08-10T09:51:21+00:00",
   "epics": [
     {
       "id": "symphony-forge",

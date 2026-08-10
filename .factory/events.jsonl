@@ -751,3 +751,8 @@
 {"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-10T10:08:02+00:00", "story": "FORGE-ALIGN-2", "detail": "FORGE-ALIGN-2 approved by Ravi"}
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-10T10:08:02+00:00", "story": "FORGE-ALIGN-2", "detail": "plans/active/FORGE-ALIGN-2-emptiness-and-coverage-are-audit-failures.md"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-10T10:08:30+00:00", "story": "FORGE-ALIGN-2", "detail": "1 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-10T10:09:03+00:00", "story": "FORGE-ALIGN-2", "detail": "FORGE-ALIGN-2.1 Emptiness and coverage become audit failures"}
+{"event": "signal-contradiction", "generated_by": "implementer", "at": "2026-08-10T10:12:04+00:00", "story": "FORGE-ALIGN-2", "detail": "FORGE-ALIGN-2.1 write scope excludes AGENTS.md, but repository instructions require every code change to update or create the respective AGENTS.md; both cannot be satisfied in this stage."}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-10T10:12:20+00:00", "story": "FORGE-ALIGN-2", "detail": "S-0001-ed8a: No such rule in this repo: AGENTS.md is the shared contract, deliberately kept short ('Do not keep long policy blocks in AGENTS.md; move them into docs'). There is no per-change requirement to update "}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-10T10:14:26+00:00", "story": "FORGE-ALIGN-2", "detail": "FORGE-ALIGN-2.1 (write)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-10T10:26:45+00:00", "story": "FORGE-ALIGN-2", "detail": "FORGE-ALIGN-2.1 (write)"}

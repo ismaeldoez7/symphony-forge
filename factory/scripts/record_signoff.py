@@ -19,7 +19,7 @@ from factory_lib import (
     parse_sections, repo_root, require_grill, signoff_pin,
 )
 from forge_cli.events import append_event
-from forge_cli.specs import spec_records
+from forge_cli.specs import spec_records, unreferenced_confirmed_specs
 
 
 REQUIRED_BRIEF_HEADINGS = (
@@ -62,15 +62,7 @@ def workflow_input_problems(root: Path) -> list[str]:
         problems.append(f"specs still draft or unconfirmed: {', '.join(unconfirmed)}")
     if not stories:
         problems.append("plans/roadmap.json with at least one story")
-    confirmed = {
-        record["path"] for record in specs if record.get("status") == "confirmed"
-    }
-    referenced = {
-        Path(item["spec"]).as_posix()
-        for item in stories
-        if isinstance(item, dict) and isinstance(item.get("spec"), str)
-    }
-    missing_refs = sorted(confirmed - referenced)
+    missing_refs = unreferenced_confirmed_specs(root)
     if missing_refs:
         problems.append(
             "confirmed specs not referenced by any roadmap story: "

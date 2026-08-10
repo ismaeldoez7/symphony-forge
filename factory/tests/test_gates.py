@@ -2922,6 +2922,9 @@ def test_adopt_vendors_harness_and_preserves_project(tmp_path):
     # sign-off gate armed, project-owned files created
     assert not signed_off(repo)  # an adopted repo inherits no sign-off
     assert (repo / "harness.yaml").exists()
+    assert "./forge spec save + spec confirm" in out
+    assert "./forge roadmap derive" in out
+    assert "roadmap epic add + roadmap add" in out
     # the adopted repo passes the same checks as a scaffold
     code, out = run(repo, "check_dual_runtime.py", str(repo))
     assert code == 0, out
@@ -5470,6 +5473,82 @@ def test_project_audit_clean_repo_exits_zero(repo):
 
     assert code == 0, out
     assert "Project audit OK: no project-state gaps." in out
+
+
+def test_project_audit_flags_discovery_without_roadmap(repo):
+    ledger = repo / "docs" / "context" / "ledger.json"
+    ledger.write_text(json.dumps({
+        "files": {"interview.md": {"status": "harvested"}},
+    }))
+
+    code, out = run(repo, "forge.py", "project", "audit", "--repo", str(repo))
+
+    assert code != 0, out
+    assert out.count("[no-roadmap]") == 1
+    assert "forge spec save" in out and "forge spec confirm" in out
+    assert "forge roadmap derive" in out
+    assert "forge roadmap epic add" in out and "forge roadmap add" in out
+    assert "[spec-coverage]" not in out
+
+    code, out = run(
+        repo, "forge.py", "sanitise", "--check", "--repo", str(repo),
+        env={"PYTHONDONTWRITEBYTECODE": "1"},
+    )
+    assert code != 0, out
+    assert "[ISSUE] [board-no-roadmap]" in out
+
+    # An epic with zero stories is still an empty roadmap, not a cleared gap.
+    roadmap_path = repo / "plans" / "roadmap.json"
+    epic = {"id": "onboarding", "title": "Onboarding", "objective": "First epic"}
+    roadmap_path.write_text(json.dumps({"epics": [epic], "items": []}))
+    code, out = run(repo, "forge.py", "project", "audit", "--repo", str(repo))
+    assert code != 0, out
+    assert out.count("[no-roadmap]") == 1
+
+    roadmap_path.write_text(json.dumps({"epics": [epic], "items": [{
+        "key": "ONB-1", "title": "First story", "epic": "onboarding",
+        "story": "As a user, I onboard", "acceptance_criteria": ["onboards"],
+        "status": "pending", "order": 1,
+    }]}))
+    code, out = run(repo, "forge.py", "project", "audit", "--repo", str(repo))
+    assert "[no-roadmap]" not in out
+
+
+def test_project_audit_clean_on_fresh_scaffold(repo):
+    code, out = run(repo, "forge.py", "project", "audit", "--repo", str(repo))
+
+    assert code == 0, out
+    assert "Project audit OK: no project-state gaps." in out
+
+
+def test_project_audit_flags_unreferenced_confirmed_spec(repo):
+    from forge_cli.specs import unreferenced_confirmed_specs
+
+    specs = repo / "docs" / "specs"
+    specs.joinpath("covered.md").write_text(
+        "---\nslug: covered\nstatus: confirmed\n---\n# Covered\n"
+    )
+    specs.joinpath("missing.md").write_text(
+        "---\nslug: missing\nstatus: confirmed\n---\n# Missing\n"
+    )
+    (repo / "plans" / "roadmap.json").write_text(json.dumps({
+        "generated_by": "docs-decomposer",
+        "epics": [ROADMAP_EPIC],
+        "items": [{
+            **authored_story("ALIGN-1", "Alignment"),
+            "spec": "docs/specs/covered.md",
+            "status": "pending",
+        }],
+    }))
+
+    assert unreferenced_confirmed_specs(repo) == ["docs/specs/missing.md"]
+
+    code, out = run(repo, "forge.py", "project", "audit", "--repo", str(repo))
+
+    assert code != 0, out
+    assert "[spec-coverage] docs/specs/missing.md" in out
+    assert "forge roadmap add --spec docs/specs/missing.md" in out
+    assert "docs/specs/covered.md" not in out
 
 
 def _backfill_done_story(repo: Path, key: str, records: list[dict], **over):
@@ -8646,6 +8725,25 @@ def test_doctor_reports_an_epicless_roadmap_without_blocking(repo, capsys):
     assert "[opt ] roadmap/epics plans/roadmap.json: no epics declared" in out
     assert "[opt ] roadmap/story LEG-1: no epic declared" in out
     assert "MOD-1" not in out
+
+
+def test_doctor_reports_missing_roadmap_with_discovery(repo, capsys):
+    from forge_cli.doctor import legacy_roadmap_gaps, report_legacy_roadmap_gaps
+
+    (repo / "docs" / "decisions" / "0001-existing-choice.md").write_text(
+        "# Existing choice\n"
+    )
+
+    gaps = legacy_roadmap_gaps(repo)
+    assert len(gaps) == 1 and gaps[0][0] == "roadmap"
+    assert report_legacy_roadmap_gaps(repo) is None
+    out = capsys.readouterr().out
+    assert out.startswith("[opt ] roadmap/roadmap plans/roadmap.json: absent")
+    assert "forge roadmap derive" in out
+
+    (repo / "docs" / "decisions" / "0001-existing-choice.md").unlink()
+    report_legacy_roadmap_gaps(repo)
+    assert capsys.readouterr().out == ""
 
 
 def test_doctor_reports_an_unmarked_outcomeless_done_item(repo, capsys):

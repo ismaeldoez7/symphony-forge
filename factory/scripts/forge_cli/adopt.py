@@ -397,4 +397,6 @@ def cmd_adopt(args: argparse.Namespace) -> None:
     print("  2. Sort existing content: prototype work -> prototype/, raw notes -> docs/context/")
     print("  3. ./forge context scan, then harvest into DISCOVERY.md/BRIEF.md and decisions")
     print("  4. REHOME the migrated-* standards (see above) — no rule may end up homeless")
-    print("  5. Linters + gate tests, commit, then: ./forge next")
+    print("  5. Capture capabilities with ./forge spec save + spec confirm, then author "
+          "the roadmap with ./forge roadmap derive or roadmap epic add + roadmap add")
+    print("  6. Linters + gate tests, commit, then: ./forge next")
