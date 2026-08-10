@@ -92,17 +92,10 @@ def cmd_new(args: argparse.Namespace) -> None:
     if old_record is not None:
         text = text.replace("---\n\n#", f"supersedes: {old_record.stem}\n---\n\n#", 1)
     path.write_text(text)
-    print(f"Created {path}" + (f" (governs {story})" if story else ""))
+    result = f"Created {path}" + (f" (governs {story})" if story else "")
     if old_record is not None:
-        # The predecessor stays ACTIVE until this record is accepted: marking it
-        # superseded now would leave a window where neither version governs, and
-        # plan attestation would require neither. cmd_accept performs the flip.
-        print(f"Supersedes {old_record.stem} — it stays active until "
-              f"`forge decision accept {slug} --by \"<human>\"` flips both.")
-    print(
-        "Reminder: status: accepted requires a non-empty confirmed_by (a human), "
-        "and the commit adding it should carry a `Confirmed-by:` trailer."
-    )
+        result += f"; Supersedes {old_record.stem}"
+    print(result)
 
 
 def cmd_link(args: argparse.Namespace) -> None:
@@ -175,7 +168,6 @@ def cmd_accept(args: argparse.Namespace) -> None:
         text = re.sub(r"confirmed_by: .*", f'confirmed_by: "{args.by}"', text, count=1)
     record.write_text(text)
     rel = record.relative_to(base)
-    print(f"Accepted: {rel} (confirmed_by: {args.by})")
     # The replacement is live now, so retire the predecessor in the same step:
     # between `decision new --supersedes` and here, the old record kept governing.
     supersedes = re.search(r"^supersedes:\s*(\S+)", text, re.MULTILINE)
@@ -189,9 +181,7 @@ def cmd_accept(args: argparse.Namespace) -> None:
                 old_text = old_text.replace("---\n\n#",
                                             f"superseded_by: {record.stem}\n---\n\n#", 1)
             old.write_text(old_text)
-            print(f"Superseded: {old.relative_to(base)} -> {record.stem}")
-    print("Commit it with the audit trailer:")
-    print(f'  git add {rel} && git commit -m "docs(decisions): accept {slug}" '
-          f'--trailer "Confirmed-by: {args.by}"')
-    if slug == "client-signoff":
-        print("Then arm the gate: python3 factory/scripts/record_signoff.py")
+            print(f"Accepted: {rel} (confirmed_by: {args.by}); "
+                  f"Superseded: {old.relative_to(base)} -> {record.stem}")
+            return
+    print(f"Accepted: {rel} (confirmed_by: {args.by})")

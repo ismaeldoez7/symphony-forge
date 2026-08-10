@@ -692,9 +692,6 @@ def _cmd_start_locked(args: argparse.Namespace, base: Path) -> None:
     stage.pop("parallel", None)
     write_stages(base, data)
     print(f"Stage {args.id} active — {stage.get('title')}")
-    print("Loop: implement via /codex:rescue → inspect diff → validate assumptions → "
-          "smallest checks → LOCAL autoreview until clean → commit → forge stage done "
-          f"{args.id}")
 
 
 def cmd_start(args: argparse.Namespace) -> None:
@@ -1069,11 +1066,10 @@ def _finish_stage(base: Path, args: argparse.Namespace, data: dict,
         write_stages(base, data)
     remaining = [s for s in data["stages"] if s.get("status") != "done"]
     if remaining:
-        print(f"Stage {args.id} done. Next: forge stage start {remaining[0]['id']} "
-              f"— {remaining[0].get('title')} ({len(remaining)} to go)")
+        print(f"Stage {args.id} done; next: {remaining[0]['id']} "
+              f"({len(remaining)} pending)")
     else:
-        print(f"Stage {args.id} done — all {len(data['stages'])} stage(s) complete. "
-              "Continue the task loop: verify, then the ONE branch autoreview.")
+        print(f"Stage {args.id} done — all {len(data['stages'])} stage(s) complete")
 
 
 def cmd_done(args: argparse.Namespace) -> None:
@@ -1106,8 +1102,6 @@ def cmd_done(args: argparse.Namespace) -> None:
                              detail=f"{args.id}: {incomplete}")
                 write_stages(base, data)
         print(f"Stage {args.id} recorded INCOMPLETE and left active: {incomplete}")
-        print("Nothing downstream treats it as delivered. Finish the gap, then "
-              f"forge stage done {args.id}.")
         return
     from .delegate import delegation_exclusion
 

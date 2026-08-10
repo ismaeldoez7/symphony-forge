@@ -3635,6 +3635,41 @@ def test_repo_budget_watchdog(repo):
     assert code != 0 and "assets-dump.bin" in out
 
 
+def test_success_output_budget(repo):
+    """Success = one output line (terse-output spec). Exceptions are inline."""
+    def expect(budget, *args):
+        code, out = run(repo, *args)
+        assert code == 0, out
+        assert len(out.splitlines()) == budget, f"{args}: {out!r}"
+        return out
+
+    expect(1, "forge.py", "decision", "new", "budget-probe", "--repo", str(repo))
+    record = next((repo / "docs" / "decisions").glob("*-budget-probe.md"))
+    record.write_text(record.read_text()
+        .replace("<!-- Why this decision was needed; the forces at play. -->", "Why.")
+        .replace("<!-- What was decided, in one or two sentences. -->", "What.")
+        .replace("<!-- What follows: tradeoffs accepted, doors closed, work implied. -->",
+                 "So."))
+    expect(1, "forge.py", "decision", "accept", "budget-probe", "--by", "PM")
+    expect(1, "forge.py", "quickfix", "start", "budget probe")
+    expect(1, "forge.py", "quickfix", "done")
+    draft = repo / "probe-draft.md"
+    draft.write_text("# Probe capability\n\nBody.\n")
+    expect(1, "forge.py", "spec", "save", "budget-probe", "--from", str(draft))
+    expect(1, "forge.py", "context", "scan")
+    expect(1, "forge.py", "lesson", "add", "--topic", "probe",
+           "--lesson", "One-line successes stay one line.",
+           "--source", "test", "--applies-to", "factory/**",
+           "--severity", "low", "--by", "implementer")
+    expect(1, "forge.py", "defer", "add", "budget probe deferral",
+           "--why", "probe", "--trigger", "never")
+    # Documented exception: signal raise is worker-facing and keeps PAUSE.
+    out = expect(2, "forge.py", "signal", "raise", "--kind", "confusion",
+                 "--by", "implementer", "-m", "budget probe")
+    sig_id = out.split()[1]
+    expect(1, "forge.py", "signal", "resolve", sig_id, "--notes", "probe done")
+
+
 def test_decision_supersede_lifecycle(repo):
     def substantiate(slug):
         record = next((repo / "docs" / "decisions").glob(f"*-{slug}.md"))
@@ -3650,7 +3685,7 @@ def test_decision_supersede_lifecycle(repo):
     run(repo, "forge.py", "decision", "accept", "event-bus", "--by", "PM")
     code, out = run(repo, "forge.py", "decision", "new", "event-bus-v2",
                     "--supersedes", "event-bus", "--repo", str(repo))
-    assert code == 0 and "stays active until" in out, out
+    assert code == 0 and out.count("\n") == 1 and "Supersedes" in out, out
     # The predecessor governs until the replacement is CONFIRMED: retiring it at
     # draft time would leave a window where neither record is active and plan
     # attestation would require neither.
@@ -7022,7 +7057,7 @@ def test_signal_events_block_ship_until_resolved(repo, tmp_path):
     code, out = run(repo, "forge.py", "signal", "raise", "--kind", "contradiction",
                     "--by", "implementer", "-m",
                     "plan says soft-delete; decision 0001 says hard-delete")
-    assert code == 0 and "S-0001" in out and "PAUSE" in out
+    assert code == 0 and len(out.splitlines()) == 2 and "S-0001" in out and "PAUSE" in out
     import re as _re
     sig_id = _re.search(r"S-0001-[0-9a-f]{4}", out).group(0)
     # the orchestrator sees it everywhere, and the ship gate refuses
@@ -7035,7 +7070,7 @@ def test_signal_events_block_ship_until_resolved(repo, tmp_path):
     assert code != 0 and "notes" in out
     code, out = run(repo, "forge.py", "signal", "resolve", sig_id,
                     "--notes", "decision 0001 wins: hard-delete; plan revised")
-    assert code == 0 and "resume" in out
+    assert code == 0 and out.splitlines() == [f"Signal {sig_id} resolved"]
     code, out = run(repo, "pr_ready.py")
     assert code == 0, out
     # channel archived with the task, working copy cleaned
@@ -8912,7 +8947,8 @@ def test_delegate_derives_write_from_stage_state(repo, tmp_path):
     home = str(fake_companion_home(tmp_path))
     code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
                     env={"HOME": home})
-    assert code == 0 and "--write" not in out and "Write access: NO" in out
+    assert (code == 0 and len(out.splitlines()) == 1 and "--write" not in out
+            and "Write access: NO" in out and "not launched" in out)
     code, out = record_task_grill(repo, DELEGATE_TASK)
     assert code == 0, out
     run(repo, "forge.py", "stage", "start", "T1")

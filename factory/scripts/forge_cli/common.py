@@ -1,3 +1,8 @@
+"""Shared CLI helpers.
+
+Successful commands print one line: the state change and its identifiers.
+Coaching belongs in ``forge next``; failure messages stay complete.
+"""
 from __future__ import annotations
 
 import subprocess

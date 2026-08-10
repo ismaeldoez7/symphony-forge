@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 from pathlib import Path
 
 from factory_lib import client_signoff, load_json, repo_root, run_state_path
@@ -18,6 +19,16 @@ def cmd_next(args: argparse.Namespace) -> None:
     factory = base / ".factory"
     pending_ctx = len(pending_context(base))
     steps: list[str] = []
+    signed_off = client_signoff(base)[0]
+    status = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+        cwd=base, capture_output=True, text=True,
+    )
+    dirty_paths = {
+        line[3:].split(" -> ")[-1].strip().strip('"')
+        for line in status.stdout.splitlines()
+        if len(line) >= 4
+    } if status.returncode == 0 else set()
 
     def phase(label: str) -> None:
         issue = state.get("issue_key")
@@ -54,7 +65,7 @@ def cmd_next(args: argparse.Namespace) -> None:
         steps.append("New project? scaffold with: forge.py init --name <project> --target <dir>")
         steps.append("Existing project, new feature? this repo has no .factory/run.json — "
                      "run: python3 factory/scripts/intake.py --issue <KEY> --title \"<title>\"")
-    elif not client_signoff(base)[0]:
+    elif not signed_off:
         phase("discovery/prototype/specs/roadmap (0a/0b/0c)")
         steps.append("[PM] Capture discovery and the product brief — ask for them; "
                      "prototype freely meanwhile (no ceremony)")
@@ -83,6 +94,15 @@ def cmd_next(args: argparse.Namespace) -> None:
                      "then run record_signoff.py")
     elif not state.get("issue_key"):
         phase("signed off — no active task")
+        if state.get("phase") == "shipped" and any(
+                path.startswith((".factory/history/", "plans/completed/"))
+                for path in dirty_paths):
+            steps.append("[dev] Commit the archive — evidence that isn't committed isn't "
+                         "merged: git add -A && git commit -m \"chore: ship — evidence "
+                         "archived\"")
+        if "harness.yaml" in dirty_paths:
+            steps.append("[dev] Commit harness.yaml — every gate reads the client sign-off "
+                         "pin from committed state")
         items = load_items(base)
         pending_items = [i for i in items if i.get("status", "pending") == "pending"]
         ready_items, _ = ready_pending(items)
@@ -220,6 +240,41 @@ def cmd_next(args: argparse.Namespace) -> None:
             steps.append("[dev] Run: python3 factory/scripts/pr_ready.py (archives the task; merge stays manual)")
             steps.append("[EM] Next task afterwards: pick from ./forge roadmap list --pending, "
                          "then intake.py --issue <KEY> --title \"<title>\"")
+    from .decisions import decision_records
+    records = decision_records(base)
+    accepted_dirty = [
+        record for record in records
+        if record["status"] == "accepted"
+        and record["path"].relative_to(base).as_posix() in dirty_paths
+    ]
+    if accepted_dirty:
+        record = accepted_dirty[0]
+        rel = record["path"].relative_to(base).as_posix()
+        slug = str(record["id"]).split("-", 1)[-1]
+        confirmer = record.get("confirmed_by") or "<human>"
+        steps.append(f"[PM] Commit accepted decision {record['id']} with its human "
+                     f"confirmed_by and audit trailer: git add {rel} && git commit -m "
+                     f"\"docs(decisions): accept {slug}\" --trailer "
+                     f"\"Confirmed-by: {confirmer}\"")
+    superseding = [
+        record for record in records
+        if record.get("supersedes") and record["status"] != "accepted"
+    ]
+    if superseding:
+        record = superseding[0]
+        slug = str(record["id"]).split("-", 1)[-1]
+        steps.append(f"[PM] {record['id']} supersedes {record['supersedes']} — the predecessor "
+                     "stays active until `forge decision accept "
+                     f"{slug} --by \"<human>\"` flips both")
+    spec_debt = [
+        item for item in load_items(base)
+        if signed_off and item.get("spec_debt_reason") and not item.get("spec")
+    ]
+    if spec_debt:
+        item = spec_debt[0]
+        steps.append("[PM] Clear spec debt before planning "
+                     f"{item['key']}: ./forge spec confirm <slug> && ./forge roadmap "
+                     f"link-spec {item['key']} --spec docs/specs/<slug>.md")
     proposed = len(list((base / "factory" / "skills" / "proposed").glob("*.md")))
     if proposed:
         steps.append(f"(Also: {proposed} proposed skill(s) await human review in "

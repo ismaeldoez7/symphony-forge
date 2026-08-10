@@ -193,11 +193,8 @@ def main() -> int:
 
     pin_into_harness(root / "harness.yaml", relative)
     append_event(root, "client-signoff", actor="orchestrator", detail=relative)
-    print(
-        f"client sign-off pinned to {relative} in harness.yaml "
-        f"(confirmed by {fields['confirmed_by']}).\n"
-        "Commit harness.yaml — every gate reads the pin from committed state."
-    )
+    print(f"client sign-off pinned to {relative} in harness.yaml "
+          f"(confirmed by {fields['confirmed_by']})")
     return 0
 
 

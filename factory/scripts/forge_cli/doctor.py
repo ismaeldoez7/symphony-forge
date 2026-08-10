@@ -918,4 +918,4 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         print(f"\nforge doctor: {failures} required item(s) missing.")
         raise SystemExit(1)
 
-    print("\nforge doctor: ready. Next: forge.py init --name <project> --target <dir>")
+    print("\nforge doctor: ready")

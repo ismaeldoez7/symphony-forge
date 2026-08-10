@@ -957,13 +957,13 @@ def launch_companion(
         argv.append("--write")
     if background:
         argv.append("--background")
-    print(f"Brief written to {rel} ({len(text.splitlines())} lines)")
     write_detail = ("YES (lite window is open)" if mode else
                     "YES (stage is active with a write scope)")
-    print(f"Write access: {write_detail if write else 'NO'}")
-    print(f"Companion argv: {shlex.join(argv)}")
+    launch_detail = " | not launched" if print_only else ""
+    print(f"Brief {rel} ({len(text.splitlines())} lines) | "
+          f"Write access: {write_detail if write else 'NO'} | "
+          f"{shlex.join(argv)}{launch_detail}")
     if print_only:
-        print("Print-only: companion was not launched and no launch evidence was recorded.")
         return None
 
     process_token = f"delegation-{launch_id}"
@@ -1159,8 +1159,3 @@ def cmd_delegate(args: argparse.Namespace) -> None:
         return
     append_event(base, "delegated", actor="orchestrator", story=story,
                  detail=f"{args.id} ({'write' if write else 'read-only'})")
-    print("Then WATCH the event channel: Monitor .factory/signals.jsonl alongside "
-          "the job (`./forge codex status` shows whether it is still moving).")
-    if not write and stage.get("status") != "active":
-        print(f"Note: {args.id} is not an active stage, so this is a read-only run. "
-              f"`./forge stage start {args.id}` first if it should be building.")

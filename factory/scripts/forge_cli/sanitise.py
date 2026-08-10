@@ -174,6 +174,9 @@ def cmd_sanitise(args: argparse.Namespace) -> None:
         )
         unresolved.append(("doctor", detail))
 
+    if not resolved and not unresolved:
+        print("Sanitise report: [OK] no issues found")
+        return
     print("\nSanitise report:")
     for kind, detail in resolved:
         print(f"- [FIXED] [{kind}] {detail}")
@@ -187,9 +190,6 @@ def cmd_sanitise(args: argparse.Namespace) -> None:
         print("- [doctor-report]")
         for line in doctor_lines:
             print(f"    {line}")
-    if not resolved and not unresolved:
-        print("- [OK] no issues found")
-
     issue_count = len(resolved) + len(unresolved) if check else len(unresolved)
     if issue_count:
         raise SystemExit(1)

@@ -558,10 +558,6 @@ def cmd_add(args: argparse.Namespace) -> None:
     append_event(base, "roadmap-add", actor="orchestrator", story=args.key,
                  detail=item.get("spec") or "no spec (adhoc)")
     print(f"Added {args.key} to the roadmap (order {order})")
-    if item.get("origin") == "adhoc":
-        print("Captured as spec debt — it sits in 'Needs spec' and cannot be planned "
-              f"until: ./forge spec confirm <slug> && ./forge roadmap link-spec {args.key} "
-              "--spec docs/specs/<slug>.md")
 
 
 def cmd_fill(args: argparse.Namespace) -> None:
@@ -808,7 +804,6 @@ def cmd_heal(args: argparse.Namespace) -> None:
     done = sum(1 for i in healed if i.get("status") == "done")
     print(f"Healed plans/roadmap.json: {len(healed)} item(s), "
           f"{removed} duplicate(s) unioned (status: further-along wins); {done} done.")
-    print("Stage it if you are mid-merge: git add plans/roadmap.json")
 
 
 def cmd_parallel(args: argparse.Namespace) -> None:
