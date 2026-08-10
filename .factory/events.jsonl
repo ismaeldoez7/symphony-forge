@@ -801,3 +801,4 @@
 {"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-10T13:58:28+00:00", "story": "FORGE-TERSE-1"}
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-10T13:58:28+00:00", "story": "FORGE-TERSE-1"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-10T13:58:39+00:00", "story": "FORGE-TERSE-1", "detail": "Forge output is terse by default: every touched command's success is one line (state change + identifiers), coaching consolidated into forge next as state-triggered steps that appear only when actiona"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-10T13:59:28+00:00", "story": "FORGE-TERSE-1", "detail": "knacklabs/symphony-forge#72"}
