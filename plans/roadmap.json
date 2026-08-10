@@ -540,10 +540,29 @@
       "completed_at": "2026-08-10T16:13:14+00:00",
       "history": ".factory/history/FORGE-TERSE-2/",
       "outcome": "The narration budget is contract, not preference: conduct \u00a78 carries the full rule (one line per state change; findings, contradictions, refusals, and gate results never rationed; full prose only at gates and deliverables), AGENTS.md pins it as a strict non-negotiable at exactly the 110-line cap, and the implementer/planner/harvester prompts carry self-sufficient clauses so every delegated worker's brief includes it. Constitution and prompts reach all clients on forge upgrade; the AGENTS.md bullet reaches new clients at init, and existing pilots get it by hand. Enforcement is instruction+review like the rest of the conduct canon - the deterministic half of this epic is TERSE-1's budget test."
+    },
+    {
+      "key": "FORGE-ROLE-1",
+      "title": "Write lockout + degraded window + routing docs",
+      "story": "As the operator, Claude physically cannot change product or canon - every such change lands through a delegated Codex run or an explicitly ledgered degraded-mode window - so the role split holds by gate, not discipline",
+      "acceptance_criteria": [
+        "With an approved plan and active stage, a session Edit/Write/Bash-write to a product or canon path is denied, naming forge delegate and the degraded-mode window",
+        "The same edit inside an open, ledgered degraded-mode window is allowed; the window record rides the PR and Gate A declares it",
+        "Orchestration surfaces (docs/specs, decisions, product, memory, context, plans, .factory recorders, git ops on worker diffs) stay writable exactly as today",
+        "Adapter and AGENTS.md state the routing within the 110-line cap; docs/degraded-mode.md documents the window; a decision record captures the boundary set",
+        "Gate tests pin deny-under-approved-plan, allow-in-window, exemptions, and the window ledger"
+      ],
+      "order": 25,
+      "status": "active",
+      "epic": "strict-role-split",
+      "skill": "backend",
+      "kind": "feature",
+      "depends_on": [],
+      "spec": "docs/specs/strict-role-split.md"
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-10T16:13:14+00:00",
+  "updated_at": "2026-08-10T19:02:13+00:00",
   "epics": [
     {
       "id": "symphony-forge",
@@ -575,6 +594,14 @@
       "objective": "One-line command successes, coaching only in forge next and errors, a vendored narration budget for agents; reading load drops without losing the durable record",
       "source_refs": [
         "docs/specs/terse-output.md"
+      ]
+    },
+    {
+      "id": "strict-role-split",
+      "title": "The role split is a gate: only Codex writes product",
+      "objective": "Session writes to product and canon are hook-denied even under an approved plan; forge delegate is the sole write path; discovery routes to Codex rescue; a ledgered degraded-mode window is the only exception",
+      "source_refs": [
+        "docs/specs/strict-role-split.md"
       ]
     }
   ]

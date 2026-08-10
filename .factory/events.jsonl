@@ -818,3 +818,8 @@
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-10T16:13:14+00:00", "story": "FORGE-TERSE-2"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-10T16:13:14+00:00", "story": "FORGE-TERSE-2", "detail": "The narration budget is contract, not preference: conduct \u00a78 carries the full rule (one line per state change; findings, contradictions, refusals, and gate results never rationed; full prose only at g"}
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-10T16:13:45+00:00", "story": "FORGE-TERSE-2", "detail": "knacklabs/symphony-forge#73"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-10T19:01:03+00:00", "detail": "strict-role-split: The role split is a gate: Claude orchestrates, only Codex writes product"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-10T19:01:50+00:00", "detail": "strict-role-split"}
+{"event": "roadmap-epic-add", "generated_by": "orchestrator", "at": "2026-08-10T19:02:01+00:00", "detail": "strict-role-split"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-10T19:02:01+00:00", "story": "FORGE-ROLE-1", "detail": "docs/specs/strict-role-split.md"}
+{"event": "intake", "generated_by": "orchestrator", "at": "2026-08-10T19:02:13+00:00", "story": "FORGE-ROLE-1", "detail": "Write lockout + degraded window + routing docs"}
