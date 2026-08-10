@@ -1,3 +1,17 @@
 {
-  "phase": "shipped"
+  "issue_key": "FORGE-ALIGN-1",
+  "title": "Self-updating context ledger",
+  "tracker": "linear",
+  "branch": "feat/FORGE-ALIGN-1-self-updating-context-ledger",
+  "phase": "planning",
+  "plan_status": "approved",
+  "decomposition_status": "recorded",
+  "implementation_status": "pending",
+  "tests_status": "pending",
+  "verify_status": "pending",
+  "review_status": "pending",
+  "created_at": "2026-08-10T08:26:19+00:00",
+  "updated_at": "2026-08-10T08:40:57+00:00",
+  "plan_file": "plans/active/FORGE-ALIGN-1-self-updating-context-ledger.md",
+  "story": "FORGE-ALIGN-1"
 }

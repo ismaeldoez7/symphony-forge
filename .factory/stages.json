@@ -1,0 +1,10 @@
+{
+  "issue": "FORGE-ALIGN-1",
+  "stages": [
+    {
+      "id": "FORGE-ALIGN-1.1",
+      "title": "Commit belt keeps the context ledger fresh",
+      "status": "pending"
+    }
+  ]
+}
