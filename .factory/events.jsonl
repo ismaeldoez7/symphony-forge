@@ -727,3 +727,9 @@
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-09T04:26:20+00:00", "story": "FORGE-BOARD-7"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-09T04:29:04+00:00", "story": "FORGE-BOARD-7", "detail": "Symphony Forge gains a one-command repo-hygiene pass, `forge sanitise` (and `--check`): it heals only the safe (roadmap drift, committed cruft) and REPORTS what needs judgment (board gaps, missing PR "}
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-09T04:30:15+00:00", "story": "FORGE-BOARD-7", "detail": "knacklabs/symphony-forge#63"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-10T08:19:57+00:00", "detail": "strict-alignment: The record updates itself, and clients are held to the roadmap"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-10T08:24:33+00:00", "detail": "strict-alignment"}
+{"event": "roadmap-epic-add", "generated_by": "orchestrator", "at": "2026-08-10T08:24:56+00:00", "detail": "strict-alignment"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-10T08:25:05+00:00", "story": "FORGE-ALIGN-1", "detail": "docs/specs/strict-alignment.md"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-10T08:25:20+00:00", "story": "FORGE-ALIGN-2", "detail": "docs/specs/strict-alignment.md"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-10T08:25:20+00:00", "story": "FORGE-ALIGN-3", "detail": "docs/specs/strict-alignment.md"}
