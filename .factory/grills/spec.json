@@ -3,21 +3,19 @@
   "gate": "spec",
   "verdict": "pass",
   "gaps": [
-    "PR-gate strictness undefined: should the client Gate A allow docs-only or hotfix exemptions, or mirror the harness declare-all contract (0033)?",
-    "Arming signal undefined: pulling the upgrade must not instantly red an unprepared legacy client main, but the disarm condition was unspecified.",
-    "CI home undefined: the checks could land in a new workflow, extend factory-scaffold.yml, or harden harness-health.yml.",
-    "Rollout pilot undefined: which client validates the gates first."
+    "Scope undefined: CLI output, agent narration, and/or the durable PR/evidence prose?",
+    "Mechanism undefined: how does guidance survive for newcomers once the default is terse?",
+    "Severity boundary undefined: do error/refusal messages get trimmed too?"
   ],
   "contradictions": [],
   "resolutions": [
-    "Strict declare-all, same as the harness: every client PR declares its completed story or ledgered window; quickfix/lite windows are the escape hatch, no docs-only exemption. Spec updated (Behaviour: roadmap-gate.yml).",
-    "Arm-on-roadmap: both jobs arm only when plans/roadmap.json exists with >=1 epic; until then the no-roadmap audit gap is the pressure. Spec updated; decision record due at story-3 planning.",
-    "One new vendored roadmap-gate.yml with a PR job (declare-all) and a push-to-main job (coverage invariant); joins COPY_WORKFLOWS so referencing it stays 0034-safe. Spec updated.",
-    "Pilot = myclaw (user's call over the minegate recommendation): its roadmap arms the gates immediately and its known authoring gaps become the red list driving completion; minegate follows. Spec updated (Boundaries)."
+    "Human chose CLI output + agent narration; PR bodies and evidence prose explicitly out of scope (the durable record keeps its depth). Spec Boundaries updated.",
+    "Human chose terse-default with forge next as the single coaching surface and full errors as the other; rejected FORGE_VERBOSE and --quiet as second output paths. Spec Behaviour updated.",
+    "Human chose full fix-it errors unchanged; terseness applies to success/progress chatter only. Spec AC pins errors byte-identical where feasible."
   ],
   "open_items": [],
-  "notes": "Round 1 delivered via AskUserQuestion 2026-08-10; all four frontier decisions settled by the human, frontier empty. Remaining detail (hook runtime coverage, check_pr_ticket client-profile reuse, gap-kind severities) is planning-level and lands in each story's plan grill.",
-  "input_sha256": "3e49bea2d372329f01a964c93a681da28d430893fc36e798d4435e76879cd015",
-  "recorded_at": "2026-08-10T08:23:50+00:00",
-  "commit": "71d1ab6181b95f900f9a1ca715ee380042cc7c7b"
+  "notes": "Round 1 via AskUserQuestion 2026-08-10; frontier empty. Budget numbers and exact command list are planning-level.",
+  "input_sha256": "772b5a57e802182ce26cb996726847f57c87c1a0def87bac74bdf2d3028db7f0",
+  "recorded_at": "2026-08-10T13:09:47+00:00",
+  "commit": "515a330ba6ae4332a5a2f2258dc3cec9fcb178fb"
 }

@@ -498,10 +498,46 @@
       "completed_at": "2026-08-10T12:32:42+00:00",
       "history": ".factory/history/FORGE-ALIGN-3/",
       "outcome": "Clients now have the same CI teeth as the harness: the vendored roadmap-gate.yml blocks any PR that lands work without declaring its completed story or ledgered window, and runs the full project audit on every push to the default branch - but only once the client has opted in by authoring a roadmap with at least one epic (decision 0036); unprepared repos and the harness itself stay green. Two Gate A day-one defects fixed at the root: a client's first roadmap PR no longer crashes on the missing base-ref file, and Git Flow feature/<key> branches infer their ticket."
+    },
+    {
+      "key": "FORGE-TERSE-1",
+      "title": "Terse CLI success paths + budget test",
+      "story": "As an operator, a successful forge command tells me in one line what changed, so the output I do read is the output that matters",
+      "acceptance_criteria": [
+        "Success paths of the chatty commands (stage start/done, plan save/approve, decision new/accept, quickfix start/done, the recorders) print one result line each",
+        "Error and refusal messages are unchanged (byte-identical where feasible); forge next keeps full coaching",
+        "A budget gate test pins the success-path line counts so lecture-creep cannot return",
+        "No new flags, env vars, or config for verbosity"
+      ],
+      "order": 23,
+      "status": "pending",
+      "epic": "terse-output",
+      "skill": "backend",
+      "kind": "feature",
+      "depends_on": [],
+      "spec": "docs/specs/terse-output.md"
+    },
+    {
+      "key": "FORGE-TERSE-2",
+      "title": "Narration budget in the constitution + prompt pointers",
+      "story": "As an operator, agents report state changes and findings, not process commentary, so mid-execution output stays readable",
+      "acceptance_criteria": [
+        "The agent-conduct constitution doc carries the narration budget: one line per state change; findings, contradictions, and gate results always reported; process narration dropped",
+        "Full prose stays at gates and deliverables (plans, reviews, PR bodies) per the spec boundary",
+        "Phase prompts under factory/prompts/ reference the rule instead of restating it",
+        "The rule ships in the vendored canon like the rest of the constitution"
+      ],
+      "order": 24,
+      "status": "pending",
+      "epic": "terse-output",
+      "skill": "backend",
+      "kind": "feature",
+      "depends_on": [],
+      "spec": "docs/specs/terse-output.md"
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-10T12:32:42+00:00",
+  "updated_at": "2026-08-10T13:14:35+00:00",
   "epics": [
     {
       "id": "symphony-forge",
@@ -525,6 +561,14 @@
       "objective": "Ledgers auto-update on doc changes, emptiness/coverage gaps are audit failures, and vendored CI gates hold every client to the declare-all roadmap contract",
       "source_refs": [
         "docs/specs/strict-alignment.md"
+      ]
+    },
+    {
+      "id": "terse-output",
+      "title": "Terse by default: output earns its lines",
+      "objective": "One-line command successes, coaching only in forge next and errors, a vendored narration budget for agents; reading load drops without losing the durable record",
+      "source_refs": [
+        "docs/specs/terse-output.md"
       ]
     }
   ]

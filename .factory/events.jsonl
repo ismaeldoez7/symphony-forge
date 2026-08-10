@@ -778,3 +778,8 @@
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-10T12:32:42+00:00", "story": "FORGE-ALIGN-3"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-10T12:32:42+00:00", "story": "FORGE-ALIGN-3", "detail": "Clients now have the same CI teeth as the harness: the vendored roadmap-gate.yml blocks any PR that lands work without declaring its completed story or ledgered window, and runs the full project audit"}
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-10T12:33:36+00:00", "story": "FORGE-ALIGN-3", "detail": "knacklabs/symphony-forge#70"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-10T13:09:30+00:00", "detail": "terse-output: Terse by default: output earns its lines"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-10T13:14:23+00:00", "detail": "terse-output"}
+{"event": "roadmap-epic-add", "generated_by": "orchestrator", "at": "2026-08-10T13:14:23+00:00", "detail": "terse-output"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-10T13:14:35+00:00", "story": "FORGE-TERSE-1", "detail": "docs/specs/terse-output.md"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-10T13:14:35+00:00", "story": "FORGE-TERSE-2", "detail": "docs/specs/terse-output.md"}
