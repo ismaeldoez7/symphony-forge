@@ -118,6 +118,14 @@ confirm it in one breath with the prototype-or-production question below.
    the contract files are `AGENTS.md`/`CLAUDE.md` in CAPS (adopt handles
    this; verify with `git ls-files`).
 
+7c. **Name capability gaps; never invent the missing content.** Check whether
+   the migration still lacks capability specs, epics, or a roadmap. Capture
+   real capabilities with `forge spec save` and `forge spec confirm`, then
+   author the backlog with `forge roadmap derive` or `forge roadmap epic add`
+   plus `forge roadmap add`. Never fabricate specs, epics, or stories to make
+   a gate green. `forge project audit` now names these gaps and the commands
+   that resolve them.
+
 8. **If the client already signed off historically**, formalize it now:
    `client-signoff` decision → human accept → `record_signoff.py`. Otherwise
    the repo correctly sits pre-sign-off.

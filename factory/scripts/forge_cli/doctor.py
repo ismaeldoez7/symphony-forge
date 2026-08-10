@@ -154,6 +154,14 @@ def legacy_roadmap_gaps(base: Path) -> list[tuple[str, str]]:
     """Stored hierarchy gaps that legacy roadmap routes deliberately tolerate."""
     path = base / "plans" / "roadmap.json"
     if not path.is_file():
+        from .project import has_discovery_material
+
+        if has_discovery_material(base):
+            return [(
+                "roadmap",
+                "plans/roadmap.json: absent despite discovery material; author it "
+                "with forge roadmap derive or forge roadmap epic add plus forge roadmap add",
+            )]
         return []
 
     # Defensive on purpose: doctor is what someone runs when the project is

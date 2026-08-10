@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 
 from factory_lib import (
-    ATX_CLOSING_RUN, now_iso, outside_examples, parse_sections, repo_root,
-    require_grill,
+    ATX_CLOSING_RUN, load_json, now_iso, outside_examples, parse_sections,
+    repo_root, require_grill,
 )
 
 from .common import fail
@@ -74,6 +74,23 @@ def spec_records(base: Path) -> list[dict]:
             "_path": path,
         })
     return records
+
+
+def unreferenced_confirmed_specs(base: Path) -> list[str]:
+    """Confirmed spec paths that no roadmap item references."""
+    confirmed = {
+        record["path"]
+        for record in spec_records(base)
+        if record.get("status") == "confirmed"
+    }
+    roadmap = load_json(base / "plans" / "roadmap.json", default={})
+    items = roadmap.get("items", []) if isinstance(roadmap, dict) else []
+    referenced = {
+        Path(item["spec"]).as_posix()
+        for item in items
+        if isinstance(item, dict) and isinstance(item.get("spec"), str)
+    }
+    return sorted(confirmed - referenced)
 
 
 def resolve_spec_reference(base: Path, value: str, *, confirmed: bool = False) -> Path:
