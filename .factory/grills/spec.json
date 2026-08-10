@@ -3,21 +3,21 @@
   "gate": "spec",
   "verdict": "pass",
   "gaps": [
-    "Write line: which surfaces stay Claude-writable?",
-    "Review findings: may Claude patch trivial ones?",
-    "Exploration: hard read-fence or routed discovery?",
-    "Companion outage: what keeps the factory alive?"
+    "Elevation: 'zero setup' vs the UAC prompt winget forces for machine-wide Git \u2014 what does doctor --fix do?",
+    "Codex Windows config: where does the pinned sandbox config live \u2014 a user-global config.toml the harness has never touched, or elsewhere?",
+    "Verification: acceptance claims Windows gate-test behavior but CI has no Windows job.",
+    "Self-heal trigger: a broken client runs NO hooks, so skill instructions may never load \u2014 where does remediation trigger for un-upgraded clients?"
   ],
   "contradictions": [],
   "resolutions": [
-    "Product + canon to Codex; Claude keeps planning artifacts (docs/specs, decisions, product, memory, context, plans, .factory via recorders, scratchpad, git ops on worker diffs) - human choice.",
-    "No carve-out; mandatory re-delegate, enforced mechanically by the lockout itself - human choice.",
-    "Route discovery to Codex rescue read-only; gate reads (review/verify/signals) stay per 0011 - a read-ban breaks direct review; human choice with the tension stated.",
-    "Ledgered degraded-mode window only: explicit open naming the failure, PR declares it, hook honors it - human choice."
+    "One consolidated UAC confirm: zero typed commands, one OS-forced click; batching, never a manual checklist \u2014 human choice.",
+    "Inject at delegate time: forge delegate appends the pinned flags (windows.sandbox=unelevated, workspace-write) to its fixed argv on Windows; harness never mutates ~/.codex/config.toml \u2014 human choice.",
+    "Add a windows-latest CI job running the lockout gate tests and doctor hook-health \u2014 human choice.",
+    "forge next surfaces it: the mandated first command runs the fast hook-health check on Windows and prints doctor --fix as step 1; agent continues automatically \u2014 human choice."
   ],
   "open_items": [],
-  "notes": "Round 1 via AskUserQuestion 2026-08-11; frontier empty. Boundary path-set details are planning-level.",
-  "input_sha256": "1a096edcd2b7c787d03a041ce2a92b316be489eadeffafc804af50e3dd9b3fb7",
-  "recorded_at": "2026-08-10T19:01:50+00:00",
-  "commit": "a2b59732fcd996771f53a65fab4885e11bb056fd"
+  "notes": "Round 1 via AskUserQuestion 2026-08-11; all four recommendations accepted; frontier empty. Root causes evidenced in-session: /usr/bin/python3 hook pin fails open on Windows; sh-only entrypoint; codex native sandbox instability (openai/codex #24098 #26158 #2549 #12496).",
+  "input_sha256": "7d7c6b1d342be5826192ecca9b4a0aa635c2cc322d961a293231b7d174cd929b",
+  "recorded_at": "2026-08-10T20:01:23+00:00",
+  "commit": "6591092ea3938dc66631b6a770952e1179223f38"
 }

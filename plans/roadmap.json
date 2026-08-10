@@ -562,6 +562,26 @@
       "completed_at": "2026-08-11T03:38:39+00:00",
       "history": ".factory/history/FORGE-ROLE-1/",
       "outcome": "The role split is now a gate: the orchestrating session physically cannot write product or canon - even under an approved plan - with forge delegate as the sole write path, a ledgered five-file degraded window as the single reasoned exception, and quickfix/lite surviving as work-record tickets (0037 amends 0013/0031, human-confirmed). Read-only Codex rescue works ANYTIME - no stage, no plan, any phase - via a quote-aware guard that also catches env-var laundering. Verified live against its own author: the lockout denied the orchestrator mid-story."
+    },
+    {
+      "key": "FORGE-WIN-1",
+      "title": "Zero-setup Windows support",
+      "story": "As a Windows dev on a new or existing client repo, I get a working harness (hooks, write lock, delegate) without performing any setup myself, so sessions never degrade to hand-typed commands",
+      "acceptance_criteria": [
+        "On Windows with Git Bash every registered hook executes and pre_tool_use denies a product write exactly as on macOS/Linux",
+        "forge doctor executes every registered hook command verbatim on any platform and reports a named red check when one cannot run",
+        "On Windows missing Git or Python, forge doctor --fix converges to green with no user-typed setup and at most one consolidated elevation confirm",
+        "On Windows the recorded delegate invocation shows injected sandbox flags (unelevated, workspace-write); ~/.codex/config.toml untouched",
+        "forge next on a hook-broken Windows clone names doctor --fix as its first action",
+        "init/adopt/upgrade each leave a client repo hook-healthy on Windows; upgrade replaces the pinned-interpreter settings",
+        "windows-latest CI job runs the lockout gate tests and doctor hook-health green"
+      ],
+      "order": 26,
+      "status": "pending",
+      "epic": "windows-zero-setup",
+      "skill": "fullstack",
+      "depends_on": [],
+      "spec": "docs/specs/windows-zero-setup.md"
     }
   ],
   "generated_by": "human",
@@ -605,6 +625,14 @@
       "objective": "Session writes to product and canon are hook-denied even under an approved plan; forge delegate is the sole write path; discovery routes to Codex rescue; a ledgered degraded-mode window is the only exception",
       "source_refs": [
         "docs/specs/strict-role-split.md"
+      ]
+    },
+    {
+      "id": "windows-zero-setup",
+      "title": "Windows is a first-class host: the harness self-heals, no user setup",
+      "objective": "Make the harness work on Windows for new and existing clients with zero user-performed setup: portable fail-closed hooks, doctor auto-remediation, delegate-time Codex config, forge-next self-heal trigger, and windows-latest CI.",
+      "source_refs": [
+        "docs/specs/windows-zero-setup.md"
       ]
     }
   ]
