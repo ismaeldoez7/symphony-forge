@@ -764,3 +764,7 @@
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-10T10:47:41+00:00", "story": "FORGE-ALIGN-2"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-10T10:47:47+00:00", "story": "FORGE-ALIGN-2", "detail": "Emptiness and coverage are now audit failures, not silence: a repo with discovery material (harvested context, decisions, or confirmed specs) but no roadmap, no stories, or no epics fails forge projec"}
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-10T10:48:33+00:00", "story": "FORGE-ALIGN-2", "detail": "knacklabs/symphony-forge#69"}
+{"event": "intake", "generated_by": "orchestrator", "at": "2026-08-10T11:55:49+00:00", "story": "FORGE-ALIGN-3", "detail": "Vendored client gates: roadmap-gate.yml"}
+{"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-10T12:03:54+00:00", "story": "FORGE-ALIGN-3", "detail": "FORGE-ALIGN-3 approved by Ravi"}
+{"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-10T12:03:54+00:00", "story": "FORGE-ALIGN-3", "detail": "plans/active/FORGE-ALIGN-3-vendored-client-gates-roadmap-gate-yml.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-10T12:04:46+00:00", "story": "FORGE-ALIGN-3", "detail": "1 task(s)"}

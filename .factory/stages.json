@@ -1,0 +1,10 @@
+{
+  "issue": "FORGE-ALIGN-3",
+  "stages": [
+    {
+      "id": "FORGE-ALIGN-3.1",
+      "title": "Vendored client gates: roadmap-gate.yml",
+      "status": "pending"
+    }
+  ]
+}
