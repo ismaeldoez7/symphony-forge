@@ -466,12 +466,15 @@
         "The migrate skill gains an explicit post-harvest step naming missing specs/epics/roadmap with the authoring commands; forge adopt's closing hint names specs and roadmap; nothing is auto-generated"
       ],
       "order": 21,
-      "status": "active",
+      "status": "done",
       "epic": "strict-alignment",
       "skill": "backend",
       "kind": "feature",
       "depends_on": [],
-      "spec": "docs/specs/strict-alignment.md"
+      "spec": "docs/specs/strict-alignment.md",
+      "completed_at": "2026-08-10T10:47:47+00:00",
+      "history": ".factory/history/FORGE-ALIGN-2/",
+      "outcome": "Emptiness and coverage are now audit failures, not silence: a repo with discovery material (harvested context, decisions, or confirmed specs) but no roadmap, no stories, or no epics fails forge project audit and sanitise --check with a named no-roadmap gap citing the authoring commands; a confirmed spec no story references is a continuous spec-coverage gap, not a one-time sign-off check; doctor reports the absent-roadmap state; migration (step 7c) and adoption now name capability gaps instead of staying silent - never fabricating content."
     },
     {
       "key": "FORGE-ALIGN-3",
@@ -495,7 +498,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-10T09:51:21+00:00",
+  "updated_at": "2026-08-10T10:47:47+00:00",
   "epics": [
     {
       "id": "symphony-forge",
