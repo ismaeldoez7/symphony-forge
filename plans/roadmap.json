@@ -510,12 +510,15 @@
         "No new flags, env vars, or config for verbosity"
       ],
       "order": 23,
-      "status": "active",
+      "status": "done",
       "epic": "terse-output",
       "skill": "backend",
       "kind": "feature",
       "depends_on": [],
-      "spec": "docs/specs/terse-output.md"
+      "spec": "docs/specs/terse-output.md",
+      "completed_at": "2026-08-10T13:58:39+00:00",
+      "history": ".factory/history/FORGE-TERSE-1/",
+      "outcome": "Forge output is terse by default: every touched command's success is one line (state change + identifiers), coaching consolidated into forge next as state-triggered steps that appear only when actionable (commit-the-evidence, commit-the-pin, decision hygiene, spec debt), errors and refusals untouched at full fix-it verbosity, and a budget gate test pins the line counts so lectures cannot creep back. Operators read what matters again."
     },
     {
       "key": "FORGE-TERSE-2",
@@ -537,7 +540,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-10T13:14:45+00:00",
+  "updated_at": "2026-08-10T13:58:39+00:00",
   "epics": [
     {
       "id": "symphony-forge",
