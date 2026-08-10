@@ -445,12 +445,15 @@
         "check_dual_runtime stays green; the seam exists for both runtimes"
       ],
       "order": 20,
-      "status": "active",
+      "status": "done",
       "epic": "strict-alignment",
       "skill": "backend",
       "kind": "feature",
       "depends_on": [],
-      "spec": "docs/specs/strict-alignment.md"
+      "spec": "docs/specs/strict-alignment.md",
+      "completed_at": "2026-08-10T09:26:07+00:00",
+      "history": ".factory/history/FORGE-ALIGN-1/",
+      "outcome": "Editing a context doc no longer reds CI: any git commit through an agent session (either runtime) re-scans docs/context in-process, auto-stages the refreshed ledger.json so the diff rides that same commit, and blocks the commit with the reason while a secret-shaped or oversized context file is unfixed. The write-time hook is deferred with a recorded trigger (D-0015); decision 0035 captures the belt contract."
     },
     {
       "key": "FORGE-ALIGN-2",
@@ -492,7 +495,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-10T08:26:19+00:00",
+  "updated_at": "2026-08-10T09:26:07+00:00",
   "epics": [
     {
       "id": "symphony-forge",
