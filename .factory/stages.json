@@ -1,0 +1,10 @@
+{
+  "issue": "FORGE-ALIGN-2",
+  "stages": [
+    {
+      "id": "FORGE-ALIGN-2.1",
+      "title": "Emptiness and coverage become audit failures",
+      "status": "pending"
+    }
+  ]
+}
