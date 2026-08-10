@@ -1,0 +1,10 @@
+{
+  "issue": "FORGE-TERSE-1",
+  "stages": [
+    {
+      "id": "FORGE-TERSE-1.1",
+      "title": "Terse CLI success paths + budget test",
+      "status": "pending"
+    }
+  ]
+}
