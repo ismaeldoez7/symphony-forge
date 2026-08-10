@@ -29,7 +29,18 @@ def git(root: Path, *args: str) -> str:
 
 def roadmap_at(root: Path, ref: str) -> dict[str, dict]:
     try:
-        data = json.loads(git(root, "show", f"{ref}:{ROADMAP}"))
+        raw = git(root, "show", f"{ref}:{ROADMAP}")
+    except SystemExit as exc:
+        message = str(exc)
+        missing_at_ref = (
+            f"path '{ROADMAP}' does not exist in '{ref}'" in message
+            or f"path '{ROADMAP}' exists on disk, but not in '{ref}'" in message
+        )
+        if ref != "HEAD" and missing_at_ref:
+            return {}
+        raise
+    try:
+        data = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise SystemExit(f"{ROADMAP} at {ref} is not valid JSON: {exc}") from exc
     return {
@@ -55,7 +66,8 @@ def added_paths(root: Path, base: str) -> set[str]:
 def branch_ticket(branch: str, story_keys: set[str]) -> str | None:
     matches = [
         key for key in story_keys
-        if branch.startswith(f"feat/{key}-")
+        if any(branch.startswith(f"{prefix}/{key}-")
+               for prefix in ("feat", "feature"))
     ]
     return max(matches, key=len) if matches else None
 
@@ -128,7 +140,7 @@ def main() -> int:
             print(
                 "PR ticket check FAILED: every completed work record must be "
                 f"declared, but these are not: {missing}. Add a `Ticket:` line "
-                "for each (or a feat/<key>- branch)."
+                "for each (or a feat/<key>- or feature/<key>- branch)."
             )
         return 1
 

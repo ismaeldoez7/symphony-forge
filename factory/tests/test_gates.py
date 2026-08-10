@@ -3060,6 +3060,7 @@ def test_scaffold_delivers_factory_workflows(repo):
     assert (wf / "factory-scaffold.yml").exists()
     assert (wf / "gardener.yml").exists()
     assert (wf / "harness-health.yml").exists()
+    assert (wf / "roadmap-gate.yml").exists()
 
 
 def test_scaffold_pins_gstack_into_the_repo(repo):
@@ -5183,6 +5184,49 @@ def test_trailer_check_targets_the_acceptance_commit(repo):
 
 # ---------------------------------------------------------- Gate A: PR ticket
 
+def test_roadmap_gate_workflow_shape():
+    workflow = (HARNESS / ".github" / "workflows" / "roadmap-gate.yml").read_text()
+    pr_job, coverage_job = workflow.split("\n  coverage:\n", 1)
+    pr_job = pr_job.split("\n  pr-contract:\n", 1)[1]
+
+    assert re.search(r"^  pull_request:\s*$", workflow, re.MULTILINE)
+    assert re.search(r"^  push:\s*$", workflow, re.MULTILINE)
+    assert "  pr-contract:" in workflow
+    assert "  coverage:" in workflow
+    assert workflow.count("- uses: actions/checkout@v4") == 2
+    assert workflow.count("- uses: actions/setup-python@v5") == 2
+    assert workflow.count("python-version: '3.11'") == 2
+    assert workflow.count("id: arm") == 2
+    assert workflow.count("constitution/VENDORED_FROM") == 2
+    assert workflow.count("plans/roadmap.json") == 2
+    assert workflow.count("json.loads(roadmap.read_text())") == 2
+    assert workflow.count('len(data["epics"]) >= 1') == 2
+    assert workflow.count(
+        'armed = Path("constitution/VENDORED_FROM").is_file() and has_epics'
+    ) == 2
+    assert "except" not in workflow
+    assert workflow.count("GITHUB_OUTPUT") == 2
+    assert workflow.count("steps.arm.outputs.armed == 'true'") == 2
+    assert workflow.count("fetch-depth: 0") == 1
+    assert "fetch-depth: 0" in pr_job and "fetch-depth: 0" not in coverage_job
+    assert "github.event_name == 'push'" in coverage_job
+    assert "github.ref_name == github.event.repository.default_branch" in coverage_job
+    for name in ("BASE_SHA", "HEAD_BRANCH", "PR_BODY"):
+        assert f"{name}:" in pr_job and f"{name}:" not in coverage_job
+    for job in (pr_job, coverage_job):
+        assert job.count("id: arm") == 1
+        assert job.count("constitution/VENDORED_FROM") == 1
+        assert job.count("plans/roadmap.json") == 1
+        assert job.count("steps.arm.outputs.armed == 'true'") == 1
+    assert "python3 factory/scripts/check_pr_ticket.py" in pr_job
+    assert "project audit" not in pr_job
+    assert "python3 factory/scripts/forge.py project audit" in coverage_job
+    assert "check_pr_ticket.py" not in coverage_job
+    assert "pytest" not in workflow
+    assert "factory/tests" not in workflow
+    assert "gh api" not in workflow
+    assert "|| true" not in workflow
+
 def pr_ticket_base(repo: Path, *keys: str) -> str:
     for key in keys:
         ensure_story(repo, key)
@@ -5235,6 +5279,41 @@ def test_check_pr_ticket_passes_base_absent_story(repo):
     git(repo, "commit", "-q", "-m", "add and complete story")
 
     code, out = check_pr_ticket(repo, base, f"feat/{key}-gate-a")
+
+    assert code == 0 and f"story {key}" in out, out
+
+
+def test_check_pr_ticket_passes_when_base_has_no_roadmap(repo):
+    key = "BOARD-110"
+    roadmap = repo / "plans" / "roadmap.json"
+    if roadmap.exists():
+        roadmap.unlink()
+        git(repo, "add", "-u", "plans/roadmap.json")
+        git(repo, "commit", "-q", "-m", "remove roadmap from base")
+    base = head(repo)
+    missing = subprocess.run(
+        ["git", "show", f"{base}:plans/roadmap.json"], cwd=repo,
+        capture_output=True, text=True,
+    )
+    assert missing.returncode != 0
+    ensure_story(repo, key)
+    complete_story(repo, key)
+    git(repo, "add", "plans/roadmap.json", f".factory/history/{key}")
+    git(repo, "commit", "-q", "-m", "introduce roadmap and complete story")
+
+    code, out = check_pr_ticket(repo, base, f"feat/{key}-gate-a")
+
+    assert code == 0 and f"story {key}" in out, out
+
+
+def test_check_pr_ticket_infers_ticket_from_feature_branch(repo):
+    key = "BOARD-111"
+    base = pr_ticket_base(repo, key)
+    complete_story(repo, key)
+    git(repo, "add", "plans/roadmap.json", f".factory/history/{key}")
+    git(repo, "commit", "-q", "-m", "complete story from feature branch")
+
+    code, out = check_pr_ticket(repo, base, f"feature/{key}-gate-a")
 
     assert code == 0 and f"story {key}" in out, out
 

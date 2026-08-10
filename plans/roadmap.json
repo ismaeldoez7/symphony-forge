@@ -487,7 +487,7 @@
         "The vendored-docs client-safety test (0034) still passes with the new workflow vendored"
       ],
       "order": 22,
-      "status": "pending",
+      "status": "active",
       "epic": "strict-alignment",
       "skill": "backend",
       "kind": "feature",
@@ -498,7 +498,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-10T10:47:47+00:00",
+  "updated_at": "2026-08-10T11:55:49+00:00",
   "epics": [
     {
       "id": "symphony-forge",
