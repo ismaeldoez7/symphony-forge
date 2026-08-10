@@ -4,7 +4,11 @@
     {
       "id": "FORGE-ROLE-1.1",
       "title": "Write lockout + degraded window + guard fix + docs + tests",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-10T19:10:10+00:00",
+      "base_sha": "9c828cd7182ef45eb894943468111d44a3ce2005",
+      "dirty_at_start": {},
+      "task_sha256": "46e595412a7873ffb02ab22957e341a658b0bab738c5aef06d42b1140e5a451e"
     }
   ]
 }

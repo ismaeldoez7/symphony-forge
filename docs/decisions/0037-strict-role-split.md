@@ -38,6 +38,7 @@ declares.
   resolve).
 - The companion guard admits provably read-only invocations by argument
   content — quoting alone no longer denies — or the routing rule is dead
-  letter.
+  letter. Read-only can happen ANYTIME: no active task, no approved plan,
+  any phase, harness and client repos alike. Only writes are stage-bound.
 - A companion outage without a window stops product work; that is the
   chosen failure mode (bounded valve over silent role-drift).

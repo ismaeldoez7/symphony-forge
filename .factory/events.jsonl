@@ -826,3 +826,5 @@
 {"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-10T19:09:02+00:00", "story": "FORGE-ROLE-1", "detail": "FORGE-ROLE-1 approved by Ravi"}
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-10T19:09:02+00:00", "story": "FORGE-ROLE-1", "detail": "plans/active/FORGE-ROLE-1-write-lockout-degraded-window-routing-docs.md"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-10T19:09:49+00:00", "story": "FORGE-ROLE-1", "detail": "1 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-10T19:10:10+00:00", "story": "FORGE-ROLE-1", "detail": "FORGE-ROLE-1.1 Write lockout + degraded window + guard fix + docs + tests"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-10T19:35:35+00:00", "story": "FORGE-ROLE-1", "detail": "1 task(s)"}
