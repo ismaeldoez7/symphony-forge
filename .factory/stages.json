@@ -1,0 +1,10 @@
+{
+  "issue": "FORGE-ROLE-1",
+  "stages": [
+    {
+      "id": "FORGE-ROLE-1.1",
+      "title": "Write lockout + degraded window + guard fix + docs + tests",
+      "status": "pending"
+    }
+  ]
+}

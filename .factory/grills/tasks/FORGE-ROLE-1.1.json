@@ -1,0 +1,24 @@
+{
+  "generated_by": "griller",
+  "gate": "task",
+  "verdict": "pass",
+  "gaps": [
+    "Is the worker-writes-bypass-Claude-hooks claim VERIFIED or assumed?",
+    "Can the orchestrator still finish this story (commit, record, pr_ready) once the lockout is live mid-branch?",
+    "Do the plan line refs survive yesterday's merges?",
+    "Does denying .github/ break the orchestrator's own gate workflows maintenance?"
+  ],
+  "contradictions": [],
+  "resolutions": [
+    "Assumed from architecture (companion is a separate process; .codex hooks are Bash-only) - therefore the contract makes verification the worker's FIRST act with a signal on contradiction.",
+    "Yes by design: commits/records/git ops are exempt; the contract's reviewer_focus makes bricking-the-loop a blocking concern and the story is its own live test.",
+    "Refs are a map re-verified against HEAD (standing resolution from FORGE-TERSE-1's plan-precision lesson).",
+    "Yes - .github/ maintenance becomes delegated work like all machinery; that is the point, and the deny message names the two remedies."
+  ],
+  "open_items": [],
+  "notes": "JIT grill; single task; delegated implementation dogfoods the rule.",
+  "task_id": "FORGE-ROLE-1.1",
+  "input_sha256": "46e595412a7873ffb02ab22957e341a658b0bab738c5aef06d42b1140e5a451e",
+  "recorded_at": "2026-08-10T19:10:10+00:00",
+  "commit": "68d733ce987b0ef154f7fc21c6852bc4ff1d3274"
+}
