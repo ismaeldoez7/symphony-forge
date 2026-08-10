@@ -157,8 +157,6 @@ def cmd_scan(args: argparse.Namespace) -> None:
         counts[entry["status"]] = counts.get(entry["status"], 0) + 1
     summary = ", ".join(f"{k}: {v}" for k, v in sorted(counts.items())) or "empty"
     print(f"context ledger — {summary}")
-    if counts.get("pending"):
-        print("Harvest pending files per factory/prompts/harvester.md.")
 
 
 def cmd_list(args: argparse.Namespace) -> None:

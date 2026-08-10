@@ -333,5 +333,4 @@ with delegation_exclusion(
     from forge_cli.events import append_event  # noqa: E402
     append_event(root, "decomposed", actor="docs-decomposer",
                  story=state.get("issue_key", ""), detail=f"{len(tasks)} task(s)")
-print(f"Recorded decomposition ({len(tasks)} stage(s) -> .factory/stages.json; "
-      "work them with `forge stage start/done`)")
+print(f"Recorded decomposition: {len(tasks)} stage(s) -> .factory/stages.json")

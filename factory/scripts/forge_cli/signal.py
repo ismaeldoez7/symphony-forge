@@ -73,8 +73,8 @@ def cmd_raise(args: argparse.Namespace) -> None:
     _append(base, event)
     append_event(base, f"signal-{args.kind}", actor=args.by, story=issue,
                  detail=payload["message"][:200])
-    print(f"Signal {event['id']} raised ({args.kind}) for task {issue or '?'} — "
-          "PAUSE this thread; the orchestrator resolves and resumes you.")
+    print(f"Signal {event['id']} raised ({args.kind}) for task {issue or '?'}")
+    print("PAUSE this thread; the orchestrator resolves and resumes you.")
 
 
 def cmd_resolve(args: argparse.Namespace) -> None:
@@ -88,8 +88,7 @@ def cmd_resolve(args: argparse.Namespace) -> None:
     issue = load_json(run_state_path(base), default={}).get("issue_key", "")
     append_event(base, "signal-resolved", actor="orchestrator", story=issue,
                  detail=f"{args.id}: {args.notes.strip()[:200]}")
-    print(f"{args.id} resolved — resume the worker with this answer "
-          "(/codex:rescue --resume \"<the resolution>\").")
+    print(f"Signal {args.id} resolved")
 
 
 def cmd_list(args: argparse.Namespace) -> None:

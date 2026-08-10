@@ -215,10 +215,6 @@ def cmd_save(args: argparse.Namespace) -> None:
     append_event(base, "plan-approved", actor="planner-high", story=story,
                  detail=dest.relative_to(base).as_posix())
     print(f"Plan saved to {dest.relative_to(base)} (plan_status: approved)")
-    print(
-        "Decisions made while planning must exist as docs/decisions/ records "
-        "(forge.py decision new <slug>) and be referenced in the plan."
-    )
 
 
 def cmd_approve(args: argparse.Namespace) -> None:
@@ -263,10 +259,7 @@ def cmd_approve(args: argparse.Namespace) -> None:
     append_event(base, "plan-human-approved", actor="human",
                  story=marker["story"] or "",
                  detail=f"{marker['issue']} approved by {approver}")
-    print(
-        f"Plan approved by {approver}. Re-run `forge plan save --from <plan-file>` "
-        "with the unchanged plan to continue."
-    )
+    print(f"Plan approved by {approver}")
 
 
 def cmd_list(args: argparse.Namespace) -> None:
@@ -330,6 +323,3 @@ def cmd_assume(args: argparse.Namespace) -> None:
     entry_id = append_row(base, issue, args.text)
     print(f"Assumption recorded in {plan.relative_to(base)} and ledgered as {entry_id} "
           "(plans/assumptions.md)")
-    print("The orchestrator guides it: forge.py assumptions resolve "
-          f"{entry_id} --status confirmed|fix-needed|promoted --notes \"...\" — "
-          "pr_ready refuses while it is open.")
