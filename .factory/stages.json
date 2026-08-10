@@ -1,0 +1,10 @@
+{
+  "issue": "FORGE-TERSE-2",
+  "stages": [
+    {
+      "id": "FORGE-TERSE-2.1",
+      "title": "Conduct section 8 + AGENTS.md non-negotiable + prompt clauses",
+      "status": "pending"
+    }
+  ]
+}
