@@ -81,5 +81,8 @@ jobs:
           git config user.name "forge-pr-link[bot]"
           git config user.email "forge-pr-link[bot]@users.noreply.github.com"
           git add -f .factory/events.jsonl
-          git commit -m "chore: link PR to ${{ steps.link.outputs.story }}"
+          # [skip ci]: the link commit touches only .factory/events.jsonl; without
+          # it, the bot-attributed synchronize wave is HELD action_required and
+          # strands the PR's checks (D-0017, hit on PRs #72 and #73).
+          git commit -m "chore: link PR to ${{ steps.link.outputs.story }} [skip ci]"
           git push origin "HEAD:$HEAD_BRANCH"
