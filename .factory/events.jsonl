@@ -763,3 +763,4 @@
 {"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-10T10:47:41+00:00", "story": "FORGE-ALIGN-2"}
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-10T10:47:41+00:00", "story": "FORGE-ALIGN-2"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-10T10:47:47+00:00", "story": "FORGE-ALIGN-2", "detail": "Emptiness and coverage are now audit failures, not silence: a repo with discovery material (harvested context, decisions, or confirmed specs) but no roadmap, no stories, or no epics fails forge projec"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-10T10:48:33+00:00", "story": "FORGE-ALIGN-2", "detail": "knacklabs/symphony-forge#69"}
