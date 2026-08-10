@@ -439,13 +439,13 @@
       "title": "Self-updating context ledger",
       "story": "As a client dev, when I or an agent changes a doc in docs/context/, the ledger updates in the same commit so CI never goes red on a stale ledger",
       "acceptance_criteria": [
-        "A post-edit hook runs forge context scan when a file under docs/context/ is written in an agent session; the ledger diff rides in the same commit",
+        "When an agent-session commit follows a docs/context/ change, the ledger updates automatically and its diff rides in the same commit with no manual scan",
         "The git-commit interception re-scans when the commit includes docs/context/ changes (belt for human-made edits)",
         "context scan --check in CI is unchanged and stays green for hook-scanned commits",
         "check_dual_runtime stays green; the seam exists for both runtimes"
       ],
       "order": 20,
-      "status": "pending",
+      "status": "active",
       "epic": "strict-alignment",
       "skill": "backend",
       "kind": "feature",
@@ -492,7 +492,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-10T08:25:20+00:00",
+  "updated_at": "2026-08-10T08:26:19+00:00",
   "epics": [
     {
       "id": "symphony-forge",

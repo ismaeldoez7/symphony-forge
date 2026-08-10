@@ -737,3 +737,5 @@
 {"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-10T08:39:32+00:00", "story": "FORGE-ALIGN-1", "detail": "FORGE-ALIGN-1 approved by Ravi"}
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-10T08:39:33+00:00", "story": "FORGE-ALIGN-1", "detail": "plans/active/FORGE-ALIGN-1-self-updating-context-ledger.md"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-10T08:40:57+00:00", "story": "FORGE-ALIGN-1", "detail": "1 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-10T08:42:06+00:00", "story": "FORGE-ALIGN-1", "detail": "FORGE-ALIGN-1.1 Commit belt keeps the context ledger fresh"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-10T09:04:48+00:00", "story": "FORGE-ALIGN-1", "detail": "FORGE-ALIGN-1.1 (write)"}

@@ -52,11 +52,11 @@ refused, and authoring stays with a human (project-record stance).
 
 ### The context ledger updates itself
 
-- A post-edit hook seam is added to the vendored hook set (today only
-  SessionStart / PreCompact / PreToolUse / Stop exist). When an agent writes a
-  file under `docs/context/`, the hook runs `forge context scan` — cheap,
-  idempotent — so the ledger diff rides in the same commit as the doc change.
-- The existing `git commit` interception gains the same auto-scan as a belt:
+- The existing vendored PreToolUse hook gains a commit-time belt. When an agent
+  session commits after a file under `docs/context/` changes, the belt re-scans
+  the inbox so the ledger diff rides in the same commit. A write-time
+  PostToolUse seam is deferred until its recorded trigger fires.
+- A new `git commit` interception provides that auto-scan as a belt:
   a commit that includes `docs/context/` changes re-scans first, covering
   human-made edits committed through an agent session.
 - `context scan --check` in CI stays exactly as-is: the backstop for edits made
@@ -139,8 +139,8 @@ auto-creates anything.
 
 ## Decomposition (epic → stories)
 
-1. **Self-updating context ledger** — the post-edit hook seam + commit-time
-   auto-scan; CI check unchanged. (Smallest; ships first.)
+1. **Self-updating context ledger** — commit-time auto-scan, with the write-time
+   hook recorded as a deferral; CI check unchanged. (Smallest; ships first.)
 2. **Coverage detectors + migration prompts** — `no-roadmap` and
    `spec-coverage` gap kinds in `project_gaps`, doctor fix, migrate-skill step,
    adopt hint.

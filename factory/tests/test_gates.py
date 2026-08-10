@@ -3734,6 +3734,75 @@ def hook(repo: Path, payload: dict) -> tuple[int, str]:
     return run(repo, "pre_tool_use.py", stdin=json.dumps(payload))
 
 
+def test_commit_belt_stages_refreshed_ledger(repo):
+    context_file = repo / "docs" / "context" / "commit-note.md"
+    context_file.write_text("new client context\n")
+    git(repo, "add", "docs/context/commit-note.md")
+
+    code, out = hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": "git commit -m context"},
+    })
+
+    assert code == 0
+    assert out == "{}\n"
+    staged = git(repo, "diff", "--cached", "--name-only").splitlines()
+    assert staged == ["docs/context/commit-note.md", "docs/context/ledger.json"]
+    ledger = json.loads((repo / "docs" / "context" / "ledger.json").read_text())
+    assert ledger["files"]["commit-note.md"]["status"] == "pending"
+
+
+def test_commit_belt_denies_commit_while_context_file_refused(repo):
+    context_file = repo / "docs" / "context" / "secret.txt"
+    context_file.write_text('password = "hunter2secret"\n')
+    git(repo, "add", "docs/context/secret.txt")
+
+    code, out = hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": "git commit -m context"},
+    })
+
+    assert code == 0
+    decision = json.loads(out)["hookSpecificOutput"]
+    assert decision["permissionDecision"] == "deny"
+    assert "secret.txt" in decision["permissionDecisionReason"]
+    assert "REDACT" in decision["permissionDecisionReason"]
+    assert "secret.txt" not in json.loads(
+        (repo / "docs" / "context" / "ledger.json").read_text()
+    )["files"]
+
+
+def test_commit_belt_clean_inbox_is_pass_through(repo):
+    ledger_path = repo / "docs" / "context" / "ledger.json"
+
+    # Never-scanned empty inbox: the belt leaves no untracked ledger residue.
+    code, out = hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": "git commit -m clean"},
+    })
+    assert code == 0
+    assert out == "{}\n"
+    assert not ledger_path.exists()
+
+    code, out = run(repo, "forge.py", "context", "scan")
+    assert code == 0, out
+    before = ledger_path.read_bytes()
+
+    code, out = hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": "git commit -m clean"},
+    })
+
+    assert code == 0
+    assert out == "{}\n"
+    assert ledger_path.read_bytes() == before
+    assert git(repo, "diff", "--cached", "--name-only") == ""
+
+
 COMPANION = "node /x/codex-companion.mjs task --model gpt-5.6-sol"
 COMPANION_WRITE = (COMPANION + " --write --prompt-file .factory/briefs/T1.md "
                    "'build the slice'")

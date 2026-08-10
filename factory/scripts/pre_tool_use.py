@@ -4,11 +4,13 @@ from __future__ import annotations
 import json
 import re
 import shlex
+import subprocess
 from pathlib import Path
 
 from factory_lib import (
     client_signoff, load_json, read_hook_input, repo_root, run_state_path,
 )
+from forge_cli.context import context_files, context_paths, scan_inbox
 from forge_cli.quickfix import claim_files, load_active, record_files
 from forge_cli.repo_kind import is_harness_source_repo
 
@@ -232,6 +234,26 @@ def git_subcommand(args: list[str]) -> tuple[str | None, list[str]]:
             continue
         return token, args[index + 1:]
     return None, []
+
+
+def has_git_commit(value: str) -> bool:
+    """True when a shell segment directly invokes `git ... commit`."""
+    for segment in re.split(r"[;&|\n]+", strip_heredoc_bodies(value)):
+        tokens = tokenize(segment)
+        if tokens is None:
+            continue
+        command_index = next(
+            (index for index, token in enumerate(tokens)
+             if not re.fullmatch(r"\w+=\S*", token)),
+            None,
+        )
+        if command_index is None:
+            continue
+        if tokens[command_index].rsplit("/", 1)[-1] != "git":
+            continue
+        if git_subcommand(tokens[command_index + 1:])[0] == "commit":
+            return True
+    return False
 
 
 def _copy_operands(operands: list[str], args: list[str],
@@ -522,6 +544,27 @@ GATED_PHASES = (
     "pr-ready",
 )
 root = repo_root()
+
+if tool_name == "Bash" and has_git_commit(command):
+    context_dir, ledger_path = context_paths(root)
+    # An inbox that was never scanned and holds nothing stays untouched: the
+    # belt must not leave an untracked ledger.json behind on every commit.
+    if ledger_path.exists() or (context_dir.is_dir() and context_files(context_dir)):
+        drift, refused = scan_inbox(root)
+    else:
+        drift, refused = [], []
+    if refused:
+        deny("REFUSED (not registered — fix, then rescan):\n" +
+             "\n".join(f"- {line}" for line in refused))
+    if drift:
+        staged = subprocess.run(
+            ["git", "add", "--", "docs/context/ledger.json"],
+            cwd=root, capture_output=True, text=True,
+        )
+        if staged.returncode:
+            deny("Context ledger refreshed but could not be staged: " +
+                 (staged.stderr.strip() or staged.stdout.strip() or "git add failed"))
+
 run_state = load_json(run_state_path(root), default={})
 
 edit_target = (tool_input.get("file_path") or tool_input.get("notebook_path") or "")
