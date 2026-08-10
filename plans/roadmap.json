@@ -433,10 +433,69 @@
       "completed_at": "2026-08-09T04:29:04+00:00",
       "history": ".factory/history/FORGE-BOARD-7/",
       "outcome": "Symphony Forge gains a one-command repo-hygiene pass, `forge sanitise` (and `--check`): it heals only the safe (roadmap drift, committed cruft) and REPORTS what needs judgment (board gaps, missing PR links, secrets, stale task-state, open windows, advisories) without deleting evidence or fabricating; `--check` is read-only. Three primitives back it: `forge mode abandon` (ledgered close of a crashed window, keeping the harness-marker guard), a pure stale-task-state reporter, and a repo-wide secret/cruft scan. A `knacklabs-sanitise-project` skill wraps it on demand. The daily harness-health cron is gone \u2014 the client update check now runs only on `workflow_dispatch` and `push: main` with the cheap version short-circuit, so devs audit on demand and clients stop burning tokens daily."
+    },
+    {
+      "key": "FORGE-ALIGN-1",
+      "title": "Self-updating context ledger",
+      "story": "As a client dev, when I or an agent changes a doc in docs/context/, the ledger updates in the same commit so CI never goes red on a stale ledger",
+      "acceptance_criteria": [
+        "When an agent-session commit follows a docs/context/ change, the ledger updates automatically and its diff rides in the same commit with no manual scan",
+        "The git-commit interception re-scans when the commit includes docs/context/ changes (belt for human-made edits)",
+        "context scan --check in CI is unchanged and stays green for hook-scanned commits",
+        "check_dual_runtime stays green; the seam exists for both runtimes"
+      ],
+      "order": 20,
+      "status": "done",
+      "epic": "strict-alignment",
+      "skill": "backend",
+      "kind": "feature",
+      "depends_on": [],
+      "spec": "docs/specs/strict-alignment.md",
+      "completed_at": "2026-08-10T09:26:07+00:00",
+      "history": ".factory/history/FORGE-ALIGN-1/",
+      "outcome": "Editing a context doc no longer reds CI: any git commit through an agent session (either runtime) re-scans docs/context in-process, auto-stages the refreshed ledger.json so the diff rides that same commit, and blocks the commit with the reason while a secret-shaped or oversized context file is unfixed. The write-time hook is deferred with a recorded trigger (D-0015); decision 0035 captures the belt contract."
+    },
+    {
+      "key": "FORGE-ALIGN-2",
+      "title": "Emptiness and coverage are audit failures",
+      "story": "As an operator, a repo with discovery material but no roadmap, no epics, or unreferenced confirmed specs fails project audit and sanitise --check with a named gap instead of reporting OK",
+      "acceptance_criteria": [
+        "project_gaps gains a no-roadmap gap kind: discovery material exists but plans/roadmap.json is absent, empty, or has no epics; project audit and sanitise --check exit non-zero on it",
+        "project_gaps gains a spec-coverage gap kind: a confirmed spec no roadmap story references, checked continuously, not only at sign-off",
+        "forge doctor reports the missing-roadmap state instead of early-returning clean",
+        "The migrate skill gains an explicit post-harvest step naming missing specs/epics/roadmap with the authoring commands; forge adopt's closing hint names specs and roadmap; nothing is auto-generated"
+      ],
+      "order": 21,
+      "status": "pending",
+      "epic": "strict-alignment",
+      "skill": "backend",
+      "kind": "feature",
+      "depends_on": [],
+      "spec": "docs/specs/strict-alignment.md"
+    },
+    {
+      "key": "FORGE-ALIGN-3",
+      "title": "Vendored client gates: roadmap-gate.yml",
+      "story": "As a client team, our PRs cannot land work without declaring a completed story or ledgered window, and our main cannot silently carry coverage gaps - the same teeth the harness has",
+      "acceptance_criteria": [
+        "roadmap-gate.yml joins COPY_WORKFLOWS with a PR job enforcing strict declare-all (client Gate A, decision 0033 contract, no docs-only exemption) and a push-to-main job failing on coverage gaps",
+        "Both jobs arm only when plans/roadmap.json exists with at least one epic; an unprepared client does not go red by pulling the upgrade",
+        "The arming choice is recorded as a decision record",
+        "The vendored-docs client-safety test (0034) still passes with the new workflow vendored"
+      ],
+      "order": 22,
+      "status": "pending",
+      "epic": "strict-alignment",
+      "skill": "backend",
+      "kind": "feature",
+      "depends_on": [
+        "FORGE-ALIGN-2"
+      ],
+      "spec": "docs/specs/strict-alignment.md"
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-09T04:29:04+00:00",
+  "updated_at": "2026-08-10T09:26:07+00:00",
   "epics": [
     {
       "id": "symphony-forge",
@@ -452,6 +511,14 @@
       "objective": "Make the epic/story/task/PR/ticket board complete and PR-linked, enforced deterministically so it cannot rot and agents can always backtrack; plan each task just-in-time against real prior state; and give clients skills to upgrade and sanitise into this bar.",
       "source_refs": [
         "docs/specs/traceable-board.md"
+      ]
+    },
+    {
+      "id": "strict-alignment",
+      "title": "The record updates itself, and clients are held to the roadmap",
+      "objective": "Ledgers auto-update on doc changes, emptiness/coverage gaps are audit failures, and vendored CI gates hold every client to the declare-all roadmap contract",
+      "source_refs": [
+        "docs/specs/strict-alignment.md"
       ]
     }
   ]
