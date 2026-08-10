@@ -264,19 +264,17 @@ the write-delegation path is the hard enforcement point and refuses a missing,
 non-passing, or stale `.factory/grills/tasks/<id>.json`. Read-only delegation
 does not cross that write gate.
 
-The PR boundary adds two deterministic CI gates, run by the harness's own
-`pr-ticket-check`, `pr-link`, and `board-invariant` workflows — harness-internal,
-NOT part of the client-vendored workflow set. Gate A runs on each pull request
-and requires a PR to declare EVERY completed work record — every `done` roadmap
-story (a done-flip with added history) and every added work-window done record —
-so a single review-driven effort that spans more than one window stays fully
-traceable. For a same-repository story PR, the pr-link gate also records the
-story and PR as a `pr-linked` event, then commits that event to the PR branch;
-an exact-link guard makes subsequent runs a no-op, and CI never writes directly
-to `main`. Gate B runs on `main` and keeps it red until every `done` roadmap
-story has a history directory plus a durable outcome and PR link. Stories
-explicitly marked `predates_outcome_contract` still need history, but are exempt
-from the newer outcome and link requirements.
+The PR boundary has one client-vendored CI contract:
+`.github/workflows/roadmap-gate.yml`. On pull requests it requires every
+completed work record to be declared — every `done` roadmap story (a done-flip
+or newly-added story with added history) and every added work-window done
+record — so a single review-driven effort that spans more than one window stays
+fully traceable. On pushes to the repository default branch it runs the full
+project audit, keeping audit gaps visible. The harness keeps its own internal
+implementations for declaration, PR-link recording, and board completeness;
+those workflows remain harness-internal rather than part of the vendored
+contract. Stories explicitly marked `predates_outcome_contract` still need
+history, but are exempt from the newer outcome and link requirements.
 
 ## Task Graph Rules
 - The planner owns decomposition.
@@ -306,6 +304,10 @@ roster, preserved across re-imports). Item lifecycle: `pending` → `active`
 and flags unassigned ones to the EM. Scope changes are PR edits to the
 file — future planning refines the roadmap, it does not silently regenerate
 it; the per-task plan must satisfy the item's `acceptance_criteria`.
+In vendored clients, `.github/workflows/roadmap-gate.yml` arms only when
+`constitution/VENDORED_FROM` exists and this roadmap has at least one epic;
+an absent or valid epic-less roadmap leaves its gates green, while malformed
+roadmap JSON fails the arming step loudly.
 
 ## Concurrency — one story per worktree
 

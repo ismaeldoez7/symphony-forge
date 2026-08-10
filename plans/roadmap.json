@@ -487,18 +487,21 @@
         "The vendored-docs client-safety test (0034) still passes with the new workflow vendored"
       ],
       "order": 22,
-      "status": "pending",
+      "status": "done",
       "epic": "strict-alignment",
       "skill": "backend",
       "kind": "feature",
       "depends_on": [
         "FORGE-ALIGN-2"
       ],
-      "spec": "docs/specs/strict-alignment.md"
+      "spec": "docs/specs/strict-alignment.md",
+      "completed_at": "2026-08-10T12:32:42+00:00",
+      "history": ".factory/history/FORGE-ALIGN-3/",
+      "outcome": "Clients now have the same CI teeth as the harness: the vendored roadmap-gate.yml blocks any PR that lands work without declaring its completed story or ledgered window, and runs the full project audit on every push to the default branch - but only once the client has opted in by authoring a roadmap with at least one epic (decision 0036); unprepared repos and the harness itself stay green. Two Gate A day-one defects fixed at the root: a client's first roadmap PR no longer crashes on the missing base-ref file, and Git Flow feature/<key> branches infer their ticket."
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-10T10:47:47+00:00",
+  "updated_at": "2026-08-10T12:32:42+00:00",
   "epics": [
     {
       "id": "symphony-forge",
