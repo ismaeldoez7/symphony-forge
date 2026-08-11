@@ -31,6 +31,13 @@ declares.
 
 ## Consequences
 
+- **Amends 0013 and 0031 (human-confirmed 2026-08-11):** quickfix and lite
+  windows survive as LEDGERED WORK RECORDS — the small-work ticket Gate A
+  requires — but the writes inside them are delegated like all product
+  work. The degraded window is the only session-write permit. Both prior
+  records stay active for their ledger/window semantics; their
+  session-write clauses are superseded by this record.
+
 - Orchestration surfaces stay writable: `docs/`, `plans/`, `.factory/` via
   recorders, prototype, scratchpad, and git operations on worker diffs.
 - The lockout is born on a shared classifier in `repo_kind.py`; the four
