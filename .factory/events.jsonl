@@ -836,3 +836,4 @@
 {"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-10T20:03:52+00:00", "story": "FORGE-WIN-1", "detail": "docs/specs/windows-zero-setup.md"}
 {"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-11T03:02:37+00:00", "story": "FORGE-ROLE-1"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-11T03:13:20+00:00", "story": "FORGE-ROLE-1", "detail": "FORGE-ROLE-1.1 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-11T03:16:29+00:00", "story": "FORGE-ROLE-1", "detail": "1 task(s)"}
