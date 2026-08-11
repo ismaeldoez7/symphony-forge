@@ -848,3 +848,4 @@
 {"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-11T03:38:38+00:00", "story": "FORGE-ROLE-1"}
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-11T03:38:38+00:00", "story": "FORGE-ROLE-1"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-11T03:38:39+00:00", "story": "FORGE-ROLE-1", "detail": "The role split is now a gate: the orchestrating session physically cannot write product or canon - even under an approved plan - with forge delegate as the sole write path, a ledgered five-file degrad"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-11T03:39:11+00:00", "story": "FORGE-ROLE-1", "detail": "knacklabs/symphony-forge#75"}
