@@ -559,30 +559,10 @@
       "kind": "feature",
       "depends_on": [],
       "spec": "docs/specs/strict-role-split.md"
-    },
-    {
-      "key": "FORGE-WIN-1",
-      "title": "Zero-setup Windows support",
-      "story": "As a Windows dev on a new or existing client repo, I get a working harness (hooks, write lock, delegate) without performing any setup myself, so sessions never degrade to hand-typed commands",
-      "acceptance_criteria": [
-        "On Windows with Git Bash every registered hook executes and pre_tool_use denies a product write exactly as on macOS/Linux",
-        "forge doctor executes every registered hook command verbatim on any platform and reports a named red check when one cannot run",
-        "On Windows missing Git or Python, forge doctor --fix converges to green with no user-typed setup and at most one consolidated elevation confirm",
-        "On Windows the recorded delegate invocation shows injected sandbox flags (unelevated, workspace-write); ~/.codex/config.toml untouched",
-        "forge next on a hook-broken Windows clone names doctor --fix as its first action",
-        "init/adopt/upgrade each leave a client repo hook-healthy on Windows; upgrade replaces the pinned-interpreter settings",
-        "windows-latest CI job runs the lockout gate tests and doctor hook-health green"
-      ],
-      "order": 26,
-      "status": "pending",
-      "epic": "windows-zero-setup",
-      "skill": "fullstack",
-      "depends_on": [],
-      "spec": "docs/specs/windows-zero-setup.md"
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-10T20:03:52+00:00",
+  "updated_at": "2026-08-10T19:02:13+00:00",
   "epics": [
     {
       "id": "symphony-forge",
@@ -622,14 +602,6 @@
       "objective": "Session writes to product and canon are hook-denied even under an approved plan; forge delegate is the sole write path; discovery routes to Codex rescue; a ledgered degraded-mode window is the only exception",
       "source_refs": [
         "docs/specs/strict-role-split.md"
-      ]
-    },
-    {
-      "id": "windows-zero-setup",
-      "title": "Windows is a first-class host: the harness self-heals, no user setup",
-      "objective": "Make the harness work on Windows for new and existing clients with zero user-performed setup: portable fail-closed hooks, doctor auto-remediation, delegate-time Codex config, forge-next self-heal trigger, and windows-latest CI.",
-      "source_refs": [
-        "docs/specs/windows-zero-setup.md"
       ]
     }
   ]
