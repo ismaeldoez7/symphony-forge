@@ -553,16 +553,19 @@
         "Gate tests pin deny-under-approved-plan, allow-in-window, exemptions, and the window ledger"
       ],
       "order": 25,
-      "status": "active",
+      "status": "done",
       "epic": "strict-role-split",
       "skill": "backend",
       "kind": "feature",
       "depends_on": [],
-      "spec": "docs/specs/strict-role-split.md"
+      "spec": "docs/specs/strict-role-split.md",
+      "completed_at": "2026-08-11T03:38:39+00:00",
+      "history": ".factory/history/FORGE-ROLE-1/",
+      "outcome": "The role split is now a gate: the orchestrating session physically cannot write product or canon - even under an approved plan - with forge delegate as the sole write path, a ledgered five-file degraded window as the single reasoned exception, and quickfix/lite surviving as work-record tickets (0037 amends 0013/0031, human-confirmed). Read-only Codex rescue works ANYTIME - no stage, no plan, any phase - via a quote-aware guard that also catches env-var laundering. Verified live against its own author: the lockout denied the orchestrator mid-story."
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-10T19:02:13+00:00",
+  "updated_at": "2026-08-11T03:38:39+00:00",
   "epics": [
     {
       "id": "symphony-forge",

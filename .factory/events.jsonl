@@ -842,3 +842,9 @@
 {"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-11T03:25:00+00:00", "story": "FORGE-ROLE-1", "detail": "FORGE-ROLE-1.1: task contract re-recorded mid-stage"}
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-11T03:25:00+00:00", "story": "FORGE-ROLE-1", "detail": "FORGE-ROLE-1.1 Write lockout + degraded window + guard fix + docs + tests"}
 {"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-11T03:26:16+00:00", "story": "FORGE-ROLE-1", "detail": "S-0001-4a97: Selector rerun in the unrestricted session environment: all pass including the four companion termination-signal cases the sandbox could not establish (ps available here). Environmental, matching the "}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-11T03:38:23+00:00", "story": "FORGE-ROLE-1"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-11T03:38:38+00:00", "story": "FORGE-ROLE-1", "detail": "pass"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-11T03:38:38+00:00", "story": "FORGE-ROLE-1"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-11T03:38:38+00:00", "story": "FORGE-ROLE-1"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-11T03:38:38+00:00", "story": "FORGE-ROLE-1"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-11T03:38:39+00:00", "story": "FORGE-ROLE-1", "detail": "The role split is now a gate: the orchestrating session physically cannot write product or canon - even under an approved plan - with forge delegate as the sole write path, a ledgered five-file degrad"}
