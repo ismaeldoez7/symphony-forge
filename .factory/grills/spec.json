@@ -3,19 +3,21 @@
   "gate": "spec",
   "verdict": "pass",
   "gaps": [
-    "Scope undefined: CLI output, agent narration, and/or the durable PR/evidence prose?",
-    "Mechanism undefined: how does guidance survive for newcomers once the default is terse?",
-    "Severity boundary undefined: do error/refusal messages get trimmed too?"
+    "Write line: which surfaces stay Claude-writable?",
+    "Review findings: may Claude patch trivial ones?",
+    "Exploration: hard read-fence or routed discovery?",
+    "Companion outage: what keeps the factory alive?"
   ],
   "contradictions": [],
   "resolutions": [
-    "Human chose CLI output + agent narration; PR bodies and evidence prose explicitly out of scope (the durable record keeps its depth). Spec Boundaries updated.",
-    "Human chose terse-default with forge next as the single coaching surface and full errors as the other; rejected FORGE_VERBOSE and --quiet as second output paths. Spec Behaviour updated.",
-    "Human chose full fix-it errors unchanged; terseness applies to success/progress chatter only. Spec AC pins errors byte-identical where feasible."
+    "Product + canon to Codex; Claude keeps planning artifacts (docs/specs, decisions, product, memory, context, plans, .factory via recorders, scratchpad, git ops on worker diffs) - human choice.",
+    "No carve-out; mandatory re-delegate, enforced mechanically by the lockout itself - human choice.",
+    "Route discovery to Codex rescue read-only; gate reads (review/verify/signals) stay per 0011 - a read-ban breaks direct review; human choice with the tension stated.",
+    "Ledgered degraded-mode window only: explicit open naming the failure, PR declares it, hook honors it - human choice."
   ],
   "open_items": [],
-  "notes": "Round 1 via AskUserQuestion 2026-08-10; frontier empty. Budget numbers and exact command list are planning-level.",
-  "input_sha256": "772b5a57e802182ce26cb996726847f57c87c1a0def87bac74bdf2d3028db7f0",
-  "recorded_at": "2026-08-10T13:09:47+00:00",
-  "commit": "515a330ba6ae4332a5a2f2258dc3cec9fcb178fb"
+  "notes": "Round 1 via AskUserQuestion 2026-08-11; frontier empty. Boundary path-set details are planning-level.",
+  "input_sha256": "1a096edcd2b7c787d03a041ce2a92b316be489eadeffafc804af50e3dd9b3fb7",
+  "recorded_at": "2026-08-10T19:01:50+00:00",
+  "commit": "a2b59732fcd996771f53a65fab4885e11bb056fd"
 }

@@ -20,6 +20,7 @@ from .repo_kind import is_harness_source_repo
 MAX_FILES = 5
 QUICKFIX = "quickfix"
 LITE = "lite"
+DEGRADED = "degraded"
 
 
 def quickfix_path(base: Path) -> Path:
@@ -115,6 +116,8 @@ def _open(base: Path, *, profile: str, reason: str, by: str | None = None) -> di
         # repo to client-mode and let machinery writes escape the file budget.
         "harness_source": is_harness_source_repo(base),
     }
+    if profile == DEGRADED:
+        active["kind"] = DEGRADED
     if by is not None:
         active["by"] = by
     if profile == LITE:
@@ -139,6 +142,12 @@ def cmd_lite(args: argparse.Namespace) -> None:
         fail("lite mode needs --by")
     active = _open(base, profile=LITE, reason=args.reason, by=by)
     print(f"Lite mode {active['id']} open at {active['base_sha'][:8]}: {active['reason']}")
+
+
+def cmd_degraded_start(args: argparse.Namespace) -> None:
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    active = _open(base, profile=DEGRADED, reason=args.reason)
+    print(f"Degraded mode {active['id']} open (0/{MAX_FILES} files): {active['reason']}")
 
 
 def cmd_done(args: argparse.Namespace) -> None:
@@ -208,6 +217,23 @@ def cmd_mode_done(args: argparse.Namespace) -> None:
         fail("no mode window is open")
     if profile_of(active) == QUICKFIX:
         cmd_done(args)
+        return
+    if profile_of(active) == DEGRADED:
+        _require_harness_marker(base, active)
+        event = {
+            "event": "done",
+            "id": active["id"],
+            "profile": DEGRADED,
+            "kind": DEGRADED,
+            "reason": active["reason"],
+            "started_at": active["started_at"],
+            "completed_at": now_iso(),
+            "files": active.get("files", []),
+        }
+        _append(base, event)
+        quickfix_path(base).unlink()
+        print(f"Degraded mode {active['id']} done ({len(event['files'])} file(s)): "
+              f"{active['reason']}")
         return
     dirty = _lite_dirty_product_files(base)
     if dirty:

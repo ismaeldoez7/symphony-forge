@@ -818,3 +818,34 @@
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-10T16:13:14+00:00", "story": "FORGE-TERSE-2"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-10T16:13:14+00:00", "story": "FORGE-TERSE-2", "detail": "The narration budget is contract, not preference: conduct \u00a78 carries the full rule (one line per state change; findings, contradictions, refusals, and gate results never rationed; full prose only at g"}
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-10T16:13:45+00:00", "story": "FORGE-TERSE-2", "detail": "knacklabs/symphony-forge#73"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-10T19:01:03+00:00", "detail": "strict-role-split: The role split is a gate: Claude orchestrates, only Codex writes product"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-10T19:01:50+00:00", "detail": "strict-role-split"}
+{"event": "roadmap-epic-add", "generated_by": "orchestrator", "at": "2026-08-10T19:02:01+00:00", "detail": "strict-role-split"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-10T19:02:01+00:00", "story": "FORGE-ROLE-1", "detail": "docs/specs/strict-role-split.md"}
+{"event": "intake", "generated_by": "orchestrator", "at": "2026-08-10T19:02:13+00:00", "story": "FORGE-ROLE-1", "detail": "Write lockout + degraded window + routing docs"}
+{"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-10T19:09:02+00:00", "story": "FORGE-ROLE-1", "detail": "FORGE-ROLE-1 approved by Ravi"}
+{"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-10T19:09:02+00:00", "story": "FORGE-ROLE-1", "detail": "plans/active/FORGE-ROLE-1-write-lockout-degraded-window-routing-docs.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-10T19:09:49+00:00", "story": "FORGE-ROLE-1", "detail": "1 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-10T19:10:10+00:00", "story": "FORGE-ROLE-1", "detail": "FORGE-ROLE-1.1 Write lockout + degraded window + guard fix + docs + tests"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-10T19:35:35+00:00", "story": "FORGE-ROLE-1", "detail": "1 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-10T19:41:44+00:00", "story": "FORGE-ROLE-1", "detail": "FORGE-ROLE-1.1 (write)"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-10T19:57:56+00:00", "detail": "windows-zero-setup: Windows is a first-class host: the harness self-heals, no user setup"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-10T20:01:06+00:00", "detail": "windows-zero-setup: Windows is a first-class host: the harness self-heals, no user setup"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-10T20:03:09+00:00", "detail": "windows-zero-setup"}
+{"event": "roadmap-epic-add", "generated_by": "orchestrator", "at": "2026-08-10T20:03:52+00:00", "detail": "windows-zero-setup"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-10T20:03:52+00:00", "story": "FORGE-WIN-1", "detail": "docs/specs/windows-zero-setup.md"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-11T03:02:37+00:00", "story": "FORGE-ROLE-1"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-11T03:13:20+00:00", "story": "FORGE-ROLE-1", "detail": "FORGE-ROLE-1.1 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-11T03:16:29+00:00", "story": "FORGE-ROLE-1", "detail": "1 task(s)"}
+{"event": "signal-blocked", "generated_by": "implementer", "at": "2026-08-11T03:23:30+00:00", "story": "FORGE-ROLE-1", "detail": "The exact FORGE-ROLE-1.1 selector reaches 27 passing tests, but this managed sandbox denies ps, so the four companion termination-signal cases cannot establish a running launch; rerun the declared sel"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-11T03:23:53+00:00", "story": "FORGE-ROLE-1", "detail": "FORGE-ROLE-1.1 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-11T03:25:00+00:00", "story": "FORGE-ROLE-1", "detail": "FORGE-ROLE-1.1: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-11T03:25:00+00:00", "story": "FORGE-ROLE-1", "detail": "FORGE-ROLE-1.1 Write lockout + degraded window + guard fix + docs + tests"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-11T03:26:16+00:00", "story": "FORGE-ROLE-1", "detail": "S-0001-4a97: Selector rerun in the unrestricted session environment: all pass including the four companion termination-signal cases the sandbox could not establish (ps available here). Environmental, matching the "}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-11T03:38:23+00:00", "story": "FORGE-ROLE-1"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-11T03:38:38+00:00", "story": "FORGE-ROLE-1", "detail": "pass"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-11T03:38:38+00:00", "story": "FORGE-ROLE-1"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-11T03:38:38+00:00", "story": "FORGE-ROLE-1"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-11T03:38:38+00:00", "story": "FORGE-ROLE-1"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-11T03:38:39+00:00", "story": "FORGE-ROLE-1", "detail": "The role split is now a gate: the orchestrating session physically cannot write product or canon - even under an approved plan - with forge delegate as the sole write path, a ledgered five-file degrad"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-11T03:39:11+00:00", "story": "FORGE-ROLE-1", "detail": "knacklabs/symphony-forge#75"}

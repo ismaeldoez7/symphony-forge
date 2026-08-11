@@ -26,9 +26,9 @@ It provides:
 
 ## Runtime Modes
 
-Claude Code coordinates discovery, planning, decisions, and orchestration through `codex-plugin-cc`. During planning, codebase exploration is delegated to Codex read-only runs.
+Claude Code coordinates discovery, planning, decisions, and orchestration through `codex-plugin-cc`. Its hook always denies product and canon writes; planning exploration is delegated to Codex read-only runs.
 
-Codex executes exploration, implementation, testing, and review. The `.factory` artifacts are required regardless of how sessions are orchestrated.
+Codex executes exploration, implementation, testing, and review. `./forge delegate` is the sole normal write path; a five-file `forge mode degraded` window is the ledgered outage exception. The `.factory` artifacts are required in either route.
 
 ## Phase Contract
 
@@ -98,7 +98,7 @@ A task is not PR-ready until all of these exist:
 ## Non-Negotiables
 
 - Keep tasks bounded and capability-driven; plans bind one roadmap story and attest all active decisions.
-- The planning lock is always armed: use plan mode or a bounded, ledgered quickfix.
+- The session write lock is always armed: delegate locked writes; use `forge mode degraded` only during a companion outage.
 - Do not decompose by document file or arbitrary file count.
 - Do not bypass `verify.py` with ad hoc validation commands.
 - Evidence enters `.factory/` only via schema-validated recorders (pinned `generated_by`), never by hand.

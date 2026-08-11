@@ -3854,6 +3854,44 @@ COMPANION_WRITE = (COMPANION + " --write --prompt-file .factory/briefs/T1.md "
                    "'build the slice'")
 
 
+def test_companion_guard_admits_read_only_and_refuses_write_shapes(repo):
+    run_state = json.loads((repo / ".factory" / "run.json").read_text())
+    assert "issue_key" not in run_state and "plan_status" not in run_state
+    assert not (repo / ".factory" / "stages.json").exists()
+    allowed = (
+        "node /x/codex-companion.mjs status --json",
+        "node /x/codex-companion.mjs task-resume-candidate --json",
+        "node /x/codex-companion.mjs task 'audit how --write is handled'",
+        "node /x/codex-companion.mjs task 'trace a;b and $HOME literally'",
+        "'node' '/x/codex-companion.mjs' 't''ask' 'map the module'",
+    )
+    refused = (
+        "node /x/codex-companion.mjs task '--write' repair",
+        "node /x/codex-companion.mjs task --full-auto repair",
+        "node /x/codex-companion.mjs setup",
+        "env MODE=x node /x/codex-companion.mjs status --json",
+        "bash -c 'node /x/codex-companion.mjs status --json'",
+        'node /x/codex-companion.mjs task "expand $HOME"',
+    )
+    for harness_source in (False, True):
+        if harness_source:
+            mark_harness_source(repo)
+        for command in allowed:
+            code, out = hook(repo, {
+                "tool_name": "Bash", "permission_mode": "default",
+                "tool_input": {"command": command},
+            })
+            assert code == 0 and "deny" not in out, (harness_source, command)
+        for command in refused:
+            code, out = hook(repo, {
+                "tool_name": "Bash", "permission_mode": "default",
+                "tool_input": {"command": command},
+            })
+            assert code == 0 and "deny" in out and "forge delegate" in out, (
+                harness_source, command,
+            )
+
+
 def test_hook_denies_unbriefed_write_delegation(repo, tmp_path):
     """Every companion WRITE launch is routed to the canonical executor;
     read-only launches are the rescue exploration lane and pass."""
@@ -3865,6 +3903,86 @@ def test_hook_denies_unbriefed_write_delegation(repo, tmp_path):
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": COMPANION + " 'map it'"}})
     assert code == 0 and "deny" not in out
+
+
+def test_lockout_denies_product_write_under_approved_plan(repo, tmp_path):
+    mark_harness_source(repo)
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    code, out = run(repo, "record_decomposition_from_json.py",
+                    stdin=json.dumps(DECOMP))
+    assert code == 0, out
+
+    payloads = (
+        {"tool_name": "Edit", "tool_input": {
+            "file_path": str(repo / "src" / "app.ts")}},
+        {"tool_name": "Write", "tool_input": {
+            "file_path": str(repo / "AGENTS.md")}},
+        {"tool_name": "NotebookEdit", "tool_input": {
+            "notebook_path": str(repo / "tests" / "analysis.ipynb")}},
+        {"tool_name": "Bash", "tool_input": {
+            "command": "printf x > .github/workflows/build.yml"}},
+    )
+    for payload in payloads:
+        code, out = hook(repo, {**payload, "permission_mode": "default"})
+        assert code == 0 and "deny" in out, payload
+        assert "forge delegate <task-id>" in out
+        assert "forge mode degraded start --reason" in out
+
+
+def test_degraded_window_allows_and_ledgers_product_write(repo):
+    base = pr_ticket_base(repo)
+    mark_harness_source(repo)
+    code, out = run(repo, "forge.py", "mode", "degraded", "start",
+                    "--reason", "companion outage")
+    assert code == 0 and "Degraded mode" in out, out
+    active = json.loads((repo / ".factory" / "quickfix.json").read_text())
+    assert active["profile"] == "degraded" and active["kind"] == "degraded"
+    assert active["reason"] == "companion outage" and active["max_files"] == 5
+
+    claimed = (
+        "src/app.ts", "AGENTS.md", ".github/workflows/build.yml",
+        "factory/scripts/repair.py", "tests/test_repair.py",
+    )
+    for rel in claimed:
+        code, out = hook(repo, {
+            "tool_name": "Edit", "permission_mode": "default",
+            "tool_input": {"file_path": str(repo / rel)},
+        })
+        assert code == 0 and "deny" not in out, (rel, out)
+
+    for rel in ("docs/notes.md", "plans/draft.md", "prototype/probe.md",
+                ".gstack/projects/probe.md"):
+        code, out = hook(repo, {
+            "tool_name": "Write", "permission_mode": "default",
+            "tool_input": {"file_path": str(repo / rel)},
+        })
+        assert code == 0 and "deny" not in out, rel
+
+    active = json.loads((repo / ".factory" / "quickfix.json").read_text())
+    assert active["files"] == list(claimed)
+    code, out = hook(repo, {
+        "tool_name": "Edit", "permission_mode": "default",
+        "tool_input": {"file_path": str(repo / "src" / "sixth.py")},
+    })
+    assert code == 0 and "deny" in out and "five-file" in out
+
+    window_id = active["id"]
+    code, out = run(repo, "forge.py", "mode", "done")
+    assert code == 0 and window_id in out and "5 file(s)" in out, out
+    records = [json.loads(path.read_text())
+               for path in (repo / "plans" / "quickfixes").glob("*.json")]
+    done = next(record for record in records
+                if record.get("event") == "done" and record.get("id") == window_id)
+    assert done["kind"] == "degraded" and done["files"] == list(claimed)
+
+    git(repo, "add", "plans/quickfixes")
+    git(repo, "commit", "-q", "-m", "record degraded window")
+    code, out = check_pr_ticket(
+        repo, base, "fix/degraded-window", f"Ticket: {window_id}\n",
+    )
+    assert code == 0 and f"window {window_id}" in out, out
 
 
 def test_hook_denies_write_delegation_hidden_by_quoting(repo, tmp_path):
@@ -4004,20 +4122,19 @@ def test_hook_denies_when_brief_edited(repo, tmp_path):
 def test_planning_lock_forces_plan_mode(repo, tmp_path):
     sign_off(repo)
     intake(repo)  # planning phase, no approved plan
-    # product-code edit in normal mode -> denied, routed to plan mode
-    code, out = hook(repo, {"tool_name": "Edit", "permission_mode": "default",
-                            "tool_input": {"file_path": str(repo / "src" / "app.ts")}})
-    assert code == 0 and "deny" in out and "PLAN MODE" in out
+    # Plan mode is for authoring the plan; it is not a product-write licence.
+    for mode in ("default", "plan"):
+        code, out = hook(repo, {
+            "tool_name": "Edit", "permission_mode": mode,
+            "tool_input": {"file_path": str(repo / "src" / "app.ts")},
+        })
+        assert code == 0 and "deny" in out and "forge delegate" in out, mode
     # planning-phase writes stay open: the plan itself, decisions, docs
     # (.factory/ is NOT among them — recorded state is never hand-written)
     for ok_path in ("plans/draft.md", "docs/decisions/0009-x.md", "docs/notes.md"):
         code, out = hook(repo, {"tool_name": "Write", "permission_mode": "default",
                                 "tool_input": {"file_path": str(repo / ok_path)}})
         assert "deny" not in out, ok_path
-    # plan mode itself is never blocked by the lock
-    code, out = hook(repo, {"tool_name": "Edit", "permission_mode": "plan",
-                            "tool_input": {"file_path": str(repo / "src" / "app.ts")}})
-    assert "deny" not in out
     # raw codex exec is off-contract in ANY phase — route to /codex:rescue
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": "codex exec 'implement the thing'"}})
@@ -4038,22 +4155,20 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": companion + " --write"}})
     assert "deny" in out and "forge delegate" in out
-    # there is NO escape hatch — env-var prefixes don't open a side door
+    # Env-var prefixes do not open a side door.
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command":
                                            "FACTORY_DEGRADED=1 codex exec -s read-only 'map it'"}})
     assert "deny" in out and "codex:rescue" in out
-    # an approved plan is not yet an implementation licence: work is bounded by
-    # tasks, so a product write before the decomposition belongs to no task
+    # Approval and decomposition authorize delegation, never session writes.
     save_plan(repo, tmp_path)
     code, out = hook(repo, {"tool_name": "Edit", "permission_mode": "default",
                             "tool_input": {"file_path": str(repo / "src" / "app.ts")}})
-    assert "deny" in out and "no decomposition" in out
+    assert "deny" in out and "forge delegate" in out
     run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
-    # plan + decomposition lifts the lock entirely
     code, out = hook(repo, {"tool_name": "Edit", "permission_mode": "default",
                             "tool_input": {"file_path": str(repo / "src" / "app.ts")}})
-    assert "deny" not in out
+    assert "deny" in out and "forge delegate" in out
     # ...but a WRITE delegation still needs a started, briefed stage: the plan
     # authorizes the work, the brief is what the executor is actually given
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
@@ -4076,11 +4191,11 @@ def test_planning_lock_is_always_armed_and_guards_bash_writes(repo):
                "tool_input": {"file_path": str(product)}}
     code, out = hook(repo, payload)
     assert code == 0 and "deny" in out
-    assert "enter plan mode (shift+tab)" in out
-    assert './forge quickfix start \\"<reason>\\"' in out
+    assert "forge delegate <task-id>" in out
+    assert './forge mode degraded start --reason \\"<reason>\\"' in out
 
     code, out = hook(repo, {**payload, "permission_mode": "plan"})
-    assert code == 0 and "deny" not in out
+    assert code == 0 and "deny" in out
     code, out = hook(repo, {"tool_name": "Write", "permission_mode": "default",
                             "tool_input": {"file_path": str(repo / "docs" / "notes.md")}})
     assert code == 0 and "deny" not in out
@@ -4158,7 +4273,7 @@ def test_harness_repo_locks_machinery_writes_without_a_plan(repo, tmp_path):
             "permission_mode": "default",
             "tool_input": {"file_path": str(machinery)},
         })
-        assert code == 0 and "deny" in out and "PLAN MODE" in out
+        assert code == 0 and "deny" in out and "forge delegate" in out
     for rel in (
         "constitution/09-agent-conduct.md",
         "harness/nestjs-react/SCAFFOLD_PROMPT.md",
@@ -4170,13 +4285,13 @@ def test_harness_repo_locks_machinery_writes_without_a_plan(repo, tmp_path):
             "permission_mode": "default",
             "tool_input": {"file_path": str(repo / rel)},
         })
-        assert code == 0 and "deny" in out and "PLAN MODE" in out, rel
+        assert code == 0 and "deny" in out and "forge delegate" in out, rel
     code, out = hook(repo, {
         "tool_name": "Bash",
         "permission_mode": "default",
         "tool_input": {"command": "printf x > factory/scripts/pre_tool_use.py"},
     })
-    assert code == 0 and "deny" in out and "PLAN MODE" in out
+    assert code == 0 and "deny" in out and "forge delegate" in out
 
     # The repo-kind marker itself is product-locked: while the lock is armed it
     # can be neither rewritten nor DELETED, so flipping source->client takes the
@@ -4205,8 +4320,7 @@ def test_harness_repo_locks_machinery_writes_without_a_plan(repo, tmp_path):
     code, out = run(repo, "record_decomposition_from_json.py",
                     stdin=json.dumps(DECOMP))
     assert code == 0, out
-    # With the plan approved and decomposition recorded, machinery writes AND
-    # the marker's own edit/delete are permitted — ceremony-gated, not frozen.
+    # Approval authorizes the delegated worker, not direct session writes.
     for payload in (
         {"tool_name": "Edit", "permission_mode": "default",
          "tool_input": {"file_path": str(machinery)}},
@@ -4218,7 +4332,7 @@ def test_harness_repo_locks_machinery_writes_without_a_plan(repo, tmp_path):
          "tool_input": {"command": f"rm {marker_rel}"}},
     ):
         code, out = hook(repo, payload)
-        assert code == 0 and "deny" not in out, out
+        assert code == 0 and "deny" in out, out
 
 
 def test_client_repo_leaves_vendored_machinery_writable(repo):
@@ -4236,9 +4350,10 @@ def test_client_repo_leaves_vendored_machinery_writable(repo):
         assert code == 0 and "deny" not in out, out
 
 
-def test_harness_quickfix_claims_machinery_files_against_budget(repo):
+def test_harness_degraded_claims_machinery_files_against_budget(repo):
     mark_harness_source(repo)
-    code, out = run(repo, "forge.py", "quickfix", "start", "repair machinery")
+    code, out = run(repo, "forge.py", "mode", "degraded", "start",
+                    "--reason", "repair machinery")
     assert code == 0, out
 
     expected = [f"factory/scripts/repair-{number}.py" for number in range(1, 6)]
@@ -4254,7 +4369,7 @@ def test_harness_quickfix_claims_machinery_files_against_budget(repo):
     })
     assert code == 0 and "deny" in out and "scope exceeded" in out
 
-    code, out = run(repo, "forge.py", "quickfix", "done")
+    code, out = run(repo, "forge.py", "mode", "done")
     assert code == 0 and "5 file(s)" in out, out
     events = [json.loads(path.read_text())
               for path in (repo / "plans" / "quickfixes").glob("*.json")]
@@ -4263,12 +4378,13 @@ def test_harness_quickfix_claims_machinery_files_against_budget(repo):
     assert done[0]["files"] == expected
 
 
-def test_harness_quickfix_cannot_delete_the_repo_kind_marker(repo):
+def test_harness_degraded_cannot_delete_the_repo_kind_marker(repo):
     # The attack: open a quickfix, rm the marker as the first claimed file to
     # flip the repo to client-mode, then flood machinery past the 5-file budget.
     # The marker is plan-only, so the window can never touch it.
     mark_harness_source(repo)
-    code, out = run(repo, "forge.py", "quickfix", "start", "sneaky")
+    code, out = run(repo, "forge.py", "mode", "degraded", "start",
+                    "--reason", "sneaky")
     assert code == 0, out
     # Direct deletion of the marker, and deletion of an ANCESTOR that contains
     # it (`rm -r .factory`, `git rm .factory`) — all refused. (`rm -rf` is caught
@@ -4300,7 +4416,7 @@ def test_harness_quickfix_cannot_delete_the_repo_kind_marker(repo):
     assert code == 0 and "deny" not in out, out
 
 
-def test_quickfix_pins_repo_kind_so_marker_deletion_cannot_escape_budget(repo):
+def test_degraded_pins_repo_kind_so_marker_deletion_cannot_escape_budget(repo):
     # The structural guarantee (decision 0030): a quickfix pins the repo kind at
     # start, so even if the marker is removed mid-window by an UNCAUGHT vector,
     # classification stays 'harness' and machinery keeps being claimed against
@@ -4308,7 +4424,8 @@ def test_quickfix_pins_repo_kind_so_marker_deletion_cannot_escape_budget(repo):
     # let unlimited machinery writes bypass the 5-file budget.
     from forge_cli.repo_kind import is_harness_source_repo
     mark_harness_source(repo)
-    code, out = run(repo, "forge.py", "quickfix", "start", "pinned")
+    code, out = run(repo, "forge.py", "mode", "degraded", "start",
+                    "--reason", "pinned")
     assert code == 0, out
     (repo / ".factory" / "harness-source.json").unlink()  # marker gone (any vector)
     assert not is_harness_source_repo(repo)  # live classification would say client
@@ -4325,10 +4442,10 @@ def test_quickfix_pins_repo_kind_so_marker_deletion_cannot_escape_budget(repo):
     assert code == 0 and "deny" in out and "scope exceeded" in out
     # And the pin cannot be laundered away by closing the window: a harness-pinned
     # window whose marker went missing refuses to close until it is restored.
-    code, out = run(repo, "forge.py", "quickfix", "done")
+    code, out = run(repo, "forge.py", "mode", "done")
     assert code != 0 and "missing" in out, out
     (repo / ".factory" / "harness-source.json").write_text('{"role": "harness-source"}\n')
-    code, out = run(repo, "forge.py", "quickfix", "done")
+    code, out = run(repo, "forge.py", "mode", "done")
     assert code == 0, out
 
 
@@ -4347,7 +4464,7 @@ def test_harness_quickfix_allows_benign_root_destination(repo):
         assert code == 0 and "repo-kind marker" not in out, command
 
 
-def test_harness_quickfix_refuses_opaque_machinery_deletes(repo):
+def test_harness_degraded_refuses_opaque_machinery_deletes(repo):
     # The 5-file budget is only honest if each claimed slot is a bounded file. A
     # recursive/globbed/brace-expanded DELETE of machinery would spend one slot on
     # an unbounded set, so a quickfix refuses it; explicit single-file ops stay
@@ -4355,7 +4472,8 @@ def test_harness_quickfix_refuses_opaque_machinery_deletes(repo):
     # are NOT blocked (they modify nothing in the repo).
     mark_harness_source(repo)
     (repo / "factory" / "scripts").mkdir(parents=True, exist_ok=True)
-    code, out = run(repo, "forge.py", "quickfix", "start", "opaque")
+    code, out = run(repo, "forge.py", "mode", "degraded", "start",
+                    "--reason", "opaque")
     assert code == 0, out
     for command in ("rm -r factory/scripts",
                     "rm factory/scripts/*.py",
@@ -4379,13 +4497,14 @@ def test_harness_quickfix_refuses_opaque_machinery_deletes(repo):
         assert code == 0 and "deny" not in out, command
 
 
-def test_harness_quickfix_counts_each_file_copied_into_a_machinery_dir(repo):
+def test_harness_degraded_counts_each_file_copied_into_a_machinery_dir(repo):
     # `cp <src> factory/scripts/` creates factory/scripts/<basename>; six such
     # copies must spend six budget slots (resolved per created file), not one for
     # the shared directory — so the sixth is refused.
     mark_harness_source(repo)
     (repo / "factory" / "scripts").mkdir(parents=True, exist_ok=True)
-    code, out = run(repo, "forge.py", "quickfix", "start", "copies")
+    code, out = run(repo, "forge.py", "mode", "degraded", "start",
+                    "--reason", "copies")
     assert code == 0, out
     for number in range(1, 6):
         code, out = hook(repo, {
@@ -4429,12 +4548,7 @@ def test_harness_repo_keeps_docs_and_planning_surfaces_writable(repo):
         "plans/draft.md",
         ".factory/scratchpad.md",
         "prototype/probe.md",
-        ".github/workflows/probe.yml",
         ".gstack/projects/probe.md",
-        "AGENTS.md",
-        "CLAUDE.md",
-        "WORKFLOW.md",
-        "harness.yaml",
         "README.md",
         ".gitignore",
         ".gitattributes",
@@ -4453,8 +4567,9 @@ def test_harness_repo_keeps_docs_and_planning_surfaces_writable(repo):
     assert code == 0 and "deny" in out and "never hand-written" in out
 
 
-def test_quickfix_lifecycle_tracks_files_and_enforces_budget(repo):
-    code, out = run(repo, "forge.py", "quickfix", "start", "repair parser")
+def test_degraded_lifecycle_tracks_files_and_enforces_budget(repo):
+    code, out = run(repo, "forge.py", "mode", "degraded", "start",
+                    "--reason", "repair parser")
     assert code == 0 and "Q-" in out, out
     active_path = repo / ".factory" / "quickfix.json"
     active = json.loads(active_path.read_text())
@@ -4490,9 +4605,9 @@ def test_quickfix_lifecycle_tracks_files_and_enforces_budget(repo):
     assert code == 0 and "deny" in out and "scope exceeded" in out
     assert len(json.loads(active_path.read_text())["files"]) == 5
 
-    code, out = run(repo, "forge.py", "quickfix", "list")
+    code, out = run(repo, "forge.py", "mode", "list")
     assert code == 0 and "repair parser" in out and "5/5" in out
-    code, out = run(repo, "forge.py", "quickfix", "done")
+    code, out = run(repo, "forge.py", "mode", "done")
     assert code == 0 and "5 file(s)" in out, out
     assert not active_path.exists()
     # One record per file now (decision 0022). Each record carries its own
@@ -4513,17 +4628,18 @@ def test_quickfix_lifecycle_tracks_files_and_enforces_budget(repo):
     assert code == 0 and "deny" in out
 
 
-def test_quickfix_records_files_inside_an_active_story(repo, tmp_path):
+def test_degraded_enforces_budget_inside_an_active_story(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
     assert code == 0, out
-    code, out = run(repo, "forge.py", "quickfix", "start", "repair active story")
+    code, out = run(repo, "forge.py", "mode", "degraded", "start",
+                    "--reason", "repair active story")
     assert code == 0, out
 
     active_path = repo / ".factory" / "quickfix.json"
-    for number in range(1, 7):
+    for number in range(1, 6):
         code, out = hook(repo, {
             "tool_name": "Edit", "permission_mode": "default",
             "tool_input": {"file_path": str(repo / "src" / f"story-{number}.py")},
@@ -4533,14 +4649,15 @@ def test_quickfix_records_files_inside_an_active_story(repo, tmp_path):
         "tool_name": "Edit", "permission_mode": "default",
         "tool_input": {"file_path": str(repo / "src" / "story-6.py")},
     })
-    assert code == 0 and "deny" not in out, out
+    assert code == 0 and "deny" in out and "scope exceeded" in out
     assert json.loads(active_path.read_text())["files"] == [
-        f"src/story-{number}.py" for number in range(1, 7)
+        f"src/story-{number}.py" for number in range(1, 6)
     ]
 
 
-def test_quickfix_budget_still_refuses_over_limit_when_unplanned(repo):
-    code, out = run(repo, "forge.py", "quickfix", "start", "bounded repair")
+def test_degraded_budget_refuses_over_limit_when_unplanned(repo):
+    code, out = run(repo, "forge.py", "mode", "degraded", "start",
+                    "--reason", "bounded repair")
     assert code == 0, out
     active_path = repo / ".factory" / "quickfix.json"
 
@@ -4560,7 +4677,7 @@ def test_quickfix_budget_still_refuses_over_limit_when_unplanned(repo):
     ]
 
 
-def test_quickfix_recording_authorizes_nothing(repo, tmp_path):
+def test_quickfix_window_authorizes_nothing(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
@@ -4568,15 +4685,11 @@ def test_quickfix_recording_authorizes_nothing(repo, tmp_path):
     assert code == 0, out
 
     active_path = repo / ".factory" / "quickfix.json"
-    active = json.loads(active_path.read_text())
-    active["max_files"] = 0
-    active_path.write_text(json.dumps(active, indent=2) + "\n")
-
     code, out = hook(repo, {
         "tool_name": "Edit", "permission_mode": "default",
         "tool_input": {"file_path": str(repo / "src" / "recorded.py")},
     })
-    assert code == 0 and "deny" in out and "scope exceeded" in out
+    assert code == 0 and "deny" in out and "forge delegate" in out
     assert json.loads(active_path.read_text())["files"] == []
 
 
@@ -4833,7 +4946,7 @@ def test_modes_lite_pins_parse_and_dual_runtime_green(repo):
     assert code == 0, out
 
 
-def test_lite_window_authorizes_product_write(repo):
+def test_lite_window_does_not_authorize_session_product_write(repo):
     code, out = run(repo, "forge.py", "mode", "lite",
                     "--by", "Ada", "--reason", "bounded delivery")
     assert code == 0, out
@@ -4843,7 +4956,7 @@ def test_lite_window_authorizes_product_write(repo):
         "permission_mode": "default",
         "tool_input": {"file_path": str(repo / "src" / "lite.py")},
     })
-    assert code == 0 and "deny" not in out, out
+    assert code == 0 and "deny" in out and "forge delegate" in out
 
 
 def test_mode_list_shows_open_lite_window(repo):
@@ -7169,7 +7282,7 @@ def test_review_hardening_guards(repo, tmp_path):
     code, out = hook(repo, {"tool_name": "Edit", "permission_mode": "default",
                             "tool_input": {"file_path":
                                            str(repo / "plans" / ".." / "src" / "x.ts")}})
-    assert "deny" in out and "PLAN MODE" in out
+    assert "deny" in out and "forge delegate" in out
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": "codex --profile explore exec 'x'"}})
     assert "deny" in out and "codex:rescue" in out
@@ -11650,6 +11763,8 @@ def test_hook_denies_wrapped_or_computed_companion_launch(repo):
     for cmd in (
         "xargs node /x/codex-companion.mjs task go",
         "env FLAG=1 node /x/codex-companion.mjs task go",
+        'node "$COMPANION" task --write go',
+        'bash -c "$COMPANION_CMD"',
         "python3 -c 'import subprocess; subprocess.run([\"node\", "
         "\"/x/codex-companion.mjs\", \"task\", \"--\" + \"write\"])'",
     ):
