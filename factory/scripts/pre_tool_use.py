@@ -523,6 +523,8 @@ except ValueError:
 compact_command = re.sub(r"[^a-z0-9]", "", shell_shape.lower())
 has_companion = (
     re.search(r"\bcodex-companion(?:\.mjs)?\b", shell_shape) is not None
+    or re.search(r"\$(?:\{)?(?=[A-Za-z_])[A-Za-z0-9_]*companion[A-Za-z0-9_]*",
+                 command, re.IGNORECASE) is not None
     or any(re.fullmatch(r"codex-companion(?:\.mjs)?", Path(token).name)
            for token in shell_tokens)
     or "codexcompanion" in compact_command

@@ -12,9 +12,9 @@ planning mode and the older quickfix/lite windows do not lift that lock.
 
 Read-only discovery remains available through `/codex:rescue`. The companion
 guard also admits direct, unwrapped `status`, `task-resume-candidate`, and
-`task` invocations whose parsed arguments contain no write flag. Quoting does
-not change that decision. Raw `codex exec`, write-shaped companion calls, and
-executor-wrapped calls stay denied.
+`task` invocations using only the approved read-only flags. Quoting does not
+change that decision. Sensitive or unknown overrides, raw `codex exec`,
+write-shaped companion calls, and executor-wrapped calls stay denied.
 
 ## The single write exception
 

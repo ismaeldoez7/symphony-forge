@@ -11763,6 +11763,8 @@ def test_hook_denies_wrapped_or_computed_companion_launch(repo):
     for cmd in (
         "xargs node /x/codex-companion.mjs task go",
         "env FLAG=1 node /x/codex-companion.mjs task go",
+        'node "$COMPANION" task --write go',
+        'bash -c "$COMPANION_CMD"',
         "python3 -c 'import subprocess; subprocess.run([\"node\", "
         "\"/x/codex-companion.mjs\", \"task\", \"--\" + \"write\"])'",
     ):

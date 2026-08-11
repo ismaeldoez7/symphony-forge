@@ -16,7 +16,7 @@ Read `AGENTS.md` first; it is the contract. Standards live in `constitution/`
 
 - `./forge delegate <task-id>` composes the brief and runs the installed companion
   with a fixed shell-free argv, deriving `--write` from stage state.
-  Direct read-only status/resume/task calls pass; every write routes to delegate.
+  Allowlisted direct read-only status/resume/task calls pass; writes route to delegate.
 - WATCH it: `./forge codex status` (still moving?) and Monitor
   `.factory/signals.jsonl` — workers raise contradiction/confusion/blocked/
   scope-change and PAUSE; `./forge signal resolve <id> --notes "<answer>"`, then
