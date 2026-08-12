@@ -1,40 +1,36 @@
 {
   "generated_by": "autoreview",
-  "score": 9,
-  "summary": "One resolution point, two entrances, as contracted: hook commands route through `forge hook <name>` with the interpreter chain living only in the entrypoint, double exit-2 fail-closed (inner and outer) so a dead resolver blocks rather than vanishes; forge.cmd delegates to the same point; .gitattributes pins forge eol=lf (the worker's CRLF catch - the launcher itself was a fail-open vector); doctor executes all eight registered hooks with benign payloads and reds by name; the windows-latest job is harness-gated. Cross-session provenance recorded honestly: the diff is joint work under the human's pen ruling, decision 0038 (portable-fail-closed-hooks) was drafted in-flight by the other session and needs acceptance.",
+  "score": 8,
+  "summary": "Split-target review of merged 95062be (bundle limit) after per-stage clean runs (0.91/0.95/0.97). Shipped machinery correct on the supported path: fail-closed forge-hook passthrough with double guard, executables-only cmd shim with no reparse surface, doctor verbatim hook execution, propagation proven against generated init/upgrade targets. Three findings, all in unsupported/unexercised lanes, each ledgered with a firing trigger.",
   "blocking_findings": [],
   "non_blocking_findings": [
     {
-      "category": "cross-session-provenance",
-      "area": "docs/decisions/0038-portable-fail-closed-hooks.md",
-      "summary": "A decision record entered via the parallel session rather than this plan's Decisions section (which said none needed); content is sound and rides for human acceptance - governance caught up at review rather than at authoring."
+      "category": "interpreter-discovery-gap",
+      "area": "forge.cmd",
+      "summary": "Native fallback omits python3.exe probe; Git-Bash-less python3-only boxes wrongly rejected (D-0018, fires at WIN-2 planning)."
     },
     {
-      "category": "zombie-registry",
-      "area": "delegation",
-      "summary": "A second stale running entry (the other session's 4h verifying worker) persists in the registry; liveness detection remains follow-up material from FORGE-ROLE-1's review."
+      "category": "test-platform-skew",
+      "area": "factory/tests",
+      "summary": "Lock-contention assertion runs fake msvcrt on the nt branch \u2014 deterministic failure if the windows selector widens (D-0020)."
     }
   ],
   "residual_risks": [
-    "Windows behavior is proven by the CI job from this PR onward; real client machines vary beyond the runner image - doctor's red rows are the client-side truth."
+    "Story-level single-bundle review impossible at 204KB; split targets reviewed instead \u2014 the per-stage clean runs cover the composition seams."
   ],
   "recommendation": "ship",
   "reviewed_scope": [
     "forge",
     "forge.cmd",
-    ".gitattributes",
     ".claude/settings.json",
     ".codex/hooks.json",
-    "factory/scripts/forge.py",
-    "factory/scripts/forge_cli/doctor.py",
-    "factory/scripts/forge_cli/phase.py",
-    "factory/scripts/forge_cli/scaffold.py",
-    "factory/scripts/check_dual_runtime.py",
+    "factory/scripts/forge_cli/{delegate,doctor,phase,scaffold,upgrade}.py",
+    "factory/scripts/{check_dual_runtime,pre_compact,forge}.py",
     ".github/workflows/factory-scaffold.yml",
-    "docs/decisions/0038-portable-fail-closed-hooks.md",
+    ".gitattributes",
     "factory/tests/test_gates.py"
   ],
   "aspect": "quality",
-  "recorded_at": "2026-08-11T17:02:41+00:00",
-  "commit": "31b734b9bb4bdc9108dc10eef7989dfccb35a2ec"
+  "recorded_at": "2026-08-12T08:00:17+00:00",
+  "commit": "95062be52172bc5c40449e7b85d9b2760000e81a"
 }

@@ -939,3 +939,10 @@
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-12T07:15:59+00:00", "story": "FORGE-WIN-1", "detail": "FORGE-WIN-1.4 Launchers force UTF-8 mode \u2014 no charmap crashes on Windows"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-12T07:18:52+00:00", "story": "FORGE-WIN-1", "detail": "FORGE-WIN-1.4 (write)"}
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-12T07:22:03+00:00", "story": "FORGE-WIN-1", "detail": "FORGE-WIN-1.4 Launchers force UTF-8 mode \u2014 no charmap crashes on Windows"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-12T07:34:55+00:00", "story": "FORGE-WIN-1", "detail": "S-0002-c5b6: Overtaken by events: head f1c4578 was pushed, windows-hook-gates went green, PR 80 squash-merged as 95062be on main. Nothing left to do."}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-12T07:34:55+00:00", "story": "FORGE-WIN-1", "detail": "pass"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-12T07:48:00+00:00", "story": "FORGE-WIN-1"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-12T08:00:17+00:00", "story": "FORGE-WIN-1"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-12T08:00:17+00:00", "story": "FORGE-WIN-1"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-12T08:00:17+00:00", "story": "FORGE-WIN-1"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-12T08:00:32+00:00", "story": "FORGE-WIN-1", "detail": "Windows machines are first-class harness hosts with zero user setup: every registered hook resolves through the forge launcher and BLOCKS (exit 2) instead of silently disarming when anything in its ch"}

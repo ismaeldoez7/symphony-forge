@@ -574,12 +574,14 @@
         "A windows-latest harness-internal CI job runs the lockout gate tests and doctor hook-health green; POSIX-only skips are enumerated, not silent"
       ],
       "order": 26,
-      "status": "active",
+      "status": "done",
       "epic": "windows-zero-setup",
       "skill": "fullstack",
       "depends_on": [],
       "spec": "docs/specs/windows-zero-setup.md",
-      "history": ".factory/history/FORGE-WIN-1/"
+      "history": ".factory/history/FORGE-WIN-1/",
+      "completed_at": "2026-08-12T08:00:32+00:00",
+      "outcome": "Windows machines are first-class harness hosts with zero user setup: every registered hook resolves through the forge launcher and BLOCKS (exit 2) instead of silently disarming when anything in its chain is missing; cmd/PowerShell users get a native forge.cmd that only trusts real executables (an argument-injection class was found and eliminated in review); doctor executes all eight registered hook commands verbatim and names exactly what is broken; recorders and the delegation lock work on Windows (lazy fcntl, msvcrt); CRLF and cp1252 encodings can no longer corrupt the launcher or crash output; and a windows-latest CI job now proves the armed lockout path on every PR. New clients get all of it at init; existing clients on their next forge upgrade."
     },
     {
       "key": "FORGE-ROLE-2",
@@ -651,7 +653,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-11T17:33:49+00:00",
+  "updated_at": "2026-08-12T08:00:32+00:00",
   "epics": [
     {
       "id": "symphony-forge",

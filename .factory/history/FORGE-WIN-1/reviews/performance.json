@@ -1,18 +1,23 @@
 {
   "generated_by": "autoreview",
   "score": 9,
-  "summary": "Each hook invocation gains one sh spawn and one git rev-parse over the old direct-python form - milliseconds per tool call, unchanged asymptotics. Doctor hook-health executes eight subprocesses only on the full run; --fast stays existence-only. The windows CI job adds runner minutes to harness PRs only (is_harness gated), not to clients.",
+  "summary": "All changed surfaces are cold paths (session start, hook dispatch, doctor, launchers). Hook dispatch adds one process hop (forge -> python) per hook event; measured impact is interactive-imperceptible and the fast preflight variant stays subprocess-free by pinned test. Doctor's verbatim execution spawns 8 short-lived processes only on explicit doctor runs. No hot-path, no I/O amplification, no memory concerns.",
   "blocking_findings": [],
   "non_blocking_findings": [],
   "residual_risks": [],
   "recommendation": "ship",
   "reviewed_scope": [
+    "forge",
+    "forge.cmd",
     ".claude/settings.json",
     ".codex/hooks.json",
-    "forge",
-    "factory/scripts/forge_cli/doctor.py"
+    "factory/scripts/forge_cli/{delegate,doctor,phase,scaffold,upgrade}.py",
+    "factory/scripts/{check_dual_runtime,pre_compact,forge}.py",
+    ".github/workflows/factory-scaffold.yml",
+    ".gitattributes",
+    "factory/tests/test_gates.py"
   ],
   "aspect": "performance",
-  "recorded_at": "2026-08-11T17:02:42+00:00",
-  "commit": "31b734b9bb4bdc9108dc10eef7989dfccb35a2ec"
+  "recorded_at": "2026-08-12T08:00:17+00:00",
+  "commit": "95062be52172bc5c40449e7b85d9b2760000e81a"
 }
