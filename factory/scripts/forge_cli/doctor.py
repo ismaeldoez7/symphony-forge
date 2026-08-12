@@ -831,7 +831,30 @@ def _trusted_user_winget_path() -> str | None:
     return None
 
 
+def _windows_process_is_elevated() -> bool:
+    if _platform_name() != "windows":
+        return False
+    try:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except (AttributeError, OSError):
+        return True
+
+
+def _elevated_windows_remediation_check() -> dict:
+    return _check(
+        "elevated Windows prerequisite remediation", False,
+        "refusing Windows auto-remediation from an elevated process because "
+        "per-user install paths are user-writable",
+        "run 'forge doctor --fix' from a normal (unelevated) prompt, or "
+        f"install Git manually from {WINDOWS_GIT_INSTALLER_URL} and Python "
+        f"manually from {WINDOWS_PYTHON_INSTALLER_URL}",
+    )
+
+
 def _remediate_windows_prerequisites(*, install_git: bool, install_python: bool) -> list[dict]:
+    if _windows_process_is_elevated():
+        return [_elevated_windows_remediation_check()]
+
     rows: list[dict] = []
     git_install_error: dict | None = None
     python_install_error: dict | None = None
@@ -859,13 +882,13 @@ def _remediate_windows_prerequisites(*, install_git: bool, install_python: bool)
 
         # The refreshed probes are authoritative. winget can return nonzero
         # for an already-installed package while the tool is now usable.
-        if winget:
+        if git_ok and python_ok:
+            rows.clear()
+        elif winget:
             if git_install_error and not git_ok:
                 rows.append(git_install_error)
             if python_install_error and not python_ok:
                 rows.append(python_install_error)
-        if not winget and git_ok and python_ok:
-            rows.clear()
     return rows
 
 
@@ -1039,16 +1062,19 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     python = _python_check()
     windows_install_checks: list[dict] = []
     if _platform_name() == "windows" and args.fix and (not git or not python["ok"]):
-        windows_install_checks = _remediate_windows_prerequisites(
-            install_git=not bool(git), install_python=not python["ok"],
-        )
-        git = which("git")
-        python = _python_check()
-        if repo is None and git:
-            try:
-                repo = Path(repo_root())
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                pass
+        if _windows_process_is_elevated():
+            windows_install_checks = [_elevated_windows_remediation_check()]
+        else:
+            windows_install_checks = _remediate_windows_prerequisites(
+                install_git=not bool(git), install_python=not python["ok"],
+            )
+            git = which("git")
+            python = _python_check()
+            if repo is None and git:
+                try:
+                    repo = Path(repo_root())
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    pass
 
     checks.append(_check(
         "git", git is not None, git or "not on PATH", _git_fix_message()))

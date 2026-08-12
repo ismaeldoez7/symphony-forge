@@ -2892,6 +2892,85 @@ def test_forge_cmd_bootstrap_runs_once_and_persists_path():
     assert shim.index(restart) < shim.index("exit /b %errorlevel%", shim.index(restart))
 
 
+def test_forge_cmd_bootstrap_converges_on_already_installed(tmp_path):
+    shim = (HARNESS / "forge.cmd").read_text()
+    winget_install = (
+        '"%FORGE_WINGET%" install --id Python.Python.3.14 --exact --scope user'
+    )
+    refreshed_path = 'set "PATH=%FORGE_LOCAL_APP_DATA%\\Programs\\Python\\Python314;'
+    restart = 'cmd /d /c "set "FORGE_PYTHON_BOOTSTRAP_ATTEMPTED=1"'
+    install_index = shim.index(winget_install)
+    refresh_index = shim.index(refreshed_path, install_index)
+    restart_index = shim.index(restart, refresh_index)
+
+    assert "if errorlevel 1 goto missing" not in shim[install_index:refresh_index]
+    assert install_index < refresh_index < restart_index
+
+    if os.name == "nt":
+        bootstrap_case = tmp_path / "already-installed"
+        local_app_data = bootstrap_case / "LocalAppData"
+        initial_bin = bootstrap_case / "initial-bin"
+        python_dir = local_app_data / "Programs" / "Python" / "Python314"
+        windows_apps = local_app_data / "Microsoft" / "WindowsApps"
+        initial_bin.mkdir(parents=True)
+        python_dir.mkdir(parents=True)
+        windows_apps.mkdir(parents=True)
+        winget = windows_apps / "winget.exe"
+        where_executable = shutil.which("where")
+        assert where_executable
+        shutil.copy2(where_executable, winget)
+        for command in ("py", "python", "python3"):
+            (initial_bin / f"{command}.cmd").write_text("@exit /b 1\n")
+        (python_dir / "python.cmd").write_text(
+            '@echo off\n'
+            'if "%~1"=="-c" exit /b 0\n'
+            'echo BOOTSTRAP_CONVERGED\n'
+            'exit /b 0\n'
+        )
+        known_folder_probe = re.compile(
+            r'set "FORGE_LOCAL_APP_DATA="\nfor /f .*?\n'
+            r'if not defined FORGE_LOCAL_APP_DATA goto missing'
+        )
+        replacement = (
+            f'set "FORGE_LOCAL_APP_DATA={local_app_data}"\n'
+            'if not defined FORGE_LOCAL_APP_DATA goto missing'
+        )
+        test_shim, replacements = known_folder_probe.subn(
+            lambda _match: replacement,
+            shim,
+            count=1,
+        )
+        assert replacements == 1
+        (bootstrap_case / "forge.cmd").write_text(test_shim)
+
+        system_root = Path(os.environ["SystemRoot"])
+        initial_path = os.pathsep.join([str(initial_bin), str(system_root / "System32")])
+        winget_result = subprocess.run(
+            [str(winget), "install", "--id", "Python.Python.3.14"],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PATH": initial_path},
+        )
+        assert winget_result.returncode != 0
+        result = subprocess.run(
+            ["cmd", "/d", "/c", str(bootstrap_case / "forge.cmd"), "status"],
+            cwd=bootstrap_case,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                "PATH": initial_path,
+                "LOCALAPPDATA": str(local_app_data),
+                "ProgramFiles": str(bootstrap_case / "ProgramFiles"),
+                "ProgramFiles(x86)": str(bootstrap_case / "ProgramFiles-x86"),
+                "CLAUDE_CODE_GIT_BASH_PATH": str(bootstrap_case / "missing.exe"),
+            },
+        )
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "BOOTSTRAP_CONVERGED" in result.stdout
+
+
 def test_init_and_upgrade_invoke_windows_remediation_when_hooks_red(
     tmp_path, monkeypatch, capsys,
 ):
@@ -3077,6 +3156,7 @@ def test_doctor_fix_windows_batches_all_elevation_into_single_confirm(tmp_path, 
         doctor, "_windows_known_folder",
         lambda folder_id: local_app_data if folder_id == doctor.WINDOWS_LOCAL_APP_DATA else None,
     )
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
     monkeypatch.setattr(doctor.subprocess, "run", fake_run)
     monkeypatch.setattr(doctor, "_refresh_windows_path", lambda: refreshes.append(True))
     monkeypatch.setattr(
@@ -3108,6 +3188,52 @@ def test_doctor_fix_windows_batches_all_elevation_into_single_confirm(tmp_path, 
         assert all("Start-Process" not in arg and "RunAs" not in arg for arg in argv)
     assert refreshes == [True]
     assert reprobes == ["git", "python >= 3.10"]
+
+
+def test_doctor_fix_refuses_user_alias_when_elevated(monkeypatch):
+    from forge_cli import doctor
+
+    invocations = []
+    refreshes = []
+    reprobes = []
+
+    monkeypatch.setattr(
+        doctor, "_trusted_user_winget_path",
+        lambda: (_ for _ in ()).throw(
+            AssertionError("elevated remediation must stop before resolving winget")
+        ),
+    )
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: True)
+    monkeypatch.setattr(
+        doctor.subprocess, "run",
+        lambda argv, **_kwargs: invocations.append(argv),
+    )
+    monkeypatch.setattr(
+        doctor, "_refresh_windows_path", lambda: refreshes.append(True),
+    )
+    monkeypatch.setattr(
+        doctor.shutil, "which", lambda name: reprobes.append(name),
+    )
+    monkeypatch.setattr(
+        doctor, "_python_check",
+        lambda: reprobes.append("python >= 3.10") or {"ok": True},
+    )
+
+    rows = doctor._remediate_windows_prerequisites(
+        install_git=True, install_python=True,
+    )
+
+    assert invocations == []
+    assert refreshes == []
+    assert reprobes == []
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["name"] == "elevated Windows prerequisite remediation"
+    assert row["required"] and not row["ok"]
+    assert "per-user install paths are user-writable" in row["detail"]
+    assert "normal (unelevated) prompt" in row["fix"]
+    assert doctor.WINDOWS_GIT_INSTALLER_URL in row["fix"]
+    assert doctor.WINDOWS_PYTHON_INSTALLER_URL in row["fix"]
 
 
 def test_fast_status_python_requires_path_resolvable_interpreter(
@@ -3211,6 +3337,7 @@ def test_doctor_fix_reports_winget_absent_as_named_red_row(monkeypatch):
 
     refreshes = []
     reprobes = []
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
     monkeypatch.setattr(doctor, "_windows_known_folder", lambda _folder_id: None)
     monkeypatch.setattr(doctor, "_refresh_windows_path", lambda: refreshes.append(True))
     monkeypatch.setattr(
@@ -3240,6 +3367,7 @@ def test_doctor_fix_winget_absent_converges_green_when_tools_present(
     from forge_cli import doctor
 
     refreshes = []
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
     monkeypatch.setattr(doctor, "_trusted_user_winget_path", lambda: None)
     monkeypatch.setattr(doctor, "_refresh_windows_path", lambda: refreshes.append(True))
     monkeypatch.setattr(
@@ -3278,6 +3406,7 @@ def test_doctor_fix_windows_partial_install_refreshes_and_reprobes(tmp_path, mon
         doctor, "_windows_known_folder",
         lambda folder_id: local_app_data if folder_id == doctor.WINDOWS_LOCAL_APP_DATA else None,
     )
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
     monkeypatch.setattr(doctor.subprocess, "run", fake_run)
     monkeypatch.setattr(doctor, "_refresh_windows_path", lambda: refreshes.append(True))
     monkeypatch.setattr(
@@ -3316,6 +3445,7 @@ def test_doctor_fix_rejects_untrusted_winget_path(tmp_path, monkeypatch):
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "LocalAppData"))
     monkeypatch.setenv("ProgramFiles", str(tmp_path / "ProgramFiles"))
     monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
     monkeypatch.setattr(doctor.shutil, "which", lambda name: str(untrusted) if name == "winget" else None)
     monkeypatch.setattr(
         doctor, "_windows_known_folder",
@@ -3344,6 +3474,7 @@ def test_doctor_fix_nonzero_already_installed_converges_after_refresh(tmp_path, 
         doctor, "_windows_known_folder",
         lambda folder_id: local_app_data if folder_id == doctor.WINDOWS_LOCAL_APP_DATA else None,
     )
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
     monkeypatch.setattr(
         doctor.subprocess, "run",
         lambda argv, **_kwargs: subprocess.CompletedProcess(
@@ -3425,6 +3556,7 @@ def test_doctor_fix_windows_refreshes_path_and_converges(tmp_path, monkeypatch):
         doctor, "_windows_known_folder",
         lambda folder_id: local if folder_id == doctor.WINDOWS_LOCAL_APP_DATA else None,
     )
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
     subprocess_run = doctor.subprocess.run
     monkeypatch.setattr(
         doctor.subprocess, "run",

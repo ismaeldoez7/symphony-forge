@@ -34,7 +34,6 @@ if not defined FORGE_LOCAL_APP_DATA goto missing
 set "FORGE_WINGET=%FORGE_LOCAL_APP_DATA%\Microsoft\WindowsApps\winget.exe"
 if not exist "%FORGE_WINGET%" goto missing
 "%FORGE_WINGET%" install --id Python.Python.3.14 --exact --scope user --source winget --silent --accept-package-agreements --accept-source-agreements
-if errorlevel 1 goto missing
 set "PATH=%FORGE_LOCAL_APP_DATA%\Programs\Python\Python314;%FORGE_LOCAL_APP_DATA%\Programs\Python\Launcher;%FORGE_LOCAL_APP_DATA%\Microsoft\WindowsApps;%PATH%"
 cmd /d /c "set "FORGE_PYTHON_BOOTSTRAP_ATTEMPTED=1" & "%~f0" %*"
 exit /b %errorlevel%
