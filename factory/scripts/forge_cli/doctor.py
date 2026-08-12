@@ -887,8 +887,22 @@ def _remediate_windows_prerequisites(*, install_git: bool, install_python: bool)
         elif winget:
             if git_install_error and not git_ok:
                 rows.append(git_install_error)
+            elif install_git and not git_ok:
+                rows.append(_check(
+                    "Git for Windows installed but not found", False,
+                    "winget exited successfully, but Git was still absent after "
+                    "refreshing PATH",
+                    f"install Git manually from {WINDOWS_GIT_INSTALLER_URL}",
+                ))
             if python_install_error and not python_ok:
                 rows.append(python_install_error)
+            elif install_python and not python_ok:
+                rows.append(_check(
+                    "Python 3.14 installed but not found", False,
+                    "winget exited successfully, but Python 3.10+ was still absent "
+                    "after refreshing PATH",
+                    f"install Python manually from {WINDOWS_PYTHON_INSTALLER_URL}",
+                ))
     return rows
 
 

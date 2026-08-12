@@ -2892,6 +2892,92 @@ def test_forge_cmd_bootstrap_runs_once_and_persists_path():
     assert shim.index(restart) < shim.index("exit /b %errorlevel%", shim.index(restart))
 
 
+def test_forge_cmd_bootstrap_refuses_winget_when_elevated(tmp_path):
+    shim = (HARNESS / "forge.cmd").read_text()
+    whoami_probe = (
+        '"%SystemRoot%\\System32\\whoami.exe" /groups >nul 2>&1'
+    )
+    medium_integrity_probe = (
+        '"%SystemRoot%\\System32\\whoami.exe" /groups | '
+        '"%SystemRoot%\\System32\\findstr.exe" /c:"S-1-16-8192" >nul 2>&1'
+    )
+    bootstrap_index = shim.index(":bootstrap")
+    whoami_index = shim.index(whoami_probe, bootstrap_index)
+    medium_integrity_index = shim.index(medium_integrity_probe, whoami_index)
+    local_app_data_index = shim.index(
+        'set "FORGE_LOCAL_APP_DATA="', medium_integrity_index,
+    )
+    winget_index = shim.index('"%FORGE_WINGET%" install', local_app_data_index)
+
+    whoami_guard_index = shim.index("if errorlevel 1 goto missing", whoami_index)
+    integrity_guard_index = shim.index(
+        "if errorlevel 1 goto missing", medium_integrity_index,
+    )
+    assert (
+        whoami_index < whoami_guard_index < medium_integrity_index
+        < integrity_guard_index < local_app_data_index < winget_index
+    )
+    assert "normal (unelevated) prompt" in shim
+
+    if os.name == "nt":
+        bootstrap_case = tmp_path / "elevated-bootstrap"
+        initial_bin = bootstrap_case / "initial-bin"
+        local_app_data = bootstrap_case / "LocalAppData"
+        windows_apps = local_app_data / "Microsoft" / "WindowsApps"
+        initial_bin.mkdir(parents=True)
+        windows_apps.mkdir(parents=True)
+        (windows_apps / "winget.exe").touch()
+        for command in ("py", "python", "python3"):
+            (initial_bin / f"{command}.cmd").write_text("@exit /b 1\n")
+
+        sentinel = bootstrap_case / "winget-ran"
+        known_folder_probe = re.compile(
+            r'set "FORGE_LOCAL_APP_DATA="\nfor /f .*?\n'
+            r'if not defined FORGE_LOCAL_APP_DATA goto missing'
+        )
+        test_shim, replacements = known_folder_probe.subn(
+            lambda _match: (
+                f'set "FORGE_LOCAL_APP_DATA={local_app_data}"\n'
+                'if not defined FORGE_LOCAL_APP_DATA goto missing'
+            ),
+            shim,
+            count=1,
+        )
+        assert replacements == 1
+        test_shim = test_shim.replace(
+            '"%FORGE_WINGET%" install --id Python.Python.3.14 --exact '
+            '--scope user --source winget --silent --accept-package-agreements '
+            '--accept-source-agreements',
+            f'echo WINGET_RAN>"{sentinel}"',
+            1,
+        )
+        system_root = Path(os.environ["SystemRoot"])
+        test_env = {
+            **os.environ,
+            "PATH": os.pathsep.join([str(initial_bin), str(system_root / "System32")]),
+            "LOCALAPPDATA": str(local_app_data),
+        }
+
+        for case_name, probe, replacement in (
+            ("elevated", medium_integrity_probe, "cmd /d /c exit /b 1"),
+            ("whoami-failure", whoami_probe, "cmd /d /c exit /b 1"),
+            ("findstr-failure", medium_integrity_probe, "cmd /d /c exit /b 1"),
+        ):
+            launcher = bootstrap_case / f"forge-{case_name}.cmd"
+            launcher.write_text(test_shim.replace(probe, replacement, 1))
+            result = subprocess.run(
+                ["cmd", "/d", "/c", str(launcher), "status"],
+                cwd=bootstrap_case,
+                capture_output=True,
+                text=True,
+                env=test_env,
+            )
+
+            assert result.returncode == 2, result.stdout + result.stderr
+            assert "normal (unelevated) prompt" in result.stderr
+            assert not sentinel.exists()
+
+
 def test_forge_cmd_bootstrap_converges_on_already_installed(tmp_path):
     shim = (HARNESS / "forge.cmd").read_text()
     winget_install = (
@@ -3431,6 +3517,48 @@ def test_doctor_fix_windows_partial_install_refreshes_and_reprobes(tmp_path, mon
     assert doctor.WINDOWS_GIT_INSTALLER_URL in rows[0]["detail"]
     assert refreshes == [True]
     assert reprobes == ["git", "python >= 3.10"]
+
+
+def test_doctor_fix_reports_installed_but_not_found(tmp_path, monkeypatch):
+    from forge_cli import doctor
+
+    local_app_data = tmp_path / "CanonicalLocalAppData"
+    alias = local_app_data / "Microsoft" / "WindowsApps" / "winget.exe"
+    alias.parent.mkdir(parents=True)
+    alias.write_text("trusted alias")
+    refreshes = []
+
+    monkeypatch.setattr(
+        doctor, "_windows_known_folder",
+        lambda folder_id: (
+            local_app_data if folder_id == doctor.WINDOWS_LOCAL_APP_DATA else None
+        ),
+    )
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
+    monkeypatch.setattr(
+        doctor.subprocess, "run",
+        lambda argv, **_kwargs: subprocess.CompletedProcess(argv, 0, "", ""),
+    )
+    monkeypatch.setattr(
+        doctor, "_refresh_windows_path", lambda: refreshes.append(True),
+    )
+    monkeypatch.setattr(doctor.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(doctor, "_python_check", lambda: {"ok": False})
+
+    rows = doctor._remediate_windows_prerequisites(
+        install_git=True, install_python=True,
+    )
+
+    assert [row["name"] for row in rows] == [
+        "Git for Windows installed but not found",
+        "Python 3.14 installed but not found",
+    ]
+    assert all(row["required"] and not row["ok"] for row in rows)
+    assert all("winget exited successfully" in row["detail"] for row in rows)
+    assert all("after refreshing PATH" in row["detail"] for row in rows)
+    assert doctor.WINDOWS_GIT_INSTALLER_URL in rows[0]["fix"]
+    assert doctor.WINDOWS_PYTHON_INSTALLER_URL in rows[1]["fix"]
+    assert refreshes == [True]
 
 
 def test_doctor_fix_rejects_untrusted_winget_path(tmp_path, monkeypatch):

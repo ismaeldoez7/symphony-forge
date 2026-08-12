@@ -28,6 +28,12 @@ goto discover_shell
 
 :bootstrap
 if defined FORGE_PYTHON_BOOTSTRAP_ATTEMPTED goto missing
+if not exist "%SystemRoot%\System32\whoami.exe" goto missing
+if not exist "%SystemRoot%\System32\findstr.exe" goto missing
+"%SystemRoot%\System32\whoami.exe" /groups >nul 2>&1
+if errorlevel 1 goto missing
+"%SystemRoot%\System32\whoami.exe" /groups | "%SystemRoot%\System32\findstr.exe" /c:"S-1-16-8192" >nul 2>&1
+if errorlevel 1 goto missing
 set "FORGE_LOCAL_APP_DATA="
 for /f "usebackq delims=" %%I in (`"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "[Environment]::GetFolderPath('LocalApplicationData')" 2^>nul`) do if not defined FORGE_LOCAL_APP_DATA set "FORGE_LOCAL_APP_DATA=%%I"
 if not defined FORGE_LOCAL_APP_DATA goto missing
@@ -91,5 +97,5 @@ python3 "%~dp0factory\scripts\forge.py" %*
 exit /b %errorlevel%
 
 :missing
-echo [FAIL] Python 3.10 or newer was not found. Install App Installer/winget or install Python manually from https://www.python.org/downloads/windows/ and rerun forge. 1>&2
+echo [FAIL] Python 3.10 or newer was not found. If this prompt is elevated, rerun forge from a normal (unelevated) prompt. Otherwise, install App Installer/winget or install Python manually from https://www.python.org/downloads/windows/ and rerun forge. 1>&2
 exit /b 2

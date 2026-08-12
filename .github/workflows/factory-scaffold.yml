@@ -92,10 +92,12 @@ jobs:
           factory/tests/test_gates.py::test_forge_cmd_routes_git_bash_then_python_fallbacks
           factory/tests/test_gates.py::test_forge_cmd_probes_python3_as_final_fallback
           factory/tests/test_gates.py::test_forge_cmd_bootstrap_runs_once_and_persists_path
+          factory/tests/test_gates.py::test_forge_cmd_bootstrap_refuses_winget_when_elevated
           factory/tests/test_gates.py::test_forge_cmd_bootstrap_converges_on_already_installed
           factory/tests/test_gates.py::test_windows_autocrlf_checkout_preserves_forge_launcher
           factory/tests/test_gates.py::test_fast_status_python_requires_path_resolvable_interpreter
           factory/tests/test_gates.py::test_doctor_fix_refuses_user_alias_when_elevated
+          factory/tests/test_gates.py::test_doctor_fix_reports_installed_but_not_found
           factory/tests/test_gates.py::test_doctor_fix_reports_winget_absent_as_named_red_row
           factory/tests/test_gates.py::test_doctor_fix_winget_absent_converges_green_when_tools_present
           factory/tests/test_gates.py::test_doctor_fix_nonzero_already_installed_converges_after_refresh
