@@ -1042,3 +1042,25 @@
 {"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-12T19:41:52+00:00", "story": "FORGE-WIN-2"}
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-12T19:42:00+00:00", "story": "FORGE-WIN-2"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-12T19:42:48+00:00", "story": "FORGE-WIN-2", "detail": "A Windows machine with no Git or Python converges to a working harness by running 'forge doctor --fix' with zero typed setup: it adds a real Python 3.10+ check, installs Git and Python in user scope v"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-12T12:14:46+00:00", "detail": "plan-contract-review: Review verifies plan contracts, not just the diff"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-12T12:15:02+00:00", "detail": "plan-contract-review: Review verifies plan contracts, not just the diff"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-12T12:15:26+00:00", "detail": "plan-contract-review"}
+{"event": "roadmap-epic-add", "generated_by": "orchestrator", "at": "2026-08-12T12:15:59+00:00", "detail": "review-completeness"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-12T12:15:59+00:00", "story": "FORGE-REV-2", "detail": "docs/specs/plan-contract-review.md"}
+{"event": "intake", "generated_by": "orchestrator", "at": "2026-08-12T12:16:05+00:00", "story": "FORGE-REV-2", "detail": "Review verifies plan contracts"}
+{"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-12T12:17:24+00:00", "story": "FORGE-REV-2", "detail": "FORGE-REV-2 approved by Ravi (vrknetha)"}
+{"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-12T12:17:24+00:00", "story": "FORGE-REV-2", "detail": "plans/active/FORGE-REV-2-review-verifies-plan-contracts.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-12T12:18:59+00:00", "story": "FORGE-REV-2", "detail": "1 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-12T12:19:21+00:00", "story": "FORGE-REV-2", "detail": "REV2-T1 Plan-contract-aware review: schema, brief composer, recorder enforcement, pr-ready gate, prompts"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-12T12:39:09+00:00", "story": "FORGE-REV-2", "detail": "REV2-T1 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-12T12:55:12+00:00", "story": "FORGE-REV-2", "detail": "1 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-12T13:25:05+00:00", "story": "FORGE-REV-2", "detail": "REV2-T1 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-12T13:26:29+00:00", "story": "FORGE-REV-2", "detail": "REV2-T1: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-12T13:26:29+00:00", "story": "FORGE-REV-2", "detail": "REV2-T1 Plan-contract-aware review: schema, brief composer, recorder enforcement, pr-ready gate, prompts"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-12T13:44:45+00:00", "story": "FORGE-REV-2"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-12T13:45:15+00:00", "story": "FORGE-REV-2", "detail": "passed"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-12T13:45:15+00:00", "story": "FORGE-REV-2"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-12T13:45:16+00:00", "story": "FORGE-REV-2"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-12T13:45:16+00:00", "story": "FORGE-REV-2"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-12T13:45:26+00:00", "story": "FORGE-REV-2", "detail": "Review is no longer plan-blind: decomposition tasks can declare plan_contracts (the plan invariants they must satisfy), ./forge review-brief composes the reviewer's contract prompt (per-task or --all "}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-12T14:00:54+00:00", "story": "FORGE-REV-2", "detail": "knacklabs/symphony-forge#81"}
