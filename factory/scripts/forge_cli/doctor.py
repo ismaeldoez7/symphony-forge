@@ -32,6 +32,8 @@ WINDOWS_INSTALL_FLAGS = (
     "--accept-package-agreements", "--accept-source-agreements",
 )
 WINDOWS_LOCAL_APP_DATA = "f1b32785-6fba-4fcf-9d55-7b8e7f157091"
+WINDOWS_PROGRAM_FILES = "905e63b6-c1bf-494e-b29c-65b732d3d21a"
+WINDOWS_PROGRAM_FILES_X86 = "7c5a40ef-a0fb-4bfc-874a-c0f2e0b9fa8e"
 WINDOWS_GIT_INSTALLER_URL = "https://git-scm.com/download/win"
 WINDOWS_PYTHON_INSTALLER_URL = "https://www.python.org/downloads/windows/"
 
@@ -717,15 +719,20 @@ def _refresh_windows_path() -> None:
             local / "Microsoft" / "WinGet" / "Links",
             local / "Microsoft" / "WindowsApps",
         ])
-    for variable in ("ProgramFiles", "ProgramFiles(x86)"):
-        root = os.environ.get(variable)
-        if root:
-            program_files = Path(root)
-            candidates.extend([
-                program_files / "Git" / "cmd",
-                program_files / "Python314",
-                program_files / "Python314" / "Scripts",
-            ])
+    program_files_roots = [
+        Path(root) for variable in ("ProgramW6432", "ProgramFiles", "ProgramFiles(x86)")
+        if (root := os.environ.get(variable))
+    ]
+    program_files_roots.extend(
+        folder for folder_id in (WINDOWS_PROGRAM_FILES, WINDOWS_PROGRAM_FILES_X86)
+        if (folder := _windows_known_folder(folder_id))
+    )
+    for program_files in program_files_roots:
+        candidates.extend([
+            program_files / "Git" / "cmd",
+            program_files / "Python314",
+            program_files / "Python314" / "Scripts",
+        ])
     _prepend_existing_paths(candidates)
 
 
@@ -837,12 +844,11 @@ def _remediate_windows_prerequisites(*, install_git: bool, install_python: bool)
                 f"{WINDOWS_PYTHON_INSTALLER_URL}",
                 "install App Installer/winget, or use the named manual installer URLs",
             ))
-            return rows
-
-        if install_git:
-            git_install_error = _install_git_windows(winget)
-        if install_python:
-            python_install_error = _install_python_windows(winget)
+        else:
+            if install_git:
+                git_install_error = _install_git_windows(winget)
+            if install_python:
+                python_install_error = _install_python_windows(winget)
     finally:
         # Named refusals and partial installs must converge in the same run.
         _refresh_windows_path()

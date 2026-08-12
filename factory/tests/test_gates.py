@@ -3100,6 +3100,29 @@ def test_doctor_fix_reports_winget_absent_as_named_red_row(monkeypatch):
     assert reprobes == ["git", "python >= 3.10"]
 
 
+def test_doctor_fix_winget_absent_stays_red_when_tools_appear_after_refresh(
+    monkeypatch,
+):
+    from forge_cli import doctor
+
+    refreshes = []
+    monkeypatch.setattr(doctor, "_trusted_user_winget_path", lambda: None)
+    monkeypatch.setattr(doctor, "_refresh_windows_path", lambda: refreshes.append(True))
+    monkeypatch.setattr(
+        doctor.shutil, "which", lambda name: "/tools/git" if name == "git" else None,
+    )
+    monkeypatch.setattr(doctor, "_python_check", lambda: {"ok": True})
+
+    rows = doctor._remediate_windows_prerequisites(
+        install_git=True, install_python=True,
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["name"] == "winget for Windows prerequisites"
+    assert rows[0]["required"] and not rows[0]["ok"]
+    assert refreshes == [True]
+
+
 def test_doctor_fix_windows_partial_install_refreshes_and_reprobes(tmp_path, monkeypatch):
     from forge_cli import doctor
 
@@ -3263,6 +3286,7 @@ def test_doctor_fix_windows_refreshes_path_and_converges(tmp_path, monkeypatch):
 
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "PoisonedLocalAppData"))
     monkeypatch.setenv("PATH", "")
+    monkeypatch.delenv("ProgramW6432", raising=False)
     monkeypatch.delenv("ProgramFiles", raising=False)
     monkeypatch.delenv("ProgramFiles(x86)", raising=False)
     monkeypatch.setattr(
@@ -3283,6 +3307,35 @@ def test_doctor_fix_windows_refreshes_path_and_converges(tmp_path, monkeypatch):
 
     assert shutil.which("git") == str(git_dir / "git")
     assert doctor._python_status()[0]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX fixture models WOW64 PATH refresh")
+def test_doctor_fix_windows_refreshes_native_git_under_wow64(
+    tmp_path, monkeypatch,
+):
+    from forge_cli import doctor
+
+    program_files_x86 = tmp_path / "Program Files (x86)"
+    program_files_x64 = tmp_path / "Program Files"
+    git_dir = program_files_x64 / "Git" / "cmd"
+    git_dir.mkdir(parents=True)
+    git = git_dir / "git"
+    git.write_text("#!/bin/sh\nexit 0\n")
+    git.chmod(0o755)
+
+    monkeypatch.setenv("PATH", "")
+    monkeypatch.setenv("ProgramW6432", str(program_files_x64))
+    monkeypatch.setenv("ProgramFiles", str(program_files_x86))
+    monkeypatch.setenv("ProgramFiles(x86)", str(program_files_x86))
+    monkeypatch.setattr(
+        doctor, "_windows_known_folder",
+        lambda _folder_id: None,
+    )
+
+    doctor._refresh_windows_path()
+
+    assert shutil.which("git") == str(git)
+    assert not hasattr(doctor, "WINDOWS_PROGRAM_FILES_X64")
 
 
 def test_phase_names_doctor_first_when_hook_launcher_is_broken(repo, capsys):
