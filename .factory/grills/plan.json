@@ -1,0 +1,28 @@
+{
+  "generated_by": "griller",
+  "gate": "plan",
+  "verdict": "pass",
+  "gaps": [
+    "run_quiet's hardcoded 15s timeout (common.py:17) is shared by ~15 call sites and cannot carry a winget install \u2014 how do installs run without destabilizing the other sites?",
+    "Doctor has NO python row today although HOOK_HEALTH_FIX promises '--fix installs Python 3.10+' \u2014 and fast_status (doctor.py:422) must agree with cmd_doctor or the session banner drifts.",
+    "How is 'at most one UAC confirm' provable when CI runners are already admin and RunAs succeeds silently?",
+    "forge.cmd's two text assertions (version-gate count == 2, where-index chain) break on any third probe \u2014 D-0018 cannot land without them.",
+    "phase.py:41 prints 'run ./forge doctor' but the spec acceptance says doctor --fix names remediation.",
+    "Does init/adopt/upgrade auto-remediation violate the write_manifest ordering or the repository-escape tripwire at upgrade.py?"
+  ],
+  "contradictions": [],
+  "resolutions": [
+    "Installs use direct subprocess.run with a generous timeout; run_quiet untouched at all other sites \u2014 evidence-driven.",
+    "Python becomes a required row version-floored >= 3.10 across py -3/python3/python, mirrored into fast_status in the same stage \u2014 the two-site agreement is a named criterion.",
+    "The batching INVARIANT is proven by argv-recording fakes (exactly one elevation-shaped invocation carrying both package ids, zero per-package elevations); the real elevation pass runs once on the affected client's machine as functional evidence \u2014 spec-grill settlement carried over.",
+    "The assertion updates are named in the same criterion as the probe (they run on every platform, not just Windows CI).",
+    "One-word settle in the spec's favor: the string gains --fix.",
+    "Remediation runs at the flow TAILS, mutates no vendored files (write_manifest ordering safe), touches upgrade.py's tail only \u2014 the repository-escape tripwire stands and any re-flag escalates instead of riding this story."
+  ],
+  "open_items": [],
+  "notes": "Interrogated against FORGE-WIN-2's two roadmap ACs, the confirmed spec's grilled settlements (one UAC confirm; remediation inside init/adopt/upgrade; no user-global writes; winget policy), active decisions 0001-0038, deferrals D-0018 (fires here, folded in) / D-0019 (stays deferred to WIN-3) / D-0020 (selector stays explicit), and lessons (orchestrator-autoreview-blind-spots, evidence-vs-tooling, sandbox constraints). Frontier empty \u2014 no new human-owned choices; approved in plan mode per 0029.",
+  "input_sha256": "95c9de5ccc8c60afc851a212472075fc24263d1e763b4f5414aa1dbd7c2bc141",
+  "issue": "FORGE-WIN-2",
+  "recorded_at": "2026-08-12T09:20:00+00:00",
+  "commit": "e1901659626d226ca5a5bfa50cc3e35b14dedeab"
+}

@@ -608,7 +608,7 @@
         "init/adopt/upgrade each leave a client repo hook-healthy on Windows; upgrade replaces pinned-interpreter settings"
       ],
       "order": 28,
-      "status": "pending",
+      "status": "active",
       "epic": "windows-zero-setup",
       "skill": "backend",
       "kind": "feature",
@@ -653,7 +653,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-12T08:00:32+00:00",
+  "updated_at": "2026-08-12T08:00:50+00:00",
   "epics": [
     {
       "id": "symphony-forge",

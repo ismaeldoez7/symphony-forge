@@ -946,3 +946,6 @@
 {"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-12T08:00:17+00:00", "story": "FORGE-WIN-1"}
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-12T08:00:17+00:00", "story": "FORGE-WIN-1"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-12T08:00:32+00:00", "story": "FORGE-WIN-1", "detail": "Windows machines are first-class harness hosts with zero user setup: every registered hook resolves through the forge launcher and BLOCKS (exit 2) instead of silently disarming when anything in its ch"}
+{"event": "intake", "generated_by": "orchestrator", "at": "2026-08-12T08:00:50+00:00", "story": "FORGE-WIN-2", "detail": "Doctor --fix installs prerequisites on Windows"}
+{"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-12T09:20:01+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2 approved by Ravi"}
+{"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-12T09:20:01+00:00", "story": "FORGE-WIN-2", "detail": "plans/active/FORGE-WIN-2-doctor-fix-installs-prerequisites-on-windows.md"}
