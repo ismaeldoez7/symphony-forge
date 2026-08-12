@@ -2,15 +2,19 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import os
 import platform
+import re
 import shlex
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import urllib.request
+import uuid
 from pathlib import Path
 
 from factory_lib import decomposition_state_path, load_json, parse_sections, repo_root
@@ -20,6 +24,16 @@ from .common import run_quiet
 from .specs import missing_required_content, parse_frontmatter
 
 DIRENV_VERSION = "2.37.1"
+WINDOWS_GIT_PACKAGE = "Git.Git"
+WINDOWS_PYTHON_PACKAGE = "Python.Python.3.14"
+WINDOWS_INSTALL_TIMEOUT = 600
+WINDOWS_INSTALL_FLAGS = (
+    "--scope", "user", "--source", "winget", "--silent",
+    "--accept-package-agreements", "--accept-source-agreements",
+)
+WINDOWS_LOCAL_APP_DATA = "f1b32785-6fba-4fcf-9d55-7b8e7f157091"
+WINDOWS_GIT_INSTALLER_URL = "https://git-scm.com/download/win"
+WINDOWS_PYTHON_INSTALLER_URL = "https://www.python.org/downloads/windows/"
 
 # Shell words that are not programs on PATH but are perfectly runnable.
 SHELL_BUILTINS = {".", ":", "[", "cd", "echo", "eval", "exec", "exit", "export",
@@ -434,15 +448,60 @@ def _autoreview_dir(home: Path) -> Path:
     return home / ".codex" / "skills" / "autoreview"
 
 
+def _python_candidates() -> list[tuple[str, tuple[str, ...]]]:
+    candidates = []
+    for name, launcher_args in (("py", ("-3",)), ("python3", ()), ("python", ())):
+        binary = shutil.which(name)
+        if binary:
+            candidates.append((binary, launcher_args))
+    return candidates
+
+
+def _python_status() -> tuple[bool, str]:
+    candidates = _python_candidates()
+    if not candidates:
+        return False, "py -3 / python3 / python is not on PATH"
+    detail = ""
+    for binary, launcher_args in candidates:
+        try:
+            result = subprocess.run(
+                [binary, *launcher_args, "--version"],
+                capture_output=True, text=True, timeout=5,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            detail = f"{binary}: {exc}"
+            continue
+        output = (result.stdout + result.stderr).strip()
+        match = re.search(r"Python\s+(\d+)\.(\d+)(?:\.(\d+))?", output)
+        if result.returncode == 0 and match:
+            version = tuple(int(part or 0) for part in match.groups())
+            detail = f"{binary}: {match.group(0)}"
+            if version >= (3, 10, 0):
+                return True, detail
+            continue
+        detail = f"{binary}: {output or f'exit {result.returncode}'}"
+    return False, detail
+
+
+def _python_check() -> dict:
+    ok, detail = _python_status()
+    return _check(
+        "python >= 3.10", ok, detail,
+        "install Python 3.10+ (https://www.python.org/downloads/)",
+    )
+
+
 def fast_status(home: Path | None = None) -> tuple[list[str], list[str]]:
-    """Millisecond machine check for the SessionStart hook: PATH lookups and
-    directory existence ONLY — no subprocesses, no versions, no logins.
+    """Millisecond SessionStart check: lookups/existence only, no subprocesses.
     Returns (required_missing, advisory_missing). A fresh clone after
     `git pull` gets told its machine is not ready at the FIRST session,
     not at the first mid-task failure."""
     home = home or Path.home()
     required = {
         "git": shutil.which("git") is not None,
+        # The running interpreter is the only subprocess-free version evidence.
+        # PATH candidates prove existence only and cannot satisfy this floor.
+        "python >= 3.10": sys.version_info >= (3, 10),
         "node": shutil.which("node") is not None,
         "direnv + shell hook": shutil.which("direnv") is not None and _has_direnv_hook(home),
         "codex CLI": shutil.which("codex") is not None,
@@ -635,6 +694,171 @@ def _prepend_user_bin_to_path(home: Path) -> Path:
     return user_bin
 
 
+def _prepend_existing_paths(paths: list[Path]) -> None:
+    current = os.environ.get("PATH", "")
+    entries = current.split(os.pathsep) if current else []
+    additions = [
+        str(path) for path in paths
+        if path.is_dir() and str(path) not in entries
+    ]
+    if additions:
+        os.environ["PATH"] = os.pathsep.join([*additions, *entries])
+
+
+def _refresh_windows_path() -> None:
+    candidates: list[Path] = []
+    local = _windows_known_folder(WINDOWS_LOCAL_APP_DATA)
+    if local:
+        candidates.extend([
+            local / "Programs" / "Git" / "cmd",
+            local / "Programs" / "Python" / "Python314",
+            local / "Programs" / "Python" / "Python314" / "Scripts",
+            local / "Programs" / "Python" / "Launcher",
+            local / "Microsoft" / "WinGet" / "Links",
+            local / "Microsoft" / "WindowsApps",
+        ])
+    for variable in ("ProgramFiles", "ProgramFiles(x86)"):
+        root = os.environ.get(variable)
+        if root:
+            program_files = Path(root)
+            candidates.extend([
+                program_files / "Git" / "cmd",
+                program_files / "Python314",
+                program_files / "Python314" / "Scripts",
+            ])
+    _prepend_existing_paths(candidates)
+
+
+def _winget_user_install(
+    winget: str, package_id: str, label: str, manual_url: str,
+) -> dict | None:
+    print(f"[fix ] installing {label} with winget (user scope) ...")
+    try:
+        result = subprocess.run(
+            [winget, "install", "--id", package_id, "--exact", *WINDOWS_INSTALL_FLAGS],
+            capture_output=True, text=True, timeout=WINDOWS_INSTALL_TIMEOUT,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"[warn] winget failed while installing {label}: {exc}")
+        return _check(
+            f"{label} user-scope install", False,
+            f"winget could not install {label}: {exc}; manual installer: {manual_url}",
+            f"install {label} manually from {manual_url}",
+        )
+    if result.returncode == 0:
+        return None
+    output = (result.stdout + result.stderr).strip()
+    print(f"[warn] winget could not install {label} in user scope.")
+    return _check(
+        f"{label} user-scope install", False,
+        f"winget exited {result.returncode}"
+        f"{f': {output}' if output else ''}; manual installer: {manual_url}",
+        f"install {label} manually from {manual_url}",
+    )
+
+
+def _install_git_windows(winget: str) -> dict | None:
+    return _winget_user_install(
+        winget, WINDOWS_GIT_PACKAGE, "Git for Windows", WINDOWS_GIT_INSTALLER_URL,
+    )
+
+
+def _install_python_windows(winget: str) -> dict | None:
+    return _winget_user_install(
+        winget, WINDOWS_PYTHON_PACKAGE, "Python 3.14", WINDOWS_PYTHON_INSTALLER_URL,
+    )
+
+
+def _windows_known_folder(folder_id: str) -> Path | None:
+    """Read a Windows known folder without trusting process environment."""
+    if _platform_name() != "windows":
+        return None
+
+    class GUID(ctypes.Structure):
+        _fields_ = [
+            ("Data1", ctypes.c_ulong),
+            ("Data2", ctypes.c_ushort),
+            ("Data3", ctypes.c_ushort),
+            ("Data4", ctypes.c_ubyte * 8),
+        ]
+
+    value = uuid.UUID(folder_id)
+    guid = GUID(
+        value.time_low, value.time_mid, value.time_hi_version,
+        (ctypes.c_ubyte * 8)(*value.bytes[8:]),
+    )
+    path_pointer = ctypes.c_wchar_p()
+    shell32 = ctypes.windll.shell32
+    ole32 = ctypes.windll.ole32
+    shell32.SHGetKnownFolderPath.argtypes = [
+        ctypes.POINTER(GUID), ctypes.c_ulong, ctypes.c_void_p,
+        ctypes.POINTER(ctypes.c_wchar_p),
+    ]
+    shell32.SHGetKnownFolderPath.restype = ctypes.c_long
+    result = shell32.SHGetKnownFolderPath(
+        ctypes.byref(guid), 0, None, ctypes.byref(path_pointer),
+    )
+    if result != 0:
+        return None
+    try:
+        return Path(path_pointer.value) if path_pointer.value else None
+    finally:
+        ole32.CoTaskMemFree(path_pointer)
+
+
+def _trusted_user_winget_path() -> str | None:
+    local_app_data = _windows_known_folder(WINDOWS_LOCAL_APP_DATA)
+    if local_app_data and local_app_data.is_absolute():
+        alias = local_app_data / "Microsoft" / "WindowsApps" / "winget.exe"
+        try:
+            # App Execution Aliases are APPEXECLINK reparse points. Resolving
+            # one raises WinError 1920, so trust this API-derived identity
+            # without following it. Ordinary symlinks are not accepted.
+            if os.path.lexists(alias) and not alias.is_symlink():
+                return str(alias)
+        except OSError:
+            pass
+
+    return None
+
+
+def _remediate_windows_prerequisites(*, install_git: bool, install_python: bool) -> list[dict]:
+    rows: list[dict] = []
+    git_install_error: dict | None = None
+    python_install_error: dict | None = None
+    winget: str | None = None
+    try:
+        winget = _trusted_user_winget_path()
+        if not winget:
+            rows.append(_check(
+                "winget for Windows prerequisites", False,
+                "winget is absent or outside its trusted WindowsApps/App Installer roots; "
+                f"install Git from {WINDOWS_GIT_INSTALLER_URL} and Python 3.10+ from "
+                f"{WINDOWS_PYTHON_INSTALLER_URL}",
+                "install App Installer/winget, or use the named manual installer URLs",
+            ))
+            return rows
+
+        if install_git:
+            git_install_error = _install_git_windows(winget)
+        if install_python:
+            python_install_error = _install_python_windows(winget)
+    finally:
+        # Named refusals and partial installs must converge in the same run.
+        _refresh_windows_path()
+        git_ok = shutil.which("git") is not None
+        python_ok = _python_check()["ok"]
+
+        # The refreshed probes are authoritative. winget can return nonzero
+        # for an already-installed package while the tool is now usable.
+        if winget:
+            if git_install_error and not git_ok:
+                rows.append(git_install_error)
+            if python_install_error and not python_ok:
+                rows.append(python_install_error)
+    return rows
+
+
 def _install_direnv_windows(home: Path) -> bool:
     user_bin = _prepend_user_bin_to_path(home)
     target = user_bin / "direnv.exe"
@@ -766,6 +990,15 @@ def _direnv_fix_message() -> str:
     )
 
 
+def _git_fix_message() -> str:
+    if _platform_name() == "windows":
+        return (
+            "run `./forge doctor --fix`, or install Git for Windows manually from "
+            "https://git-scm.com/download/win"
+        )
+    return "https://git-scm.com — or `xcode-select --install` on macOS"
+
+
 def cmd_doctor(args: argparse.Namespace) -> None:
     home = Path.home()
     if getattr(args, "fast", False):
@@ -790,10 +1023,27 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     def which(binary: str) -> str | None:
         return shutil.which(binary)
 
-    # Core toolchain
+    # Core toolchain. Windows remediation happens before rows are recorded so
+    # the fixing run can truthfully report the tools it just installed.
+    git = which("git")
+    python = _python_check()
+    windows_install_checks: list[dict] = []
+    if _platform_name() == "windows" and args.fix and (not git or not python["ok"]):
+        windows_install_checks = _remediate_windows_prerequisites(
+            install_git=not bool(git), install_python=not python["ok"],
+        )
+        git = which("git")
+        python = _python_check()
+        if repo is None and git:
+            try:
+                repo = Path(repo_root())
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                pass
+
     checks.append(_check(
-        "git", which("git") is not None, which("git") or "not on PATH",
-        "https://git-scm.com — or `xcode-select --install` on macOS"))
+        "git", git is not None, git or "not on PATH", _git_fix_message()))
+    checks.append(python)
+    checks.extend(windows_install_checks)
 
     if repo:
         checks.extend(hook_health_checks(repo))

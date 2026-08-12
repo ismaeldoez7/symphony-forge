@@ -32,8 +32,15 @@ semantics. Decision 0005 forbids a fourth patch to a recurring class.
 no privilege gain and no harness-orchestrated `RunAs`. A package whose own
 installer self-elevates raises the OS's own single UAC prompt — that honest,
 OS-driven prompt is the "at most one UAC confirm" the spec allows, not a
-harness-built elevation. When a user-scope install genuinely cannot complete,
-`doctor` prints a named red row with the manual installer URL. The
+harness-built elevation. Git.Git's installer is known to self-elevate even
+with `--scope user`; declining or failing that installer-owned prompt produces
+a named red Git row with the manual installer URL, never a crash or a false
+success claim. After every attempt, `doctor` refreshes PATH from the same
+canonical Windows known-folder identity used to locate winget and re-probes
+the tools. That probe is authoritative: a usable tool suppresses a provisional
+winget error such as "already installed" or "no applicable upgrade". When a
+user-scope install genuinely cannot complete, `doctor` prints a named red row
+with the manual installer URL. The
 harness-orchestrated elevation batch is DEFERRED (D-0021) to be built and
 validated against a real Windows environment.
 

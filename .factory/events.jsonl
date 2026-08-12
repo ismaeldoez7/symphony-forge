@@ -973,3 +973,15 @@
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-12T11:25:49+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.1 (write)"}
 {"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-12T11:26:11+00:00", "story": "FORGE-WIN-2", "detail": "S-0002-756e: Right catch \u2014 my narrowing edit left stale elevation text in objective/reviewer and 0039 (not 0040) in scope. Fixed: objective/reviewer now describe user-scope-only (no RunAs), 0040 replaces 0039 in w"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-12T11:26:24+00:00", "story": "FORGE-WIN-2", "detail": "2 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-12T11:45:14+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.1 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-12T11:52:13+00:00", "story": "FORGE-WIN-2", "detail": "2 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-12T11:57:51+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.1 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-12T12:06:58+00:00", "story": "FORGE-WIN-2", "detail": "2 task(s)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-12T12:10:04+00:00", "story": "FORGE-WIN-2", "detail": "2 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-12T12:11:35+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.1 Doctor remediation core: python row, winget installs, one-confirm batching"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-12T12:15:14+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.2 (read-only)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-12T12:18:28+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.2 (read-only)"}
+{"event": "stage-authority-migrated", "generated_by": "orchestrator", "at": "2026-08-12T12:22:40+00:00", "story": "FORGE-WIN-2", "detail": "2 task(s)"}
+{"event": "stage-incomplete", "generated_by": "implementer", "at": "2026-08-12T12:23:32+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.1: measurement, not work: the remediation core is complete and committed at b8702c0; this stage row was rebuilt after relocation to the worktree, so its window post-dates its own work and can never measure it - consolidating into 2.2 which measures the remaining work forward"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-12T12:25:23+00:00", "story": "FORGE-WIN-2", "detail": "2 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-12T12:25:24+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.1 Doctor remediation core: python row, winget installs, one-confirm batching"}

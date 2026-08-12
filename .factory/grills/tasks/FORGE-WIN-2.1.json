@@ -14,7 +14,7 @@
   "open_items": [],
   "notes": "WIN-2.1 narrowed under decision 0040 (supersedes 0039) after the elevation-trust class recurred 4x (0005 escalation). Frontier empty.",
   "task_id": "FORGE-WIN-2.1",
-  "input_sha256": "00810efaae2cfa7541ab5080ebf3fc748140963cef470d09f9d32cc1addc5482",
-  "recorded_at": "2026-08-12T11:26:24+00:00",
-  "commit": "5afd7885cc8a0398d502b6775fedf35432fc5e75"
+  "input_sha256": "d5437e8a2d7674b49e05d68a6be1528c356f1d715d0725eb2b58f2fd4318294f",
+  "recorded_at": "2026-08-12T12:06:58+00:00",
+  "commit": "a604f1256ade90d0c4b1a4f683624f43cd107133"
 }
