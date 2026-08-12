@@ -2839,7 +2839,10 @@ def test_forge_cmd_probes_python3_as_final_fallback(tmp_path):
     assert "Start-Process" not in shim
     assert "RunAs" not in shim
     assert '"%~f0" %*' in shim
-    assert '"%~f0" %*\nexit /b %errorlevel%' in shim
+    assert (
+        'cmd /d /c "set "FORGE_PYTHON_BOOTSTRAP_ATTEMPTED=1" & "%~f0" %*"\n'
+        'exit /b %errorlevel%'
+    ) in shim
     assert "https://www.python.org/downloads/windows/" in shim
 
     if os.name == "nt":
@@ -2868,6 +2871,25 @@ def test_forge_cmd_probes_python3_as_final_fallback(tmp_path):
         assert result.returncode == 2, result.stdout + result.stderr
         assert "EARLY_SHELL" not in result.stdout
         assert "https://www.python.org/downloads/windows/" in result.stderr
+
+
+def test_forge_cmd_bootstrap_runs_once_and_persists_path():
+    shim = (HARNESS / "forge.cmd").read_text()
+    refreshed_path = (
+        'set "PATH=%FORGE_LOCAL_APP_DATA%\\Programs\\Python\\Python314;'
+        '%FORGE_LOCAL_APP_DATA%\\Programs\\Python\\Launcher;'
+        '%FORGE_LOCAL_APP_DATA%\\Microsoft\\WindowsApps;%PATH%"'
+    )
+    restart = (
+        'cmd /d /c "set "FORGE_PYTHON_BOOTSTRAP_ATTEMPTED=1" & "%~f0" %*"'
+    )
+
+    assert shim.count('set "FORGE_PYTHON_BOOTSTRAP_ATTEMPTED=1"') == 1
+    assert "endlocal & set" not in shim
+    assert refreshed_path in shim
+    assert restart in shim
+    assert shim.index(refreshed_path) < shim.index(restart)
+    assert shim.index(restart) < shim.index("exit /b %errorlevel%", shim.index(restart))
 
 
 def test_init_and_upgrade_invoke_windows_remediation_when_hooks_red(
@@ -3088,7 +3110,9 @@ def test_doctor_fix_windows_batches_all_elevation_into_single_confirm(tmp_path, 
     assert reprobes == ["git", "python >= 3.10"]
 
 
-def test_doctor_python_row_agrees_with_fast_status(tmp_path, monkeypatch, capsys):
+def test_fast_status_python_requires_path_resolvable_interpreter(
+    tmp_path, monkeypatch, capsys,
+):
     from forge_cli import doctor
 
     subprocess_run = doctor.subprocess.run
@@ -3108,10 +3132,14 @@ def test_doctor_python_row_agrees_with_fast_status(tmp_path, monkeypatch, capsys
     assert "python >= 3.10" not in doctor.fast_status(tmp_path)[0]
 
     monkeypatch.setattr(doctor.sys, "version_info", (3, 9, 18))
-    monkeypatch.setattr(
-        doctor.shutil, "which", lambda name: "/tools/python" if name == "python" else None,
-    )
-    assert "python >= 3.10" in doctor.fast_status(tmp_path)[0]
+    for candidate in ("py", "python3", "python"):
+        monkeypatch.setattr(
+            doctor.shutil, "which",
+            lambda name, candidate=candidate: (
+                f"/tools/{candidate}" if name == candidate else None
+            ),
+        )
+        assert "python >= 3.10" not in doctor.fast_status(tmp_path)[0]
 
     monkeypatch.setattr(doctor, "_python_status", lambda: (False, "Python 3.9.18"))
     row = doctor._python_check()
@@ -3206,7 +3234,7 @@ def test_doctor_fix_reports_winget_absent_as_named_red_row(monkeypatch):
     assert reprobes == ["git", "python >= 3.10"]
 
 
-def test_doctor_fix_winget_absent_stays_red_when_tools_appear_after_refresh(
+def test_doctor_fix_winget_absent_converges_green_when_tools_present(
     monkeypatch,
 ):
     from forge_cli import doctor
@@ -3223,9 +3251,7 @@ def test_doctor_fix_winget_absent_stays_red_when_tools_appear_after_refresh(
         install_git=True, install_python=True,
     )
 
-    assert len(rows) == 1
-    assert rows[0]["name"] == "winget for Windows prerequisites"
-    assert rows[0]["required"] and not rows[0]["ok"]
+    assert rows == []
     assert refreshes == [True]
 
 

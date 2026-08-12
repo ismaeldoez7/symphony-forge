@@ -501,9 +501,11 @@ def fast_status(home: Path | None = None) -> tuple[list[str], list[str]]:
     home = home or Path.home()
     required = {
         "git": shutil.which("git") is not None,
-        # The running interpreter is the only subprocess-free version evidence.
-        # PATH candidates prove existence only and cannot satisfy this floor.
-        "python >= 3.10": sys.version_info >= (3, 10),
+        # Optimistic, subprocess-free hook heuristic; _python_check is the
+        # authoritative version check used by doctor.
+        "python >= 3.10": sys.version_info >= (3, 10) or any(
+            shutil.which(name) for name in ("py", "python3", "python")
+        ),
         "node": shutil.which("node") is not None,
         "direnv + shell hook": shutil.which("direnv") is not None and _has_direnv_hook(home),
         "codex CLI": shutil.which("codex") is not None,
@@ -862,6 +864,8 @@ def _remediate_windows_prerequisites(*, install_git: bool, install_python: bool)
                 rows.append(git_install_error)
             if python_install_error and not python_ok:
                 rows.append(python_install_error)
+        if not winget and git_ok and python_ok:
+            rows.clear()
     return rows
 
 
