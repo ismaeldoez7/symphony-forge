@@ -1,0 +1,98 @@
+{
+  "generated_by": "claude-code:plan-mode",
+  "user_facing": false,
+  "story": "FORGE-WIN-2",
+  "epic": "windows-zero-setup",
+  "plan_file": "plans/active/FORGE-WIN-2-doctor-fix-installs-prerequisites-on-windows.md",
+  "doc_roots": [
+    "docs/specs/windows-zero-setup.md"
+  ],
+  "project": "",
+  "tasks": [
+    {
+      "id": "FORGE-WIN-2.1",
+      "title": "Doctor remediation core: python row, winget installs, one-confirm batching",
+      "objective": "doctor tells the truth about Python and fixes Windows itself: a required python>=3.10 row mirrored into fast_status, winget user-scope-first installs for Git/Python with a single elevated PowerShell batch as the only elevation (one UAC confirm per run), same-run convergence via in-process PATH refresh, and forge next naming doctor --fix.",
+      "dependencies": [],
+      "write_scope": [
+        "factory/scripts/forge_cli/doctor.py",
+        "factory/scripts/forge_cli/phase.py",
+        "docs/decisions/0039-windows-remediation-via-winget.md",
+        "factory/tests/test_gates.py"
+      ],
+      "acceptance_criteria": [
+        "A required python row (version-floored >= 3.10, probing py -3 / python3 / python) joins cmd_doctor AND fast_status (doctor.py:422 two-site agreement pinned by a test); the git row's fix string is platform-branched per the _direnv_fix_message pattern (doctor.py:745); HOOK_HEALTH_FIX's install promise becomes true.",
+        "New _install_git_windows/_install_python_windows behind the _install_direnv dispatcher shape (doctor.py:724): winget presence probe (absent -> required red row naming manual installer URLs, never a bundled download); user-scope-first winget installs (--scope user --silent --accept-package-agreements --accept-source-agreements) via direct subprocess.run with an installer-scale timeout (run_quiet's 15s at common.py:17 is UNTOUCHED at all ~15 existing sites); when and only when user scope is refused, ONE Start-Process -Verb RunAs PowerShell invocation carrying ALL pending installs \u2014 one UAC confirm per doctor run, never per package (decision 0039).",
+        "Same-run convergence: after installs, os.environ['PATH'] is extended with known install locations (pattern _prepend_user_bin_to_path doctor.py:624) and the checks re-probe so the fixing run reports green; the mixed partial-convergence state (git ok, python refused) stays idempotent for a re-run.",
+        "phase.py:41 names `./forge doctor --fix` (spec acceptance wording).",
+        "Tests via argv-recording monkeypatch fakes (patterns at test_gates.py:2836/12108): EXACTLY ONE elevation-shaped invocation carrying both package ids and zero per-package elevations; winget-absent red row; PATH-refresh convergence with stub executables (pattern :2857); python-row/fast_status agreement. No real winget calls in tests; nothing widens the windows CI selector here (D-0020).",
+        "Decision 0039 text refined if implementation reveals corrections; status stays proposed."
+      ],
+      "verify_commands": [
+        "uvx --with pytest python3 -m pytest factory/tests/test_gates.py -q -k \"doctor_fix or python_row or winget or hook_health\""
+      ],
+      "required_tests": [
+        {
+          "id": "test_doctor_fix_windows_batches_all_elevation_into_single_confirm",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_doctor_python_row_agrees_with_fast_status",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_doctor_fix_reports_winget_absent_as_named_red_row",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "The one-confirm invariant is the contract: any code path that can produce two elevation prompts in one run is a blocking finding. subprocess/launcher behavior matters (recorded lesson): check the elevated batch's argument construction for quoting/injection surface, the installer timeout, and that no user-global config file is written. run_quiet must remain untouched. POSIX behavior byte-identical except the new python row."
+    },
+    {
+      "id": "FORGE-WIN-2.2",
+      "title": "Launcher python3 probe + flow remediation wiring + docs + CI selector",
+      "objective": "The remediation reaches users where they enter: forge.cmd probes python3.exe as the last fallback (D-0018), init/adopt/upgrade tails run the fast hook check on Windows and invoke the same one-confirm remediation when red, docs state the Windows story, and the new doctor tests join the explicit windows CI selector.",
+      "dependencies": [
+        "FORGE-WIN-2.1"
+      ],
+      "write_scope": [
+        "forge.cmd",
+        "factory/scripts/forge_cli/scaffold.py",
+        "factory/scripts/forge_cli/adopt.py",
+        "factory/scripts/forge_cli/upgrade.py",
+        "docs/getting-started.md",
+        "docs/windows.md",
+        "docs/degraded-mode.md",
+        ".github/workflows/factory-scaffold.yml",
+        "factory/tests/test_gates.py"
+      ],
+      "acceptance_criteria": [
+        "forge.cmd gains a :python3_fallback label (py -3 -> python -> python3 -> missing) with the same >= 3.10 version gate; the two cross-platform text assertions update in the same change (count of the version-gate string becomes 3; the where-index chain extends to python3) \u2014 test_gates.py:2660/2672.",
+        "On Windows only, the tails of cmd_init/cmd_adopt/cmd_upgrade run the fast hook check and, when red, invoke the shared --fix remediation (one-confirm guarantee carries through); placement after write_manifest is safe because remediation mutates no vendored files; POSIX flows byte-identical; upgrade.py changes are TAIL-ONLY \u2014 any copy-path change trips the repository-escape escalation tripwire.",
+        "docs/getting-started.md's install list gains the Windows prerequisites; new short docs/windows.md documents supported path, remediation flow, WSL2 escape hatch; degraded-mode.md cross-links it.",
+        "The new doctor test node ids from WIN-2.1 join the windows-hook-gates explicit selector (factory-scaffold.yml:88-96, -q stays last); the selector remains an explicit list (D-0020 forbids widening).",
+        "Full POSIX suite green; propagation tests from WIN-1 stay green."
+      ],
+      "verify_commands": [
+        "uvx --with pytest python3 -m pytest factory/tests/test_gates.py -q -k \"forge_cmd or doctor_fix or init or upgrade\""
+      ],
+      "required_tests": [
+        {
+          "id": "test_forge_cmd_probes_python3_as_final_fallback",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_init_and_upgrade_invoke_windows_remediation_when_hooks_red",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "upgrade.py tail-only (tripwire); remediation must not run on POSIX nor mutate vendored files; the selector edit keeps the explicit-id shape; forge.cmd keeps the .exe allowlist and no-call invariants from 0038 \u2014 flag any regression of those."
+    }
+  ],
+  "plan_sha256": "1a6be2863fe3599d3fdbbb7f6754344a197d214c6dc75eda2481bd359d012f65",
+  "commit": "b993ce1b12327f1ef4309d517c2da953ab0a603d"
+}

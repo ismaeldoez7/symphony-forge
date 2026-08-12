@@ -949,3 +949,6 @@
 {"event": "intake", "generated_by": "orchestrator", "at": "2026-08-12T08:00:50+00:00", "story": "FORGE-WIN-2", "detail": "Doctor --fix installs prerequisites on Windows"}
 {"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-12T09:20:01+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2 approved by Ravi"}
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-12T09:20:01+00:00", "story": "FORGE-WIN-2", "detail": "plans/active/FORGE-WIN-2-doctor-fix-installs-prerequisites-on-windows.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-12T09:21:13+00:00", "story": "FORGE-WIN-2", "detail": "2 task(s)"}
+{"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-12T09:21:13+00:00", "story": "FORGE-WIN-2"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-12T09:21:34+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.1 Doctor remediation core: python row, winget installs, one-confirm batching"}

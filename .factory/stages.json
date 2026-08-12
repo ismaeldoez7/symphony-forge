@@ -1,0 +1,40 @@
+{
+  "issue": "FORGE-WIN-2",
+  "stages": [
+    {
+      "id": "FORGE-WIN-2.1",
+      "title": "Doctor remediation core: python row, winget installs, one-confirm batching",
+      "status": "active",
+      "started_at": "2026-08-12T09:21:33+00:00",
+      "base_sha": "b993ce1b12327f1ef4309d517c2da953ab0a603d",
+      "dirty_at_start": {
+        ".factory/decomposition.json": {
+          "digest": "030acd3f5db8662a163ff3de4ad68fa31f2efd5c9642966c1816660935485e71",
+          "git": "? .factory/decomposition.json\u0000\u0000\u0000"
+        },
+        ".factory/events.jsonl": {
+          "digest": "3e6a45655ba1058558ac7e798e5f56ccc50fd3c8725cd0275355d97d39650fe7",
+          "git": "1 .M N... 100644 100644 100644 db4020cb2ff0aaeac76c37aea3c0169e9b2b7d20 db4020cb2ff0aaeac76c37aea3c0169e9b2b7d20 .factory/events.jsonl\u0000\u0000100644 db4020cb2ff0aaeac76c37aea3c0169e9b2b7d20 0\t.factory/events.jsonl\u0000\u0000H .factory/events.jsonl\u0000"
+        },
+        ".factory/grills/tasks/FORGE-WIN-2.1.json": {
+          "digest": "fe59ec0859c80e1aa52cda1bccf6f66e65c302feead19d1cfa965a3fcae472fd",
+          "git": "? .factory/grills/tasks/FORGE-WIN-2.1.json\u0000\u0000\u0000"
+        },
+        ".factory/run.json": {
+          "digest": "8b82adac8da95c9c9fda736ce9d33f6e0ac02504feec41bb3a6d69e4f8a7552e",
+          "git": "1 .M N... 100644 100644 100644 c46953b930db112db36c8531384b8239ef0f49cf c46953b930db112db36c8531384b8239ef0f49cf .factory/run.json\u0000\u0000100644 c46953b930db112db36c8531384b8239ef0f49cf 0\t.factory/run.json\u0000\u0000H .factory/run.json\u0000"
+        },
+        ".factory/stages.json": {
+          "digest": "e26fede4ccdc4934346f8393539564b73be41dea04b4de1b093a24899f327ea1",
+          "git": "? .factory/stages.json\u0000\u0000\u0000"
+        }
+      },
+      "task_sha256": "3e835816d589b3526c2458bc2fec807d68d61a6e96698517073f0972b3b7c97e"
+    },
+    {
+      "id": "FORGE-WIN-2.2",
+      "title": "Launcher python3 probe + flow remediation wiring + docs + CI selector",
+      "status": "pending"
+    }
+  ]
+}

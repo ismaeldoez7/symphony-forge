@@ -1,0 +1,22 @@
+{
+  "generated_by": "griller",
+  "gate": "task",
+  "verdict": "pass",
+  "gaps": [
+    "Can the elevated batch argument list be injection-safe when package ids are constants?",
+    "Does the user-scope-first probe distinguish policy refusal from transient failure?",
+    "Is same-run convergence testable without real installs?"
+  ],
+  "contradictions": [],
+  "resolutions": [
+    "Package ids are compile-time constants in the argv list \u2014 no user-controlled text enters the elevated command line; reviewer_focus pins the quoting check.",
+    "Refusal detection keys on winget exit codes/output for scope rejection, and anything ambiguous falls through to the single elevated batch \u2014 worst case stays one confirm.",
+    "Yes: stub executables + PATH manipulation (existing pattern test_gates.py:2857) prove the refresh/re-probe logic with fakes; the real elevation pass is the grilled client-machine functional test."
+  ],
+  "open_items": [],
+  "notes": "FORGE-WIN-2.1 contract interrogated against the approved plan, 0039, and spec settlements. Frontier empty.",
+  "task_id": "FORGE-WIN-2.1",
+  "input_sha256": "3e835816d589b3526c2458bc2fec807d68d61a6e96698517073f0972b3b7c97e",
+  "recorded_at": "2026-08-12T09:21:34+00:00",
+  "commit": "b993ce1b12327f1ef4309d517c2da953ab0a603d"
+}
