@@ -35,12 +35,17 @@ OS-driven prompt is the "at most one UAC confirm" the spec allows, not a
 harness-built elevation. Git.Git's installer is known to self-elevate even
 with `--scope user`; declining or failing that installer-owned prompt produces
 a named red Git row with the manual installer URL, never a crash or a false
-success claim. After every attempt, `doctor` refreshes PATH from the same
-canonical Windows known-folder identity used to locate winget and re-probes
-the tools. That probe is authoritative: a usable tool suppresses a provisional
-winget error such as "already installed" or "no applicable upgrade". When a
-user-scope install genuinely cannot complete, `doctor` prints a named red row
-with the manual installer URL. The
+success claim. On every return path, `doctor` refreshes PATH from the
+canonical known-folder identity used to locate winget. For installed tools it
+collects every available native and x86 Program Files source:
+`ProgramW6432`, `ProgramFiles`, `ProgramFiles(x86)`,
+`FOLDERID_ProgramFiles`, and `FOLDERID_ProgramFilesX86`; nonexistent
+directories are ignored. These environment values are safe here because PATH
+candidate discovery is unelevated and is not an installer trust boundary. It
+then re-probes the tools. That probe is authoritative: a usable tool suppresses
+a provisional winget error such as "already installed" or "no applicable
+upgrade". When a user-scope install genuinely cannot complete, `doctor` prints
+a named red row with the manual installer URL. The
 harness-orchestrated elevation batch is DEFERRED (D-0021) to be built and
 validated against a real Windows environment.
 

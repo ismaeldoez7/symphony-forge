@@ -44,6 +44,7 @@ DOC_CONTRACTS = [
     ("docs/ROLES.md", "docs/ROLES.md"),
     ("docs/harness-philosophy.md", "docs/harness-philosophy.md"),
     ("docs/degraded-mode.md", "docs/degraded-mode.md"),
+    ("docs/windows.md", "docs/windows.md"),
     ("docs/context/README.md", "docs/context/README.md"),
     ("docs/specs/README.md", "docs/specs/README.md"),
 ]
@@ -87,6 +88,37 @@ APPEND_OR_TOUCH = ["README.md", ".factory/record-origin.json",
 # mkdir-only destinations with no enumerated leaf file: an existing dir is
 # fine, but a file or symlink there would abort init midway.
 ENSURED_DIRS = [".factory/reviews"]
+
+
+def remediate_windows_hook_entry(target: Path) -> None:
+    """Repair Windows hook prerequisites after a scaffold flow completes."""
+    from .doctor import _platform_name
+
+    if _platform_name() != "windows":
+        return
+
+    from .doctor import (
+        HOOK_HEALTH_FIX,
+        HOOK_SHELL_FIX,
+        _existing_hook_shell,
+        _python_status,
+        _remediate_windows_prerequisites,
+        fast_hook_status,
+    )
+
+    ok, detail = fast_hook_status(target)
+    if ok:
+        return
+
+    _remediate_windows_prerequisites(
+        install_git=_existing_hook_shell(dict(os.environ)) is None,
+        install_python=not _python_status()[0],
+    )
+    ok, detail = fast_hook_status(target)
+    if not ok:
+        guidance = HOOK_SHELL_FIX if "sh is not on PATH" in detail else HOOK_HEALTH_FIX
+        print(f"[RED] Windows hook check: {detail}")
+        print(f"      fix: {guidance}")
 
 
 def _collisions(root: Path, target: Path) -> list[str]:
@@ -639,3 +671,4 @@ def cmd_init(args: argparse.Namespace) -> None:
     print("  3. Grill sign-off, accept `client-signoff --by <name>`, then: "
           "python3 factory/scripts/record_signoff.py")
     print(f"  4. Generate the {args.stack} workspace via harness/{args.stack}/SCAFFOLD_PROMPT.md")
+    remediate_windows_hook_entry(target)

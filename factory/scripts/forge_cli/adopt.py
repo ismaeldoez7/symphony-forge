@@ -35,6 +35,7 @@ from .scaffold import (
     check_record_origin_writable,
     ensure_jsonl_attributes,
     ensure_record_origin,
+    remediate_windows_hook_entry,
 )
 from .upgrade import UPGRADE_TREES
 
@@ -400,3 +401,4 @@ def cmd_adopt(args: argparse.Namespace) -> None:
     print("  5. Capture capabilities with ./forge spec save + spec confirm, then author "
           "the roadmap with ./forge roadmap derive or roadmap epic add + roadmap add")
     print("  6. Linters + gate tests, commit, then: ./forge next")
+    remediate_windows_hook_entry(target)

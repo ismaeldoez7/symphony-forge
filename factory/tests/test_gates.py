@@ -2657,7 +2657,11 @@ def test_forge_cmd_routes_git_bash_then_python_fallbacks(tmp_path):
     assert shim.index('set "PYTHONUTF8=1"') < shim.index("py -3")
     assert launcher.index("export PYTHONUTF8=1") < launcher.index("py -3")
     assert shim.index("CLAUDE_CODE_GIT_BASH_PATH") < shim.index("where sh")
-    assert shim.index("where sh") < shim.index("where py") < shim.index("where python")
+    assert (
+        shim.index("where py") < shim.index("where python")
+        < shim.index("where python3") < shim.index("CLAUDE_CODE_GIT_BASH_PATH")
+        < shim.index("where sh")
+    )
     assert "%ProgramFiles%\\Git\\usr\\bin\\sh.exe" in shim
     assert "%LOCALAPPDATA%\\Programs\\Git\\usr\\bin\\sh.exe" in shim
     assert "call" not in shim.lower()
@@ -2670,18 +2674,21 @@ def test_forge_cmd_routes_git_bash_then_python_fallbacks(tmp_path):
     ) in shim
     assert 'py -3 "%~dp0factory\\scripts\\forge.py" %*' in shim
     assert 'python "%~dp0factory\\scripts\\forge.py" %*' in shim
-    assert shim.count("sys.version_info >= (3, 10)") == 2
+    assert 'python3 "%~dp0factory\\scripts\\forge.py" %*' in shim
+    assert shim.count("sys.version_info >= (3, 10)") == 3
     assert (
         'py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= '
         '(3, 10) else 1)" >nul 2>nul\n'
         'if errorlevel 1 goto python_fallback\n'
-        'py -3 "%~dp0factory\\scripts\\forge.py" %*'
+        'set "FORGE_PYTHON=py"\n'
+        'goto discover_shell'
     ) in shim
     assert (
         'python -c "import sys; raise SystemExit(0 if sys.version_info >= '
         '(3, 10) else 1)" >nul 2>nul\n'
-        'if errorlevel 1 goto missing\n'
-        'python "%~dp0factory\\scripts\\forge.py" %*'
+        'if errorlevel 1 goto python3_fallback\n'
+        'set "FORGE_PYTHON=python"\n'
+        'goto discover_shell'
     ) in shim
     assert "exit /b 2" in shim
 
@@ -2810,6 +2817,105 @@ def test_forge_cmd_routes_git_bash_then_python_fallbacks(tmp_path):
             text=True,
         )
         assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_forge_cmd_probes_python3_as_final_fallback(tmp_path):
+    shim = (HARNESS / "forge.cmd").read_text()
+
+    assert shim.index(":python_fallback") < shim.index(":python3_fallback")
+    assert shim.index(":python3_fallback") < shim.index(":bootstrap")
+    assert (
+        ':python3_fallback\n'
+        'where python3 >nul 2>nul\n'
+        'if errorlevel 1 goto bootstrap\n'
+        'python3 -c "import sys; raise SystemExit(0 if sys.version_info >= '
+        '(3, 10) else 1)" >nul 2>nul\n'
+        'if errorlevel 1 goto bootstrap\n'
+        'set "FORGE_PYTHON=python3"\n'
+        'goto discover_shell'
+    ) in shim
+    assert 'if defined FORGE_PYTHON_BOOTSTRAP_ATTEMPTED goto missing' in shim
+    assert 'Python.Python.3.14 --exact --scope user --source winget' in shim
+    assert "Start-Process" not in shim
+    assert "RunAs" not in shim
+    assert '"%~f0" %*' in shim
+    assert '"%~f0" %*\nexit /b %errorlevel%' in shim
+    assert "https://www.python.org/downloads/windows/" in shim
+
+    if os.name == "nt":
+        executable_shell = shutil.which("sh")
+        assert executable_shell and Path(executable_shell).suffix.lower() == ".exe"
+        bootstrap_case = tmp_path / "bootstrap-before-shell"
+        bootstrap_case.mkdir()
+        shutil.copy2(HARNESS / "forge.cmd", bootstrap_case / "forge.cmd")
+        (bootstrap_case / "forge").write_bytes(
+            b"#!/bin/sh\nprintf 'EARLY_SHELL\\n'\nexit 0\n"
+        )
+        for command in ("py", "python", "python3"):
+            (bootstrap_case / f"{command}.cmd").write_text("@exit /b 1\n")
+
+        result = subprocess.run(
+            ["cmd", "/d", "/c", str(bootstrap_case / "forge.cmd"), "status"],
+            cwd=bootstrap_case,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                "CLAUDE_CODE_GIT_BASH_PATH": executable_shell,
+                "FORGE_PYTHON_BOOTSTRAP_ATTEMPTED": "1",
+            },
+        )
+        assert result.returncode == 2, result.stdout + result.stderr
+        assert "EARLY_SHELL" not in result.stdout
+        assert "https://www.python.org/downloads/windows/" in result.stderr
+
+
+def test_init_and_upgrade_invoke_windows_remediation_when_hooks_red(
+    tmp_path, monkeypatch, capsys,
+):
+    from forge_cli import doctor, scaffold
+
+    statuses = iter(((False, "sh is not on PATH"), (False, "sh is not on PATH")))
+    remediations = []
+    monkeypatch.setattr(doctor, "_platform_name", lambda: "windows")
+    monkeypatch.setattr(doctor, "fast_hook_status", lambda _target: next(statuses))
+    monkeypatch.setattr(doctor, "_existing_hook_shell", lambda _env: None)
+    monkeypatch.setattr(doctor, "_python_status", lambda: (False, "missing"))
+    monkeypatch.setattr(
+        doctor,
+        "_remediate_windows_prerequisites",
+        lambda **kwargs: remediations.append(kwargs),
+    )
+
+    scaffold.remediate_windows_hook_entry(tmp_path)
+
+    assert remediations == [{"install_git": True, "install_python": True}]
+    output = capsys.readouterr().out
+    assert "[RED] Windows hook check" in output
+    assert doctor.HOOK_SHELL_FIX in output
+
+    monkeypatch.setattr(doctor, "_platform_name", lambda: "linux")
+    monkeypatch.setattr(
+        doctor,
+        "fast_hook_status",
+        lambda _target: (_ for _ in ()).throw(
+            AssertionError("POSIX flow must not run the Windows hook check")
+        ),
+    )
+    scaffold.remediate_windows_hook_entry(tmp_path)
+    assert capsys.readouterr().out == ""
+
+    for relative in (
+        "factory/scripts/forge_cli/scaffold.py",
+        "factory/scripts/forge_cli/adopt.py",
+        "factory/scripts/forge_cli/upgrade.py",
+    ):
+        source = (HARNESS / relative).read_text()
+        assert "remediate_windows_hook_entry(target)" in source
+
+    upgrade_source = (HARNESS / "factory/scripts/forge_cli/upgrade.py").read_text()
+    assert upgrade_source.rindex("remediate_windows_hook_entry(target)") \
+        > upgrade_source.rindex("write_manifest(target, commit)")
 
 
 def test_windows_autocrlf_checkout_preserves_forge_launcher(tmp_path):

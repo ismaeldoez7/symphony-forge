@@ -90,7 +90,14 @@ jobs:
           factory/tests/test_gates.py::test_registered_hook_command_fails_closed_when_cmd_cannot_spawn_sh
           factory/tests/test_gates.py::test_registered_hook_path_keeps_recorder_and_lockout_armed
           factory/tests/test_gates.py::test_forge_cmd_routes_git_bash_then_python_fallbacks
+          factory/tests/test_gates.py::test_forge_cmd_probes_python3_as_final_fallback
           factory/tests/test_gates.py::test_windows_autocrlf_checkout_preserves_forge_launcher
+          factory/tests/test_gates.py::test_doctor_python_row_agrees_with_fast_status
+          factory/tests/test_gates.py::test_doctor_fix_reports_winget_absent_as_named_red_row
+          factory/tests/test_gates.py::test_doctor_fix_winget_absent_stays_red_when_tools_appear_after_refresh
+          factory/tests/test_gates.py::test_doctor_fix_nonzero_already_installed_converges_after_refresh
+          factory/tests/test_gates.py::test_doctor_fix_windows_refreshes_native_git_under_wow64
+          factory/tests/test_gates.py::test_doctor_python_row_probes_working_windows_store_alias
           factory/tests/test_gates.py::test_companion_guard_admits_read_only_and_refuses_write_shapes
           factory/tests/test_gates.py::test_lockout_denies_product_write_under_approved_plan
           factory/tests/test_gates.py::test_degraded_window_allows_and_ledgers_product_write -q
