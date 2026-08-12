@@ -28,6 +28,17 @@ def violation(msg: str) -> None:
     violations.append(f"VIOLATION: {msg}")
 
 
+def hook_script_paths(command: str) -> list[str]:
+    """Factory hook scripts exposed by a registered shell command."""
+    scripts = re.findall(r"factory/scripts/[\w.]+\.py", command)
+    hook_names = re.findall(
+        r"(?:^|[/\\])forge[\"']?\s+hook\s+([a-z][a-z0-9_]*)",
+        command,
+    )
+    scripts.extend(f"factory/scripts/{name}.py" for name in hook_names)
+    return list(dict.fromkeys(scripts))
+
+
 def canon_files(root: Path) -> list[Path]:
     files: list[Path] = []
     for pattern in ("constitution/*.md", "docs/**/*.md", "harness/*/conventions/*.md"):
@@ -341,7 +352,13 @@ def check_path_parity(root: Path) -> None:
             for entry in entries:
                 for hook in entry.get("hooks", []):
                     command = hook.get("command", "")
-                    scripts = re.findall(r"\.[\w/]*scripts/[\w.]+\.py", command)
+                    scripts = hook_script_paths(command)
+                    if not scripts:
+                        violation(
+                            f"{rel_path} ({event}) command does not expose a mapped "
+                            "factory hook script. Use `forge hook <script-stem>` so the "
+                            "linter can retain its existence check."
+                        )
                     for script in scripts:
                         if not script.startswith("factory/scripts/"):
                             violation(
