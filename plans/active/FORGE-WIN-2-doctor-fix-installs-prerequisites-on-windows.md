@@ -232,3 +232,9 @@ sequential stages only.)
   `forge doctor --fix` on a box missing Git/Python → green, ≤1 UAC confirm;
   recorded via `record_test_from_json.py --kind functional`.
 - D-0018 resolved on plan approval (`forge defer resolve` pointing here).
+
+## Implementation Assumptions
+
+<!-- Made during implementation, NOT part of the approved plan. Dev: review these before merge; promote any that matter to docs/decisions/. -->
+- 2026-08-12: Windows remediation uses the winget package Python.Python.3.12 because it is a maintained release satisfying the required Python 3.10 minimum.
+- 2026-08-12: Windows python winget pin corrected to Python.Python.3.14: 3.12 is security-only per the Python lifecycle; 3.14 is the current bugfix line with winget manifests. Supersedes A-0009's 3.12 rationale (orchestrator's earlier confirmation was factually stale).

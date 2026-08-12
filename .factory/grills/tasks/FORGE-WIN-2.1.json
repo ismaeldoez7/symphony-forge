@@ -3,20 +3,18 @@
   "gate": "task",
   "verdict": "pass",
   "gaps": [
-    "Can the elevated batch argument list be injection-safe when package ids are constants?",
-    "Does the user-scope-first probe distinguish policy refusal from transient failure?",
-    "Is same-run convergence testable without real installs?"
+    "Does removing orchestrated elevation still satisfy AC1 one-UAC-confirm?",
+    "Is the narrowed scope still CI-verifiable end to end?"
   ],
   "contradictions": [],
   "resolutions": [
-    "Package ids are compile-time constants in the argv list \u2014 no user-controlled text enters the elevated command line; reviewer_focus pins the quoting check.",
-    "Refusal detection keys on winget exit codes/output for scope rejection, and anything ambiguous falls through to the single elevated batch \u2014 worst case stays one confirm.",
-    "Yes: stub executables + PATH manipulation (existing pattern test_gates.py:2857) prove the refresh/re-probe logic with fakes; the real elevation pass is the grilled client-machine functional test."
+    "Yes honestly: user-scope installs need no harness elevation; a self-elevating package installer raises the OS single prompt, which IS the allowed one confirm; where machine-scope is truly required, honest red row + deferred D-0021.",
+    "Yes: no RunAs to fake unsafely \u2014 every path (user-scope argv, winget-absent, user-scope-failed, partial-install refresh) is testable with argv-recording fakes; the elevation batch that could not be validated blind is deferred to real-Windows."
   ],
   "open_items": [],
-  "notes": "FORGE-WIN-2.1 contract interrogated against the approved plan, 0039, and spec settlements. Frontier empty.",
+  "notes": "WIN-2.1 narrowed under decision 0040 (supersedes 0039) after the elevation-trust class recurred 4x (0005 escalation). Frontier empty.",
   "task_id": "FORGE-WIN-2.1",
-  "input_sha256": "3e835816d589b3526c2458bc2fec807d68d61a6e96698517073f0972b3b7c97e",
-  "recorded_at": "2026-08-12T09:21:34+00:00",
-  "commit": "b993ce1b12327f1ef4309d517c2da953ab0a603d"
+  "input_sha256": "00810efaae2cfa7541ab5080ebf3fc748140963cef470d09f9d32cc1addc5482",
+  "recorded_at": "2026-08-12T11:26:24+00:00",
+  "commit": "5afd7885cc8a0398d502b6775fedf35432fc5e75"
 }
