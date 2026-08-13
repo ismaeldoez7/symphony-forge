@@ -4,7 +4,7 @@
     {
       "id": "FORGE-WIN-ENC.1",
       "title": "Encoding sweep + value-validating hygiene gate",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-13T16:56:35+00:00",
       "base_sha": "c32ee3dbc813934d0027eea7752e5d0471602ca6",
       "dirty_at_start": {
@@ -25,7 +25,13 @@
           "git": "1 .M N... 100644 100644 100644 abdd8310eb9e413a3ed719263c527dfdf903942a abdd8310eb9e413a3ed719263c527dfdf903942a .factory/run.json\u0000\u0000100644 abdd8310eb9e413a3ed719263c527dfdf903942a 0\t.factory/run.json\u0000\u0000H .factory/run.json\u0000"
         }
       },
-      "task_sha256": "dfb2e05dc23f6b1f5fd32efbe7007d7cef18f0ce79d521432214d4bd21ae7b37"
+      "task_sha256": "7ff066e0c443489791384ceaccac98f97f4eff464be1de68b76c597e4862079d",
+      "completed_at": "2026-08-13T18:52:01+00:00",
+      "contract_changed": {
+        "at": "2026-08-13T18:52:01+00:00",
+        "from": "dfb2e05dc23f6b1f5fd32efbe7007d7cef18f0ce79d521432214d4bd21ae7b37",
+        "to": "7ff066e0c443489791384ceaccac98f97f4eff464be1de68b76c597e4862079d"
+      }
     },
     {
       "id": "FORGE-WIN-ENC.2",
