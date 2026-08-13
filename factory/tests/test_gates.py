@@ -631,6 +631,29 @@ def test_encoding_hygiene_gate_catches_each_violation_class(tmp_path):
     )} == {"byte-mode"}
 
 
+def test_encoding_hygiene_gate_catches_wrapper_and_positional_tempfile(tmp_path):
+    from check_encoding_hygiene import check_file
+
+    violations = {
+        "wrapper_missing.py": "import io\nio.TextIOWrapper(stream)\n",
+        "wrapper_non_utf8.py": (
+            "import io\nio.TextIOWrapper(stream, encoding='latin-1')\n"
+        ),
+        "temporary_file.py": (
+            "import tempfile\ntempfile.TemporaryFile('w+t')\n"
+        ),
+        "named_temporary_file.py": (
+            "import tempfile\ntempfile.NamedTemporaryFile('w+t')\n"
+        ),
+    }
+    for name, source in violations.items():
+        path = tmp_path / name
+        path.write_text(source, encoding="utf-8")
+        assert {
+            violation.rule for violation in check_file(path, root=tmp_path)
+        } == {"text-file"}
+
+
 def test_recorder_stdin_reads_non_ascii_utf8(repo, tmp_path):
     sign_off(repo)
     intake(repo)
@@ -2432,7 +2455,7 @@ def test_dual_runtime_linter_clean_on_scaffold_and_catches_phantom_ref(repo):
     assert code != 0 and "phantom" in out
 
 
-def test_dual_runtime_skips_tracked_binary_with_source_suffix(repo):
+def test_dual_runtime_replace_decodes_tracked_source_suffix(repo):
     binary = repo / "vendor.js"
     binary.write_bytes(b"\xff\x00binary")
     git(repo, "add", "vendor.js")
@@ -2440,6 +2463,17 @@ def test_dual_runtime_skips_tracked_binary_with_source_suffix(repo):
     code, out = run(repo, "check_dual_runtime.py", str(repo))
 
     assert code == 0, out
+
+    latin1 = repo / "legacy.js"
+    latin1.write_bytes(
+        "// caf\N{LATIN SMALL LETTER E WITH ACUTE}\n"
+        "import '../prototype/utils';\n".encode("latin-1")
+    )
+    git(repo, "add", "legacy.js")
+
+    code, out = run(repo, "check_dual_runtime.py", str(repo))
+
+    assert code != 0 and "legacy.js:2 imports from prototype/" in out
 
 
 def _route_fixture_hooks_through_forge(repo: Path) -> None:

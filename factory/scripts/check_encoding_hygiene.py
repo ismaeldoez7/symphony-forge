@@ -19,7 +19,7 @@ SCRIPTS = ROOT / "factory" / "scripts"
 BYTE_PATH_ALLOWLIST: dict[str, str] = {
     # Lossless git path captures. These exact sites may use surrogateescape.
     "factory/scripts/check_dual_runtime.py:478": "git ls-files paths",
-    "factory/scripts/check_dual_runtime.py:544": "git toplevel path",
+    "factory/scripts/check_dual_runtime.py:541": "git toplevel path",
     "factory/scripts/check_pr_ticket.py:62": "git diff paths",
     "factory/scripts/check_refactor_delta.py:51": "git numstat paths",
     "factory/scripts/check_repo_budget.py:44": "git ls-files paths",
@@ -66,6 +66,8 @@ BYTE_MODE_ALLOWLIST: dict[str, str] = {
 REPLACE_ALLOWLIST: frozenset[str] = frozenset({
     "factory/scripts/check_agents_hygiene.py:9",
     "factory/scripts/check_dual_runtime.py:19",
+    # Diagnostic matcher: replacement preserves ASCII prototype/import markers.
+    "factory/scripts/check_dual_runtime.py:492",
     "factory/scripts/check_factory_scaffold.py:9",
     "factory/scripts/check_repo_budget.py:19",
     "factory/scripts/factory_lib.py:25",
@@ -132,19 +134,23 @@ def _call_name(call: ast.Call) -> str:
     return ".".join(reversed(parts))
 
 
-def _mode(call: ast.Call, *, path_method: bool = False) -> object:
+def _mode(call: ast.Call, *, positional_index: int = 1) -> object:
     keyword_mode = _literal_keyword(call, "mode")
     if keyword_mode is not None:
         return keyword_mode
-    index = 0 if path_method else 1
-    if len(call.args) > index and isinstance(call.args[index], ast.Constant):
-        return call.args[index].value
+    if (
+        len(call.args) > positional_index
+        and isinstance(call.args[positional_index], ast.Constant)
+    ):
+        return call.args[positional_index].value
     return None
 
 
 def _is_text_open(call: ast.Call, name: str) -> bool:
+    if name == "io.TextIOWrapper":
+        return True
     if name in {"tempfile.TemporaryFile", "tempfile.NamedTemporaryFile"}:
-        mode = _mode(call)
+        mode = _mode(call, positional_index=0)
         return isinstance(mode, str) and "b" not in mode
     if isinstance(call.func, ast.Name) and call.func.id == "open":
         mode = _mode(call)
@@ -155,7 +161,7 @@ def _is_text_open(call: ast.Call, name: str) -> bool:
         and call.func.attr == "open"
         and not name.startswith(("os.", "webbrowser."))
     ):
-        mode = _mode(call, path_method=True)
+        mode = _mode(call, positional_index=0)
     else:
         return False
     return not (isinstance(mode, str) and "b" in mode)
