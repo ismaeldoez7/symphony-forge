@@ -219,8 +219,11 @@ def _process_table() -> dict[int, tuple[int, float]]:
     psutil = _psutil()
     table: dict[int, tuple[int, float]] = {}
     try:
+        # Do NOT eagerly fetch "cmdline" here: on macOS psutil can raise a
+        # SystemError from proc_cmdline mid-iteration; cmdline is fetched
+        # lazily only for a token candidate below.
         processes = list(psutil.process_iter(
-            ["pid", "ppid", "create_time", "environ", "cmdline"]))
+            ["pid", "ppid", "create_time", "environ"]))
         for process in processes:
             try:
                 pid = process.info["pid"]
@@ -229,9 +232,9 @@ def _process_table() -> dict[int, tuple[int, float]]:
                 if isinstance(pid, int) and isinstance(ppid, int) \
                         and isinstance(identity, (int, float)):
                     table[pid] = (ppid, float(identity))
-            except (psutil.AccessDenied, psutil.NoSuchProcess):
+            except (psutil.AccessDenied, psutil.NoSuchProcess, SystemError):
                 continue
-    except (psutil.Error, OSError) as exc:
+    except (psutil.Error, OSError, SystemError) as exc:
         raise ProcessDiscoveryError("could not read the process table") from exc
     return table
 
@@ -273,7 +276,7 @@ def _tagged_processes(
     try:
         processes = list(psutil.process_iter(["environ"]))
         current_user = psutil.Process().username()
-    except (psutil.Error, OSError) as exc:
+    except (psutil.Error, OSError, SystemError) as exc:
         raise ProcessDiscoveryError("could not inspect tagged processes") from exc
     for process in processes:
         pid = process.pid
@@ -294,7 +297,7 @@ def _tagged_processes(
             try:
                 command = process.cmdline()
                 tagged = any(marker in part for part in command)
-            except (psutil.AccessDenied, psutil.NoSuchProcess):
+            except (psutil.AccessDenied, psutil.NoSuchProcess, SystemError):
                 continue
         if not tagged:
             continue
