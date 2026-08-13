@@ -1,6 +1,6 @@
 ---
-status: proposed
-confirmed_by: ""
+status: accepted
+confirmed_by: "Ravi Kiran Vemula"
 date: 2026-08-13
 stories: [FORGE-ACC-1, FORGE-ACC-2, FORGE-ACC-3]
 ---
