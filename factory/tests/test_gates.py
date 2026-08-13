@@ -8010,10 +8010,6 @@ def test_delegate_process_model_uses_psutil_not_ps():
         and node.func.value.id == "os"
         and node.func.attr == "killpg"
     ]
-    popen_preexec = [
-        keyword for node in ast.walk(tree) if isinstance(node, ast.Call)
-        for keyword in node.keywords if keyword.arg == "preexec_fn"
-    ]
     ps_subprocesses = [
         node for node in ast.walk(tree)
         if isinstance(node, ast.Call)
@@ -8030,7 +8026,6 @@ def test_delegate_process_model_uses_psutil_not_ps():
 
     assert top_level_psutil_imports == []
     assert forbidden_calls == []
-    assert popen_preexec == []
     assert ps_subprocesses == []
     assert "process_iter" in source
     assert "children(recursive=True)" in source
@@ -11452,6 +11447,42 @@ def test_process_signal_revalidates_each_pid_identity(repo, monkeypatch):
     assert terminated == [102]
 
 
+def test_process_signal_uses_portable_sigkill(repo, monkeypatch):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        terminated = []
+        killed = []
+
+        class Process:
+            pid = 101
+
+            def status(self):
+                return "running"
+
+            def create_time(self):
+                return 1.0
+
+            def terminate(self):
+                terminated.append(self.pid)
+
+            def kill(self):
+                killed.append(self.pid)
+
+        monkeypatch.delattr(delegate.signal, "SIGKILL", raising=False)
+        monkeypatch.setattr(delegate, "SIGKILL", None)
+        monkeypatch.setattr(
+            delegate, "_psutil", lambda: fake_psutil([Process()]))
+        assert delegate._signal_identified_processes(
+            {101: 1.0}, signal.SIGTERM) == {101: 1.0}
+        assert delegate._signal_identified_processes(
+            {101: 1.0}, delegate.SIGKILL) == {101: 1.0}
+    finally:
+        sys.path.pop(0)
+    assert terminated == [101]
+    assert killed == [101]
+
+
 def test_process_signal_revalidates_identity_after_zombie_probe(
         repo, monkeypatch):
     sys.path.insert(0, str(repo / "factory" / "scripts"))
@@ -11900,6 +11931,48 @@ def test_delegate_reaps_spawn_when_running_registration_fails(
     ]
 
 
+@pytest.mark.parametrize("platform", ("posix", "nt"))
+def test_launch_companion_uses_platform_specific_spawn_options(
+        repo, tmp_path, monkeypatch, platform):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        captured = {}
+
+        class Process:
+            pid = 101
+            returncode = 0
+
+        def spawn(_argv, **kwargs):
+            captured.update(kwargs)
+            return Process()
+
+        monkeypatch.setattr(delegate.os, "name", platform)
+        monkeypatch.setattr(
+            delegate.subprocess, "CREATE_NEW_PROCESS_GROUP", 1,
+            raising=False)
+        monkeypatch.setattr(delegate, "append_delegation", lambda *_args: None)
+        monkeypatch.setattr(delegate, "companion_script", lambda: tmp_path / "x")
+        monkeypatch.setattr(delegate.shutil, "which", lambda _name: "node")
+        monkeypatch.setattr(delegate, "_process_table", lambda: {})
+        monkeypatch.setattr(delegate, "_capture_spawn_identity", lambda _proc: 1.0)
+        monkeypatch.setattr(delegate, "_wait_and_reap", lambda *_args: True)
+        monkeypatch.setattr(delegate.subprocess, "Popen", spawn)
+        delegate.launch_companion(
+            repo, task_id="T1", text="brief", path=repo / ".factory" / "x.md",
+            task_sha256_value="digest", model="model", effort="effort",
+            write=False,
+        )
+    finally:
+        sys.path.pop(0)
+    if platform == "nt":
+        assert captured["creationflags"] == 1
+        assert "preexec_fn" not in captured
+    else:
+        assert captured["start_new_session"] is True
+        assert captured["preexec_fn"] is delegate.unblock_termination_signals_in_child
+
+
 def test_stale_launch_reconciliation_refuses_unverified_process_group(
         repo, monkeypatch, capsys):
     sys.path.insert(0, str(repo / "factory" / "scripts"))
@@ -11948,6 +12021,31 @@ def test_stale_launch_reconciliation_does_not_signal_a_reused_pid(
     finally:
         sys.path.pop(0)
     assert recorded[-1]["launch_status"] == "failed"
+
+
+def test_stale_launch_reconciliation_preserves_live_legacy_identity(
+        repo, monkeypatch, capsys):
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    try:
+        import forge_cli.delegate as delegate
+        entry = {
+            "task": "T1", "write": True, "launch_id": "old",
+            "launch_status": "running", "pid": 123, "pgid": 123,
+            "pid_started": "Mon Aug 12 10:00:00 2024",
+        }
+        reaped = []
+        monkeypatch.setattr(delegate, "load_delegations", lambda _base: [entry])
+        monkeypatch.setattr(delegate, "_pid_alive", lambda _pid: True)
+        monkeypatch.setattr(delegate, "_process_start_identity", lambda _pid: 10.0)
+        monkeypatch.setattr(
+            delegate, "_terminate_tagged_processes",
+            lambda _token: reaped.append(_token) or True)
+        with pytest.raises(SystemExit):
+            delegate._reconcile_stale_launches(repo, "T1")
+    finally:
+        sys.path.pop(0)
+    assert reaped == []
+    assert "already has a foreground delegation running" in capsys.readouterr().out
 
 
 def test_delegate_ignores_stale_lock_contents_when_no_process_holds_it(repo, tmp_path):

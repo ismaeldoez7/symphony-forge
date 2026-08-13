@@ -52,6 +52,7 @@ DEFAULT_MODEL = "gpt-5.6-sol"
 DEFAULT_EFFORT = "medium"
 PROCESS_QUIET_SECONDS = 0.75
 PROCESS_POLL_SECONDS = 0.02
+SIGKILL = getattr(signal, "SIGKILL", None)
 TERMINATION_SIGNALS = tuple(
     candidate for candidate in (
         signal.SIGINT,
@@ -336,7 +337,7 @@ def _live_identified_processes(
 
 def _signal_identified_processes(
         processes: dict[int, float],
-        signum: int = signal.SIGTERM) -> dict[int, float]:
+        signum: int | None = signal.SIGTERM) -> dict[int, float]:
     psutil = _psutil()
     signalled: dict[int, float] = {}
     for pid, identity in processes.items():
@@ -348,7 +349,7 @@ def _signal_identified_processes(
                 continue
             if process.create_time() != identity:
                 continue
-            if signum == signal.SIGKILL:
+            if signum == SIGKILL:
                 process.kill()
             else:
                 process.terminate()
@@ -409,7 +410,7 @@ def _capture_spawn_identity(proc: subprocess.Popen[str]) -> float | str:
         if proc.poll() is None and retry_identity is not None:
             processes = _descendants(proc.pid)
             processes[proc.pid] = retry_identity
-            _signal_identified_processes(processes, signal.SIGKILL)
+            _signal_identified_processes(processes, SIGKILL)
         try:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired as exc:
@@ -452,7 +453,7 @@ def _terminate_processes_until_quiet(
                 continue
             if now - term_sent[key] >= 5 and key not in kill_sent:
                 if _signal_identified_processes(
-                        {pid: identity}, signal.SIGKILL):
+                        {pid: identity}, SIGKILL):
                     kill_sent[key] = now
                 continue
             if key in kill_sent and now - kill_sent[key] >= 5:
@@ -626,7 +627,12 @@ def _reconcile_stale_launches(base: Path, task_id: str) -> None:
             current_identity = _process_start_identity(pid)
             # recorded_identity is the serialized (str) create_time; compare in
             # the same form (psutil returns the identical float per process).
-            if not recorded_identity or (
+            try:
+                float(recorded_identity)
+            except (TypeError, ValueError):
+                fail(f"{task_id} already has a foreground delegation running "
+                     f"(pid {pid}); wait for it to finish.")
+            if (
                     current_identity is not None
                     and str(current_identity) == recorded_identity):
                 fail(f"{task_id} already has a foreground delegation running "
@@ -1068,7 +1074,8 @@ def launch_companion(
                 spawn_options = (
                     {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
                     if os.name == "nt"
-                    else {"start_new_session": True}
+                    else {"start_new_session": True,
+                          "preexec_fn": unblock_termination_signals_in_child}
                 )
                 proc = subprocess.Popen(
                     argv, cwd=base, stdout=stdout_log, stderr=stderr_log,
