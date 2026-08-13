@@ -32,11 +32,6 @@ import time
 import uuid
 from pathlib import Path
 
-try:
-    import psutil
-except ModuleNotFoundError:  # doctor gates its presence and --fix installs it;
-    psutil = None            # only an actual delegation launch/reap needs it.
-
 from factory_lib import (
     git_control_dir, load_json, now_iso, protected_decomposition_state_path,
     repo_root, require_task_grill, run_state_path, safe_factory_append,
@@ -70,6 +65,13 @@ TERMINATION_SIGNALS = tuple(
 
 class ProcessDiscoveryError(RuntimeError):
     """The process tree could not be inspected safely."""
+
+
+def _psutil():
+    """Load the optional runtime dependency only when process work starts."""
+    import psutil
+
+    return psutil
 
 
 @contextlib.contextmanager
@@ -166,6 +168,7 @@ def append_delegation(base: Path, record: dict) -> None:
 def _pid_alive(pid: object) -> bool:
     if not isinstance(pid, int) or pid <= 0:
         return False
+    psutil = _psutil()
     try:
         process = psutil.Process(pid)
         return process.is_running() and process.status() != psutil.STATUS_ZOMBIE
@@ -178,6 +181,7 @@ def _pid_alive(pid: object) -> bool:
 def _process_group_alive(pgid: object) -> bool:
     if not isinstance(pgid, int) or pgid <= 0:
         return False
+    psutil = _psutil()
     try:
         process = psutil.Process(pgid)
         return process.is_running() and process.status() != psutil.STATUS_ZOMBIE
@@ -190,6 +194,7 @@ def _process_group_alive(pgid: object) -> bool:
 def _process_start_identity(pid: object) -> float | None:
     if not isinstance(pid, int) or pid <= 0:
         return None
+    psutil = _psutil()
     try:
         return psutil.Process(pid).create_time()
     except psutil.NoSuchProcess:
@@ -200,6 +205,7 @@ def _process_start_identity(pid: object) -> float | None:
 
 
 def _process_is_zombie(pid: int) -> bool:
+    psutil = _psutil()
     try:
         return psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
     except psutil.NoSuchProcess:
@@ -210,9 +216,11 @@ def _process_is_zombie(pid: int) -> bool:
 
 
 def _process_table() -> dict[int, tuple[int, float]]:
+    psutil = _psutil()
     table: dict[int, tuple[int, float]] = {}
     try:
-        processes = psutil.process_iter(["pid", "ppid", "create_time"])
+        processes = list(psutil.process_iter(
+            ["pid", "ppid", "create_time", "environ", "cmdline"]))
         for process in processes:
             try:
                 pid = process.info["pid"]
@@ -223,12 +231,13 @@ def _process_table() -> dict[int, tuple[int, float]]:
                     table[pid] = (ppid, float(identity))
             except (psutil.AccessDenied, psutil.NoSuchProcess):
                 continue
-    except (psutil.AccessDenied, psutil.Error) as exc:
+    except (psutil.Error, OSError) as exc:
         raise ProcessDiscoveryError("could not read the process table") from exc
     return table
 
 
 def _descendants(root_pid: int) -> dict[int, float]:
+    psutil = _psutil()
     try:
         children = psutil.Process(root_pid).children(recursive=True)
     except psutil.NoSuchProcess:
@@ -242,9 +251,8 @@ def _descendants(root_pid: int) -> dict[int, float]:
             found[child.pid] = child.create_time()
         except psutil.NoSuchProcess:
             continue
-        except psutil.AccessDenied as exc:
-            raise ProcessDiscoveryError(
-                f"could not identify descendant process {child.pid}") from exc
+        except psutil.AccessDenied:
+            continue
     return found
 
 
@@ -252,6 +260,7 @@ def _tagged_processes(
         token: str,
         baseline: dict[int, tuple[int, float]] | None = None,
         current: dict[int, tuple[int, float]] | None = None) -> dict[int, float]:
+    psutil = _psutil()
     marker = f"FORGE_PROCESS_TOKEN={token}"
     current = current if current is not None else _process_table()
     candidates = set(current)
@@ -262,32 +271,29 @@ def _tagged_processes(
         }
     found: dict[int, float] = {}
     try:
-        processes = psutil.process_iter(
-            ["pid", "ppid", "create_time", "environ", "cmdline"])
+        processes = list(psutil.process_iter(["environ"]))
         current_user = psutil.Process().username()
-    except (psutil.AccessDenied, psutil.NoSuchProcess) as exc:
+    except (psutil.Error, OSError) as exc:
         raise ProcessDiscoveryError("could not inspect tagged processes") from exc
     for process in processes:
+        pid = process.pid
+        if pid not in candidates:
+            continue
         try:
-            pid = process.info["pid"]
-            if pid not in candidates or process.username() != current_user:
+            if process.username() != current_user:
                 continue
-            environment = process.info.get("environ")
-            command = process.info.get("cmdline") or []
-            tagged = (
-                isinstance(environment, dict)
-                and environment.get("FORGE_PROCESS_TOKEN") == token
-            )
-            if not tagged:
-                tagged = marker in command or any(
-                    marker in part for part in command
-                )
         except (psutil.AccessDenied, psutil.NoSuchProcess):
+            # Never use the command-line fallback until ownership is proven.
+            continue
+        environment = process.info.get("environ")
+        tagged = (
+            isinstance(environment, dict)
+            and environment.get("FORGE_PROCESS_TOKEN") == token
+        )
+        if not tagged:
             try:
                 command = process.cmdline()
-                tagged = marker in command or any(
-                    marker in part for part in command
-                )
+                tagged = any(marker in part for part in command)
             except (psutil.AccessDenied, psutil.NoSuchProcess):
                 continue
         if not tagged:
@@ -319,6 +325,7 @@ def _live_identified_processes(
 def _signal_identified_processes(
         processes: dict[int, float],
         signum: int = signal.SIGTERM) -> dict[int, float]:
+    psutil = _psutil()
     signalled: dict[int, float] = {}
     for pid, identity in processes.items():
         # Keep the identity check adjacent to the signal: a batch-wide snapshot
@@ -333,7 +340,7 @@ def _signal_identified_processes(
                 process.kill()
             else:
                 process.terminate()
-        except psutil.NoSuchProcess:
+        except (psutil.AccessDenied, psutil.NoSuchProcess):
             continue
         signalled[pid] = identity
     return signalled
@@ -342,19 +349,25 @@ def _signal_identified_processes(
 def _signal_verified_process_group(
         pgid: int, leader_identity: float) -> bool:
     """Terminate an identified leader and its currently observed children."""
+    psutil = _psutil()
     try:
         leader = psutil.Process(pgid)
         if leader.status() == psutil.STATUS_ZOMBIE:
             return False
         if leader.create_time() != leader_identity:
             return False
-        processes = {
-            child.pid: child.create_time()
-            for child in leader.children(recursive=True)
-        }
-        processes[pgid] = leader_identity
-    except psutil.NoSuchProcess:
+        children = leader.children(recursive=True)
+    except (psutil.AccessDenied, psutil.NoSuchProcess):
         return False
+    processes: dict[int, float] = {}
+    for child in children:
+        try:
+            processes[child.pid] = child.create_time()
+        except (psutil.AccessDenied, psutil.NoSuchProcess):
+            continue
+    # Children are signalled first so the leader cannot exit and reparent them
+    # before they are terminated.
+    processes[pgid] = leader_identity
     signalled = _signal_identified_processes(processes)
     return signalled.get(pgid) == leader_identity
 
@@ -372,7 +385,10 @@ def _capture_spawn_identity(proc: subprocess.Popen[str]) -> float | str:
             f"could not identify spawned process {proc.pid}")
     if proc.poll() is not None:
         return ""
-    retry_identity = _process_start_identity(proc.pid)
+    try:
+        retry_identity = _process_start_identity(proc.pid)
+    except (OSError, ProcessDiscoveryError):
+        retry_identity = None
     if retry_identity is not None:
         _signal_verified_process_group(proc.pid, retry_identity)
     try:
@@ -392,11 +408,11 @@ def _capture_spawn_identity(proc: subprocess.Popen[str]) -> float | str:
 
 
 def _terminate_processes_until_quiet(
-        initial: dict[int, str], discover, reap=None) -> bool:
+        initial: dict[int, float], discover, reap=None) -> bool:
     """Discover and terminate new descendants until the set stays empty."""
     known = dict(initial)
-    term_sent: dict[tuple[int, str], float] = {}
-    kill_sent: dict[tuple[int, str], float] = {}
+    term_sent: dict[tuple[int, float], float] = {}
+    kill_sent: dict[tuple[int, float], float] = {}
     quiet_since: float | None = None
     discovery_failed = False
     while True:
@@ -656,7 +672,7 @@ def _terminate_observed_process_tree(
             descendants.update(_tagged_processes(token, baseline))
     except ProcessDiscoveryError:
         # `_reap_observed_process_tree` still waits on the owned foreground
-        # process and reports incomplete descendant cleanup.
+    # process and reports incomplete descendant cleanup.
         pass
     return _reap_observed_process_tree(
         proc, token, descendants, baseline,
