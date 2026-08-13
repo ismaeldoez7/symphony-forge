@@ -1183,3 +1183,10 @@
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T12:33:52+00:00", "story": "FORGE-WIN-3"}
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-13T12:46:30+00:00", "story": "FORGE-WIN-3", "detail": "knacklabs/symphony-forge#100"}
 {"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-13T13:13:58+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-13T13:19:47+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-13T13:19:47+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T13:19:47+00:00", "story": "FORGE-WIN-3"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-13T13:20:19+00:00", "story": "FORGE-WIN-3", "detail": "pass"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-13T13:25:06+00:00", "story": "FORGE-WIN-ENC", "detail": "docs/specs/windows-zero-setup.md"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-13T13:40:15+00:00", "story": "FORGE-WIN-3"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-13T13:40:15+00:00", "story": "FORGE-WIN-3", "detail": "Symphony Forge delegations now run end-to-end on native Windows: forge delegate launches, supervises, and reaps Codex workers through a single psutil-based process model (decision 0042) on both Window"}
