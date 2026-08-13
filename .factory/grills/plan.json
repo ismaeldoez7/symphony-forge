@@ -3,24 +3,36 @@
   "gate": "plan",
   "verdict": "pass",
   "gaps": [
-    "psutil is the first runtime Python dependency in a currently-stdlib harness \u2014 is that justified and safe to ship to clients?",
-    "AC2 says 'unelevated, workspace-write' but the companion has no such seam \u2014 is narrowing the AC legitimate?",
-    "Porting ~9 functions in one stage risks the rewrite-regression class seen in WIN-2.",
-    "CI-blind means each Windows round is a full CI cycle \u2014 how is that bounded?",
-    "Does psutil environ access work on Windows for the token sweep?"
+    "Roadmap AC1 demands a 'single helper' for child-output decoding, but the read-only exploration proved the ~30 direct call sites share no interface (separate streams, cwd, timeouts, byte modes) \u2014 which wins, the AC's mechanism wording or conduct \u00a72's over-building bar?",
+    "AC3's original forcing mechanism (PYTHONIOENCODING=cp1252) only affects stdio \u2014 it cannot exercise the file-I/O and subprocess locale defaults this story exists to fix, and PR #101's stream reconfigure overrides it anyway. What actually forces the failure mode in CI?",
+    "Where is the errors='replace' boundary? Blanket replace would let corrupt evidence decode silently past gates that should refuse (0009/0025).",
+    "Is a single ~130-site sweep stage bounded, given the recorded repeated-full-file-rewrites-regress-prior-fixes lesson?",
+    "Which sites must the sweep NEVER touch? A naive sweep over digest/byte-exact paths would corrupt measurement and vendor-integrity guarantees.",
+    "sol-xhigh validation round: stdin (hook JSON + four recorders) is an unswept locale-decoded boundary the plan's file/subprocess gate would not catch.",
+    "sol-xhigh: the text temp-log surface is six handles (delegate x2, stages required-test x2, stages verify x2), not two, and the AST gate did not cover tempfile constructors.",
+    "sol-xhigh: the worker-log fix was structurally wrong \u2014 a child does not inherit the parent handle's Python-level encoding.",
+    "sol-xhigh: a presence-only encoding= check false-passes encoding='cp1252'/None and unauthorized errors='replace'; Path.open appends and stdin were uncovered.",
+    "sol-xhigh: blanket errors='replace' on machine-consumed captures (git paths, gh JSON, stage digests) can corrupt authority; the DO-NOT list missed ~8 byte-path entries and misdescribed context hashing.",
+    "sol-xhigh: could LC_ALL=C be neutered by PEP 538 C-locale coercion, and can the Windows leg false-green?"
   ],
   "contradictions": [],
   "resolutions": [
-    "Human-settled at this gate: psutil is the cross-platform equivalent the spec asks for; it replaces ps+killpg on BOTH platforms and RETIRES the calendar-fragile ps-lstart identity (recorded lesson). Doctor gates its presence with an honest red row and --fix installs it; WIN-2's propagation tests confirm the dep manifest ships. Recorded as decision 0041.",
-    "Human-settled: workspace-write IS already selected by --write (assert it); 'unelevated' is codex config/env with no companion argv seam and is forbidden by 0040 (no user-global config writes), so it stays deferred (D-0021). AC2 narrowed to the achievable half \u2014 a scope narrowing recorded in 0041's context.",
-    "Mitigated: POSIX behavior stays byte-identical (POSIX suite catches regressions locally), the ps-monkeypatch unit tests migrate to psutil fakes, and per the recorded lesson we verify against committed HEAD after any multi-round rewrite with the story-level review as backstop before pr_ready.",
-    "Accepted cost (user chose CI-blind over the VM): windows-hook-gates is the sole Windows verifier; only the genuinely-Windows launch/teardown needs CI, the rest is POSIX-verifiable locally. LESSON APPLIED: do not pr_ready before windows CI is green.",
-    "psutil reads environ cross-platform where permitted; on Windows another process's environ can raise AccessDenied \u2014 the token sweep catches that and falls back to cmdline/children-walk; only same-user workers are reaped, which is all we need."
+    "Human-ruled (Ravi, 2026-08-13): AC1 is satisfied by one enforced CONVENTION \u2014 per-site explicit encoding args plus run_quiet gaining them once, with check_encoding_hygiene making drift impossible; a mega-helper is rejected as forced abstraction. Recorded in decision 0043 (the plan's Decisions section), which supersedes the AC's mechanism wording.",
+    "Mechanism corrected in the plan: the CI net forces the LOCALE \u2014 ubuntu step with LC_ALL=C + PYTHONUTF8=0 (ASCII locale fails loudly on any non-ASCII default decode); windows-hook-gates runs with PYTHONUTF8 unset so the real ANSI code page applies. PYTHONIOENCODING and chcp rejected with reasons in the Risks section.",
+    "Human-ruled (Ravi, 2026-08-13): split by class \u2014 errors='replace' only for human-display captures and delegate worker logs; strict UTF-8 for evidence/plans/specs/manifests; byte/digest paths stay bytes. The review's blocking rule: any errors='replace' on a digest-adjacent read.",
+    "Human-ruled (Ravi, 2026-08-13): one sweep stage (ENC-1), completion DEFINED by check_encoding_hygiene reporting zero violations plus the full suite green \u2014 a machine-checkable done that the rewrite-regression lesson lacks in prose form.",
+    "The exploration's \u00a75 inventory is written into the plan as the named DO-NOT list (Scope/Non-goals): dual-runtime copy detection, vendor-integrity SHA-256, sha256_of, context hashing, gstack byte equality, stages measurement/authority digests, upgrade's surrogateescape path handling \u2014 each with file:line.",
+    "Plan Problem/AC2/Approach updated: stdin joins the sweep (strict UTF-8 in factory_lib's hook reader and the four recorders) with a piped non-ASCII test.",
+    "Plan updated: all six temp-log handles swept; the hygiene gate's rule (c) covers tempfile text constructors.",
+    "Plan Approach corrected: parent handles get utf-8/replace for read-back; the CHILD is contracted to UTF-8 via PYTHONUTF8=1 in the spawned env (companion + runner envs); non-Python children degrade via replace.",
+    "Plan AC2/Approach updated: check_encoding_hygiene validates the literal value ('utf-8'; errors='replace' only at allowlisted diagnostic sites) and covers subprocess kwargs, open/Path.open (incl. append), tempfile text modes, and sys.stdin; existing nonconforming replacement reads are reconciled or documented exceptions.",
+    "Plan AC1 reclassified captures by consumer: diagnostics=replace, git-path output=bytes/surrogateescape, JSON protocol=strict; DO-NOT list extended with the eight missed byte paths and context hashing described precisely as normalized-bytes.",
+    "Validated: explicit LC_ALL=C suppresses PEP 538 coercion (PYTHONCOERCECLOCALE=0 unnecessary); both CI legs ASSERT utf8_mode off + non-UTF-8 preferred encoding at runtime, and the Windows E2E success path carries a non-cp1252 glyph through the worker handoff. Workflow-inline Python parked as D-0026 with a revisit trigger."
   ],
   "open_items": [],
-  "notes": "Interrogated against FORGE-WIN-3's two roadmap ACs (AC2 reframed), the confirmed spec, active decisions 0001-0040 (0037/0040 specifically), inherited deferrals D-0019/21/22/23, and lessons (normalize-ps-derived-identity, delegation-wrapper-killed-orphan, repeated-full-file-rewrites-regress-prior-fixes). Two design forks human-settled via AskUserQuestion 2026-08-13: psutil, AC2-reframe. Frontier empty; approved in plan mode per 0029.",
-  "input_sha256": "e9ed97a7b950b20924c9dd58f8e2f365342d483129aa383f4abce2950d81da17",
-  "issue": "FORGE-WIN-3",
-  "recorded_at": "2026-08-13T06:13:08+00:00",
-  "commit": "fd7988747973d5d536433ba9dfba178c74882cb8"
+  "notes": "FORGE-WIN-ENC plan grilled against the roadmap item's ACs, all 37 active decisions (reconciled by ID; sole conflict was AC1's mechanism wording, landed in 0043), docs/architecture, and the Codex-rescue encoding-site inventory (2026-08-13). Rounds delivered via AskUserQuestion until the frontier emptied; three human rulings recorded above. Recurring-findings scan: tooling-collision and parser-shape-gap classes reviewed \u2014 neither implicates this story's area; the sweep's zero-violation gate is itself the tripwire this class needs. Second round: user-directed Codex sol-xhigh validation returned SIMPLE-ENOUGH (all four global levers rejected with named uncovered boundaries) plus six findings, each folded into the plan or parked with deferral D-0026. Frontier empty.",
+  "input_sha256": "57607311a401a4acd1a336ae2311614671db26e9e473277e643965b928cc9aa9",
+  "issue": "FORGE-WIN-ENC",
+  "recorded_at": "2026-08-13T16:05:44+00:00",
+  "commit": "4855fffbde2308431d05c79cd465caa4ec9a3916"
 }
