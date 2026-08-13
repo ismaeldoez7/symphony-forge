@@ -4,7 +4,28 @@
     {
       "id": "FORGE-WIN-ENC.1",
       "title": "Encoding sweep + value-validating hygiene gate",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-13T16:56:35+00:00",
+      "base_sha": "c32ee3dbc813934d0027eea7752e5d0471602ca6",
+      "dirty_at_start": {
+        ".factory/decomposition.json": {
+          "digest": "d896bb8eb148155277321a80b739e3aab07527c8c18dcdf354f3d5e85d8bcdf1",
+          "git": "1 .M N... 100644 100644 100644 40be1add2d6c5860c3a76ba57a878432f71db44f 40be1add2d6c5860c3a76ba57a878432f71db44f .factory/decomposition.json\u0000\u0000100644 40be1add2d6c5860c3a76ba57a878432f71db44f 0\t.factory/decomposition.json\u0000\u0000H .factory/decomposition.json\u0000"
+        },
+        ".factory/events.jsonl": {
+          "digest": "d9eca0dafe9c06d434326f57a96cb8a31f274f26f686613952c0e6c3f005dc6e",
+          "git": "1 .M N... 100644 100644 100644 ad4bfb0f649a78cb1f432e8bbe55b22c9bdf9239 ad4bfb0f649a78cb1f432e8bbe55b22c9bdf9239 .factory/events.jsonl\u0000\u0000100644 ad4bfb0f649a78cb1f432e8bbe55b22c9bdf9239 0\t.factory/events.jsonl\u0000\u0000H .factory/events.jsonl\u0000"
+        },
+        ".factory/grills/tasks/FORGE-WIN-ENC.1.json": {
+          "digest": "bedd0351a2a0e1cc2cd47bc2e589267453eedcab54d7101bee17cd8be8d66f3d",
+          "git": "? .factory/grills/tasks/FORGE-WIN-ENC.1.json\u0000\u0000\u0000"
+        },
+        ".factory/run.json": {
+          "digest": "1a805c3920aefd9d3a43fa3827675f137da774b5a8d66fdad966e5e5097362e8",
+          "git": "1 .M N... 100644 100644 100644 abdd8310eb9e413a3ed719263c527dfdf903942a abdd8310eb9e413a3ed719263c527dfdf903942a .factory/run.json\u0000\u0000100644 abdd8310eb9e413a3ed719263c527dfdf903942a 0\t.factory/run.json\u0000\u0000H .factory/run.json\u0000"
+        }
+      },
+      "task_sha256": "dfb2e05dc23f6b1f5fd32efbe7007d7cef18f0ce79d521432214d4bd21ae7b37"
     },
     {
       "id": "FORGE-WIN-ENC.2",

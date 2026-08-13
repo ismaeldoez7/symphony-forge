@@ -78,5 +78,5 @@
   "epic": "windows-zero-setup",
   "plan_file": "plans/active/FORGE-WIN-ENC-no-code-page-can-break-the-harness-encoding-hardening.md",
   "plan_sha256": "7a9efc6a95a9d06914083d862bbab6f9b77854c2bcca66cf51e1a4016f6e4a39",
-  "commit": "cad3be175fbe942ed6dbfd905356cda96c1ec308"
+  "commit": "c32ee3dbc813934d0027eea7752e5d0471602ca6"
 }
