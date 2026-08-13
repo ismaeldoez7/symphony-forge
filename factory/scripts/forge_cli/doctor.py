@@ -494,13 +494,29 @@ def _python_check() -> dict:
     )
 
 
-def _psutil_available() -> bool:
+def _psutil_discoverable() -> bool:
     return importlib.util.find_spec("psutil") is not None
 
 
+def _psutil_import_status() -> tuple[bool, str]:
+    try:
+        importlib.import_module("psutil")
+    except Exception as exc:
+        return False, f"import failed: {type(exc).__name__}: {exc}"
+    return True, f"importable by {sys.executable}"
+
+
+def _psutil_install_command() -> list[str]:
+    command = [sys.executable, "-m", "pip", "install"]
+    if sys.prefix == sys.base_prefix:
+        command.append("--user")
+    return [*command, "psutil"]
+
+
 def _psutil_fix_message() -> str:
+    scope = "" if sys.prefix != sys.base_prefix else " --user"
     return (
-        f"`{sys.executable} -m pip install --user psutil` (manual `pip install "
+        f"`{sys.executable} -m pip install{scope} psutil` (manual `pip install "
         "psutil` fallback); if Python is externally managed, install psutil "
         "for this interpreter with your OS package manager or run Forge from "
         "a user-managed Python environment — never use --break-system-packages"
@@ -508,26 +524,27 @@ def _psutil_fix_message() -> str:
 
 
 def _install_psutil() -> tuple[bool, str]:
-    command = [sys.executable, "-m", "pip", "install", "--user", "psutil"]
-    print(f"[fix ] installing psutil for {sys.executable} (user scope) ...")
+    command = _psutil_install_command()
+    scope = "virtualenv" if sys.prefix != sys.base_prefix else "user scope"
+    print(f"[fix ] installing psutil for {sys.executable} ({scope}) ...")
     code, output = run_quiet(command)
     if code != 0:
-        if "externally-managed-environment" in output.lower():
+        normalized = output.lower()
+        if ("externally-managed-environment" in normalized
+                or "externally managed" in normalized):
             return False, (
                 f"{sys.executable} is externally managed and refused the "
-                "user-scope psutil install"
+                "psutil install"
             )
         return False, output or f"pip exited {code}"
-    if not _psutil_available():
-        return False, (
-            f"pip exited successfully but {sys.executable} still cannot import psutil"
-        )
-    return True, f"importable by {sys.executable}"
+    ok, detail = _psutil_import_status()
+    if not ok:
+        return False, f"pip exited successfully but psutil {detail}"
+    return True, detail
 
 
 def _psutil_check(*, fix: bool = False) -> dict:
-    ok = _psutil_available()
-    detail = f"importable by {sys.executable}" if ok else "not importable"
+    ok, detail = _psutil_import_status()
     if not ok and fix:
         ok, detail = _install_psutil()
     return _check("psutil", ok, detail, _psutil_fix_message())
@@ -546,7 +563,7 @@ def fast_status(home: Path | None = None) -> tuple[list[str], list[str]]:
         "python >= 3.10": sys.version_info >= (3, 10) or any(
             shutil.which(name) for name in ("py", "python3", "python")
         ),
-        "psutil": _psutil_available(),
+        "psutil": _psutil_discoverable(),
         "node": shutil.which("node") is not None,
         "direnv + shell hook": shutil.which("direnv") is not None and _has_direnv_hook(home),
         "codex CLI": shutil.which("codex") is not None,

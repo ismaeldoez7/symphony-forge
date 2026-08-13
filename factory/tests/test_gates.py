@@ -3445,6 +3445,26 @@ def test_fast_status_python_requires_path_resolvable_interpreter(
 def test_doctor_psutil_row_required_and_fix_installs(tmp_path, monkeypatch):
     from forge_cli import doctor
 
+    with monkeypatch.context() as broken:
+        broken.setattr(
+            doctor.subprocess, "run",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                AssertionError("fast_status must not spawn a subprocess")
+            ),
+        )
+        broken.setattr(
+            doctor.importlib.util, "find_spec",
+            lambda name: object() if name == "psutil" else None,
+        )
+        broken.setattr(
+            doctor.importlib, "import_module",
+            lambda _name: (_ for _ in ()).throw(OSError("broken psutil ABI")),
+        )
+        assert "psutil" not in doctor.fast_status(tmp_path)[0]
+        broken_row = doctor._psutil_check()
+        assert broken_row["required"] and not broken_row["ok"]
+        assert "broken psutil ABI" in broken_row["detail"]
+
     installed = {"psutil": False}
     commands = []
     monkeypatch.setattr(
@@ -3457,6 +3477,15 @@ def test_doctor_psutil_row_required_and_fix_installs(tmp_path, monkeypatch):
         doctor.importlib.util, "find_spec",
         lambda name: object() if name == "psutil" and installed["psutil"] else None,
     )
+    monkeypatch.setattr(
+        doctor, "_psutil_import_status",
+        lambda: (
+            (True, f"importable by {sys.executable}")
+            if installed["psutil"] else (False, "import failed: ModuleNotFoundError")
+        ),
+    )
+    monkeypatch.setattr(doctor.sys, "prefix", "/system-python")
+    monkeypatch.setattr(doctor.sys, "base_prefix", "/system-python")
 
     required_missing, _ = doctor.fast_status(tmp_path)
     assert "psutil" in required_missing
@@ -3479,16 +3508,32 @@ def test_doctor_psutil_row_required_and_fix_installs(tmp_path, monkeypatch):
     assert "psutil" not in doctor.fast_status(tmp_path)[0]
     assert row["required"] and row["ok"]
 
+    commands.clear()
     installed["psutil"] = False
+    monkeypatch.setattr(doctor.sys, "prefix", "/project/.venv")
+    monkeypatch.setattr(doctor.sys, "base_prefix", "/system-python")
+    row = doctor._psutil_check(fix=True)
+    assert row["ok"]
+    assert commands == [[sys.executable, "-m", "pip", "install", "psutil"]]
+
+    commands.clear()
+    installed["psutil"] = False
+    monkeypatch.setattr(doctor.sys, "prefix", "/system-python")
+    monkeypatch.setattr(doctor.sys, "base_prefix", "/system-python")
+
+    def externally_managed(argv, **_kwargs):
+        commands.append(argv)
+        return 1, "error: externally-managed-environment"
+
     monkeypatch.setattr(
-        doctor, "run_quiet",
-        lambda _argv, **_kwargs: (
-            1, "error: externally-managed-environment",
-        ),
+        doctor, "run_quiet", externally_managed,
     )
     row = doctor._psutil_check(fix=True)
     assert not row["ok"] and "externally managed" in row["detail"]
     assert "pip install psutil" in row["fix"]
+    assert commands == [[
+        sys.executable, "-m", "pip", "install", "--user", "psutil",
+    ]]
     assert "--break-system-packages" not in commands[0]
 
 
@@ -11979,11 +12024,11 @@ def test_windows_delegation_launches_and_reaps(repo, tmp_path):
     companion = next(home.glob(
         ".claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs"))
     companion.write_text(
-        "const {spawn} = require('child_process');\n"
-        "const fs = require('fs');\n"
+        "import { spawn } from 'node:child_process';\n"
+        "import { writeFileSync } from 'node:fs';\n"
         "const child = spawn(process.execPath, ['-e', "
         "'setInterval(() => {}, 1000)'], {stdio: 'ignore'});\n"
-        "fs.writeFileSync('.factory/windows-worker.pid', String(child.pid));\n"
+        "writeFileSync('.factory/windows-worker.pid', String(child.pid));\n"
         "setInterval(() => {}, 1000);\n"
     )
     proc = subprocess.Popen(
