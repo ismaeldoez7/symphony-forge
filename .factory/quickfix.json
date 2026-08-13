@@ -1,11 +1,13 @@
 {
-  "id": "Q-0066-2135",
+  "id": "Q-0067-a101",
   "profile": "lite",
-  "reason": "scaffold-check red on PR #100: the ubuntu 'Gate regression tests' step installs only pytest, but FORGE-WIN-3 made psutil a runtime dependency of delegate.py \u2014 every stage_done/delegation-path test fails without it (the windows-hook-gates job already installs pytest psutil). One-line fix in .github/workflows/factory-scaffold.yml: 'python3 -m pip install --quiet pytest' -> 'python3 -m pip install --quiet pytest psutil'. Two-pass Docker validation running (no-psutil reproduces, with-psutil expected green).",
-  "started_at": "2026-08-13T11:03:56+00:00",
+  "reason": "Second scaffold-check red root cause on PR #100 (reproduced in Docker python:3.11): test_launch_companion_uses_platform_specific_spawn_options[nt] patches os.name='nt' globally, and launch_companion -> safe_factory_write_bytes -> Path('x.md') then dispatches pathlib.WindowsPath, which Python 3.11 REFUSES to instantiate on POSIX (3.13, used locally, allows it \u2014 why macOS was green). The failure then INTERNALERRORs the whole session because the repr also constructs Path under the patched os.name. Test-only fix: stub the brief write so no bare Path() construction runs under the fake os.name.",
+  "started_at": "2026-08-13T11:38:59+00:00",
   "max_files": 5,
-  "files": [],
+  "files": [
+    "factory/tests/test_gates.py"
+  ],
   "harness_source": true,
   "by": "Ravi",
-  "base_sha": "e6e368a67b7a5bfb30f1ba1716fa861e0736255c"
+  "base_sha": "edb599aa57b0597131478c639df0b5d7011abea0"
 }

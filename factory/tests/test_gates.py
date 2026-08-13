@@ -12005,6 +12005,9 @@ def test_launch_companion_uses_platform_specific_spawn_options(
             delegate.subprocess, "CREATE_NEW_PROCESS_GROUP", 1,
             raising=False)
         monkeypatch.setattr(delegate, "append_delegation", lambda *_args: None)
+        monkeypatch.setattr(
+            delegate, "safe_factory_write_bytes", lambda *_args, **_kwargs: True)
+        monkeypatch.setattr(delegate, "sha256_of", lambda _path: "digest")
         monkeypatch.setattr(delegate, "companion_script", lambda: tmp_path / "x")
         monkeypatch.setattr(delegate.shutil, "which", lambda _name: "node")
         monkeypatch.setattr(delegate, "_process_table", lambda: {})
