@@ -1142,3 +1142,6 @@
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-13T09:42:24+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3.2 Doctor psutil row + Windows delegation E2E + CI selector + docs"}
 {"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-13T09:56:51+00:00", "story": "FORGE-WIN-3"}
 {"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-13T09:59:46+00:00", "story": "FORGE-WIN-3", "detail": "pass"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-13T10:17:34+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-13T10:17:34+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T10:17:34+00:00", "story": "FORGE-WIN-3"}
