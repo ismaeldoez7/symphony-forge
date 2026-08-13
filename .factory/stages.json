@@ -1,0 +1,15 @@
+{
+  "issue": "FORGE-WIN-ENC",
+  "stages": [
+    {
+      "id": "FORGE-WIN-ENC.1",
+      "title": "Encoding sweep + value-validating hygiene gate",
+      "status": "pending"
+    },
+    {
+      "id": "FORGE-WIN-ENC.2",
+      "title": "Locale-forced CI proof + docs",
+      "status": "pending"
+    }
+  ]
+}

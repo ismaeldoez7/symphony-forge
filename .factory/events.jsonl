@@ -1193,3 +1193,4 @@
 {"event": "intake", "generated_by": "orchestrator", "at": "2026-08-13T13:40:56+00:00", "story": "FORGE-WIN-ENC", "detail": "No code page can break the harness (encoding hardening)"}
 {"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-13T16:06:14+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC approved by Ravi"}
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-13T16:06:14+00:00", "story": "FORGE-WIN-ENC", "detail": "plans/active/FORGE-WIN-ENC-no-code-page-can-break-the-harness-encoding-hardening.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T16:08:18+00:00", "story": "FORGE-WIN-ENC", "detail": "2 task(s)"}
