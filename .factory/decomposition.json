@@ -72,6 +72,37 @@
         "python3 factory/scripts/check_factory_scaffold.py"
       ],
       "reviewer_focus": "False-green is the enemy: both CI legs must assert the locale forcing actually took effect at runtime, and the Windows glyph round-trip must exercise the SUCCESS path, not just failure cleanup. Selector hygiene per D-0020."
+    },
+    {
+      "id": "FORGE-WIN-ENC.3",
+      "title": "Story-review fixes: gate blind spots + isolation-scan decode",
+      "objective": "Three story-level autoreview findings land: the prototype-isolation scan catches non-UTF-8 sources again (replace-decode, allowlisted as diagnostic), and the hygiene gate learns io.TextIOWrapper and positional tempfile modes - closing the blind spots that would let the convention silently erode.",
+      "dependencies": [
+        "FORGE-WIN-ENC.2"
+      ],
+      "write_scope": [
+        "factory/scripts/check_dual_runtime.py",
+        "factory/scripts/check_encoding_hygiene.py",
+        "factory/tests/test_gates.py"
+      ],
+      "acceptance_criteria": [
+        "check_dual_runtime's prototype-isolation scan must not SKIP undecodable tracked source - a non-UTF-8 source file (e.g. PEP 263 latin-1) could smuggle a prototype/ import past the gate. The scan is a diagnostic MATCHER: decode with encoding='utf-8', errors='replace' (ASCII marker matching survives replacement), and add that site to the hygiene allowlist as a documented diagnostic exception. Regression test: a tracked latin-1 file containing a prototype import is still caught.",
+        "check_encoding_hygiene validates io.TextIOWrapper constructions (missing or non-utf-8 encoding is a violation) - today removing encoding='utf-8' from read_stdin_utf8's wrapper stays green; seed-test the class.",
+        "tempfile.TemporaryFile/NamedTemporaryFile take mode as POSITIONAL ARG 0; the gate currently reads index 1, so TemporaryFile('w+t') without encoding passes - fix the index and seed-test the positional form.",
+        "check_encoding_hygiene exits 0 on the tree after the fixes; hygiene self-test selector green; no other files touched."
+      ],
+      "required_tests": [
+        {
+          "id": "test_encoding_hygiene_gate_catches_wrapper_and_positional_tempfile",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "verify_commands": [
+        "python3 factory/scripts/check_encoding_hygiene.py",
+        "python3 factory/scripts/check_dual_runtime.py"
+      ],
+      "reviewer_focus": "The isolation-scan fix must not weaken the gate it repairs: replace-decode keeps ASCII marker detection intact where skip lost it entirely. The two checker fixes are seed-tested, not just patched."
     }
   ],
   "user_facing": false,
@@ -80,5 +111,5 @@
   "epic": "windows-zero-setup",
   "plan_file": "plans/active/FORGE-WIN-ENC-no-code-page-can-break-the-harness-encoding-hardening.md",
   "plan_sha256": "7a9efc6a95a9d06914083d862bbab6f9b77854c2bcca66cf51e1a4016f6e4a39",
-  "commit": "53ddc96f8e8a106b2831d9a59da712650e22a313"
+  "commit": "4bb33d7082cc4218cfbf3436c8f09b27953570cd"
 }

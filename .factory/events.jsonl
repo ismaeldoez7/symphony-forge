@@ -1224,3 +1224,5 @@
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-13T18:52:57+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.2 Locale-forced CI proof + docs"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T19:07:11+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.2 (write)"}
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-13T19:08:03+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.2 Locale-forced CI proof + docs"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T19:16:26+00:00", "story": "FORGE-WIN-ENC", "detail": "3 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-13T19:16:56+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.3 Story-review fixes: gate blind spots + isolation-scan decode"}
