@@ -1194,3 +1194,20 @@
 {"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-13T16:06:14+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC approved by Ravi"}
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-13T16:06:14+00:00", "story": "FORGE-WIN-ENC", "detail": "plans/active/FORGE-WIN-ENC-no-code-page-can-break-the-harness-encoding-hardening.md"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T16:08:18+00:00", "story": "FORGE-WIN-ENC", "detail": "2 task(s)"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-13T10:24:19+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-13T10:24:19+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T10:24:19+00:00", "story": "FORGE-WIN-3"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-13T10:40:43+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-13T11:03:41+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-13T11:03:41+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T11:03:41+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-13T11:54:15+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-13T11:54:15+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T11:54:15+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-13T12:13:39+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-13T12:13:39+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T12:13:39+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-13T12:33:52+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-13T12:33:52+00:00", "story": "FORGE-WIN-3"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T12:33:52+00:00", "story": "FORGE-WIN-3"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-13T12:46:30+00:00", "story": "FORGE-WIN-3", "detail": "knacklabs/symphony-forge#100"}
