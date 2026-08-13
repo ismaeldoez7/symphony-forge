@@ -3793,6 +3793,17 @@ def test_pr_link_commit_skips_ci():
     # D-0017: without [skip ci], the bot-attributed synchronize wave is held
     # action_required and strands the PR's checks behind a manual re-trigger.
     workflow = (HARNESS / ".github" / "workflows" / "pr-link.yml").read_text()
+    assert "workflow_run:\n    workflows: [factory-scaffold]\n    types: [completed]" in workflow
+    assert "github.event.workflow_run.conclusion == 'success'" in workflow
+    assert "statuses: write" in workflow
+    commit_guard = "steps.link.outputs.story != '' && steps.link.outputs.already_linked != 'true'"
+    commit_step, status_step = workflow.split("- name: Commit the durable link to the PR branch", 1)[1].split(
+        "- name: Carry scaffold-check to the link commit", 1
+    )
+    assert f"if: {commit_guard}" in commit_step
+    assert f"if: {commit_guard}" in status_step
+    assert "statuses/$SHA" in status_step
+    assert "context=scaffold-check" in status_step
     assert "[skip ci]" in workflow.split("git commit -m")[1].splitlines()[0]
 
 
@@ -6449,7 +6460,8 @@ def test_gate_b_workflows_link_the_branch_and_check_main():
     link = (HARNESS / ".github" / "workflows" / "pr-link.yml").read_text()
     invariant = (HARNESS / ".github" / "workflows" / "board-invariant.yml").read_text()
 
-    assert "pull_request:" in link
+    assert "workflow_run:" in link
+    assert "workflows: [factory-scaffold]" in link
     assert "already_linked" in link
     assert 'git push origin "HEAD:$HEAD_BRANCH"' in link
     assert "branches: [main]" in invariant
@@ -11699,6 +11711,30 @@ def test_quality_review_requires_contract_verdicts(repo, tmp_path):
     }]
 
     code, out = run(repo, "record_review_from_json.py", "--aspect", "performance",
+                    stdin=json.dumps(review_payload()))
+    assert code == 0, out
+
+
+def test_lite_quality_review_ignores_shipped_plan_contracts(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    task = {**DECOMP["tasks"][0], "plan_contracts": [{
+        "id": "C1", "statement": "first statement", "source": "plan.md#first",
+    }]}
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
+        {**DECOMP, "tasks": [task]}))
+    assert code == 0, out
+
+    state = run_state(repo)
+    (repo / ".factory" / "run.json").write_text(json.dumps({
+        "project": state["project"], "phase": "shipped",
+    }))
+    code, out = run(repo, "forge.py", "mode", "lite", "--by", "test",
+                    "--reason", "x")
+    assert code == 0, out
+
+    code, out = run(repo, "record_review_from_json.py", "--aspect", "quality",
                     stdin=json.dumps(review_payload()))
     assert code == 0, out
 
