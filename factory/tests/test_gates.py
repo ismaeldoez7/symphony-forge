@@ -11588,13 +11588,9 @@ def test_tagged_process_scan_falls_back_when_cached_environment_is_denied(
     try:
         import forge_cli.delegate as delegate
 
-        class DeniedEnvironment(dict):
-            def get(self, _key, _default=None):
-                raise FakePsutilAccessDenied()
-
         class Process:
             pid = 101
-            info = DeniedEnvironment()
+            info = {"environ": None}
 
             def username(self):
                 return "owner"
