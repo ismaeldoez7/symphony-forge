@@ -3,18 +3,18 @@
   "gate": "task",
   "verdict": "pass",
   "gaps": [
-    "Can the fix be verified without real Windows?",
-    "What's the most likely root cause of exit 1 vs expected 2/0?"
+    "Can the converge test make the fail-closed elevation guard pass without weakening forge.cmd?",
+    "Is the fix verifiable off Windows?"
   ],
   "contradictions": [],
   "resolutions": [
-    "No \u2014 .cmd cannot run off Windows; the windows-hook-gates CI job is the sole verifier (user chose CI iteration). The change must be reason-complete and self-consistent about cmd.exe semantics.",
-    "The tests rely on cwd-shadowing of py/python/python3 but the subprocess inherits the runner's full PATH, so interpreter resolution is nondeterministic; and/or forge.cmd's fallback chain can reach a run_python* label that execs a failed interpreter (exit 1) instead of routing to :missing (exit 2). Fix both: make tests set PATH to only the stub dir + System32, and make forge.cmd's exit routing correct."
+    "The test regex-patches its own test_shim copy of forge.cmd (as it already does for FORGE_LOCAL_APP_DATA) to no-op the whoami/findstr Medium-integrity guard block \u2014 a PATH whoami stub cannot work because forge.cmd calls whoami by absolute System32 path; forge.cmd itself is unchanged and the separate elevated-refuses test still verifies the real guard.",
+    "No \u2014 windows-hook-gates CI is the sole verifier. CURRENT STATE (round 2): the cmd /d /c probe fix cleared 2 of 3 real-Windows failures; only bootstrap_converges_on_already_installed remains, root-caused to the runner's non-Medium token tripping the fail-closed guard; this round corrects the test to isolate convergence."
   ],
   "open_items": [],
-  "notes": "FORGE-WIN-2.6 fixes three real-Windows forge.cmd exit-code failures on PR #83; verified via CI.",
+  "notes": "FORGE-WIN-2.6 round 2: 2 of 3 CI failures fixed by cmd /d /c probe wrapping; remaining converge test corrected to patch its test_shim elevation guard (my earlier PATH-whoami-stub instruction was wrong \u2014 absolute-path invocation). forge.cmd unchanged this round.",
   "task_id": "FORGE-WIN-2.6",
-  "input_sha256": "0c7b129d523e343c581a8570c348259955e75113a48b78e700857dfaea27e83c",
-  "recorded_at": "2026-08-13T02:37:02+00:00",
-  "commit": "7f62f3ffca16802a9494459cf9bee0da8230f9bf"
+  "input_sha256": "af635d7e99a0c1e74f002881462b33965652b2cd7e0231303d20d3aad732babd",
+  "recorded_at": "2026-08-13T03:34:18+00:00",
+  "commit": "910dc81f90e90df3e307742d2715ed054be332e0"
 }

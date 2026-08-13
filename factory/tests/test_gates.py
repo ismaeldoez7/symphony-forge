@@ -3044,6 +3044,22 @@ def test_forge_cmd_bootstrap_converges_on_already_installed(tmp_path):
             count=1,
         )
         assert replacements == 1
+        elevation_guard = re.compile(
+            r'if not exist "%SystemRoot%\\System32\\whoami\.exe" goto missing\n'
+            r'if not exist "%SystemRoot%\\System32\\findstr\.exe" goto missing\n'
+            r'"%SystemRoot%\\System32\\whoami\.exe" /groups >nul 2>&1\n'
+            r'if errorlevel 1 goto missing\n'
+            r'"%SystemRoot%\\System32\\whoami\.exe" /groups \| '
+            r'"%SystemRoot%\\System32\\findstr\.exe" /c:"S-1-16-8192" '
+            r'>nul 2>&1\n'
+            r'if errorlevel 1 goto missing'
+        )
+        test_shim, replacements = elevation_guard.subn(
+            "rem Test shim isolates bootstrap convergence from elevation policy",
+            test_shim,
+            count=1,
+        )
+        assert replacements == 1
         (bootstrap_case / "forge.cmd").write_text(test_shim)
 
         system_root = Path(os.environ["SystemRoot"])
