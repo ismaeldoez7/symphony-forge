@@ -1214,3 +1214,7 @@
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-13T16:23:58+00:00", "story": "FORGE-WIN-3", "detail": "knacklabs/symphony-forge#102"}
 {"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-13T17:02:18+00:00", "detail": "accountable-engineering-loop: Accountable engineering loop: JIT contracts enforced, grills carry proof, diffs stay reviewable"}
 {"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-13T17:03:15+00:00", "detail": "accountable-engineering-loop: Accountable engineering loop: JIT contracts enforced, grills carry proof, diffs stay reviewable"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-13T17:04:02+00:00", "detail": "accountable-engineering-loop"}
+{"event": "roadmap-epic-add", "generated_by": "orchestrator", "at": "2026-08-13T17:05:19+00:00", "detail": "accountable-engineering"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-13T17:05:35+00:00", "story": "FORGE-ACC-1", "detail": "docs/specs/accountable-engineering-loop.md"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-13T17:05:35+00:00", "story": "FORGE-ACC-2", "detail": "docs/specs/accountable-engineering-loop.md"}

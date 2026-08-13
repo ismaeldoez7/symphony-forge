@@ -2,18 +2,31 @@
   "generated_by": "griller",
   "gate": "spec",
   "verdict": "pass",
+  "questions_asked": 4,
   "gaps": [
-    "Is a prompt FILE actually inert, or can its content reach a shell later in the companion?",
-    "Does admitting --prompt-file on read-only calls open a write side-channel (a hostile brief instructing Codex to write)?",
-    "Why not reuse forge delegate's brief file mechanism instead of a guard change?"
+    "A HEAD-bound grounding digest would stale every task grill on any commit, including the harness's own evidence commits and a resumed task's own work",
+    "Binding the digest to the raw plan file lets 'forge plan assume' stale every task grill in the story (recorded lesson: the assumptions ledger stales the plan it appends to)",
+    "Board had no task-level visibility although every new gate lives at task level",
+    "The 8-file/400-line default was presented as a derived p90 but matches no measurement (actual p90: 20/672 all-paths, 5/256 product-only)",
+    "The slim grill dropped the article's abstraction-justification and irreversibility/rollback proofs",
+    "Degraded-mode window behavior was unstated"
   ],
-  "contradictions": [],
+  "contradictions": [
+    "docs/FACTORY.md:129-138 requires full upfront task contracts, contradicting accepted decision 0032's JIT contract",
+    "Per-commit review suggestion contradicts decision 0011's single autoreview pass"
+  ],
   "resolutions": [
-    "The companion invokes Codex with a fixed shell-free argv and passes the file path through; content is read by the runtime as prompt data \u2014 the same trust shape delegate already relies on for its composed briefs.",
-    "No: read-only invocations run the companion sandboxed without write access; the guard change only affects how the prompt travels, not the sandbox mode \u2014 write-shaped invocations keep routing to delegate.",
-    "Delegate is stage-bound (task id, write derivation, evidence recording); rescue is the anytime read-only route with no stage \u2014 the file hand-off is the shared pattern, the lifecycles differ deliberately."
+    "Grounding digest uses a product-tree hash excluding .factory/ and plans/ \u2014 evidence and in-progress commits never stale a grill (spec Behaviour)",
+    "Plan digest computed excluding the appended Implementation Assumptions section (spec Behaviour)",
+    "Board renders in-flight story task rows (state, grill freshness, budget usage) from the same derivation forge next uses (spec Behaviour)",
+    "8/400 declared as a policy target with the measured p90s recorded alongside; lower free, higher requires written reason (spec Behaviour)",
+    "new_abstractions declare-or-empty proof with insufficiency evidence and irreversible-effects rollback notes; block decisions emit an escalation packet, never a transcript link (spec Behaviour)",
+    "Lite, quickfix, and degraded windows explicitly unchanged (spec Non-goals)",
+    "Story scope corrects docs/FACTORY.md to the 0032 skeletal-list + JIT contract (spec Behaviour and Acceptance)",
+    "Review cadence stays decision 0011; the grilled criteria_map lands as FORGE-REV-2 plan_contracts so completeness is verdicted by the existing quality review (spec Behaviour)"
   ],
-  "input_sha256": "a64d94e010fb76c8b0fd9b861b0986ee27ccb9ae105b10bee624ad55f4504f27",
-  "recorded_at": "2026-08-12T15:21:00+00:00",
-  "commit": "55016aaf5c1d56aec2101c69790c439bb5ecfc9f"
+  "open_items": [],
+  "input_sha256": "83294fa613a78b7201a10ef80151ee8ee09b7fde197ad1036b9e90d91765addd",
+  "recorded_at": "2026-08-13T17:04:02+00:00",
+  "commit": "3a63b9657c240e757ab348ca49ffcc7f4c1c2e25"
 }

@@ -704,10 +704,47 @@
         "FORGE-WIN-3"
       ],
       "spec": "docs/specs/windows-zero-setup.md"
+    },
+    {
+      "key": "FORGE-ACC-1",
+      "title": "JIT frontier is enforced, not advisory",
+      "story": "As an orchestrator, I want stage start and forge next to refuse or route around an unauthored or ungrilled frontier task so that no implementation begins before its contract exists and survived an independent grill",
+      "acceptance_criteria": [
+        "record_decomposition_from_json.py refuses execution detail (write_scope, required_tests, verify_commands) on any task after the earliest pending leaf and accepts it on the frontier task",
+        "a shared require_ready_task() makes stage start and delegate both refuse an incomplete contract or missing/stale grill; an active stage with empty write_scope refuses instead of silently degrading to read-only; explicit --read-only still passes",
+        "forge next reports author-contract / grill / stage-start / delegate as the single next action per task state",
+        "docs/FACTORY.md, WORKFLOW.md, and factory/prompts/decomposer.md state the enforced JIT contract with no upfront-contract contradiction"
+      ],
+      "order": 33,
+      "status": "pending",
+      "epic": "accountable-engineering",
+      "skill": "backend",
+      "depends_on": [],
+      "spec": "docs/specs/accountable-engineering-loop.md"
+    },
+    {
+      "key": "FORGE-ACC-2",
+      "title": "Grills carry proof, diffs stay reviewable",
+      "story": "As an orchestrator, I want task grills to require repository-grounded proofs bound to an internally derived digest, and stage done to refuse over-budget diffs, so that empty rubber-stamp grills and unreviewable changes stop being representable",
+      "acceptance_criteria": [
+        "a task grill missing inspected_refs (existing paths), current_flow, a total criteria_map, a keep/split/block decision, or the declare-or-empty new_abstractions field is refused; pass with split/block refused; block without an escalation packet refused",
+        "the recorder derives the grill digest from the full task contract, the approved-plan digest excluding appended assumptions, and a product-tree hash excluding .factory/ and plans/; caller-supplied --task-digest is removed; contract, plan, and product-tree changes stale the grill while .factory/ and plans/ commits do not",
+        "the frontier task's criteria_map lands as plan_contracts so the existing FORGE-REV-2 quality review verdicts each criterion",
+        "stage done refuses a diff over the task's review budget (default 8 files / 400 lines excluding .factory/ and plans/; lower free, higher needs a written reason) and the composed brief states the budget",
+        "the board renders the in-flight story's task rows (state, grill freshness, budget usage) from the same derivation forge next uses"
+      ],
+      "order": 34,
+      "status": "pending",
+      "epic": "accountable-engineering",
+      "skill": "backend",
+      "depends_on": [
+        "FORGE-ACC-1"
+      ],
+      "spec": "docs/specs/accountable-engineering-loop.md"
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-13T13:40:56+00:00",
+  "updated_at": "2026-08-13T17:05:35+00:00",
   "epics": [
     {
       "id": "symphony-forge",
@@ -763,6 +800,14 @@
       "objective": "Bind review to the plan: tasks declare plan contracts, review verdicts each one with evidence, and pr-ready refuses until every contract is verified implemented.",
       "source_refs": [
         "docs/specs/plan-contract-review.md"
+      ]
+    },
+    {
+      "id": "accountable-engineering",
+      "title": "Accountable engineering loop",
+      "objective": "Enforce decision 0032 end to end: JIT frontier contracts gated at stage start, evidence-backed independent task grills, internally derived grounding digests, bounded reviewable diffs, and task-level board visibility \u2014 agents do the heavy lifting, humans decide only authority questions.",
+      "source_refs": [
+        "docs/specs/accountable-engineering-loop.md"
       ]
     }
   ]
