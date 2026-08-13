@@ -731,3 +731,5 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
         print(f"Project-owned files still referencing .agents/: none{caveat}")
     print("Next: review with `git diff`, run `python3 factory/scripts/check_dual_runtime.py` "
           "and the gate tests, then commit.")
+    from .scaffold import remediate_windows_hook_entry
+    remediate_windows_hook_entry(target)

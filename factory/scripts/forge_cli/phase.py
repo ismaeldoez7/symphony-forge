@@ -39,7 +39,7 @@ def cmd_next(args: argparse.Namespace) -> None:
     hooks_ok, hook_detail = fast_hook_status(base)
     if not hooks_ok:
         steps.append(
-            f"[dev] Hook launcher is broken ({hook_detail}) — run `./forge doctor` first"
+            f"[dev] Hook launcher is broken ({hook_detail}) — run `./forge doctor --fix` first"
         )
 
     open_sigs = open_signals(base)

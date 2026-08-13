@@ -90,7 +90,19 @@ jobs:
           factory/tests/test_gates.py::test_registered_hook_command_fails_closed_when_cmd_cannot_spawn_sh
           factory/tests/test_gates.py::test_registered_hook_path_keeps_recorder_and_lockout_armed
           factory/tests/test_gates.py::test_forge_cmd_routes_git_bash_then_python_fallbacks
+          factory/tests/test_gates.py::test_forge_cmd_probes_python3_as_final_fallback
+          factory/tests/test_gates.py::test_forge_cmd_bootstrap_runs_once_and_persists_path
+          factory/tests/test_gates.py::test_forge_cmd_bootstrap_refuses_winget_when_elevated
+          factory/tests/test_gates.py::test_forge_cmd_bootstrap_converges_on_already_installed
           factory/tests/test_gates.py::test_windows_autocrlf_checkout_preserves_forge_launcher
+          factory/tests/test_gates.py::test_fast_status_python_requires_path_resolvable_interpreter
+          factory/tests/test_gates.py::test_doctor_fix_refuses_user_alias_when_elevated
+          factory/tests/test_gates.py::test_doctor_fix_reports_installed_but_not_found
+          factory/tests/test_gates.py::test_doctor_fix_reports_winget_absent_as_named_red_row
+          factory/tests/test_gates.py::test_doctor_fix_winget_absent_converges_green_when_tools_present
+          factory/tests/test_gates.py::test_doctor_fix_nonzero_already_installed_converges_after_refresh
+          factory/tests/test_gates.py::test_doctor_fix_windows_refreshes_native_git_under_wow64
+          factory/tests/test_gates.py::test_doctor_python_row_probes_working_windows_store_alias
           factory/tests/test_gates.py::test_companion_guard_admits_read_only_and_refuses_write_shapes
           factory/tests/test_gates.py::test_lockout_denies_product_write_under_approved_plan
           factory/tests/test_gates.py::test_degraded_window_allows_and_ledgers_product_write -q

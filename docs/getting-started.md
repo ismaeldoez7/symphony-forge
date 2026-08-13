@@ -73,7 +73,10 @@ Say: **"Set up my machine for KnackLabs projects."**
 `--fix` auto-installs everything installable (Codex CLI via npm,
 codex-plugin-cc and ponytail via the `claude plugin` CLI, gstack and
 autoreview from their GitHub repos, mattpocock/skills, emilkowalski/skills,
-and Anthropic's frontend-design via the `skills` CLI).
+and Anthropic's frontend-design via the `skills` CLI). On Windows it also
+installs Git for Windows and Python 3.10+ through winget in user scope; Forge
+does not elevate itself, though an installer may show its own Windows prompt.
+See [Windows support](windows.md) for the native flow and WSL2 escape hatch.
 Only logins (`codex login`) stay manual.
 Re-run until it says `ready`.
 

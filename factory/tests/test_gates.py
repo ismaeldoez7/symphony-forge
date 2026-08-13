@@ -2657,7 +2657,11 @@ def test_forge_cmd_routes_git_bash_then_python_fallbacks(tmp_path):
     assert shim.index('set "PYTHONUTF8=1"') < shim.index("py -3")
     assert launcher.index("export PYTHONUTF8=1") < launcher.index("py -3")
     assert shim.index("CLAUDE_CODE_GIT_BASH_PATH") < shim.index("where sh")
-    assert shim.index("where sh") < shim.index("where py") < shim.index("where python")
+    assert (
+        shim.index("where py") < shim.index("where python")
+        < shim.index("where python3") < shim.index("CLAUDE_CODE_GIT_BASH_PATH")
+        < shim.index("where sh")
+    )
     assert "%ProgramFiles%\\Git\\usr\\bin\\sh.exe" in shim
     assert "%LOCALAPPDATA%\\Programs\\Git\\usr\\bin\\sh.exe" in shim
     assert "call" not in shim.lower()
@@ -2670,18 +2674,21 @@ def test_forge_cmd_routes_git_bash_then_python_fallbacks(tmp_path):
     ) in shim
     assert 'py -3 "%~dp0factory\\scripts\\forge.py" %*' in shim
     assert 'python "%~dp0factory\\scripts\\forge.py" %*' in shim
-    assert shim.count("sys.version_info >= (3, 10)") == 2
+    assert 'python3 "%~dp0factory\\scripts\\forge.py" %*' in shim
+    assert shim.count("sys.version_info >= (3, 10)") == 3
     assert (
-        'py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= '
+        'cmd /d /c py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= '
         '(3, 10) else 1)" >nul 2>nul\n'
         'if errorlevel 1 goto python_fallback\n'
-        'py -3 "%~dp0factory\\scripts\\forge.py" %*'
+        'set "FORGE_PYTHON=py"\n'
+        'goto discover_shell'
     ) in shim
     assert (
-        'python -c "import sys; raise SystemExit(0 if sys.version_info >= '
+        'cmd /d /c python -c "import sys; raise SystemExit(0 if sys.version_info >= '
         '(3, 10) else 1)" >nul 2>nul\n'
-        'if errorlevel 1 goto missing\n'
-        'python "%~dp0factory\\scripts\\forge.py" %*'
+        'if errorlevel 1 goto python3_fallback\n'
+        'set "FORGE_PYTHON=python"\n'
+        'goto discover_shell'
     ) in shim
     assert "exit /b 2" in shim
 
@@ -2696,10 +2703,17 @@ def test_forge_cmd_routes_git_bash_then_python_fallbacks(tmp_path):
             b"if [ \"$1\" = \"--help\" ]; then printf 'OVERRIDE\\n'; exit 0; fi\n"
             b"exit 9\n"
         )
+        launcher_bin = tmp_path / "launcher-bin"
+        launcher_bin.mkdir()
+        (launcher_bin / "python.cmd").write_text(
+            '@echo off\n'
+            'if "%~1"=="-c" exit /b 0\n'
+            'echo PYTHON\n'
+            'exit /b 0\n'
+        )
+        system_root = Path(os.environ["SystemRoot"])
         path_without_sh = os.pathsep.join(
-            entry
-            for entry in os.environ["PATH"].split(os.pathsep)
-            if shutil.which("sh", path=entry) is None
+            [str(launcher_bin), str(system_root / "System32")]
         )
         assert shutil.which("sh", path=path_without_sh) is None
         isolated_env = {
@@ -2793,7 +2807,7 @@ def test_forge_cmd_routes_git_bash_then_python_fallbacks(tmp_path):
             capture_output=True,
             text=True,
             env={
-                **os.environ,
+                **isolated_env,
                 "FORGE_LITERAL": "%FORGE_LITERAL_PERCENT%",
                 "FORGE_LITERAL_PERCENT": "expanded",
             },
@@ -2808,8 +2822,320 @@ def test_forge_cmd_routes_git_bash_then_python_fallbacks(tmp_path):
             cwd=HARNESS,
             capture_output=True,
             text=True,
+            env={
+                **isolated_env,
+                "CLAUDE_CODE_GIT_BASH_PATH": executable_shell,
+            },
         )
         assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_forge_cmd_probes_python3_as_final_fallback(tmp_path):
+    shim = (HARNESS / "forge.cmd").read_text()
+
+    assert shim.index(":python_fallback") < shim.index(":python3_fallback")
+    assert shim.index(":python3_fallback") < shim.index(":bootstrap")
+    assert (
+        ':python3_fallback\n'
+        'where python3 >nul 2>nul\n'
+        'if errorlevel 1 goto bootstrap\n'
+        'cmd /d /c python3 -c "import sys; raise SystemExit(0 if sys.version_info >= '
+        '(3, 10) else 1)" >nul 2>nul\n'
+        'if errorlevel 1 goto bootstrap\n'
+        'set "FORGE_PYTHON=python3"\n'
+        'goto discover_shell'
+    ) in shim
+    assert 'if defined FORGE_PYTHON_BOOTSTRAP_ATTEMPTED goto missing' in shim
+    assert 'Python.Python.3.14 --exact --scope user --source winget' in shim
+    assert "Start-Process" not in shim
+    assert "RunAs" not in shim
+    assert '"%~f0" %*' in shim
+    assert (
+        'cmd /d /c "set "FORGE_PYTHON_BOOTSTRAP_ATTEMPTED=1" & "%~f0" %*"\n'
+        'exit /b %errorlevel%'
+    ) in shim
+    assert "https://www.python.org/downloads/windows/" in shim
+
+    if os.name == "nt":
+        executable_shell = shutil.which("sh")
+        assert executable_shell and Path(executable_shell).suffix.lower() == ".exe"
+        bootstrap_case = tmp_path / "bootstrap-before-shell"
+        bootstrap_case.mkdir()
+        shutil.copy2(HARNESS / "forge.cmd", bootstrap_case / "forge.cmd")
+        (bootstrap_case / "forge").write_bytes(
+            b"#!/bin/sh\nprintf 'EARLY_SHELL\\n'\nexit 0\n"
+        )
+        for command in ("py", "python", "python3"):
+            (bootstrap_case / f"{command}.cmd").write_text("@exit /b 1\n")
+
+        result = subprocess.run(
+            ["cmd", "/d", "/c", str(bootstrap_case / "forge.cmd"), "status"],
+            cwd=bootstrap_case,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                "PATH": os.pathsep.join(
+                    [
+                        str(bootstrap_case),
+                        str(Path(os.environ["SystemRoot"]) / "System32"),
+                    ]
+                ),
+                "CLAUDE_CODE_GIT_BASH_PATH": executable_shell,
+                "FORGE_PYTHON_BOOTSTRAP_ATTEMPTED": "1",
+            },
+        )
+        assert result.returncode == 2, result.stdout + result.stderr
+        assert "EARLY_SHELL" not in result.stdout
+        assert "https://www.python.org/downloads/windows/" in result.stderr
+
+
+def test_forge_cmd_bootstrap_runs_once_and_persists_path():
+    shim = (HARNESS / "forge.cmd").read_text()
+    refreshed_path = (
+        'set "PATH=%FORGE_LOCAL_APP_DATA%\\Programs\\Python\\Python314;'
+        '%FORGE_LOCAL_APP_DATA%\\Programs\\Python\\Launcher;'
+        '%FORGE_LOCAL_APP_DATA%\\Microsoft\\WindowsApps;%PATH%"'
+    )
+    restart = (
+        'cmd /d /c "set "FORGE_PYTHON_BOOTSTRAP_ATTEMPTED=1" & "%~f0" %*"'
+    )
+
+    assert shim.count('set "FORGE_PYTHON_BOOTSTRAP_ATTEMPTED=1"') == 1
+    assert "endlocal & set" not in shim
+    assert refreshed_path in shim
+    assert restart in shim
+    assert shim.index(refreshed_path) < shim.index(restart)
+    assert shim.index(restart) < shim.index("exit /b %errorlevel%", shim.index(restart))
+
+
+def test_forge_cmd_bootstrap_refuses_winget_when_elevated(tmp_path):
+    shim = (HARNESS / "forge.cmd").read_text()
+    whoami_probe = (
+        '"%SystemRoot%\\System32\\whoami.exe" /groups >nul 2>&1'
+    )
+    medium_integrity_probe = (
+        '"%SystemRoot%\\System32\\whoami.exe" /groups | '
+        '"%SystemRoot%\\System32\\findstr.exe" /c:"S-1-16-8192" >nul 2>&1'
+    )
+    bootstrap_index = shim.index(":bootstrap")
+    whoami_index = shim.index(whoami_probe, bootstrap_index)
+    medium_integrity_index = shim.index(medium_integrity_probe, whoami_index)
+    local_app_data_index = shim.index(
+        'set "FORGE_LOCAL_APP_DATA="', medium_integrity_index,
+    )
+    winget_index = shim.index('"%FORGE_WINGET%" install', local_app_data_index)
+
+    whoami_guard_index = shim.index("if errorlevel 1 goto missing", whoami_index)
+    integrity_guard_index = shim.index(
+        "if errorlevel 1 goto missing", medium_integrity_index,
+    )
+    assert (
+        whoami_index < whoami_guard_index < medium_integrity_index
+        < integrity_guard_index < local_app_data_index < winget_index
+    )
+    assert "normal (unelevated) prompt" in shim
+
+    if os.name == "nt":
+        bootstrap_case = tmp_path / "elevated-bootstrap"
+        initial_bin = bootstrap_case / "initial-bin"
+        local_app_data = bootstrap_case / "LocalAppData"
+        windows_apps = local_app_data / "Microsoft" / "WindowsApps"
+        initial_bin.mkdir(parents=True)
+        windows_apps.mkdir(parents=True)
+        (windows_apps / "winget.exe").touch()
+        for command in ("py", "python", "python3"):
+            (initial_bin / f"{command}.cmd").write_text("@exit /b 1\n")
+
+        sentinel = bootstrap_case / "winget-ran"
+        known_folder_probe = re.compile(
+            r'set "FORGE_LOCAL_APP_DATA="\nfor /f .*?\n'
+            r'if not defined FORGE_LOCAL_APP_DATA goto missing'
+        )
+        test_shim, replacements = known_folder_probe.subn(
+            lambda _match: (
+                f'set "FORGE_LOCAL_APP_DATA={local_app_data}"\n'
+                'if not defined FORGE_LOCAL_APP_DATA goto missing'
+            ),
+            shim,
+            count=1,
+        )
+        assert replacements == 1
+        test_shim = test_shim.replace(
+            '"%FORGE_WINGET%" install --id Python.Python.3.14 --exact '
+            '--scope user --source winget --silent --accept-package-agreements '
+            '--accept-source-agreements',
+            f'echo WINGET_RAN>"{sentinel}"',
+            1,
+        )
+        system_root = Path(os.environ["SystemRoot"])
+        test_env = {
+            **os.environ,
+            "PATH": os.pathsep.join([str(initial_bin), str(system_root / "System32")]),
+            "LOCALAPPDATA": str(local_app_data),
+        }
+
+        for case_name, probe, replacement in (
+            ("elevated", medium_integrity_probe, "cmd /d /c exit /b 1"),
+            ("whoami-failure", whoami_probe, "cmd /d /c exit /b 1"),
+            ("findstr-failure", medium_integrity_probe, "cmd /d /c exit /b 1"),
+        ):
+            launcher = bootstrap_case / f"forge-{case_name}.cmd"
+            launcher.write_text(test_shim.replace(probe, replacement, 1))
+            result = subprocess.run(
+                ["cmd", "/d", "/c", str(launcher), "status"],
+                cwd=bootstrap_case,
+                capture_output=True,
+                text=True,
+                env=test_env,
+            )
+
+            assert result.returncode == 2, result.stdout + result.stderr
+            assert "normal (unelevated) prompt" in result.stderr
+            assert not sentinel.exists()
+
+
+def test_forge_cmd_bootstrap_converges_on_already_installed(tmp_path):
+    shim = (HARNESS / "forge.cmd").read_text()
+    winget_install = (
+        '"%FORGE_WINGET%" install --id Python.Python.3.14 --exact --scope user'
+    )
+    refreshed_path = 'set "PATH=%FORGE_LOCAL_APP_DATA%\\Programs\\Python\\Python314;'
+    restart = 'cmd /d /c "set "FORGE_PYTHON_BOOTSTRAP_ATTEMPTED=1"'
+    install_index = shim.index(winget_install)
+    refresh_index = shim.index(refreshed_path, install_index)
+    restart_index = shim.index(restart, refresh_index)
+
+    assert "if errorlevel 1 goto missing" not in shim[install_index:refresh_index]
+    assert install_index < refresh_index < restart_index
+
+    if os.name == "nt":
+        bootstrap_case = tmp_path / "already-installed"
+        local_app_data = bootstrap_case / "LocalAppData"
+        initial_bin = bootstrap_case / "initial-bin"
+        python_dir = local_app_data / "Programs" / "Python" / "Python314"
+        windows_apps = local_app_data / "Microsoft" / "WindowsApps"
+        initial_bin.mkdir(parents=True)
+        python_dir.mkdir(parents=True)
+        windows_apps.mkdir(parents=True)
+        winget = windows_apps / "winget.exe"
+        where_executable = shutil.which("where")
+        assert where_executable
+        shutil.copy2(where_executable, winget)
+        for command in ("py", "python", "python3"):
+            (initial_bin / f"{command}.cmd").write_text("@exit /b 1\n")
+        (python_dir / "python.cmd").write_text(
+            '@echo off\n'
+            'if "%~1"=="-c" exit /b 0\n'
+            'echo BOOTSTRAP_CONVERGED\n'
+            'exit /b 0\n'
+        )
+        known_folder_probe = re.compile(
+            r'set "FORGE_LOCAL_APP_DATA="\nfor /f .*?\n'
+            r'if not defined FORGE_LOCAL_APP_DATA goto missing'
+        )
+        replacement = (
+            f'set "FORGE_LOCAL_APP_DATA={local_app_data}"\n'
+            'if not defined FORGE_LOCAL_APP_DATA goto missing'
+        )
+        test_shim, replacements = known_folder_probe.subn(
+            lambda _match: replacement,
+            shim,
+            count=1,
+        )
+        assert replacements == 1
+        elevation_guard = re.compile(
+            r'if not exist "%SystemRoot%\\System32\\whoami\.exe" goto missing\n'
+            r'if not exist "%SystemRoot%\\System32\\findstr\.exe" goto missing\n'
+            r'"%SystemRoot%\\System32\\whoami\.exe" /groups >nul 2>&1\n'
+            r'if errorlevel 1 goto missing\n'
+            r'"%SystemRoot%\\System32\\whoami\.exe" /groups \| '
+            r'"%SystemRoot%\\System32\\findstr\.exe" /c:"S-1-16-8192" '
+            r'>nul 2>&1\n'
+            r'if errorlevel 1 goto missing'
+        )
+        test_shim, replacements = elevation_guard.subn(
+            "rem Test shim isolates bootstrap convergence from elevation policy",
+            test_shim,
+            count=1,
+        )
+        assert replacements == 1
+        (bootstrap_case / "forge.cmd").write_text(test_shim)
+
+        system_root = Path(os.environ["SystemRoot"])
+        initial_path = os.pathsep.join([str(initial_bin), str(system_root / "System32")])
+        winget_result = subprocess.run(
+            [str(winget), "install", "--id", "Python.Python.3.14"],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PATH": initial_path},
+        )
+        assert winget_result.returncode != 0
+        result = subprocess.run(
+            ["cmd", "/d", "/c", str(bootstrap_case / "forge.cmd"), "status"],
+            cwd=bootstrap_case,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                "PATH": initial_path,
+                "LOCALAPPDATA": str(local_app_data),
+                "ProgramFiles": str(bootstrap_case / "ProgramFiles"),
+                "ProgramFiles(x86)": str(bootstrap_case / "ProgramFiles-x86"),
+                "CLAUDE_CODE_GIT_BASH_PATH": str(bootstrap_case / "missing.exe"),
+            },
+        )
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "BOOTSTRAP_CONVERGED" in result.stdout
+
+
+def test_init_and_upgrade_invoke_windows_remediation_when_hooks_red(
+    tmp_path, monkeypatch, capsys,
+):
+    from forge_cli import doctor, scaffold
+
+    statuses = iter(((False, "sh is not on PATH"), (False, "sh is not on PATH")))
+    remediations = []
+    monkeypatch.setattr(doctor, "_platform_name", lambda: "windows")
+    monkeypatch.setattr(doctor, "fast_hook_status", lambda _target: next(statuses))
+    monkeypatch.setattr(doctor, "_existing_hook_shell", lambda _env: None)
+    monkeypatch.setattr(doctor, "_python_status", lambda: (False, "missing"))
+    monkeypatch.setattr(
+        doctor,
+        "_remediate_windows_prerequisites",
+        lambda **kwargs: remediations.append(kwargs),
+    )
+
+    scaffold.remediate_windows_hook_entry(tmp_path)
+
+    assert remediations == [{"install_git": True, "install_python": True}]
+    output = capsys.readouterr().out
+    assert "[RED] Windows hook check" in output
+    assert doctor.HOOK_SHELL_FIX in output
+
+    monkeypatch.setattr(doctor, "_platform_name", lambda: "linux")
+    monkeypatch.setattr(
+        doctor,
+        "fast_hook_status",
+        lambda _target: (_ for _ in ()).throw(
+            AssertionError("POSIX flow must not run the Windows hook check")
+        ),
+    )
+    scaffold.remediate_windows_hook_entry(tmp_path)
+    assert capsys.readouterr().out == ""
+
+    for relative in (
+        "factory/scripts/forge_cli/scaffold.py",
+        "factory/scripts/forge_cli/adopt.py",
+        "factory/scripts/forge_cli/upgrade.py",
+    ):
+        source = (HARNESS / relative).read_text()
+        assert "remediate_windows_hook_entry(target)" in source
+
+    upgrade_source = (HARNESS / "factory/scripts/forge_cli/upgrade.py").read_text()
+    assert upgrade_source.rindex("remediate_windows_hook_entry(target)") \
+        > upgrade_source.rindex("write_manifest(target, commit)")
 
 
 def test_windows_autocrlf_checkout_preserves_forge_launcher(tmp_path):
@@ -2923,6 +3249,520 @@ def test_doctor_falls_through_an_unrunnable_configured_shell(tmp_path):
     assert doctor._runnable_hook_shell(env) == str(path_sh)
 
 
+def test_doctor_fix_windows_batches_all_elevation_into_single_confirm(tmp_path, monkeypatch):
+    from forge_cli import doctor
+
+    invocations = []
+    run_kwargs = []
+    refreshes = []
+    reprobes = []
+    local_app_data = tmp_path / "CanonicalLocalAppData"
+    windows_apps = local_app_data / "Microsoft" / "WindowsApps"
+    windows_apps.mkdir(parents=True)
+    winget_path = windows_apps / "winget.exe"
+    winget_path.write_text("trusted alias")
+    user_winget = str(winget_path)
+
+    def fake_run(argv, **kwargs):
+        invocations.append(argv)
+        run_kwargs.append(kwargs)
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "PoisonedLocalAppData"))
+    monkeypatch.setenv("ProgramFiles", str(tmp_path / "PoisonedProgramFiles"))
+    monkeypatch.setenv("PATH", str(tmp_path / "PoisonedPath"))
+    monkeypatch.setattr(
+        doctor, "_windows_known_folder",
+        lambda folder_id: local_app_data if folder_id == doctor.WINDOWS_LOCAL_APP_DATA else None,
+    )
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
+    monkeypatch.setattr(doctor.subprocess, "run", fake_run)
+    monkeypatch.setattr(doctor, "_refresh_windows_path", lambda: refreshes.append(True))
+    monkeypatch.setattr(
+        doctor.shutil, "which",
+        lambda name: reprobes.append(name) or f"/tools/{name}",
+    )
+    monkeypatch.setattr(
+        doctor, "_python_check",
+        lambda: reprobes.append("python >= 3.10") or {"ok": True},
+    )
+
+    assert doctor._remediate_windows_prerequisites(
+        install_git=True, install_python=True,
+    ) == []
+
+    assert len(invocations) == 2
+    assert all(kwargs["timeout"] == doctor.WINDOWS_INSTALL_TIMEOUT for kwargs in run_kwargs)
+    assert [argv[argv.index("--id") + 1] for argv in invocations] == [
+        doctor.WINDOWS_GIT_PACKAGE, doctor.WINDOWS_PYTHON_PACKAGE,
+    ]
+    for argv in invocations:
+        assert argv[0] == user_winget
+        assert argv[argv.index("--scope") + 1] == "user"
+        assert argv[argv.index("--source") + 1] == "winget"
+        assert "--silent" in argv
+        assert "--accept-package-agreements" in argv
+        assert "--accept-source-agreements" in argv
+        assert "Poisoned" not in " ".join(argv)
+        assert all("Start-Process" not in arg and "RunAs" not in arg for arg in argv)
+    assert refreshes == [True]
+    assert reprobes == ["git", "python >= 3.10"]
+
+
+def test_doctor_fix_refuses_user_alias_when_elevated(monkeypatch):
+    from forge_cli import doctor
+
+    invocations = []
+    refreshes = []
+    reprobes = []
+
+    monkeypatch.setattr(
+        doctor, "_trusted_user_winget_path",
+        lambda: (_ for _ in ()).throw(
+            AssertionError("elevated remediation must stop before resolving winget")
+        ),
+    )
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: True)
+    monkeypatch.setattr(
+        doctor.subprocess, "run",
+        lambda argv, **_kwargs: invocations.append(argv),
+    )
+    monkeypatch.setattr(
+        doctor, "_refresh_windows_path", lambda: refreshes.append(True),
+    )
+    monkeypatch.setattr(
+        doctor.shutil, "which", lambda name: reprobes.append(name),
+    )
+    monkeypatch.setattr(
+        doctor, "_python_check",
+        lambda: reprobes.append("python >= 3.10") or {"ok": True},
+    )
+
+    rows = doctor._remediate_windows_prerequisites(
+        install_git=True, install_python=True,
+    )
+
+    assert invocations == []
+    assert refreshes == []
+    assert reprobes == []
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["name"] == "elevated Windows prerequisite remediation"
+    assert row["required"] and not row["ok"]
+    assert "per-user install paths are user-writable" in row["detail"]
+    assert "normal (unelevated) prompt" in row["fix"]
+    assert doctor.WINDOWS_GIT_INSTALLER_URL in row["fix"]
+    assert doctor.WINDOWS_PYTHON_INSTALLER_URL in row["fix"]
+
+
+def test_fast_status_python_requires_path_resolvable_interpreter(
+    tmp_path, monkeypatch, capsys,
+):
+    from forge_cli import doctor
+
+    subprocess_run = doctor.subprocess.run
+    monkeypatch.setattr(
+        doctor.subprocess, "run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("fast_status must not spawn a subprocess")
+        ),
+    )
+    monkeypatch.setattr(doctor.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(doctor.sys, "version_info", (3, 9, 18))
+    required_missing, _ = doctor.fast_status(tmp_path)
+
+    assert "python >= 3.10" in required_missing
+
+    monkeypatch.setattr(doctor.sys, "version_info", (3, 10, 0))
+    assert "python >= 3.10" not in doctor.fast_status(tmp_path)[0]
+
+    monkeypatch.setattr(doctor.sys, "version_info", (3, 9, 18))
+    for candidate in ("py", "python3", "python"):
+        monkeypatch.setattr(
+            doctor.shutil, "which",
+            lambda name, candidate=candidate: (
+                f"/tools/{candidate}" if name == candidate else None
+            ),
+        )
+        assert "python >= 3.10" not in doctor.fast_status(tmp_path)[0]
+
+    monkeypatch.setattr(doctor, "_python_status", lambda: (False, "Python 3.9.18"))
+    row = doctor._python_check()
+    assert row["name"] == "python >= 3.10"
+    assert row["required"] and not row["ok"]
+
+    for path in (
+        doctor._codex_plugin_dir(tmp_path), doctor._gstack_dir(tmp_path),
+        doctor._autoreview_dir(tmp_path),
+    ):
+        path.mkdir(parents=True)
+    monkeypatch.setattr(doctor.subprocess, "run", subprocess_run)
+    monkeypatch.setattr(doctor.Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(doctor, "repo_root", lambda: (_ for _ in ()).throw(FileNotFoundError()))
+    monkeypatch.setattr(doctor.shutil, "which", lambda name: f"/tools/{name}")
+    monkeypatch.setattr(doctor, "_has_direnv_hook", lambda _home: True)
+    monkeypatch.setattr(doctor, "_merge_check_status", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        doctor, "run_quiet",
+        lambda argv, **_kwargs: (
+            (0, "v20.0.0") if argv[-1] == "--version" and "node" in argv[0]
+            else (0, "codex-cli 0.144.0") if argv[-1] == "--version"
+            else (0, "logged in")
+        ),
+    )
+
+    with pytest.raises(SystemExit):
+        doctor.cmd_doctor(argparse.Namespace(fast=False, fix=False, repo=None))
+    output = capsys.readouterr().out
+    assert "[MISS] python >= 3.10" in output
+    assert "python >= 3.10" in required_missing
+
+
+def test_doctor_python_row_probes_working_windows_store_alias(tmp_path, monkeypatch):
+    from forge_cli import doctor
+
+    windows_apps = tmp_path / "WindowsApps"
+    windows_apps.mkdir()
+    alias = windows_apps / "python.exe"
+    alias.touch()
+    monkeypatch.setattr(doctor, "_platform_name", lambda: "windows")
+    monkeypatch.setattr(
+        doctor.shutil, "which",
+        lambda name: str(alias) if name == "python" else None,
+    )
+    monkeypatch.setattr(
+        doctor.subprocess, "run",
+        lambda argv, **_kwargs: subprocess.CompletedProcess(
+            argv, 0, "Python 3.14.7\n", "",
+        ),
+    )
+
+    assert doctor._python_candidates() == [(str(alias), ())]
+    assert doctor._python_status() == (True, f"{alias}: Python 3.14.7")
+
+    monkeypatch.setattr(
+        doctor.subprocess, "run",
+        lambda argv, **_kwargs: subprocess.CompletedProcess(
+            argv, 1, "", "Python was not found",
+        ),
+    )
+    ok, detail = doctor._python_status()
+    assert not ok
+    assert "Python was not found" in detail
+
+
+def test_doctor_fix_reports_winget_absent_as_named_red_row(monkeypatch):
+    from forge_cli import doctor
+
+    refreshes = []
+    reprobes = []
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
+    monkeypatch.setattr(doctor, "_windows_known_folder", lambda _folder_id: None)
+    monkeypatch.setattr(doctor, "_refresh_windows_path", lambda: refreshes.append(True))
+    monkeypatch.setattr(
+        doctor.shutil, "which", lambda name: reprobes.append(name),
+    )
+    monkeypatch.setattr(
+        doctor, "_python_check",
+        lambda: reprobes.append("python >= 3.10") or {"ok": False},
+    )
+    rows = doctor._remediate_windows_prerequisites(
+        install_git=True, install_python=True,
+    )
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["name"] == "winget for Windows prerequisites"
+    assert row["required"] and not row["ok"]
+    assert "https://git-scm.com/download/win" in row["detail"]
+    assert "https://www.python.org/downloads/windows/" in row["detail"]
+    assert refreshes == [True]
+    assert reprobes == ["git", "python >= 3.10"]
+
+
+def test_doctor_fix_winget_absent_converges_green_when_tools_present(
+    monkeypatch,
+):
+    from forge_cli import doctor
+
+    refreshes = []
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
+    monkeypatch.setattr(doctor, "_trusted_user_winget_path", lambda: None)
+    monkeypatch.setattr(doctor, "_refresh_windows_path", lambda: refreshes.append(True))
+    monkeypatch.setattr(
+        doctor.shutil, "which", lambda name: "/tools/git" if name == "git" else None,
+    )
+    monkeypatch.setattr(doctor, "_python_check", lambda: {"ok": True})
+
+    rows = doctor._remediate_windows_prerequisites(
+        install_git=True, install_python=True,
+    )
+
+    assert rows == []
+    assert refreshes == [True]
+
+
+def test_doctor_fix_windows_partial_install_refreshes_and_reprobes(tmp_path, monkeypatch):
+    from forge_cli import doctor
+
+    invocations = []
+    refreshes = []
+    reprobes = []
+    local_app_data = tmp_path / "LocalAppData"
+    windows_apps = local_app_data / "Microsoft" / "WindowsApps"
+    windows_apps.mkdir(parents=True)
+    winget = windows_apps / "winget.exe"
+    winget.write_text("trusted alias")
+
+    def fake_run(argv, **kwargs):
+        invocations.append(argv)
+        return subprocess.CompletedProcess(
+            argv, 1 if doctor.WINDOWS_GIT_PACKAGE in argv else 0,
+            "", "installer elevation declined" if doctor.WINDOWS_GIT_PACKAGE in argv else "",
+        )
+
+    monkeypatch.setattr(
+        doctor, "_windows_known_folder",
+        lambda folder_id: local_app_data if folder_id == doctor.WINDOWS_LOCAL_APP_DATA else None,
+    )
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
+    monkeypatch.setattr(doctor.subprocess, "run", fake_run)
+    monkeypatch.setattr(doctor, "_refresh_windows_path", lambda: refreshes.append(True))
+    monkeypatch.setattr(
+        doctor.shutil, "which", lambda name: reprobes.append(name),
+    )
+    monkeypatch.setattr(
+        doctor, "_python_check",
+        lambda: reprobes.append("python >= 3.10") or {"ok": True},
+    )
+
+    rows = doctor._remediate_windows_prerequisites(
+        install_git=True, install_python=True,
+    )
+
+    assert [argv[argv.index("--id") + 1] for argv in invocations] == [
+        doctor.WINDOWS_GIT_PACKAGE, doctor.WINDOWS_PYTHON_PACKAGE,
+    ]
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Git for Windows user-scope install"
+    assert rows[0]["required"] and not rows[0]["ok"]
+    assert "installer elevation declined" in rows[0]["detail"]
+    assert doctor.WINDOWS_GIT_INSTALLER_URL in rows[0]["detail"]
+    assert refreshes == [True]
+    assert reprobes == ["git", "python >= 3.10"]
+
+
+def test_doctor_fix_reports_installed_but_not_found(tmp_path, monkeypatch):
+    from forge_cli import doctor
+
+    local_app_data = tmp_path / "CanonicalLocalAppData"
+    alias = local_app_data / "Microsoft" / "WindowsApps" / "winget.exe"
+    alias.parent.mkdir(parents=True)
+    alias.write_text("trusted alias")
+    refreshes = []
+
+    monkeypatch.setattr(
+        doctor, "_windows_known_folder",
+        lambda folder_id: (
+            local_app_data if folder_id == doctor.WINDOWS_LOCAL_APP_DATA else None
+        ),
+    )
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
+    monkeypatch.setattr(
+        doctor.subprocess, "run",
+        lambda argv, **_kwargs: subprocess.CompletedProcess(argv, 0, "", ""),
+    )
+    monkeypatch.setattr(
+        doctor, "_refresh_windows_path", lambda: refreshes.append(True),
+    )
+    monkeypatch.setattr(doctor.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(doctor, "_python_check", lambda: {"ok": False})
+
+    rows = doctor._remediate_windows_prerequisites(
+        install_git=True, install_python=True,
+    )
+
+    assert [row["name"] for row in rows] == [
+        "Git for Windows installed but not found",
+        "Python 3.14 installed but not found",
+    ]
+    assert all(row["required"] and not row["ok"] for row in rows)
+    assert all("winget exited successfully" in row["detail"] for row in rows)
+    assert all("after refreshing PATH" in row["detail"] for row in rows)
+    assert doctor.WINDOWS_GIT_INSTALLER_URL in rows[0]["fix"]
+    assert doctor.WINDOWS_PYTHON_INSTALLER_URL in rows[1]["fix"]
+    assert refreshes == [True]
+
+
+def test_doctor_fix_rejects_untrusted_winget_path(tmp_path, monkeypatch):
+    from forge_cli import doctor
+
+    untrusted = tmp_path / "winget.exe"
+    untrusted.write_text("PATH hijack")
+    canonical_local = tmp_path / "CanonicalLocalAppData"
+    windows_apps = canonical_local / "Microsoft" / "WindowsApps"
+    windows_apps.mkdir(parents=True)
+    (windows_apps / "winget.exe").symlink_to(untrusted)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "LocalAppData"))
+    monkeypatch.setenv("ProgramFiles", str(tmp_path / "ProgramFiles"))
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
+    monkeypatch.setattr(doctor.shutil, "which", lambda name: str(untrusted) if name == "winget" else None)
+    monkeypatch.setattr(
+        doctor, "_windows_known_folder",
+        lambda folder_id: canonical_local if folder_id == doctor.WINDOWS_LOCAL_APP_DATA else None,
+    )
+
+    rows = doctor._remediate_windows_prerequisites(
+        install_git=True, install_python=True,
+    )
+
+    assert len(rows) == 1
+    assert not rows[0]["ok"]
+    assert "outside its trusted" in rows[0]["detail"]
+
+
+def test_doctor_fix_nonzero_already_installed_converges_after_refresh(tmp_path, monkeypatch):
+    from forge_cli import doctor
+
+    local_app_data = tmp_path / "CanonicalLocalAppData"
+    alias = local_app_data / "Microsoft" / "WindowsApps" / "winget.exe"
+    alias.parent.mkdir(parents=True)
+    alias.write_text("trusted alias")
+    refreshed = []
+
+    monkeypatch.setattr(
+        doctor, "_windows_known_folder",
+        lambda folder_id: local_app_data if folder_id == doctor.WINDOWS_LOCAL_APP_DATA else None,
+    )
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
+    monkeypatch.setattr(
+        doctor.subprocess, "run",
+        lambda argv, **_kwargs: subprocess.CompletedProcess(
+            argv, 1, "No applicable upgrade found", "",
+        ),
+    )
+    monkeypatch.setattr(
+        doctor, "_refresh_windows_path", lambda: refreshed.append(True),
+    )
+    monkeypatch.setattr(doctor.shutil, "which", lambda name: "/tools/git")
+    monkeypatch.setattr(doctor, "_python_check", lambda: {"ok": True})
+
+    rows = doctor._remediate_windows_prerequisites(
+        install_git=True, install_python=True,
+    )
+
+    assert rows == []
+    assert refreshed == [True]
+
+
+def test_doctor_fix_trusts_appexeclink_without_resolving(tmp_path, monkeypatch):
+    from forge_cli import doctor
+
+    local_app_data = tmp_path / "CanonicalLocalAppData"
+    alias = local_app_data / "Microsoft" / "WindowsApps" / "winget.exe"
+    alias.parent.mkdir(parents=True)
+    alias.write_text("app execution alias")
+    original_resolve = doctor.Path.resolve
+
+    def fake_resolve(path, *args, **kwargs):
+        if path == alias:
+            raise OSError("[WinError 1920] The file cannot be accessed by the system")
+        return original_resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(
+        doctor, "_windows_known_folder",
+        lambda folder_id: local_app_data if folder_id == doctor.WINDOWS_LOCAL_APP_DATA else None,
+    )
+    monkeypatch.setattr(doctor.Path, "resolve", fake_resolve)
+    monkeypatch.setattr(
+        doctor.Path, "exists",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("winget identity check must not follow the App Execution Alias")
+        ),
+    )
+    monkeypatch.setattr(
+        doctor.Path, "glob",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("unelevated parent must not enumerate WindowsApps")
+        ),
+    )
+
+    assert doctor._trusted_user_winget_path() == str(alias)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX stub executables model refreshed PATH")
+def test_doctor_fix_windows_refreshes_path_and_converges(tmp_path, monkeypatch):
+    from forge_cli import doctor
+
+    local = tmp_path / "LocalAppData"
+    windows_apps = local / "Microsoft" / "WindowsApps"
+    windows_apps.mkdir(parents=True)
+    (windows_apps / "winget.exe").write_text("trusted alias")
+    git_dir = local / "Programs" / "Git" / "cmd"
+    python_dir = local / "Programs" / "Python" / "Python314"
+    git_dir.mkdir(parents=True)
+    python_dir.mkdir(parents=True)
+    for path, output in ((git_dir / "git", "git version 2.50.0"),
+                         (python_dir / "python", "Python 3.14.7")):
+        path.write_text(f"#!/bin/sh\nprintf '%s\\n' '{output}'\n")
+        path.chmod(0o755)
+
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "PoisonedLocalAppData"))
+    monkeypatch.setenv("PATH", "")
+    monkeypatch.delenv("ProgramW6432", raising=False)
+    monkeypatch.delenv("ProgramFiles", raising=False)
+    monkeypatch.delenv("ProgramFiles(x86)", raising=False)
+    monkeypatch.setattr(
+        doctor, "_windows_known_folder",
+        lambda folder_id: local if folder_id == doctor.WINDOWS_LOCAL_APP_DATA else None,
+    )
+    monkeypatch.setattr(doctor, "_windows_process_is_elevated", lambda: False)
+    subprocess_run = doctor.subprocess.run
+    monkeypatch.setattr(
+        doctor.subprocess, "run",
+        lambda argv, **kwargs: (
+            subprocess.CompletedProcess(argv, 0, "", "")
+            if argv[0].endswith("winget.exe") else subprocess_run(argv, **kwargs)
+        ),
+    )
+    assert doctor._remediate_windows_prerequisites(
+        install_git=False, install_python=True,
+    ) == []
+
+    assert shutil.which("git") == str(git_dir / "git")
+    assert doctor._python_status()[0]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX fixture models WOW64 PATH refresh")
+def test_doctor_fix_windows_refreshes_native_git_under_wow64(
+    tmp_path, monkeypatch,
+):
+    from forge_cli import doctor
+
+    program_files_x86 = tmp_path / "Program Files (x86)"
+    program_files_x64 = tmp_path / "Program Files"
+    git_dir = program_files_x64 / "Git" / "cmd"
+    git_dir.mkdir(parents=True)
+    git = git_dir / "git"
+    git.write_text("#!/bin/sh\nexit 0\n")
+    git.chmod(0o755)
+
+    monkeypatch.setenv("PATH", "")
+    monkeypatch.setenv("ProgramW6432", str(program_files_x64))
+    monkeypatch.setenv("ProgramFiles", str(program_files_x86))
+    monkeypatch.setenv("ProgramFiles(x86)", str(program_files_x86))
+    monkeypatch.setattr(
+        doctor, "_windows_known_folder",
+        lambda _folder_id: None,
+    )
+
+    doctor._refresh_windows_path()
+
+    assert shutil.which("git") == str(git)
+    assert not hasattr(doctor, "WINDOWS_PROGRAM_FILES_X64")
+
+
 def test_phase_names_doctor_first_when_hook_launcher_is_broken(repo, capsys):
     from forge_cli import phase
 
@@ -2931,7 +3771,7 @@ def test_phase_names_doctor_first_when_hook_launcher_is_broken(repo, capsys):
     output = capsys.readouterr().out
     first = output.split("NEXT:\n", 1)[1].splitlines()[0]
 
-    assert "forge doctor" in first
+    assert "./forge doctor --fix" in first
 
     shutil.copy2(HARNESS / "forge", repo / "forge")
     (repo / "forge").chmod(0o644)
@@ -2939,7 +3779,7 @@ def test_phase_names_doctor_first_when_hook_launcher_is_broken(repo, capsys):
     output = capsys.readouterr().out
     first = output.split("NEXT:\n", 1)[1].splitlines()[0]
 
-    assert "forge doctor" in first
+    assert "./forge doctor --fix" in first
 
     (repo / "forge").chmod(0o755)
     (repo / "factory" / "scripts" / "forge.py").unlink()
@@ -2947,7 +3787,7 @@ def test_phase_names_doctor_first_when_hook_launcher_is_broken(repo, capsys):
     output = capsys.readouterr().out
     first = output.split("NEXT:\n", 1)[1].splitlines()[0]
 
-    assert "forge doctor" in first
+    assert "./forge doctor --fix" in first
 
 
 def test_precompact_hook_health_resolves_context_before_returning():

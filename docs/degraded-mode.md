@@ -10,6 +10,9 @@ planning mode and the older quickfix/lite windows do not lift that lock.
 ./forge doctor --fix
 ```
 
+On Windows, see [Windows support](windows.md) for native prerequisite
+remediation and the optional WSL2 escape hatch.
+
 Read-only discovery remains available through `/codex:rescue`. The companion
 guard also admits direct, unwrapped `status`, `task-resume-candidate`, and
 `task` invocations using only the approved read-only flags. Quoting does not
