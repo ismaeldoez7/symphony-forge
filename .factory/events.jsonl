@@ -1119,3 +1119,4 @@
 {"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-13T06:26:20+00:00", "story": "FORGE-WIN-3", "detail": "S-0002-c0b3: Keep pid_started a STRING in the ledger \u2014 do NOT edit factory/schemas/delegation.json (out of scope; evidence schema stays stable per 0025). Serialize the psutil create_time float via str() into pid_s"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T06:26:44+00:00", "story": "FORGE-WIN-3", "detail": "2 task(s)"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T06:36:22+00:00", "story": "FORGE-WIN-3", "detail": "2 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T07:32:00+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3.1 (write)"}
