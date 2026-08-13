@@ -83,7 +83,8 @@
         "factory/scripts/factory_lib.py",
         "factory/scripts/forge_cli/stages.py",
         "factory/scripts/forge_cli/delegate.py",
-        "factory/tests/test_gates.py"
+        "factory/tests/test_gates.py",
+        "docs/decisions/0044-accountable-engineering-loop.md"
       ],
       "verify_commands": [
         "python3 factory/scripts/check_dual_runtime.py"
@@ -137,5 +138,5 @@
   "epic": "accountable-engineering",
   "plan_file": "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md",
   "plan_sha256": "77041f2719599d404428dd29f7efc45a2fac3a96a8b3b3fb757a246e9af5385f",
-  "commit": "bb4d4d3e2213f92ef2d213e80e212c2774999a3e"
+  "commit": "23bc62bf7cf3751bc2ddd5d1caf952f0c0d8f23e"
 }
