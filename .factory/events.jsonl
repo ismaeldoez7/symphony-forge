@@ -1112,3 +1112,10 @@
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T06:03:41+00:00", "story": "FORGE-WIN-SBX", "detail": "SBX-T1 (write)"}
 {"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-13T06:04:18+00:00", "story": "FORGE-WIN-SBX", "detail": "S-0001-5481: Correct block: codex-core protects .codex/ under workspace-write. The orchestrator applied the config.toml flip (workspace-write + escape-hatch comment per decision 0041) under ledgered degraded windo"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T06:22:36+00:00", "story": "FORGE-WIN-SBX", "detail": "SBX-T1 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-13T06:46:10+00:00", "story": "FORGE-WIN-SBX", "detail": "SBX-T1 Workspace-write vendored default + hooks.json joins the frozen vendor surface"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-13T07:32:17+00:00", "story": "FORGE-WIN-SBX"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-13T07:32:38+00:00", "story": "FORGE-WIN-SBX", "detail": "passed"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-13T07:32:38+00:00", "story": "FORGE-WIN-SBX"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-13T07:32:38+00:00", "story": "FORGE-WIN-SBX"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T07:32:39+00:00", "story": "FORGE-WIN-SBX"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-13T07:32:49+00:00", "story": "FORGE-WIN-SBX", "detail": "Every vendored Codex session in every client now defaults to workspace-write instead of full machine access, and the fail-closed hook wiring (.codex/hooks.json) is frozen vendor surface \u2014 a client edi"}

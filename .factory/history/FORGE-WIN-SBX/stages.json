@@ -4,7 +4,7 @@
     {
       "id": "SBX-T1",
       "title": "Workspace-write vendored default + hooks.json joins the frozen vendor surface",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-13T05:59:37+00:00",
       "base_sha": "bfc6ace3c1b3eab790494510a842f9afa31fc9cd",
       "dirty_at_start": {
@@ -29,7 +29,8 @@
           "git": "? .factory/stages.json\u0000\u0000\u0000"
         }
       },
-      "task_sha256": "c6958a72bc30dbc7a12dfbf54afa61ee51ed9855a0475e50818a3211f91e87da"
+      "task_sha256": "c6958a72bc30dbc7a12dfbf54afa61ee51ed9855a0475e50818a3211f91e87da",
+      "completed_at": "2026-08-13T06:46:10+00:00"
     }
   ]
 }
