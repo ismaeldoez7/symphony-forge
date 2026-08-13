@@ -1106,3 +1106,9 @@
 {"event": "intake", "generated_by": "orchestrator", "at": "2026-08-13T05:20:17+00:00", "story": "FORGE-WIN-SBX", "detail": "Workers run sandboxed by default"}
 {"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-13T05:57:53+00:00", "story": "FORGE-WIN-SBX", "detail": "FORGE-WIN-SBX approved by Ravi (vrknetha)"}
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-13T05:57:54+00:00", "story": "FORGE-WIN-SBX", "detail": "plans/active/FORGE-WIN-SBX-workers-run-sandboxed-by-default.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T05:59:17+00:00", "story": "FORGE-WIN-SBX", "detail": "1 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-13T05:59:37+00:00", "story": "FORGE-WIN-SBX", "detail": "SBX-T1 Workspace-write vendored default + hooks.json joins the frozen vendor surface"}
+{"event": "signal-blocked", "generated_by": "implementer", "at": "2026-08-13T06:03:21+00:00", "story": "FORGE-WIN-SBX", "detail": "Managed permissions make .codex read-only, so the required in-scope .codex/config.toml default flip is refused even though the SBX-T1 brief grants write access."}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T06:03:41+00:00", "story": "FORGE-WIN-SBX", "detail": "SBX-T1 (write)"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-13T06:04:18+00:00", "story": "FORGE-WIN-SBX", "detail": "S-0001-5481: Correct block: codex-core protects .codex/ under workspace-write. The orchestrator applied the config.toml flip (workspace-write + escape-hatch comment per decision 0041) under ledgered degraded windo"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T06:22:36+00:00", "story": "FORGE-WIN-SBX", "detail": "SBX-T1 (write)"}
