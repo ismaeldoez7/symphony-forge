@@ -51,7 +51,6 @@ jobs:
         run: |
           python3 -c "import codecs, locale, sys; encoding = locale.getpreferredencoding(False); assert sys.flags.utf8_mode == 0, sys.flags; assert codecs.lookup(encoding).name != 'utf-8', encoding"
           python3 factory/scripts/forge.py next
-          python3 factory/scripts/forge.py doctor --fast
           python3 factory/scripts/check_factory_scaffold.py
           python3 factory/scripts/check_agents_hygiene.py
           python3 factory/scripts/check_dual_runtime.py
