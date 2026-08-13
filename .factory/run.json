@@ -1,3 +1,17 @@
 {
-  "phase": "shipped"
+  "issue_key": "FORGE-WIN-3",
+  "title": "Delegation runs on native Windows",
+  "tracker": "linear",
+  "branch": "feat/FORGE-WIN-3-delegation-runs-on-native-windows",
+  "phase": "planning",
+  "plan_status": "approved",
+  "decomposition_status": "pending",
+  "implementation_status": "pending",
+  "tests_status": "pending",
+  "verify_status": "pending",
+  "review_status": "pending",
+  "created_at": "2026-08-13T05:23:02+00:00",
+  "updated_at": "2026-08-13T06:13:09+00:00",
+  "plan_file": "plans/active/FORGE-WIN-3-delegation-runs-on-native-windows.md",
+  "story": "FORGE-WIN-3"
 }
