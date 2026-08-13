@@ -60,7 +60,8 @@
         "factory/scripts/forge_cli/doctor.py",
         ".github/workflows/factory-scaffold.yml",
         "factory/tests/test_gates.py",
-        "docs/windows.md"
+        "docs/windows.md",
+        "factory/scripts/forge_cli/delegate.py"
       ],
       "acceptance_criteria": [
         "forge doctor gains a REQUIRED psutil row (import check); doctor --fix installs it (pip/uv, user scope, honest red row when it cannot) reusing the WIN-2 doctor-row + --fix patterns; fast_status stays subprocess-free (import check is a cheap importlib.util.find_spec, not an exec).",
@@ -69,7 +70,8 @@
         "Full POSIX suite green; the WIN-2 init/adopt/upgrade propagation tests confirm the psutil dep manifest ships to clients; windows-hook-gates green on the PR (the real cross-platform proof).",
         "doctor --fix psutil install target (learned in 3.1): install psutil for the INTERPRETER THAT RUNS forge (the one importing forge_cli.delegate), not an arbitrary python \u2014 on Windows the winget/py launcher's pip, on POSIX the running interpreter's pip. Handle a PEP-668 externally-managed environment gracefully: try `--user` and fall back to a clear named red row telling the user how (never silently `--break-system-packages`). The doctor row uses importlib.util.find_spec('psutil') (cheap, subprocess-free) so fast_status stays subprocess-free; the required red row when absent reuses the WIN-2 doctor-row + --fix patterns and names the manual `pip install psutil` fallback.",
         "Review round: (1) find_spec only proves psutil is DISCOVERABLE, not that it IMPORTS (a stale/ABI/arch-incompatible install passes find_spec but fails `import psutil`). The AUTHORITATIVE doctor row must actually import psutil (try: import psutil; except Exception -> red) so an unusable install is caught; fast_status keeps the cheap find_spec as an OPTIMISTIC subprocess-free heuristic (WIN-2 fast_status-heuristic-vs-doctor-authoritative pattern) \u2014 doctor is the authority. (2) doctor --fix install must be venv-aware: `pip install --user` is REJECTED inside a virtualenv ('User site-packages are not visible in this virtualenv'). Detect a venv (sys.prefix != sys.base_prefix): in a venv install WITHOUT --user (into the venv); outside a venv use --user; a PEP-668 externally-managed environment falls to the honest named red row with the manual `pip install psutil` guidance. Test both: doctor red when psutil imports-but-is-broken (simulate import failure), and the install command shape is venv-correct.",
-        "Fix test_tagged_process_scan_falls_back_when_cached_environment_is_denied to reflect REAL psutil semantics: process_iter(['environ']) sets info['environ']=None when a process's environ cannot be read (psutil's as_dict swallows AccessDenied to None) \u2014 it does NOT return a dict whose .get() raises. Rewrite the test so the denied case is info['environ']=None (not a DeniedEnvironment that raises), asserting the cmdline() fallback still tags the process \u2014 which the CURRENT delegate.py already handles (isinstance(environment, dict) is False for None -> cmdline fallback). Do NOT re-add a try/except around .info.get() in delegate.py (dead code for an impossible scenario; delegate.py is out of this stage's scope anyway). Full POSIX suite green."
+        "Fix test_tagged_process_scan_falls_back_when_cached_environment_is_denied to reflect REAL psutil semantics: process_iter(['environ']) sets info['environ']=None when a process's environ cannot be read (psutil's as_dict swallows AccessDenied to None) \u2014 it does NOT return a dict whose .get() raises. Rewrite the test so the denied case is info['environ']=None (not a DeniedEnvironment that raises), asserting the cmdline() fallback still tags the process \u2014 which the CURRENT delegate.py already handles (isinstance(environment, dict) is False for None -> cmdline fallback). Do NOT re-add a try/except around .info.get() in delegate.py (dead code for an impossible scenario; delegate.py is out of this stage's scope anyway). Full POSIX suite green.",
+        "SCOPE NOTE, not work: factory/scripts/forge_cli/delegate.py was transiently dirty in the worktree when this stage was started (an in-flight worker's uncommitted edit), so the stage's dirty_at_start snapshot captured it; it was then reverted to its committed base. Its NET change since the stage base (cdb4da4) is ZERO \u2014 blob-identical, absent from committed_paths \u2014 the substantive delegate.py change is FORGE-WIN-3.1's psutil port, already committed, reviewed and stage-done. It is listed here only so the measured close is honest; do NOT edit delegate.py in this stage."
       ],
       "verify_commands": [
         "uvx --with pytest --with psutil python3 -m pytest factory/tests/test_gates.py -q -k \"doctor or psutil or delegat or windows\""
@@ -90,5 +92,5 @@
     }
   ],
   "plan_sha256": "e225e841ca0c094f4a23ac0075672092621d2d51581f02d94b9a6135d7a977f3",
-  "commit": "4dbdce1b27df465454c16d42e260aaecb6a62bbd"
+  "commit": "cb31a2037ac28112eb2b628b22e1e94a16b709b7"
 }
