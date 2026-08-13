@@ -1064,3 +1064,10 @@
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-12T13:45:16+00:00", "story": "FORGE-REV-2"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-12T13:45:26+00:00", "story": "FORGE-REV-2", "detail": "Review is no longer plan-blind: decomposition tasks can declare plan_contracts (the plan invariants they must satisfy), ./forge review-brief composes the reviewer's contract prompt (per-task or --all "}
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-12T14:00:54+00:00", "story": "FORGE-REV-2", "detail": "knacklabs/symphony-forge#81"}
+{"event": "intake", "generated_by": "orchestrator", "at": "2026-08-13T02:32:58+00:00", "story": "FORGE-WIN-2", "detail": "Doctor --fix installs prerequisites on Windows"}
+{"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-13T02:34:42+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2 approved by Ravi"}
+{"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-13T02:35:07+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2 approved by Ravi"}
+{"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-13T02:35:24+00:00", "story": "FORGE-WIN-2", "detail": "plans/active/FORGE-WIN-2-doctor-fix-installs-prerequisites-on-windows.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T02:36:27+00:00", "story": "FORGE-WIN-2", "detail": "6 task(s)"}
+{"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-13T02:36:34+00:00", "story": "FORGE-WIN-2"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-13T02:36:34+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.6 Fix forge.cmd exit-code bugs caught by real-Windows CI"}

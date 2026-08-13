@@ -1,0 +1,20 @@
+{
+  "generated_by": "griller",
+  "gate": "task",
+  "verdict": "pass",
+  "gaps": [
+    "Can the fix be verified without real Windows?",
+    "What's the most likely root cause of exit 1 vs expected 2/0?"
+  ],
+  "contradictions": [],
+  "resolutions": [
+    "No \u2014 .cmd cannot run off Windows; the windows-hook-gates CI job is the sole verifier (user chose CI iteration). The change must be reason-complete and self-consistent about cmd.exe semantics.",
+    "The tests rely on cwd-shadowing of py/python/python3 but the subprocess inherits the runner's full PATH, so interpreter resolution is nondeterministic; and/or forge.cmd's fallback chain can reach a run_python* label that execs a failed interpreter (exit 1) instead of routing to :missing (exit 2). Fix both: make tests set PATH to only the stub dir + System32, and make forge.cmd's exit routing correct."
+  ],
+  "open_items": [],
+  "notes": "FORGE-WIN-2.6 fixes three real-Windows forge.cmd exit-code failures on PR #83; verified via CI.",
+  "task_id": "FORGE-WIN-2.6",
+  "input_sha256": "0c7b129d523e343c581a8570c348259955e75113a48b78e700857dfaea27e83c",
+  "recorded_at": "2026-08-13T02:37:02+00:00",
+  "commit": "7f62f3ffca16802a9494459cf9bee0da8230f9bf"
+}
