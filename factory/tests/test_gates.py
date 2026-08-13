@@ -31,7 +31,7 @@ import pytest
 HARNESS = Path(__file__).resolve().parents[2]
 FORGE_INIT_FIXTURE = HARNESS / ".factory" / "history" / "FORGE-INIT-1"
 sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
-from forge_cli.stages import task_digest
+from forge_cli.stages import task_digest, write_stages
 from record_signoff import REQUIRED_BRIEF_HEADINGS
 
 
@@ -9292,8 +9292,8 @@ def test_stage_loop_orders_execution_and_gates_pr_ready(repo, tmp_path):
     decomp = {**DECOMP, "tasks": [
         {"id": "T1", "title": "api", "write_scope": ["src/api/"],
          "objective": "Serve invoices over the api.", "acceptance_criteria": ["200 ok"]},
-        {"id": "T2", "title": "ui", "write_scope": ["src/ui/"],
-         "objective": "Render the invoice list.", "acceptance_criteria": ["rows show"]},
+        {"id": "T2", "title": "ui", "objective": "Render the invoice list.",
+         "acceptance_criteria": ["rows show"]},
     ]}
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(decomp))
     assert code == 0 and "stages.json" in out
@@ -9310,6 +9310,11 @@ def test_stage_loop_orders_execution_and_gates_pr_ready(repo, tmp_path):
     launch_fake(repo, tmp_path, "T1")
     write_in_scope(repo, "src/api/invoices.py")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
+    assert code == 0, out
+    decomp["tasks"][1]["write_scope"] = ["src/ui/"]
+    code, out = run(
+        repo, "record_decomposition_from_json.py", stdin=json.dumps(decomp)
+    )
     assert code == 0, out
     # pr_ready refuses while a stage is open
     stages_before_artifacts = json.loads(
@@ -9418,6 +9423,87 @@ def write_in_scope(repo: Path, rel: str, text: str = "print('work')\n") -> None:
 STAGE_TASK = {"id": "T1", "title": "core slice", "write_scope": ["src/"],
               "objective": "Build the core slice so the feature works end to end.",
               "acceptance_criteria": ["the slice runs green"]}
+
+
+def skeletal_stage_task(task_id: str, title: str = "future slice") -> dict:
+    return {
+        "id": task_id,
+        "title": title,
+        "objective": "Build the next bounded slice when it reaches the frontier.",
+        "acceptance_criteria": ["the next slice runs green"],
+    }
+
+
+def test_decomposition_refuses_future_execution_detail(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    future_detail = {
+        "write_scope": ["src/future/"],
+        "required_tests": [{
+            "id": "test_future",
+            "path": "factory/tests/test_gates.py",
+            "command": "python3 -m pytest {path}::{id} --junitxml={report}",
+        }],
+        "verify_commands": ["true"],
+    }
+
+    for field, detail in future_detail.items():
+        future = {**skeletal_stage_task("T2"), field: detail}
+        payload = {**DECOMP, "tasks": [STAGE_TASK, future]}
+        code, out = run(
+            repo, "record_decomposition_from_json.py", stdin=json.dumps(payload)
+        )
+
+        assert code != 0
+        assert "T2" in out and field in out
+
+
+def test_decomposition_accepts_frontier_detail_and_exempts_done_tasks(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    completed = {
+        **STAGE_TASK,
+        "required_tests": [{
+            "id": "test_completed",
+            "path": "factory/tests/test_gates.py",
+            "command": "python3 -m pytest {path}::{id} --junitxml={report}",
+        }],
+        "verify_commands": ["true"],
+    }
+    initial = {**DECOMP, "tasks": [completed, skeletal_stage_task("T2")]}
+    code, out = run(
+        repo, "record_decomposition_from_json.py", stdin=json.dumps(initial)
+    )
+    assert code == 0, out
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [
+            {"id": "T1", "title": completed["title"], "status": "done"},
+            {"id": "T2", "title": "future slice", "status": "pending"},
+        ],
+    })
+    frontier = {
+        **skeletal_stage_task("T2"),
+        "write_scope": ["src/frontier/"],
+        "required_tests": [],
+        "verify_commands": ["true"],
+    }
+
+    code, out = run(
+        repo,
+        "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [completed, frontier]}),
+    )
+
+    assert code == 0, out
+    recorded = json.loads((repo / ".factory" / "decomposition.json").read_text())
+    assert recorded["tasks"][0]["write_scope"] == completed["write_scope"]
+    assert recorded["tasks"][0]["required_tests"] == completed["required_tests"]
+    assert recorded["tasks"][0]["verify_commands"] == completed["verify_commands"]
+    assert recorded["tasks"][1]["write_scope"] == ["src/frontier/"]
+    assert recorded["tasks"][1]["verify_commands"] == ["true"]
 
 
 def test_stage_done_refuses_empty_diff(repo, tmp_path):
@@ -10104,7 +10190,7 @@ def test_stage_tasks_are_sequential_and_parallel_flag_is_refused(repo, tmp_path)
     save_plan(repo, tmp_path)
     decomp = {**DECOMP, "tasks": [
         {**STAGE_TASK, "id": "T1", "write_scope": ["src/api/"]},
-        {**STAGE_TASK, "id": "T2", "write_scope": ["src/ui/"]},
+        skeletal_stage_task("T2"),
     ]}
     code, out = run(repo, "record_decomposition_from_json.py",
                     stdin=json.dumps(decomp))
@@ -12959,7 +13045,7 @@ def test_decomposition_recorder_validates_plan_contracts(repo, tmp_path):
 
     contract = {"id": "C1", "statement": "does the thing",
                 "source": "plans/active/plan.md#scope"}
-    second = {**task, "id": "T2", "title": "second slice",
+    second = {**skeletal_stage_task("T2", "second slice"),
               "dependencies": ["T1"], "plan_contracts": [contract]}
     duplicate = {**DECOMP, "tasks": [
         {**task, "plan_contracts": [contract]}, second,
@@ -12988,7 +13074,7 @@ def test_review_brief_composes_contract_brief(repo, tmp_path):
     first = {**DECOMP["tasks"][0], "id": "T1", "reviewer_focus": "focus one",
              "plan_contracts": [{"id": "C1", "statement": "first statement",
                                   "source": "plan.md#first"}]}
-    second = {**DECOMP["tasks"][0], "id": "T2", "title": "second slice",
+    second = {**skeletal_stage_task("T2", "second slice"),
               "dependencies": ["T1"], "reviewer_focus": "focus two",
               "plan_contracts": [{"id": "C2", "statement": "second statement",
                                    "source": "plan.md#second"}]}

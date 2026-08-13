@@ -1,82 +1,101 @@
 {
-  "generated_by": "docs-decomposer",
+  "generated_by": "claude-code:plan-mode",
+  "project": "",
+  "story": "FORGE-ACC-1",
+  "user_facing": false,
+  "doc_roots": [
+    "docs/specs/accountable-engineering-loop.md",
+    "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md"
+  ],
+  "epics": [
+    {
+      "id": "accountable-engineering",
+      "title": "Accountable engineering loop",
+      "objective": "Enforce decision 0032 end to end: JIT frontier contracts gated at stage start, evidence-backed grills, bounded reviewable diffs.",
+      "source_refs": [
+        "docs/specs/accountable-engineering-loop.md"
+      ]
+    }
+  ],
   "tasks": [
     {
-      "id": "FORGE-WIN-ENC.1",
-      "title": "Encoding sweep + value-validating hygiene gate",
-      "objective": "Every text-mode I/O boundary in factory/scripts names utf-8 explicitly per decision 0043's consumer classification, spawned Python children are contracted to UTF-8 via env, and the new AST-based check_encoding_hygiene gate (value-validating, allowlisted) reports zero violations - the machine-checkable definition of sweep completion.",
+      "id": "ACC1-T1",
+      "title": "Recorder refuses future execution detail",
+      "objective": "record_decomposition_from_json.py refuses write_scope, required_tests, or verify_commands on any pending task after the earliest pending leaf, names the offending task and field, exempts completed tasks, and accepts detail on the frontier task. Existing test fixtures move to frontier-style recording.",
+      "acceptance_criteria": [
+        "recording a decomposition with execution detail on a pending non-frontier task is refused with the task id and field named",
+        "the frontier task records detail successfully; completed tasks keep theirs (legacy cutover)",
+        "existing suite green after fixture migration"
+      ],
       "dependencies": [],
       "write_scope": [
-        "factory/scripts",
-        "factory/tests/test_gates.py",
-        "docs/decisions/0043-explicit-io-encoding-convention.md"
+        "factory/scripts/record_decomposition_from_json.py",
+        "factory/tests/test_gates.py"
       ],
-      "acceptance_criteria": [
-        "Subprocess captures classified by consumer: diagnostic captures (common.run_quiet - one change covering its ~15 doctor call sites - and human-facing prints) decode encoding='utf-8', errors='replace'; machine-consumed captures decode strictly - git path output keeps filesystem semantics (bytes or surrogateescape: stages path/digest authority, quickfix scope enforcement, pr_ready freshness paths), JSON protocol output (gh in project.py, merge-stage roadmap in roadmap.py) decodes strict utf-8 and fails loudly. Byte-mode sites (pr_ready.py:348, doctor.py:283, upgrade.py:159/314/324/355) untouched.",
-        "All ~100 text-mode file I/O sites name encoding='utf-8': read_text/write_text/text open()/Path.open (including JSONL appends in events.py/signal.py) - strict for evidence/plans/specs/manifests; errors='replace' ONLY at allowlisted human-display sites.",
-        "All six text temp-log handles (delegate.py:1055-1056, stages.py:855-856, stages.py:945-946) become encoding='utf-8', errors='replace' for the parent read-back, and each spawned child env sets PYTHONUTF8=1 (companion env in delegate, runner envs in stages) - a child does NOT inherit the parent handle's Python-level encoding, so the env is the contract; non-Python children degrade via replace.",
-        "stdin joins the sweep: factory_lib's hook JSON reader (~line 978) and the four record_*_from_json.py stdin paths read strict utf-8 (wrap sys.stdin.buffer with an explicit utf-8 TextIOWrapper or equivalent); a test pipes non-ASCII JSON through a recorder and asserts it round-trips.",
-        "NEW factory/scripts/check_encoding_hygiene.py: AST-based, VALUE-validating - flags (a) subprocess text captures whose encoding is absent or not literally 'utf-8', (b) read_text/write_text/text open()/Path.open (incl. append) without encoding='utf-8', (c) tempfile.TemporaryFile/NamedTemporaryFile text modes without it, (d) sys.stdin reads outside the blessed strict reader, (e) errors='replace' outside the allowlisted diagnostic sites. The allowlist carries the plan's DO-NOT byte-path list (Scope/Non-goals section, file:line) and documented exceptions; bytes-mode open and dir_fd idioms must not false-positive. Zero violations on the swept tree; self-tests prove it catches a seeded violation of each rule class and passes the allowlist.",
-        "The DO-NOT list is untouched: no errors='replace' on any digest-adjacent read (blocking review rule); existing nonconforming replacement reads (check_dual_runtime canon reads, upgrade's indexed-symlink read at :314-333) are reconciled to strict/lossless semantics or added to the documented exception list with a reason.",
-        "Decision 0043 text refined if implementation reveals corrections; status stays proposed. Full POSIX suite green under the pinned FACTORY_TEST_CMD. LESSON (repeated-full-file-rewrites-regress-prior-fixes): verify against committed HEAD after any multi-round rewrite; PR #101's landed reconfigure/run_cmd surface must survive byte-identical.",
-        "LESSON (fake-os.name tests / 3.11 pathlib dispatch): any new test faking platform state must not construct bare Path() under a patched os.name; prefer real-encoding subprocess probes (PYTHONIOENCODING / LC_ALL in a child process)."
+      "verify_commands": [
+        "python3 factory/scripts/check_dual_runtime.py"
       ],
       "required_tests": [
         {
-          "id": "test_encoding_hygiene_gate_catches_each_violation_class",
+          "id": "test_decomposition_refuses_future_execution_detail",
           "path": "factory/tests/test_gates.py",
           "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
         },
         {
-          "id": "test_recorder_stdin_reads_non_ascii_utf8",
+          "id": "test_decomposition_accepts_frontier_detail_and_exempts_done_tasks",
           "path": "factory/tests/test_gates.py",
           "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
         }
       ],
-      "verify_commands": [
-        "python3 factory/scripts/check_encoding_hygiene.py",
-        "python3 factory/scripts/check_dual_runtime.py"
-      ],
-      "reviewer_focus": "The DO-NOT list is the risky seam: any errors='replace' on a digest-adjacent or machine-consumed read is a blocking finding. Second seam: the child-env UTF-8 contract (PYTHONUTF8=1 in spawned envs) - the parent handle encoding alone is NOT the fix. Third: the hygiene gate must validate literal values, not keyword presence, or zero-violations is meaningless."
+      "reviewer_focus": "Frontier resolution is the risky seam: the recorder's earliest-pending-leaf computation must agree with the protected stage authority in stages.py (status source of truth), or recorder and gates will disagree about which task may carry detail. Second seam: the done-task exemption is the legacy-cutover path - refusing a completed task's existing detail would brick every historical re-record. Refusal messages must name the offending task id and field. Fixture migration must not weaken existing gate coverage (tests that deliberately record full decompositions must still exercise their original refusal).",
+      "plan_contracts": [
+        {
+          "id": "ACC1-C1",
+          "statement": "Recording execution detail (write_scope, required_tests, verify_commands) on a pending non-frontier task is refused with the task id and field named",
+          "source": "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria"
+        },
+        {
+          "id": "ACC1-C2",
+          "statement": "The frontier task records detail successfully and completed tasks keep theirs (legacy cutover)",
+          "source": "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria"
+        },
+        {
+          "id": "ACC1-C3",
+          "statement": "Existing suite is green after fixture migration with original refusal coverage preserved",
+          "source": "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria"
+        }
+      ]
     },
     {
-      "id": "FORGE-WIN-ENC.2",
-      "title": "Locale-forced CI proof + docs",
-      "objective": "CI proves the hardened flows under a genuinely non-UTF-8 locale on both platforms with runtime assertions that the forcing took effect, the Windows delegation E2E round-trips a non-cp1252 glyph through the worker handoff, and the docs/spec record the convention and story.",
-      "dependencies": [
-        "FORGE-WIN-ENC.1"
-      ],
-      "write_scope": [
-        ".github/workflows/factory-scaffold.yml",
-        "docs/windows.md",
-        "docs/specs/windows-zero-setup.md",
-        "factory/tests/test_gates.py"
-      ],
+      "id": "ACC1-T2",
+      "title": "Shared readiness gate at stage start and delegate",
+      "objective": "require_ready_task() in factory_lib refuses an incomplete contract (write_scope, required_tests, verify_commands, reviewer_focus) or missing/stale task grill; stage start calls it before activating, delegate keeps it as defence in depth and refuses an active empty-scope stage instead of silently degrading to read-only.",
       "acceptance_criteria": [
-        "factory-scaffold.yml gains an ubuntu step exporting LC_ALL=C and PYTHONUTF8=0 (explicit LC_ALL suppresses PEP 538 coercion; PYTHONCOERCECLOCALE not needed) that runs forge.py next, doctor --fast, and the four standalone checkers; the step first ASSERTS sys.flags.utf8_mode == 0 and a non-UTF-8 locale.getpreferredencoding(False) so a future coercion-rule change cannot false-green.",
-        "The windows-hook-gates job runs its selector with PYTHONUTF8 explicitly unset (real ANSI code page) and the same runtime assertion; the delegation E2E's success path has the fake companion emit a non-cp1252 glyph (e.g. U+2192) that must round-trip into the captured handoff without crashing the parent read-back.",
-        "docs/windows.md documents the encoding convention (0043) and the D-0026 parked scope; docs/specs/windows-zero-setup.md's Decomposition section gains story 5 (FORGE-WIN-ENC) - the grill-settled canon bookkeeping.",
-        "Every CI selector node id exists (D-0020); nt-only tests stay OUT of stage-local required_tests (WIN-3 lesson: stage done counts a skip as fail).",
-        "Existing init/adopt/upgrade propagation tests confirm the swept scripts and the new checker ship to vendored clients. Full POSIX suite green; windows-hook-gates green on the PR is the real proof - no pr_ready before it (WIN-2/WIN-3 lesson)."
+        "stage start refuses an incomplete or ungrilled frontier contract with a message naming the missing piece",
+        "delegate write runs re-check readiness; an active stage with empty write_scope refuses; explicit --read-only still passes",
+        "existing suite green"
       ],
-      "required_tests": [
-        {
-          "id": "test_ci_locale_forcing_selectors_reference_existing_tests",
-          "path": "factory/tests/test_gates.py",
-          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
-        }
+      "dependencies": [
+        "ACC1-T1"
+      ]
+    },
+    {
+      "id": "ACC1-T3",
+      "title": "forge next routes the JIT loop; docs stop contradicting it",
+      "objective": "forge next's implementing branch reports exactly one next action per frontier state (author contract, grill, stage start, delegate); docs/FACTORY.md, WORKFLOW.md, and factory/prompts/decomposer.md state the enforced JIT contract with no upfront-contract instruction remaining, and the author-contract action instructs entering plan mode per decision 0029 and planner.md.",
+      "acceptance_criteria": [
+        "forge next output matches the frontier state machine for each of the four states",
+        "the author-contract next action tells the dev to enter plan mode for contract authoring",
+        "docs/FACTORY.md no longer instructs full upfront task contracts; WORKFLOW.md and decomposer.md are consistent with enforcement",
+        "existing suite green"
       ],
-      "verify_commands": [
-        "python3 factory/scripts/check_factory_scaffold.py"
-      ],
-      "reviewer_focus": "False-green is the enemy: both CI legs must assert the locale forcing actually took effect at runtime, and the Windows glyph round-trip must exercise the SUCCESS path, not just failure cleanup. Selector hygiene per D-0020."
+      "dependencies": [
+        "ACC1-T2"
+      ]
     }
   ],
-  "user_facing": false,
-  "project": "",
-  "story": "FORGE-WIN-ENC",
-  "epic": "windows-zero-setup",
-  "plan_file": "plans/active/FORGE-WIN-ENC-no-code-page-can-break-the-harness-encoding-hardening.md",
-  "plan_sha256": "7a9efc6a95a9d06914083d862bbab6f9b77854c2bcca66cf51e1a4016f6e4a39",
-  "commit": "cad3be175fbe942ed6dbfd905356cda96c1ec308"
+  "epic": "accountable-engineering",
+  "plan_file": "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md",
+  "plan_sha256": "77041f2719599d404428dd29f7efc45a2fac3a96a8b3b3fb757a246e9af5385f",
+  "commit": "913b6cee715e2154e1bd79a8ebd4646fd77cf17a"
 }

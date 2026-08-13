@@ -716,7 +716,7 @@
         "docs/FACTORY.md, WORKFLOW.md, and factory/prompts/decomposer.md state the enforced JIT contract with no upfront-contract contradiction"
       ],
       "order": 33,
-      "status": "pending",
+      "status": "active",
       "epic": "accountable-engineering",
       "skill": "backend",
       "depends_on": [],
@@ -744,7 +744,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-13T17:05:35+00:00",
+  "updated_at": "2026-08-13T17:06:10+00:00",
   "epics": [
     {
       "id": "symphony-forge",
