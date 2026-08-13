@@ -1124,3 +1124,8 @@
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-13T07:39:09+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3.1 Port delegate.py process model to psutil (cross-platform)"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T07:40:17+00:00", "story": "FORGE-WIN-3", "detail": "2 task(s)"}
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-13T07:40:42+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3.2 Doctor psutil row + Windows delegation E2E + CI selector + docs"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T07:50:35+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3.2 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T07:57:39+00:00", "story": "FORGE-WIN-3", "detail": "2 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T08:04:33+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3.2 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T08:13:55+00:00", "story": "FORGE-WIN-3", "detail": "2 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T08:18:50+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3.2 (write)"}
