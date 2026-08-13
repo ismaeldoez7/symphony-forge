@@ -54,6 +54,7 @@
         "factory/tests/test_gates.py"
       ],
       "acceptance_criteria": [
+        "check_encoding_hygiene.py joins the scaffold-check job's checker steps in factory-scaffold.yml (beside check_dual_runtime and the other standalone checkers) so the encoding convention is enforced on every PR, not just at stage close \u2014 the parked finding from ENC.1's review round.",
         "factory-scaffold.yml gains an ubuntu step exporting LC_ALL=C and PYTHONUTF8=0 (explicit LC_ALL suppresses PEP 538 coercion; PYTHONCOERCECLOCALE not needed) that runs forge.py next, doctor --fast, and the four standalone checkers; the step first ASSERTS sys.flags.utf8_mode == 0 and a non-UTF-8 locale.getpreferredencoding(False) so a future coercion-rule change cannot false-green.",
         "The windows-hook-gates job runs its selector with PYTHONUTF8 explicitly unset (real ANSI code page) and the same runtime assertion; the delegation E2E's success path has the fake companion emit a non-cp1252 glyph (e.g. U+2192) that must round-trip into the captured handoff without crashing the parent read-back.",
         "docs/windows.md documents the encoding convention (0043) and the D-0026 parked scope; docs/specs/windows-zero-setup.md's Decomposition section gains story 5 (FORGE-WIN-ENC) - the grill-settled canon bookkeeping.",
@@ -79,5 +80,5 @@
   "epic": "windows-zero-setup",
   "plan_file": "plans/active/FORGE-WIN-ENC-no-code-page-can-break-the-harness-encoding-hardening.md",
   "plan_sha256": "7a9efc6a95a9d06914083d862bbab6f9b77854c2bcca66cf51e1a4016f6e4a39",
-  "commit": "4f4b7fcc9281b027eb64aed3ea458a5b4ec610ba"
+  "commit": "53ddc96f8e8a106b2831d9a59da712650e22a313"
 }
