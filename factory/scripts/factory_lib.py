@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
@@ -32,7 +33,7 @@ def repo_root() -> Path:
         check=True,
         capture_output=True,
         text=True,
-        env=clean_git_env(),
+        env=clean_git_env(), encoding="utf-8", errors="surrogateescape",
     )
     return Path(out.stdout.strip())
 
@@ -292,7 +293,7 @@ def read_ledger_records(legacy: Path) -> list[dict]:
             if isinstance(entry, dict):
                 records.append(entry)
     if legacy.is_file():
-        for lineno, line in enumerate(legacy.read_text().splitlines(), 1):
+        for lineno, line in enumerate(legacy.read_text(encoding="utf-8").splitlines(), 1):
             if not line.strip():
                 continue
             try:
@@ -441,7 +442,7 @@ def signoff_pin(root: Path) -> str:
     # all. is_file() follows links; is_symlink() is the check that matters.
     if manifest.is_symlink() or not manifest.is_file():
         return ""
-    match = SIGNOFF_PIN.search(manifest.read_text())
+    match = SIGNOFF_PIN.search(manifest.read_text(encoding="utf-8"))
     return match.group(1) if match else ""
 
 
@@ -474,7 +475,7 @@ def client_signoff(root: Path) -> tuple[bool, str]:
             "Re-pin harness.yaml to the accepted record."
         )
     record = root / pinned
-    fields = parse_frontmatter(record.read_text())
+    fields = parse_frontmatter(record.read_text(encoding="utf-8"))
     if fields.get("status") != "accepted" or not fields.get("confirmed_by"):
         return False, (
             f"{pinned} is pinned as the project sign-off but is not an accepted, "
@@ -490,12 +491,12 @@ def now_iso() -> str:
 def load_json(path: Path, default: Any = None) -> Any:
     if not path.exists():
         return default
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def dump_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n")
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
 def git_control_dir(root: Path) -> Path:
@@ -504,14 +505,14 @@ def git_control_dir(root: Path) -> Path:
         cwd=root,
         capture_output=True,
         text=True,
-        env=clean_git_env(),
+        env=clean_git_env(), encoding="utf-8", errors="surrogateescape",
     )
     top = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
         cwd=root,
         capture_output=True,
         text=True,
-        env=clean_git_env(),
+        env=clean_git_env(), encoding="utf-8", errors="surrogateescape",
     )
     if (
         proc.returncode != 0
@@ -792,7 +793,7 @@ def validate_payload(root: Path, name: str, payload: dict) -> None:
     artifact that does not match its factory/schemas/ spec, including a
     generated_by value outside the pinned allowlist. Extra keys are allowed."""
     path = schema_path(root, name)
-    schema = json.loads(path.read_text())
+    schema = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise SystemExit(
             f"REFUSED by factory/schemas/{path.name}:\n- payload must be a JSON object, "
@@ -838,7 +839,7 @@ def validate_payload(root: Path, name: str, payload: dict) -> None:
 def head_sha(root: Path | None = None) -> str | None:
     proc = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=root or repo_root(),
-        capture_output=True, text=True, env=clean_git_env(),
+        capture_output=True, text=True, env=clean_git_env(), encoding="utf-8",
     )
     return proc.stdout.strip() if proc.returncode == 0 else None
 
@@ -848,7 +849,7 @@ def require_skills(root: Path, name: str, payload: dict) -> None:
     when the recorded decomposition says user_facing, the artifact must
     ATTEST the phase's mandatory skills in skills_used. Advisory skills are
     listed too when used, but only the required set gates."""
-    schema = json.loads(schema_path(root, name).read_text())
+    schema = json.loads(schema_path(root, name).read_text(encoding="utf-8"))
     required = schema.get("required_skills", {})
     if not required:
         return
@@ -924,7 +925,8 @@ def require_grill(
     # Freshness includes the WORKING TREE: uncommitted edits to guarded docs
     # must stale the grill just like committed ones.
     proc = subprocess.run(["git", "status", "--porcelain"], cwd=root,
-                          capture_output=True, text=True)
+                          capture_output=True, text=True,
+                          encoding="utf-8", errors="surrogateescape")
     if proc.returncode == 0:
         for line in proc.stdout.splitlines():
             rel = line[3:].split(" -> ")[-1].strip().strip('"')
@@ -983,6 +985,7 @@ def changed_since(root: Path, stamp: str, prefixes: tuple[str, ...]) -> list[str
     proc = subprocess.run(
         ["git", "diff", "--name-only", f"{stamp}..{head}"],
         cwd=root, capture_output=True, text=True,
+        encoding="utf-8", errors="surrogateescape",
     )
     if proc.returncode != 0:
         return [f"<commit {stamp[:8]} unknown to this repo>"]
@@ -990,14 +993,29 @@ def changed_since(root: Path, stamp: str, prefixes: tuple[str, ...]) -> list[str
 
 
 def read_hook_input() -> dict[str, Any]:
-    raw = sys.stdin.read().strip()
+    raw = read_stdin_utf8().strip()
     if not raw:
         return {}
     return json.loads(raw)
 
 
+def read_stdin_utf8() -> str:
+    """Read process input as strict UTF-8, independent of the host locale."""
+    stream = getattr(sys, "stdin")
+    buffer = getattr(stream, "buffer", None)
+    if buffer is None:
+        # Imported/test hosts may supply an already-decoded StringIO. There
+        # are no bytes left whose encoding this helper could choose.
+        return stream.read()
+    wrapper = io.TextIOWrapper(buffer, encoding="utf-8", errors="strict")
+    try:
+        return wrapper.read()
+    finally:
+        wrapper.detach()
+
+
 def branch_name(root: Path | None = None) -> str:
-    out = subprocess.run(["git", "branch", "--show-current"], cwd=root or repo_root(), check=True, capture_output=True, text=True)
+    out = subprocess.run(["git", "branch", "--show-current"], cwd=root or repo_root(), check=True, capture_output=True, text=True, encoding="utf-8")
     return out.stdout.strip()
 
 

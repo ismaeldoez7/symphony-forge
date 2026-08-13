@@ -497,6 +497,201 @@ def test_full_lifecycle_and_archive(repo, tmp_path):
     assert code == 0 and "shipped so far: ENG-1" in out
 
 
+def test_encoding_hygiene_gate_catches_each_violation_class(tmp_path):
+    from check_encoding_hygiene import (
+        BYTE_MODE_ALLOWLIST, BYTE_PATH_ALLOWLIST, check_file,
+    )
+
+    violations = {
+        "subprocess.py": (
+            "import subprocess\n"
+            "subprocess.run(['tool'], capture_output=True, "
+            "encoding='latin-1')\n"
+        ),
+        "subprocess_alias.py": (
+            "from subprocess import run as invoke\n"
+            "invoke(['tool'], capture_output=True, text=True)\n"
+        ),
+        "subprocess_input.py": (
+            "import subprocess\n"
+            "subprocess.run(['tool'], input='payload', text=True)\n"
+        ),
+        "popen_stdin.py": (
+            "import subprocess\n"
+            "subprocess.Popen(['tool'], stdin=subprocess.PIPE, text=True)\n"
+        ),
+        "popen_stdin_alias.py": (
+            "import subprocess as process\n"
+            "process.Popen(['tool'], stdin=process.PIPE, text=True)\n"
+        ),
+        "local_subprocess_alias.py": (
+            "def launch():\n"
+            "    from subprocess import PIPE, Popen\n"
+            "    Popen(['tool'], stdin=PIPE, text=True)\n"
+        ),
+        "path_text.py": "from pathlib import Path\nPath('x').read_text()\n",
+        "open_text.py": "open('x', 'a')\n",
+        "temp_text.py": (
+            "import tempfile\n"
+            "tempfile.NamedTemporaryFile(mode='w+')\n"
+        ),
+        "temp_alias.py": (
+            "from tempfile import NamedTemporaryFile as temp\n"
+            "temp(mode='w+')\n"
+        ),
+        "stdin.py": "import sys\nsys.stdin.read()\n",
+        "input.py": "input()\n",
+        "stdin_alias.py": "from sys import stdin as source\nsource.read()\n",
+        "local_stdin_alias.py": (
+            "def read():\n"
+            "    from sys import stdin as source\n"
+            "    return source.read()\n"
+        ),
+        "stdin_getattr.py": "import sys\ngetattr(sys, 'stdin').read()\n",
+        "replace.py": (
+            "from pathlib import Path\n"
+            "Path('x').read_text(encoding='utf-8', errors='replace')\n"
+        ),
+        "surrogateescape.py": (
+            "from pathlib import Path\n"
+            "Path('x').read_text(encoding='utf-8', errors='surrogateescape')\n"
+        ),
+        "ignore.py": "open('x', encoding='utf-8', errors='ignore')\n",
+        "backslashreplace.py": (
+            "open('x', encoding='utf-8', errors='backslashreplace')\n"
+        ),
+        "dynamic_errors.py": (
+            "policy = 'strict'\nopen('x', encoding='utf-8', errors=policy)\n"
+        ),
+    }
+    expected = {
+        "subprocess.py": {"subprocess-text"},
+        "subprocess_alias.py": {"subprocess-text"},
+        "subprocess_input.py": {"subprocess-text"},
+        "popen_stdin.py": {"subprocess-text"},
+        "popen_stdin_alias.py": {"subprocess-text"},
+        "local_subprocess_alias.py": {"subprocess-text"},
+        "path_text.py": {"text-file"},
+        "open_text.py": {"text-file"},
+        "temp_text.py": {"text-file"},
+        "temp_alias.py": {"text-file"},
+        "stdin.py": {"stdin"},
+        "input.py": {"stdin"},
+        "stdin_alias.py": {"stdin"},
+        "local_stdin_alias.py": {"stdin"},
+        "stdin_getattr.py": {"stdin"},
+        "replace.py": {"errors-policy"},
+        "surrogateescape.py": {"errors-policy"},
+        "ignore.py": {"errors-policy"},
+        "backslashreplace.py": {"errors-policy"},
+        "dynamic_errors.py": {"errors-policy"},
+    }
+    for name, source in violations.items():
+        path = tmp_path / name
+        path.write_text(source, encoding="utf-8")
+        assert {
+            violation.rule for violation in check_file(path, root=tmp_path)
+        } == expected[name]
+
+    allowed = tmp_path / "allowed.py"
+    allowed.write_text(
+        "import io, os, subprocess, sys, tempfile\n"
+        "subprocess.run(['tool'], capture_output=True, text=True, "
+        "encoding='utf-8', errors='replace')\n"
+        "open('path', encoding='utf-8', errors='surrogateescape')\n"
+        "open('bytes', 'rb')\n"
+        "os.open('safe', os.O_RDONLY, dir_fd=3)\n"
+        "webbrowser.open('https://example.test')\n"
+        "tempfile.TemporaryFile(mode='w+t', encoding='utf-8')\n"
+        "io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8', "
+        "errors='strict').read()\n",
+        encoding="utf-8",
+    )
+    assert check_file(
+        allowed,
+        root=tmp_path,
+        replace_allowlist=frozenset({"allowed.py:2"}),
+        byte_path_allowlist={"allowed.py:3": "lossless path"},
+        stdin_allowlist=frozenset({"allowed.py:8"}),
+    ) == []
+    assert "factory/scripts/forge_cli/phase.py:23" in BYTE_PATH_ALLOWLIST
+    assert "factory/scripts/forge_cli/upgrade.py:314" in BYTE_MODE_ALLOWLIST
+    assert "factory/scripts/pr_ready.py:349" in BYTE_MODE_ALLOWLIST
+
+    byte_site = tmp_path / "byte_site.py"
+    byte_site.write_text(
+        "import subprocess\n"
+        "subprocess.run(['tool'], text=True, encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    assert {violation.rule for violation in check_file(
+        byte_site,
+        root=tmp_path,
+        byte_mode_allowlist={"byte_site.py:2": "must stay bytes"},
+    )} == {"byte-mode"}
+
+
+def test_encoding_hygiene_gate_catches_wrapper_and_positional_tempfile(tmp_path):
+    from check_encoding_hygiene import check_file
+
+    violations = {
+        "wrapper_missing.py": "import io\nio.TextIOWrapper(stream)\n",
+        "wrapper_non_utf8.py": (
+            "import io\nio.TextIOWrapper(stream, encoding='latin-1')\n"
+        ),
+        "temporary_file.py": (
+            "import tempfile\ntempfile.TemporaryFile('w+t')\n"
+        ),
+        "named_temporary_file.py": (
+            "import tempfile\ntempfile.NamedTemporaryFile('w+t')\n"
+        ),
+    }
+    for name, source in violations.items():
+        path = tmp_path / name
+        path.write_text(source, encoding="utf-8")
+        assert {
+            violation.rule for violation in check_file(path, root=tmp_path)
+        } == {"text-file"}
+
+
+def test_recorder_stdin_reads_non_ascii_utf8(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    code, out = save_plan(repo, tmp_path)
+    assert code == 0, out
+    payload = json.loads(json.dumps(DECOMP))
+    payload["tasks"][0]["title"] = "Unicode arrow → snowman ☃"
+    env = {**os.environ, "PYTHONIOENCODING": "ascii:strict", "PYTHONUTF8": "0"}
+
+    proc = subprocess.run(
+        [sys.executable, str(
+            repo / "factory" / "scripts" / "record_decomposition_from_json.py"
+        )],
+        cwd=repo,
+        input=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        capture_output=True,
+        env=env,
+    )
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    recorded = json.loads(
+        (repo / ".factory" / "decomposition.json").read_text(encoding="utf-8")
+    )
+    assert recorded["tasks"][0]["title"] == payload["tasks"][0]["title"]
+
+
+def test_read_stdin_utf8_does_not_close_shared_buffer(monkeypatch):
+    import io
+    from factory_lib import read_stdin_utf8
+
+    stream = io.TextIOWrapper(io.BytesIO("first →".encode("utf-8")))
+    monkeypatch.setattr(sys, "stdin", stream)
+
+    assert read_stdin_utf8() == "first →"
+    assert read_stdin_utf8() == ""
+    assert not sys.stdin.buffer.closed
+
+
 # ---------------------------------------------------------- sign-off gating
 
 def test_plan_save_refused_before_signoff(repo, tmp_path):
@@ -1675,6 +1870,7 @@ def test_upgrade_survives_a_repo_without_harness_yaml(repo, tmp_path):
 def test_upgrade_replaces_machinery_preserves_project(repo, tmp_path):
     # Degrade machinery, add project-owned content + a proposed skill
     (repo / "factory" / "scripts" / "verify.py").unlink()
+    (repo / "factory" / "scripts" / "check_encoding_hygiene.py").unlink()
     proposed = repo / "factory" / "skills" / "proposed"
     proposed.mkdir(parents=True, exist_ok=True)
     (proposed / "keep-me.md").write_text("status: proposed\n")
@@ -1690,6 +1886,7 @@ def test_upgrade_replaces_machinery_preserves_project(repo, tmp_path):
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert (repo / "factory" / "scripts" / "verify.py").exists()  # machinery restored
+    assert (repo / "factory" / "scripts" / "check_encoding_hygiene.py").exists()
     assert (proposed / "keep-me.md").exists()  # evolution state preserved
     assert "Client-specific fact" in memory.read_text()  # project memory preserved
     assert list((repo / "docs" / "decisions").glob("*keep-decision.md"))  # project-owned untouched
@@ -2256,6 +2453,27 @@ def test_dual_runtime_linter_clean_on_scaffold_and_catches_phantom_ref(repo):
     )
     code, out = run(repo, "check_dual_runtime.py", str(repo))
     assert code != 0 and "phantom" in out
+
+
+def test_dual_runtime_replace_decodes_tracked_source_suffix(repo):
+    binary = repo / "vendor.js"
+    binary.write_bytes(b"\xff\x00binary")
+    git(repo, "add", "vendor.js")
+
+    code, out = run(repo, "check_dual_runtime.py", str(repo))
+
+    assert code == 0, out
+
+    latin1 = repo / "legacy.js"
+    latin1.write_bytes(
+        "// caf\N{LATIN SMALL LETTER E WITH ACUTE}\n"
+        "import '../prototype/utils';\n".encode("latin-1")
+    )
+    git(repo, "add", "legacy.js")
+
+    code, out = run(repo, "check_dual_runtime.py", str(repo))
+
+    assert code != 0 and "legacy.js:2 imports from prototype/" in out
 
 
 def _route_fixture_hooks_through_forge(repo: Path) -> None:
@@ -4620,6 +4838,7 @@ def test_adopt_vendors_harness_and_preserves_project(tmp_path):
     assert code == 0, out
     # machinery is in; project content untouched; their CI survived the merge
     assert (repo / "factory" / "scripts" / "forge.py").exists()
+    assert (repo / "factory" / "scripts" / "check_encoding_hygiene.py").exists()
     assert (repo / "src" / "app.js").read_text() == "console.log('prototype')\n"
     # project README preserved, onboarding section appended (never rewritten)
     readme = (repo / "README.md").read_text()
@@ -4793,6 +5012,7 @@ def test_scaffold_delivers_factory_workflows(repo):
     assert (wf / "gardener.yml").exists()
     assert (wf / "harness-health.yml").exists()
     assert (wf / "roadmap-gate.yml").exists()
+    assert (repo / "factory/scripts/check_encoding_hygiene.py").exists()
 
 
 def test_scaffold_pins_gstack_into_the_repo(repo):
@@ -7106,6 +7326,27 @@ def test_trailer_check_targets_the_acceptance_commit(repo):
 
 
 # ---------------------------------------------------------- Gate A: PR ticket
+
+def test_ci_locale_forcing_selectors_reference_existing_tests():
+    workflow = (
+        HARNESS / ".github" / "workflows" / "factory-scaffold.yml"
+    ).read_text()
+    suite = ast.parse(
+        (HARNESS / "factory" / "tests" / "test_gates.py").read_text()
+    )
+    test_ids = {
+        node.name
+        for node in suite.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    selectors = set(re.findall(
+        r"factory/tests/test_gates\.py::([A-Za-z_][A-Za-z0-9_]*)",
+        workflow,
+    ))
+
+    assert selectors
+    assert not selectors - test_ids
+
 
 def test_roadmap_gate_workflow_shape():
     workflow = (HARNESS / ".github" / "workflows" / "roadmap-gate.yml").read_text()
@@ -10047,6 +10288,7 @@ def test_proof_reaps_spawn_when_process_identity_probe_fails(
         fake_process = FakeProcess()
         cleaned = []
         signals = []
+        spawned = {}
         probes = iter([OSError("process identity unavailable"), 4242.0])
 
         def process_identity(_pid):
@@ -10055,8 +10297,11 @@ def test_proof_reaps_spawn_when_process_identity_probe_fails(
                 raise result
             return result
 
-        monkeypatch.setattr(stages.subprocess, "Popen",
-                            lambda *_args, **_kwargs: fake_process)
+        def spawn(*_args, **kwargs):
+            spawned.update(kwargs)
+            return fake_process
+
+        monkeypatch.setattr(stages.subprocess, "Popen", spawn)
         monkeypatch.setattr(delegate, "_process_table", lambda: {})
         monkeypatch.setattr(delegate, "_process_start_identity", process_identity)
         monkeypatch.setattr(
@@ -10085,6 +10330,11 @@ def test_proof_reaps_spawn_when_process_identity_probe_fails(
         sys.path.pop(0)
     assert cleaned == [fake_process.pid]
     assert signals == [(fake_process.pid, 4242.0)]
+    assert spawned["env"]["PYTHONUTF8"] == "1"
+    assert spawned["stdout"].encoding == "utf-8"
+    assert spawned["stdout"].errors == "replace"
+    assert spawned["stderr"].encoding == "utf-8"
+    assert spawned["stderr"].errors == "replace"
 
 
 def test_stage_done_reloads_launch_after_proof_commands(repo, tmp_path):
@@ -12069,6 +12319,11 @@ def test_launch_companion_uses_platform_specific_spawn_options(
     else:
         assert captured["start_new_session"] is True
         assert captured["preexec_fn"] is delegate.unblock_termination_signals_in_child
+    assert captured["env"]["PYTHONUTF8"] == "1"
+    assert captured["stdout"].encoding == "utf-8"
+    assert captured["stdout"].errors == "replace"
+    assert captured["stderr"].encoding == "utf-8"
+    assert captured["stderr"].errors == "replace"
 
 
 def test_stale_launch_reconciliation_refuses_unverified_process_group(
@@ -12322,6 +12577,34 @@ def test_windows_delegation_launches_and_reaps(repo, tmp_path):
                     child.kill()
             except psutil.NoSuchProcess:
                 pass
+
+
+@pytest.mark.skipif(os.name != "nt", reason="native Windows encoding E2E")
+def test_windows_delegation_success_round_trips_unicode_handoff(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    home = fake_companion_home(tmp_path)
+    companion = next(home.glob(
+        ".claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs"))
+    companion.write_text(
+        "process.stdout.write('worker\\u2192handoff');\n"
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(repo / "factory/scripts/forge.py"),
+         "delegate", "T1"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env={**os.environ, "HOME": str(home), "USERPROFILE": str(home)},
+    )
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "worker→handoff" in proc.stdout
+    terminal = json.loads(
+        delegation_ledger(repo).read_text().splitlines()[-1])
+    assert terminal["launch_status"] == "succeeded"
+    assert terminal["argv"][-1] == "--write"
 
 
 def test_read_only_diagnostic_does_not_revoke_write_launch(repo, tmp_path):

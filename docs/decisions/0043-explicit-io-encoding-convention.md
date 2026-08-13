@@ -27,8 +27,10 @@ explicitly: UTF-8 everywhere. Error policy is classified by consumer —
 `errors="replace"` ONLY for human-display captures and worker-log read-back;
 strict UTF-8 (fail loudly) for evidence, plans, specs, manifests, JSON
 protocol output, and stdin; git path output keeps filesystem semantics
-(bytes/surrogateescape); byte-exact digest paths stay bytes. Spawned Python
-children are contracted to UTF-8 output via PYTHONUTF8=1 in their env. The
+(bytes or UTF-8 with `surrogateescape`); byte-exact digest paths stay bytes.
+Stdin is read through a strict UTF-8 `TextIOWrapper` over `sys.stdin.buffer`.
+Spawned Python children are contracted to UTF-8 output via `PYTHONUTF8=1` in
+their env; the parent temp-handle encoding does not configure the child. The
 convention is enforced by `check_encoding_hygiene.py` (AST-based,
 value-validating, allowlisted DO-NOT list) — the roadmap AC's "single helper"
 phrasing is satisfied by this enforced convention: the call sites share no
@@ -42,6 +44,10 @@ the plan grill, 2026-08-13).
 - Undecodable child output degrades to `?` in diagnostics instead of
   aborting; corrupt evidence refuses loudly instead of decoding silently
   (0009/0025 preserved).
+- Replacement decoding is limited to the checker's documented file-and-line
+  allowlist: console reconfiguration, diagnostic captures, and the six
+  worker-log handles. Indexed symlink targets and git path authority use
+  lossless `surrogateescape`, not replacement.
 - Rejected: a mega-helper wrapping all subprocess shapes; global
   reconfigure-only (stdio-only); re-exec under PYTHONUTF8=1 (double-starts
   every process, breaks imported hosts); locale-respecting I/O.
