@@ -218,11 +218,46 @@
         }
       },
       "task_sha256": "9d8abdaa366fc0b6f42488813584903341b1f8b8e7bef49e483f80d2dc60d103",
-      "completed_at": "2026-08-12T19:21:03+00:00",
+      "completed_at": "2026-08-12T19:21:03+00:00"
+    },
+    {
+      "id": "FORGE-WIN-2.6",
+      "title": "Fix forge.cmd exit-code bugs caught by real-Windows CI",
+      "status": "done",
+      "started_at": "2026-08-13T02:36:34+00:00",
+      "base_sha": "7f62f3ffca16802a9494459cf9bee0da8230f9bf",
+      "dirty_at_start": {
+        ".factory/decomposition.json": {
+          "digest": "0efbc9628456b055d7f5fcd0daac247952633644c0d1203f75ab9b532750b409",
+          "git": "? .factory/decomposition.json\u0000\u0000\u0000"
+        },
+        ".factory/events.jsonl": {
+          "digest": "400e1c91975b6537b1f4d1c7a1cb4b6fd9d0b36bd025613539b350b875f196ae",
+          "git": "1 .M N... 100644 100644 100644 c74fce445bafb32270218f16947c1ad119b66415 c74fce445bafb32270218f16947c1ad119b66415 .factory/events.jsonl\u0000\u0000100644 c74fce445bafb32270218f16947c1ad119b66415 0\t.factory/events.jsonl\u0000\u0000H .factory/events.jsonl\u0000"
+        },
+        ".factory/grills/plan.json": {
+          "digest": "42954bf4ef1f0fc0917e019d7539f197d829d73a3776776ccab2d35ac936b9e2",
+          "git": "? .factory/grills/plan.json\u0000\u0000\u0000"
+        },
+        ".factory/run.json": {
+          "digest": "843bdefaced9c0ed4dfd921647a53d40ac1024d5d650d4e8ccde111a7d9018ff",
+          "git": "1 .M N... 100644 100644 100644 99e2d3be945a093a25a512be5d0fd6ef828f64b1 99e2d3be945a093a25a512be5d0fd6ef828f64b1 .factory/run.json\u0000\u0000100644 99e2d3be945a093a25a512be5d0fd6ef828f64b1 0\t.factory/run.json\u0000\u0000H .factory/run.json\u0000"
+        },
+        ".factory/stages.json": {
+          "digest": "859559f8728913d673e98e19fee29b2c87a685abd165b7d79c7fac15512b6902",
+          "git": "? .factory/stages.json\u0000\u0000\u0000"
+        },
+        "plans/active/FORGE-WIN-2-doctor-fix-installs-prerequisites-on-windows.md": {
+          "digest": "43e7a1679f5de4a53f0d464dcc53e511ece79e092212a7b38c4cece7a586121c",
+          "git": "? plans/active/FORGE-WIN-2-doctor-fix-installs-prerequisites-on-windows.md\u0000\u0000\u0000"
+        }
+      },
+      "task_sha256": "af635d7e99a0c1e74f002881462b33965652b2cd7e0231303d20d3aad732babd",
+      "completed_at": "2026-08-13T03:51:26+00:00",
       "contract_changed": {
-        "at": "2026-08-12T19:21:03+00:00",
-        "from": "80f94a8c04f7f4b7e0be42a47c24aeb39c5ca31f25bb02f7f170f5ae33b6fb7d",
-        "to": "9d8abdaa366fc0b6f42488813584903341b1f8b8e7bef49e483f80d2dc60d103"
+        "at": "2026-08-13T03:51:26+00:00",
+        "from": "0c7b129d523e343c581a8570c348259955e75113a48b78e700857dfaea27e83c",
+        "to": "af635d7e99a0c1e74f002881462b33965652b2cd7e0231303d20d3aad732babd"
       }
     }
   ]

@@ -619,7 +619,7 @@
         "FORGE-WIN-1"
       ],
       "spec": "docs/specs/windows-zero-setup.md",
-      "completed_at": "2026-08-12T19:42:48+00:00",
+      "completed_at": "2026-08-13T04:04:50+00:00",
       "history": ".factory/history/FORGE-WIN-2/",
       "outcome": "A Windows machine with no Git or Python converges to a working harness by running 'forge doctor --fix' with zero typed setup: it adds a real Python 3.10+ check, installs Git and Python in user scope via winget, finds them through canonical known folders plus ProgramW6432 (WOW64-safe), and refreshes PATH so the fixing run reports green \u2014 or prints honest guidance when it cannot. forge.cmd lets cmd/PowerShell users run the harness natively and bootstraps Python before the Git Bash handoff. Auto-remediation refuses to run under an elevated shell (fail-closed), never executing user-writable installers as admin. New clients get it at init, existing on forge upgrade, and windows-latest CI proves it. The single-UAC elevation batch is deferred to real-Windows validation (D-0021)."
     },
@@ -681,7 +681,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-12T19:42:48+00:00",
+  "updated_at": "2026-08-13T04:04:50+00:00",
   "epics": [
     {
       "id": "symphony-forge",

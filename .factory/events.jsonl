@@ -1094,3 +1094,12 @@
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T03:31:46+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.6 (write)"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T03:34:04+00:00", "story": "FORGE-WIN-2", "detail": "6 task(s)"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T03:37:31+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.6 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-13T03:51:26+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.6: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-13T03:51:26+00:00", "story": "FORGE-WIN-2", "detail": "FORGE-WIN-2.6 Fix forge.cmd exit-code bugs caught by real-Windows CI"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-13T03:52:00+00:00", "story": "FORGE-WIN-2", "detail": "S-0001-c483: Correct objection \u2014 my PATH-whoami-stub instruction was wrong (forge.cmd invokes System32\\whoami.exe by absolute trusted path; a PATH stub cannot intercept it, and weakening it to PATH lookup would br"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-13T03:52:10+00:00", "story": "FORGE-WIN-2"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-13T03:52:17+00:00", "story": "FORGE-WIN-2"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T03:52:17+00:00", "story": "FORGE-WIN-2"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-13T03:52:43+00:00", "story": "FORGE-WIN-2", "detail": "pass"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-13T04:04:41+00:00", "story": "FORGE-WIN-2"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-13T04:04:50+00:00", "story": "FORGE-WIN-2", "detail": "A Windows machine with no Git or Python converges to a working harness by running 'forge doctor --fix' with zero typed setup: it adds a real Python 3.10+ check, installs Git and Python in user scope v"}

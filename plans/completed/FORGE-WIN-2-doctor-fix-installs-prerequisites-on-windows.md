@@ -2,7 +2,7 @@
 issue: FORGE-WIN-2
 title: Doctor --fix installs prerequisites on Windows
 status: approved
-saved: 2026-08-12T09:20:01+00:00
+saved: 2026-08-13T02:35:24+00:00
 story: FORGE-WIN-2
 decisions_reviewed:
   - 0001-determinism-contract
@@ -39,6 +39,7 @@ decisions_reviewed:
   - 0036-client-gates-arm-on-roadmap
   - 0037-strict-role-split
   - 0038-portable-fail-closed-hooks
+  - 0040-windows-user-scope-first-elevation-deferred
 ---
 
 # FORGE-WIN-2 — Doctor --fix installs prerequisites on Windows
