@@ -139,7 +139,7 @@ line refs current).
 
 ## Decisions
 
-- NEW: `0041-psutil-cross-platform-process-model` (record before
+- NEW: `0042-psutil-cross-platform-process-model` (record before
   decomposition): psutil is the harness's cross-platform process abstraction;
   the `ps`-shelling and `killpg` are replaced on both platforms (not merely
   Windows-branched), retiring the ps-lstart fragility. Accepts the first
@@ -148,7 +148,7 @@ line refs current).
   ~9 functions, subtle Windows tree logic, keeps the ps fragility on POSIX);
   Windows-only job objects via ctypes (more code, no POSIX simplification).
 - AC2 reframe (workspace-write achievable, unelevated → D-0021) is a
-  gate-settled scope narrowing, recorded in 0041's context, not a new record.
+  gate-settled scope narrowing, recorded in 0042's context, not a new record.
 - No other new decisions.
 
 ## Surface Impact
@@ -159,7 +159,7 @@ line refs current).
 | API | N-A | — |
 | Data/schema | Unchanged by design | delegations.jsonl fields unchanged (pid/pgid/create-time identity keeps shape) |
 | CLI/ops | Changed | doctor gains a psutil row + --fix install |
-| Deps | Changed | psutil added — first runtime Python dep; vendored to clients (0041) |
+| Deps | Changed | psutil added — first runtime Python dep; vendored to clients (0042) |
 | Docs | Changed | docs/windows.md: delegation supported on Windows; unelevated deferred |
 | Tests | Changed | new nt delegation E2E joins windows CI selector; ps-monkeypatch unit tests migrate to psutil fakes |
 
@@ -169,10 +169,10 @@ line refs current).
 verifier. Sequential; disjoint scopes where possible.)
 
 1. **WIN-3.1 psutil process model** — port the nine functions to psutil,
-   drop preexec_fn + branch Popen creationflags, decision 0041, migrate the
+   drop preexec_fn + branch Popen creationflags, decision 0042, migrate the
    ps-monkeypatch unit tests to psutil fakes, dependency declaration.
    Scope: `factory/scripts/forge_cli/delegate.py`, dep manifest,
-   `factory/tests/test_gates.py`, `docs/decisions/0041-*.md`.
+   `factory/tests/test_gates.py`, `docs/decisions/0042-*.md`.
 2. **WIN-3.2 doctor psutil row + Windows delegation E2E + CI + docs** —
    doctor required psutil row + `--fix` install; a new nt-appropriate
    delegation E2E (launch → running → psutil/taskkill teardown → terminal
