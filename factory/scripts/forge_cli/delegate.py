@@ -132,7 +132,7 @@ def load_delegations(base: Path) -> list[dict]:
     if not path.exists():
         return []
     entries = []
-    for line_number, line in enumerate(path.read_text().splitlines(), start=1):
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         if not line.strip():
             continue
         try:
@@ -519,7 +519,7 @@ def _acquire_delegation_lock(base: Path, lock_id: str, launch_id: str,
                              namespace: str = "task"):
     path = delegation_lock_path(base, lock_id, namespace=namespace)
     path.parent.mkdir(parents=True, exist_ok=True)
-    handle = path.open("a+")
+    handle = path.open("a+", encoding="utf-8")
     deadline = time.monotonic() + 30
     while True:
         try:
@@ -564,7 +564,7 @@ def _release_delegation_lock(handle, _launch_id: str) -> None:
 
 def _lock_is_held(path: Path) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
-    handle = path.open("a+")
+    handle = path.open("a+", encoding="utf-8")
     try:
         _lock_file(handle)
     except BlockingIOError:
@@ -805,7 +805,7 @@ def companion_script(home: Path | None = None) -> Path:
              "codex").resolve()
     metadata = home / ".claude" / "plugins" / "installed_plugins.json"
     try:
-        installed = json.loads(metadata.read_text())
+        installed = json.loads(metadata.read_text(encoding="utf-8"))
         entries = installed["plugins"]["codex@openai-codex"]
     except (OSError, json.JSONDecodeError, KeyError, TypeError):
         fail("Codex companion installation metadata is missing or malformed — "
@@ -831,7 +831,7 @@ def pinned_run_config(base: Path) -> tuple[str, str]:
     Read rather than duplicated — and read here because the repo's own
     .codex/config.toml is shadowed by ~/.codex, so the pin never reaches the
     CLI unless the invocation carries it."""
-    text = (base / "harness.yaml").read_text() if (base / "harness.yaml").is_file() else ""
+    text = (base / "harness.yaml").read_text(encoding="utf-8") if (base / "harness.yaml").is_file() else ""
     block = re.search(r"^  implementation:\n((?:    .*\n|\n)*)", text, re.MULTILINE)
     body = block.group(1) if block else ""
     model = re.search(r'^    model:\s*"?([\w.-]+)"?', body, re.MULTILINE)
@@ -843,7 +843,7 @@ def pinned_run_config(base: Path) -> tuple[str, str]:
 def mode_run_config(base: Path, mode: str) -> tuple[str, str, int]:
     """Return the model, effort, and file bound pinned for a workflow mode."""
     manifest = base / "harness.yaml"
-    text = manifest.read_text() if manifest.is_file() else ""
+    text = manifest.read_text(encoding="utf-8") if manifest.is_file() else ""
     modes = re.search(r"^modes:\n((?:  .*\n|\n)*)", text, re.MULTILINE)
     body = modes.group(1) if modes else ""
     selected = re.search(
@@ -859,7 +859,7 @@ def mode_run_config(base: Path, mode: str) -> tuple[str, str, int]:
 
 def skill_groups(base: Path) -> dict[str, dict[str, list[str]]]:
     """Skills declared by phase, keeping required and advisory lists distinct."""
-    text = (base / "harness.yaml").read_text() if (base / "harness.yaml").is_file() else ""
+    text = (base / "harness.yaml").read_text(encoding="utf-8") if (base / "harness.yaml").is_file() else ""
     groups: dict[str, dict[str, list[str]]] = {}
     for phase in ("implementation", "review"):
         phase_match = re.search(
@@ -912,7 +912,7 @@ def _skill_text(skill: str) -> str:
     for candidate in (Path.home() / ".claude" / "skills" / skill / "SKILL.md",
                       Path.home() / ".codex" / "skills" / skill / "SKILL.md"):
         if candidate.is_file():
-            return candidate.read_text()[:SKILL_INLINE_CHARS]
+            return candidate.read_text(encoding="utf-8")[:SKILL_INLINE_CHARS]
     return ""
 
 
@@ -962,7 +962,7 @@ def compose_brief(base: Path, task: dict, *, write: bool, user_facing: bool,
         f"- {le.get('lesson', '')}" for le in lessons))
     prompt = base / "factory" / "prompts" / "implementer.md"
     if prompt.is_file():
-        body += _section("Implementer contract", prompt.read_text())
+        body += _section("Implementer contract", prompt.read_text(encoding="utf-8"))
     if user_facing:
         for skill in required_skills(base):
             text = _skill_text(skill)
@@ -1052,8 +1052,12 @@ def launch_companion(
     process_identity: float | str = ""
     stdout = ""
     stderr = ""
-    stdout_log = tempfile.TemporaryFile(mode="w+t")
-    stderr_log = tempfile.TemporaryFile(mode="w+t")
+    stdout_log = tempfile.TemporaryFile(
+        mode="w+t", encoding="utf-8", errors="replace"
+    )
+    stderr_log = tempfile.TemporaryFile(
+        mode="w+t", encoding="utf-8", errors="replace"
+    )
     handled_signals = list(TERMINATION_SIGNALS)
     previous_handlers = {
         candidate: signal.getsignal(candidate) for candidate in handled_signals
@@ -1069,6 +1073,7 @@ def launch_companion(
         try:
             process_env = os.environ.copy()
             process_env["FORGE_PROCESS_TOKEN"] = process_token
+            process_env["PYTHONUTF8"] = "1"
             with blocked_termination_signals():
                 process_baseline = _process_table()
                 spawn_options = (

@@ -497,6 +497,95 @@ def test_full_lifecycle_and_archive(repo, tmp_path):
     assert code == 0 and "shipped so far: ENG-1" in out
 
 
+def test_encoding_hygiene_gate_catches_each_violation_class(tmp_path):
+    from check_encoding_hygiene import BYTE_PATH_ALLOWLIST, check_file
+
+    violations = {
+        "subprocess.py": (
+            "import subprocess\n"
+            "subprocess.run(['tool'], capture_output=True, "
+            "encoding='latin-1')\n"
+        ),
+        "subprocess_alias.py": (
+            "from subprocess import run as invoke\n"
+            "invoke(['tool'], capture_output=True, text=True)\n"
+        ),
+        "path_text.py": "from pathlib import Path\nPath('x').read_text()\n",
+        "open_text.py": "open('x', 'a')\n",
+        "temp_text.py": (
+            "import tempfile\n"
+            "tempfile.NamedTemporaryFile(mode='w+')\n"
+        ),
+        "stdin.py": "import sys\nsys.stdin.read()\n",
+        "replace.py": (
+            "from pathlib import Path\n"
+            "Path('x').read_text(encoding='utf-8', errors='replace')\n"
+        ),
+    }
+    expected = {
+        "subprocess.py": {"subprocess-text"},
+        "subprocess_alias.py": {"subprocess-text"},
+        "path_text.py": {"text-file"},
+        "open_text.py": {"text-file"},
+        "temp_text.py": {"text-file"},
+        "stdin.py": {"stdin"},
+        "replace.py": {"replace-policy"},
+    }
+    for name, source in violations.items():
+        path = tmp_path / name
+        path.write_text(source, encoding="utf-8")
+        assert {
+            violation.rule for violation in check_file(path, root=tmp_path)
+        } == expected[name]
+
+    allowed = tmp_path / "allowed.py"
+    allowed.write_text(
+        "import io, os, subprocess, sys, tempfile\n"
+        "subprocess.run(['tool'], capture_output=True, text=True, "
+        "encoding='utf-8', errors='replace')\n"
+        "open('bytes', 'rb')\n"
+        "os.open('safe', os.O_RDONLY, dir_fd=3)\n"
+        "webbrowser.open('https://example.test')\n"
+        "tempfile.TemporaryFile(mode='w+t', encoding='utf-8')\n"
+        "io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8', "
+        "errors='strict').read()\n",
+        encoding="utf-8",
+    )
+    assert check_file(
+        allowed,
+        root=tmp_path,
+        replace_allowlist=frozenset({"allowed.py:2"}),
+    ) == []
+    assert any("pr_ready.py:348" in item for item in BYTE_PATH_ALLOWLIST)
+    assert any("upgrade.py:159,314,324,355" in item for item in BYTE_PATH_ALLOWLIST)
+
+
+def test_recorder_stdin_reads_non_ascii_utf8(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    code, out = save_plan(repo, tmp_path)
+    assert code == 0, out
+    payload = json.loads(json.dumps(DECOMP))
+    payload["tasks"][0]["title"] = "Unicode arrow → snowman ☃"
+    env = {**os.environ, "PYTHONIOENCODING": "ascii:strict", "PYTHONUTF8": "0"}
+
+    proc = subprocess.run(
+        [sys.executable, str(
+            repo / "factory" / "scripts" / "record_decomposition_from_json.py"
+        )],
+        cwd=repo,
+        input=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        capture_output=True,
+        env=env,
+    )
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    recorded = json.loads(
+        (repo / ".factory" / "decomposition.json").read_text(encoding="utf-8")
+    )
+    assert recorded["tasks"][0]["title"] == payload["tasks"][0]["title"]
+
+
 # ---------------------------------------------------------- sign-off gating
 
 def test_plan_save_refused_before_signoff(repo, tmp_path):
@@ -10047,6 +10136,7 @@ def test_proof_reaps_spawn_when_process_identity_probe_fails(
         fake_process = FakeProcess()
         cleaned = []
         signals = []
+        spawned = {}
         probes = iter([OSError("process identity unavailable"), 4242.0])
 
         def process_identity(_pid):
@@ -10055,8 +10145,11 @@ def test_proof_reaps_spawn_when_process_identity_probe_fails(
                 raise result
             return result
 
-        monkeypatch.setattr(stages.subprocess, "Popen",
-                            lambda *_args, **_kwargs: fake_process)
+        def spawn(*_args, **kwargs):
+            spawned.update(kwargs)
+            return fake_process
+
+        monkeypatch.setattr(stages.subprocess, "Popen", spawn)
         monkeypatch.setattr(delegate, "_process_table", lambda: {})
         monkeypatch.setattr(delegate, "_process_start_identity", process_identity)
         monkeypatch.setattr(
@@ -10085,6 +10178,11 @@ def test_proof_reaps_spawn_when_process_identity_probe_fails(
         sys.path.pop(0)
     assert cleaned == [fake_process.pid]
     assert signals == [(fake_process.pid, 4242.0)]
+    assert spawned["env"]["PYTHONUTF8"] == "1"
+    assert spawned["stdout"].encoding == "utf-8"
+    assert spawned["stdout"].errors == "replace"
+    assert spawned["stderr"].encoding == "utf-8"
+    assert spawned["stderr"].errors == "replace"
 
 
 def test_stage_done_reloads_launch_after_proof_commands(repo, tmp_path):
@@ -12069,6 +12167,11 @@ def test_launch_companion_uses_platform_specific_spawn_options(
     else:
         assert captured["start_new_session"] is True
         assert captured["preexec_fn"] is delegate.unblock_termination_signals_in_child
+    assert captured["env"]["PYTHONUTF8"] == "1"
+    assert captured["stdout"].encoding == "utf-8"
+    assert captured["stdout"].errors == "replace"
+    assert captured["stderr"].encoding == "utf-8"
+    assert captured["stderr"].errors == "replace"
 
 
 def test_stale_launch_reconciliation_refuses_unverified_process_group(

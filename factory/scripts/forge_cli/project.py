@@ -110,7 +110,7 @@ def _github_merge_records(base: Path) -> list[dict]:
             ],
             cwd=base,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
         )
     except OSError as exc:
         raise SystemExit(f"project backfill could not run gh: {exc}") from exc
@@ -129,6 +129,7 @@ def _github_merge_records(base: Path) -> list[dict]:
 def _git(base: Path, *args: str) -> str | None:
     proc = subprocess.run(
         ["git", *args], cwd=base, capture_output=True, text=True,
+        encoding="utf-8", errors="surrogateescape",
     )
     return proc.stdout if proc.returncode == 0 else None
 

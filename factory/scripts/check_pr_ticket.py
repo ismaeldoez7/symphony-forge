@@ -46,7 +46,7 @@ def is_harness_owned(path: str) -> bool:
 
 def git(root: Path, *args: str) -> str:
     proc = subprocess.run(
-        ["git", *args], cwd=root, capture_output=True, text=True,
+        ["git", *args], cwd=root, capture_output=True, text=True, encoding="utf-8",
     )
     if proc.returncode != 0:
         raise SystemExit(proc.stderr.strip() or f"git {' '.join(args)} failed")
