@@ -16,7 +16,7 @@
   "open_items": [],
   "notes": "FORGE-WIN-3.1 interrogated against the approved plan, decision 0041, and lessons (normalize-ps-derived-identity retired by the port, repeated-full-file-rewrites verify-against-HEAD). Frontier empty.",
   "task_id": "FORGE-WIN-3.1",
-  "input_sha256": "534a069684d702283b5a76b1d55d1efe5a56e43616663d328ccc2b6bb887e1f6",
-  "recorded_at": "2026-08-13T06:15:02+00:00",
-  "commit": "7aed5f0c31604e4c6f78e543a89c4eb06208f9bb"
+  "input_sha256": "a3c1aabab71b60aaa92f94ac628342a97781aee894842469d60018f63ae37a3d",
+  "recorded_at": "2026-08-13T06:36:38+00:00",
+  "commit": "5205e4db19bbfb88009f1a7df2a74012b17c32fe"
 }
