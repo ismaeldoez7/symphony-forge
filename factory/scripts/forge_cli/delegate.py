@@ -34,15 +34,15 @@ from pathlib import Path
 
 from factory_lib import (
     git_control_dir, load_json, now_iso, protected_decomposition_state_path,
-    repo_root, require_task_grill, run_state_path, safe_factory_append,
-    safe_factory_write_bytes, sha256_of, validate_payload,
+    repo_root, require_ready_task, run_state_path, safe_factory_append,
+    safe_factory_write_bytes, sha256_of, task_digest, validate_payload,
 )
 
 from .common import fail
 from .decisions import decision_records
 from .events import append_event
 from .lessons import relevant_lessons
-from .stages import load_stages, task_digest
+from .stages import load_stages
 
 SAFE_TASK_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\Z")
 # A brief is read by a model, so an inlined rule set that runs to thousands of
@@ -1184,12 +1184,15 @@ def cmd_delegate(args: argparse.Namespace) -> None:
     stage = next((s for s in load_stages(base).get("stages", [])
                   if s.get("id") == args.id), {})
     scope = task.get("write_scope") or []
-    # Derived, not typed: an active stage with somewhere to write is a write
-    # run. --read-only is the explicit exception, for exploration.
-    write = bool(stage.get("status") == "active" and scope) and not args.read_only
+    # Derived, not typed: an active stage is a write run. --read-only is the
+    # explicit exception for exploration; an empty scope is an incomplete
+    # contract, not an implicit read-only downgrade.
+    active = stage.get("status") == "active"
+    if active and not args.read_only:
+        task = require_ready_task(base, args.id)
+        scope = task.get("write_scope") or []
+    write = bool(active and scope) and not args.read_only
     task_sha256_value = task_digest(task)
-    if write:
-        require_task_grill(base, args.id, task_sha256_value)
     if write and args.background:
         fail("background write delegation cannot satisfy a measured stage: the "
              "worker could keep writing after stage close. Run it in the foreground, "

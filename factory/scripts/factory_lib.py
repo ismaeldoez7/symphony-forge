@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -970,6 +971,78 @@ def require_task_grill(
             f"the {task_id} task grill is STALE — it was not recorded against the "
             f"current task contract. Re-grill and record `{record_command}`."
         )
+
+
+def task_digest(task: dict) -> str:
+    """Return the digest bound by task grills and stage measurement."""
+    payload = json.dumps(
+        {
+            key: task.get(key)
+            for key in (
+                "write_scope",
+                "required_tests",
+                "verify_commands",
+                "acceptance_criteria",
+            )
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def require_ready_task(root: Path, task_id: str) -> dict:
+    """Require the JIT execution contract and its fresh, passing grill."""
+    tasks = load_json(
+        protected_decomposition_state_path(root), default={}
+    ).get("tasks", [])
+    task = next(
+        (candidate for candidate in tasks if candidate.get("id") == task_id),
+        None,
+    )
+    if task is None:
+        raise SystemExit(
+            f"{task_id!r} is not a task in the protected decomposition."
+        )
+
+    stages = load_json(git_control_dir(root) / "stages.json", default={})
+    statuses = {
+        stage.get("id"): stage.get("status")
+        for stage in stages.get("stages", [])
+        if isinstance(stage, dict)
+    }
+    frontier = next(
+        (
+            candidate
+            for candidate in tasks
+            if statuses.get(candidate.get("id")) != "done"
+        ),
+        None,
+    )
+    if frontier is None or frontier.get("id") != task_id:
+        frontier_id = frontier.get("id") if frontier else "none"
+        raise SystemExit(
+            f"{task_id} is not the earliest unfinished task ({frontier_id}); "
+            "finish tasks in decomposition order."
+        )
+
+    for field in (
+        "write_scope",
+        "required_tests",
+        "verify_commands",
+        "reviewer_focus",
+    ):
+        value = task.get(field)
+        if not value or (isinstance(value, str) and not value.strip()):
+            raise SystemExit(
+                f"{task_id} task contract is incomplete: {field} is empty. "
+                "Author the JIT contract and re-record it with "
+                "`python3 factory/scripts/record_decomposition_from_json.py "
+                f"--input <json>`. `forge delegate {task_id} --read-only` "
+                "remains available for exploration only."
+            )
+
+    require_task_grill(root, task_id, task_digest(task))
+    return task
 
 
 def changed_since(root: Path, stamp: str, prefixes: tuple[str, ...]) -> list[str]:

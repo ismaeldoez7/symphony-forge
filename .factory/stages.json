@@ -71,7 +71,11 @@
     {
       "id": "ACC1-T2",
       "title": "Shared readiness gate at stage start and delegate",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-13T17:55:25+00:00",
+      "base_sha": "97de19125c9dc4f96398aafc1360f02cce1c7077",
+      "dirty_at_start": {},
+      "task_sha256": "2928e060b0e29502ac21cc48477d6a74e1448b69f9bac999bdab44483b5717df"
     },
     {
       "id": "ACC1-T3",

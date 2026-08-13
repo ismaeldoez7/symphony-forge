@@ -1235,3 +1235,5 @@
 {"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-13T17:52:03+00:00", "story": "FORGE-ACC-3", "detail": "docs/specs/accountable-engineering-loop.md"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T17:54:32+00:00", "story": "FORGE-ACC-1", "detail": "3 task(s)"}
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-13T17:55:26+00:00", "story": "FORGE-ACC-1", "detail": "ACC1-T2 Shared readiness gate at stage start and delegate"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T18:09:07+00:00", "story": "FORGE-ACC-1", "detail": "ACC1-T2 (write)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T18:18:16+00:00", "story": "FORGE-ACC-1", "detail": "ACC1-T2 (write)"}
