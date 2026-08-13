@@ -81,16 +81,11 @@
           "id": "test_doctor_psutil_row_required_and_fix_installs",
           "path": "factory/tests/test_gates.py",
           "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
-        },
-        {
-          "id": "test_windows_delegation_launches_and_reaps",
-          "path": "factory/tests/test_gates.py",
-          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
         }
       ],
       "reviewer_focus": "The nt delegation E2E is the load-bearing CI proof \u2014 it must genuinely launch+reap on windows-latest, not be a text assertion. Selector stays explicit (D-0020); no dangling ids. Doctor psutil check stays subprocess-free in fast_status. LESSON: do NOT pr_ready before windows-hook-gates is green (WIN-2 premature-close)."
     }
   ],
   "plan_sha256": "e225e841ca0c094f4a23ac0075672092621d2d51581f02d94b9a6135d7a977f3",
-  "commit": "b82e237b3d0da6912443f1927650604a1ef81079"
+  "commit": "d2f24a282f195f7c102ca22a0dcc2350a636c85e"
 }

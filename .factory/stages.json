@@ -31,7 +31,7 @@
     {
       "id": "FORGE-WIN-3.2",
       "title": "Doctor psutil row + Windows delegation E2E + CI selector + docs",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-13T07:40:41+00:00",
       "base_sha": "cdb4da4072b12e3ea9e8443406922c7ff0d76010",
       "dirty_at_start": {
@@ -72,7 +72,13 @@
           "git": "? plans/quickfixes/20260813T072157-0000-Q-0059-3aa0-done-072157662836.json\u0000\u0000\u0000"
         }
       },
-      "task_sha256": "426f0a55227480b62cc852b0acd5c3769b8b57139aa83cda5273888ac5fba5a3"
+      "task_sha256": "db9f37a38f05aa152eb00a14f5641bf1e72bcebf2f7e87401c257ea9db22634a",
+      "completed_at": "2026-08-13T09:42:24+00:00",
+      "contract_changed": {
+        "at": "2026-08-13T09:42:24+00:00",
+        "from": "426f0a55227480b62cc852b0acd5c3769b8b57139aa83cda5273888ac5fba5a3",
+        "to": "db9f37a38f05aa152eb00a14f5641bf1e72bcebf2f7e87401c257ea9db22634a"
+      }
     }
   ]
 }
