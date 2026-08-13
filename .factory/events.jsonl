@@ -1216,3 +1216,5 @@
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-13T16:56:35+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.1 Encoding sweep + value-validating hygiene gate"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T17:15:52+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.1 (write)"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T17:45:28+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.1 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T18:06:22+00:00", "story": "FORGE-WIN-ENC", "detail": "2 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T18:50:23+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.1 (write)"}

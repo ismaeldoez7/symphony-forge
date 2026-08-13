@@ -498,7 +498,9 @@ def test_full_lifecycle_and_archive(repo, tmp_path):
 
 
 def test_encoding_hygiene_gate_catches_each_violation_class(tmp_path):
-    from check_encoding_hygiene import BYTE_PATH_ALLOWLIST, check_file
+    from check_encoding_hygiene import (
+        BYTE_MODE_ALLOWLIST, BYTE_PATH_ALLOWLIST, check_file,
+    )
 
     violations = {
         "subprocess.py": (
@@ -510,26 +512,79 @@ def test_encoding_hygiene_gate_catches_each_violation_class(tmp_path):
             "from subprocess import run as invoke\n"
             "invoke(['tool'], capture_output=True, text=True)\n"
         ),
+        "subprocess_input.py": (
+            "import subprocess\n"
+            "subprocess.run(['tool'], input='payload', text=True)\n"
+        ),
+        "popen_stdin.py": (
+            "import subprocess\n"
+            "subprocess.Popen(['tool'], stdin=subprocess.PIPE, text=True)\n"
+        ),
+        "popen_stdin_alias.py": (
+            "import subprocess as process\n"
+            "process.Popen(['tool'], stdin=process.PIPE, text=True)\n"
+        ),
+        "local_subprocess_alias.py": (
+            "def launch():\n"
+            "    from subprocess import PIPE, Popen\n"
+            "    Popen(['tool'], stdin=PIPE, text=True)\n"
+        ),
         "path_text.py": "from pathlib import Path\nPath('x').read_text()\n",
         "open_text.py": "open('x', 'a')\n",
         "temp_text.py": (
             "import tempfile\n"
             "tempfile.NamedTemporaryFile(mode='w+')\n"
         ),
+        "temp_alias.py": (
+            "from tempfile import NamedTemporaryFile as temp\n"
+            "temp(mode='w+')\n"
+        ),
         "stdin.py": "import sys\nsys.stdin.read()\n",
+        "input.py": "input()\n",
+        "stdin_alias.py": "from sys import stdin as source\nsource.read()\n",
+        "local_stdin_alias.py": (
+            "def read():\n"
+            "    from sys import stdin as source\n"
+            "    return source.read()\n"
+        ),
+        "stdin_getattr.py": "import sys\ngetattr(sys, 'stdin').read()\n",
         "replace.py": (
             "from pathlib import Path\n"
             "Path('x').read_text(encoding='utf-8', errors='replace')\n"
+        ),
+        "surrogateescape.py": (
+            "from pathlib import Path\n"
+            "Path('x').read_text(encoding='utf-8', errors='surrogateescape')\n"
+        ),
+        "ignore.py": "open('x', encoding='utf-8', errors='ignore')\n",
+        "backslashreplace.py": (
+            "open('x', encoding='utf-8', errors='backslashreplace')\n"
+        ),
+        "dynamic_errors.py": (
+            "policy = 'strict'\nopen('x', encoding='utf-8', errors=policy)\n"
         ),
     }
     expected = {
         "subprocess.py": {"subprocess-text"},
         "subprocess_alias.py": {"subprocess-text"},
+        "subprocess_input.py": {"subprocess-text"},
+        "popen_stdin.py": {"subprocess-text"},
+        "popen_stdin_alias.py": {"subprocess-text"},
+        "local_subprocess_alias.py": {"subprocess-text"},
         "path_text.py": {"text-file"},
         "open_text.py": {"text-file"},
         "temp_text.py": {"text-file"},
+        "temp_alias.py": {"text-file"},
         "stdin.py": {"stdin"},
-        "replace.py": {"replace-policy"},
+        "input.py": {"stdin"},
+        "stdin_alias.py": {"stdin"},
+        "local_stdin_alias.py": {"stdin"},
+        "stdin_getattr.py": {"stdin"},
+        "replace.py": {"errors-policy"},
+        "surrogateescape.py": {"errors-policy"},
+        "ignore.py": {"errors-policy"},
+        "backslashreplace.py": {"errors-policy"},
+        "dynamic_errors.py": {"errors-policy"},
     }
     for name, source in violations.items():
         path = tmp_path / name
@@ -543,6 +598,7 @@ def test_encoding_hygiene_gate_catches_each_violation_class(tmp_path):
         "import io, os, subprocess, sys, tempfile\n"
         "subprocess.run(['tool'], capture_output=True, text=True, "
         "encoding='utf-8', errors='replace')\n"
+        "open('path', encoding='utf-8', errors='surrogateescape')\n"
         "open('bytes', 'rb')\n"
         "os.open('safe', os.O_RDONLY, dir_fd=3)\n"
         "webbrowser.open('https://example.test')\n"
@@ -555,9 +611,24 @@ def test_encoding_hygiene_gate_catches_each_violation_class(tmp_path):
         allowed,
         root=tmp_path,
         replace_allowlist=frozenset({"allowed.py:2"}),
+        byte_path_allowlist={"allowed.py:3": "lossless path"},
+        stdin_allowlist=frozenset({"allowed.py:8"}),
     ) == []
-    assert any("pr_ready.py:348" in item for item in BYTE_PATH_ALLOWLIST)
-    assert any("upgrade.py:159,314,324,355" in item for item in BYTE_PATH_ALLOWLIST)
+    assert "factory/scripts/forge_cli/phase.py:23" in BYTE_PATH_ALLOWLIST
+    assert "factory/scripts/forge_cli/upgrade.py:314" in BYTE_MODE_ALLOWLIST
+    assert "factory/scripts/pr_ready.py:349" in BYTE_MODE_ALLOWLIST
+
+    byte_site = tmp_path / "byte_site.py"
+    byte_site.write_text(
+        "import subprocess\n"
+        "subprocess.run(['tool'], text=True, encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    assert {violation.rule for violation in check_file(
+        byte_site,
+        root=tmp_path,
+        byte_mode_allowlist={"byte_site.py:2": "must stay bytes"},
+    )} == {"byte-mode"}
 
 
 def test_recorder_stdin_reads_non_ascii_utf8(repo, tmp_path):
@@ -584,6 +655,18 @@ def test_recorder_stdin_reads_non_ascii_utf8(repo, tmp_path):
         (repo / ".factory" / "decomposition.json").read_text(encoding="utf-8")
     )
     assert recorded["tasks"][0]["title"] == payload["tasks"][0]["title"]
+
+
+def test_read_stdin_utf8_does_not_close_shared_buffer(monkeypatch):
+    import io
+    from factory_lib import read_stdin_utf8
+
+    stream = io.TextIOWrapper(io.BytesIO("first →".encode("utf-8")))
+    monkeypatch.setattr(sys, "stdin", stream)
+
+    assert read_stdin_utf8() == "first →"
+    assert read_stdin_utf8() == ""
+    assert not sys.stdin.buffer.closed
 
 
 # ---------------------------------------------------------- sign-off gating
@@ -2345,6 +2428,16 @@ def test_dual_runtime_linter_clean_on_scaffold_and_catches_phantom_ref(repo):
     )
     code, out = run(repo, "check_dual_runtime.py", str(repo))
     assert code != 0 and "phantom" in out
+
+
+def test_dual_runtime_skips_tracked_binary_with_source_suffix(repo):
+    binary = repo / "vendor.js"
+    binary.write_bytes(b"\xff\x00binary")
+    git(repo, "add", "vendor.js")
+
+    code, out = run(repo, "check_dual_runtime.py", str(repo))
+
+    assert code == 0, out
 
 
 def _route_fixture_hooks_through_forge(repo: Path) -> None:

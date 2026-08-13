@@ -23,6 +23,7 @@ def cmd_next(args: argparse.Namespace) -> None:
     status = subprocess.run(
         ["git", "status", "--porcelain", "--untracked-files=all"],
         cwd=base, capture_output=True, text=True, encoding="utf-8",
+        errors="surrogateescape",
     )
     dirty_paths = {
         line[3:].split(" -> ")[-1].strip().strip('"')

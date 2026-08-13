@@ -1007,9 +1007,11 @@ def read_stdin_utf8() -> str:
         # Imported/test hosts may supply an already-decoded StringIO. There
         # are no bytes left whose encoding this helper could choose.
         return stream.read()
-    return io.TextIOWrapper(
-        buffer, encoding="utf-8", errors="strict"
-    ).read()
+    wrapper = io.TextIOWrapper(buffer, encoding="utf-8", errors="strict")
+    try:
+        return wrapper.read()
+    finally:
+        wrapper.detach()
 
 
 def branch_name(root: Path | None = None) -> str:

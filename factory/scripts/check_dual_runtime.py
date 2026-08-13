@@ -489,7 +489,11 @@ def check_prototype_isolation(root: Path) -> None:
         path = root / rel
         if not path.is_file():
             continue
-        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue  # A source-suffixed tracked file may still be binary data.
+        for lineno, line in enumerate(lines, 1):
             if PROTOTYPE_IMPORT.search(line):
                 violation(
                     f"{rel}:{lineno} imports from prototype/ — the prototype is a "
