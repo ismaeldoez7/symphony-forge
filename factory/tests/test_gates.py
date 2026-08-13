@@ -1847,6 +1847,7 @@ def test_upgrade_survives_a_repo_without_harness_yaml(repo, tmp_path):
 def test_upgrade_replaces_machinery_preserves_project(repo, tmp_path):
     # Degrade machinery, add project-owned content + a proposed skill
     (repo / "factory" / "scripts" / "verify.py").unlink()
+    (repo / "factory" / "scripts" / "check_encoding_hygiene.py").unlink()
     proposed = repo / "factory" / "skills" / "proposed"
     proposed.mkdir(parents=True, exist_ok=True)
     (proposed / "keep-me.md").write_text("status: proposed\n")
@@ -1862,6 +1863,7 @@ def test_upgrade_replaces_machinery_preserves_project(repo, tmp_path):
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert (repo / "factory" / "scripts" / "verify.py").exists()  # machinery restored
+    assert (repo / "factory" / "scripts" / "check_encoding_hygiene.py").exists()
     assert (proposed / "keep-me.md").exists()  # evolution state preserved
     assert "Client-specific fact" in memory.read_text()  # project memory preserved
     assert list((repo / "docs" / "decisions").glob("*keep-decision.md"))  # project-owned untouched
@@ -4802,6 +4804,7 @@ def test_adopt_vendors_harness_and_preserves_project(tmp_path):
     assert code == 0, out
     # machinery is in; project content untouched; their CI survived the merge
     assert (repo / "factory" / "scripts" / "forge.py").exists()
+    assert (repo / "factory" / "scripts" / "check_encoding_hygiene.py").exists()
     assert (repo / "src" / "app.js").read_text() == "console.log('prototype')\n"
     # project README preserved, onboarding section appended (never rewritten)
     readme = (repo / "README.md").read_text()
@@ -4975,6 +4978,7 @@ def test_scaffold_delivers_factory_workflows(repo):
     assert (wf / "gardener.yml").exists()
     assert (wf / "harness-health.yml").exists()
     assert (wf / "roadmap-gate.yml").exists()
+    assert (repo / "factory/scripts/check_encoding_hygiene.py").exists()
 
 
 def test_scaffold_pins_gstack_into_the_repo(repo):
@@ -7288,6 +7292,27 @@ def test_trailer_check_targets_the_acceptance_commit(repo):
 
 
 # ---------------------------------------------------------- Gate A: PR ticket
+
+def test_ci_locale_forcing_selectors_reference_existing_tests():
+    workflow = (
+        HARNESS / ".github" / "workflows" / "factory-scaffold.yml"
+    ).read_text()
+    suite = ast.parse(
+        (HARNESS / "factory" / "tests" / "test_gates.py").read_text()
+    )
+    test_ids = {
+        node.name
+        for node in suite.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    selectors = set(re.findall(
+        r"factory/tests/test_gates\.py::([A-Za-z_][A-Za-z0-9_]*)",
+        workflow,
+    ))
+
+    assert selectors
+    assert not selectors - test_ids
+
 
 def test_roadmap_gate_workflow_shape():
     workflow = (HARNESS / ".github" / "workflows" / "roadmap-gate.yml").read_text()
@@ -12518,6 +12543,34 @@ def test_windows_delegation_launches_and_reaps(repo, tmp_path):
                     child.kill()
             except psutil.NoSuchProcess:
                 pass
+
+
+@pytest.mark.skipif(os.name != "nt", reason="native Windows encoding E2E")
+def test_windows_delegation_success_round_trips_unicode_handoff(repo, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    home = fake_companion_home(tmp_path)
+    companion = next(home.glob(
+        ".claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs"))
+    companion.write_text(
+        "process.stdout.write('worker\\u2192handoff');\n"
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(repo / "factory/scripts/forge.py"),
+         "delegate", "T1"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env={**os.environ, "HOME": str(home), "USERPROFILE": str(home)},
+    )
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "worker→handoff" in proc.stdout
+    terminal = json.loads(
+        delegation_ledger(repo).read_text().splitlines()[-1])
+    assert terminal["launch_status"] == "succeeded"
+    assert terminal["argv"][-1] == "--write"
 
 
 def test_read_only_diagnostic_does_not_revoke_write_launch(repo, tmp_path):

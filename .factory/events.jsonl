@@ -1222,3 +1222,4 @@
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-13T18:52:01+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.1 Encoding sweep + value-validating hygiene gate"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T18:52:46+00:00", "story": "FORGE-WIN-ENC", "detail": "2 task(s)"}
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-13T18:52:57+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.2 Locale-forced CI proof + docs"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T19:07:11+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.2 (write)"}
