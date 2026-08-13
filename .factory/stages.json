@@ -1,0 +1,36 @@
+{
+  "issue": "FORGE-WIN-3",
+  "stages": [
+    {
+      "id": "FORGE-WIN-3.1",
+      "title": "Port delegate.py process model to psutil (cross-platform)",
+      "status": "active",
+      "started_at": "2026-08-13T06:14:52+00:00",
+      "base_sha": "7aed5f0c31604e4c6f78e543a89c4eb06208f9bb",
+      "dirty_at_start": {
+        ".factory/decomposition.json": {
+          "digest": "79ed28d60c8204b7b003b2700865ab153433fdc28b044238a230419b27a19cf0",
+          "git": "? .factory/decomposition.json\u0000\u0000\u0000"
+        },
+        ".factory/events.jsonl": {
+          "digest": "e8005d1ef9a61bcf6eae96821dccbee2437d3fcebfa169ca350419a0362930af",
+          "git": "1 .M N... 100644 100644 100644 ee8303f019d3b6704310b96e7fb61c601bc59920 ee8303f019d3b6704310b96e7fb61c601bc59920 .factory/events.jsonl\u0000\u0000100644 ee8303f019d3b6704310b96e7fb61c601bc59920 0\t.factory/events.jsonl\u0000\u0000H .factory/events.jsonl\u0000"
+        },
+        ".factory/run.json": {
+          "digest": "d4a4693ec29948d641485743cc2be7cb6d0be2219bf74f5ffa8d2ae96c50fe1f",
+          "git": "1 .M N... 100644 100644 100644 ead526ff409355dc6bd3cea5c4f7a8b1bdc15b25 ead526ff409355dc6bd3cea5c4f7a8b1bdc15b25 .factory/run.json\u0000\u0000100644 ead526ff409355dc6bd3cea5c4f7a8b1bdc15b25 0\t.factory/run.json\u0000\u0000H .factory/run.json\u0000"
+        },
+        ".factory/stages.json": {
+          "digest": "b457b099c570a82490f464bdbaaf3760abf721832586efd61eb13b5cdb30c878",
+          "git": "? .factory/stages.json\u0000\u0000\u0000"
+        }
+      },
+      "task_sha256": "534a069684d702283b5a76b1d55d1efe5a56e43616663d328ccc2b6bb887e1f6"
+    },
+    {
+      "id": "FORGE-WIN-3.2",
+      "title": "Doctor psutil row + Windows delegation E2E + CI selector + docs",
+      "status": "pending"
+    }
+  ]
+}

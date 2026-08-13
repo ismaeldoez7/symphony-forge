@@ -1,0 +1,86 @@
+{
+  "generated_by": "claude-code:plan-mode",
+  "user_facing": false,
+  "story": "FORGE-WIN-3",
+  "epic": "windows-zero-setup",
+  "plan_file": "plans/active/FORGE-WIN-3-delegation-runs-on-native-windows.md",
+  "doc_roots": [
+    "docs/specs/windows-zero-setup.md"
+  ],
+  "project": "",
+  "tasks": [
+    {
+      "id": "FORGE-WIN-3.1",
+      "title": "Port delegate.py process model to psutil (cross-platform)",
+      "objective": "delegate.py launches, supervises and reaps Codex workers through psutil on both platforms: the ps-shelling and os.killpg are gone, preexec_fn is dropped, Popen branches creationflags by OS, and the fragile ps-lstart identity is retired.",
+      "dependencies": [],
+      "write_scope": [
+        "factory/scripts/forge_cli/delegate.py",
+        "factory/tests/test_gates.py",
+        "docs/decisions/0041-psutil-cross-platform-process-model.md"
+      ],
+      "acceptance_criteria": [
+        "Replace the ps-shelling functions (_process_table, _process_start_identity, _process_is_zombie, _tagged_processes and the _descendants walk) with psutil: children(recursive=True), process_iter(['pid','ppid','create_time','environ','cmdline']), create_time() and status(). No `ps` subprocess call remains anywhere in delegate.py; the ps-lstart whitespace-normalized identity comparison is DELETED, not reimplemented (lesson normalize-ps-derived-identity) \u2014 identity is create_time() (float). The FORGE_PROCESS_TOKEN env-marker sweep uses process_iter(['environ']) and catches psutil.AccessDenied/NoSuchProcess, falling back to cmdline; only same-user workers are reaped.",
+        "Replace os.killpg termination (_process_group_alive, _signal_verified_process_group, _capture_spawn_identity escalation, _signal_identified_processes) with psutil terminate()/kill() over the leader + children(recursive=True), identity-guarded by create_time() (PID-reuse guard preserved: never signal a PID whose create_time differs from the recorded one).",
+        "launch_companion: drop preexec_fn; branch Popen creationflags \u2014 Windows subprocess.CREATE_NEW_PROCESS_GROUP, POSIX start_new_session=True; the recorded pgid stays the tree root psutil walks. blocked_termination_signals()/unblock_termination_signals_in_child remain (already no-op on Windows via the pthread_sigmask hasattr guard) \u2014 do not remove the guard.",
+        "delegations.jsonl schema/fields unchanged (pid, pgid, identity keep their shape; identity value moves from an lstart string to a create_time float \u2014 a format change internal to delegate.py, not a schema field change). _reconcile_stale_launches routes through the ported helpers with no separate Windows branch.",
+        "psutil declared where the harness pins python deps (verify.py / .envrc test command gains `--with psutil`; any factory requirements manifest); decision 0041 text refined if implementation reveals corrections, status stays proposed.",
+        "The ps-monkeypatch unit tests (the ones faking _process_table/_tagged_processes/killpg, e.g. around test_gates.py:7834/9864/11331/11340/11370/11445/11508/11574) migrate to psutil fakes and stay green; POSIX behavior observably byte-identical (launch/supervise/reap/lock-release). Full POSIX suite green."
+      ],
+      "verify_commands": [
+        "uvx --with pytest --with psutil python3 -m pytest factory/tests/test_gates.py -q -k \"delegat or process or terminat or reap or tagged or reconcile\""
+      ],
+      "required_tests": [
+        {
+          "id": "test_delegate_process_model_uses_psutil_not_ps",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_terminate_reaps_worker_tree_by_create_time_identity",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "The PID-reuse guard must survive the port \u2014 never signal a PID whose create_time differs from the recorded identity (the whole point of the old lstart check). No `ps` call may remain. AccessDenied/NoSuchProcess on Windows environ reads must be caught (a raise there would break the token sweep). POSIX launch/reap must be observably identical. Verify against committed HEAD after any multi-round rewrite (lesson repeated-full-file-rewrites-regress-prior-fixes). CI-blind: the Windows launch path is verified in WIN-3.2's E2E, not here."
+    },
+    {
+      "id": "FORGE-WIN-3.2",
+      "title": "Doctor psutil row + Windows delegation E2E + CI selector + docs",
+      "objective": "psutil is a gated prerequisite the harness installs, a real delegation launch/supervise/reap is proven on windows-latest CI, and docs state Windows delegation is supported with the unelevated sandbox deferred.",
+      "dependencies": [
+        "FORGE-WIN-3.1"
+      ],
+      "write_scope": [
+        "factory/scripts/forge_cli/doctor.py",
+        ".github/workflows/factory-scaffold.yml",
+        "factory/tests/test_gates.py",
+        "docs/windows.md"
+      ],
+      "acceptance_criteria": [
+        "forge doctor gains a REQUIRED psutil row (import check); doctor --fix installs it (pip/uv, user scope, honest red row when it cannot) reusing the WIN-2 doctor-row + --fix patterns; fast_status stays subprocess-free (import check is a cheap importlib.util.find_spec, not an exec).",
+        "A NEW nt-appropriate delegation E2E in test_gates.py exercises the real Windows path: a delegation launches (records `running`), then the worker tree is terminated via the psutil path and the terminal `failed` row + delegation-lock release are asserted \u2014 the nt analog of the POSIX-signal test_termination_signals_reap_companion_before_lock_release (which stays POSIX-only). This nt test joins the windows-hook-gates explicit selector in factory-scaffold.yml (explicit node-id list per D-0020, -q last); every selector id must exist.",
+        "AC2: a test asserts the recorded .factory/delegations.jsonl argv carries --write (\u2192 workspace-write) on Windows; docs/windows.md documents that Windows delegation is supported and that the unelevated sandbox is deferred (D-0021).",
+        "Full POSIX suite green; the WIN-2 init/adopt/upgrade propagation tests confirm the psutil dep manifest ships to clients; windows-hook-gates green on the PR (the real cross-platform proof)."
+      ],
+      "verify_commands": [
+        "uvx --with pytest --with psutil python3 -m pytest factory/tests/test_gates.py -q -k \"doctor or psutil or delegat or windows\""
+      ],
+      "required_tests": [
+        {
+          "id": "test_doctor_psutil_row_required_and_fix_installs",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_windows_delegation_launches_and_reaps",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "The nt delegation E2E is the load-bearing CI proof \u2014 it must genuinely launch+reap on windows-latest, not be a text assertion. Selector stays explicit (D-0020); no dangling ids. Doctor psutil check stays subprocess-free in fast_status. LESSON: do NOT pr_ready before windows-hook-gates is green (WIN-2 premature-close)."
+    }
+  ],
+  "plan_sha256": "e225e841ca0c094f4a23ac0075672092621d2d51581f02d94b9a6135d7a977f3",
+  "commit": "7aed5f0c31604e4c6f78e543a89c4eb06208f9bb"
+}

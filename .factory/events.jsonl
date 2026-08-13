@@ -1107,3 +1107,6 @@
 {"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-13T06:12:19+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3 approved by Ravi"}
 {"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-13T06:12:46+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3 approved by Ravi"}
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-13T06:13:09+00:00", "story": "FORGE-WIN-3", "detail": "plans/active/FORGE-WIN-3-delegation-runs-on-native-windows.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T06:14:32+00:00", "story": "FORGE-WIN-3", "detail": "2 task(s)"}
+{"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-13T06:14:32+00:00", "story": "FORGE-WIN-3"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-13T06:14:52+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3.1 Port delegate.py process model to psutil (cross-platform)"}
