@@ -62,7 +62,7 @@
     {
       "id": "FORGE-WIN-ENC.3",
       "title": "Story-review fixes: gate blind spots + isolation-scan decode",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-13T19:16:55+00:00",
       "base_sha": "4bb33d7082cc4218cfbf3436c8f09b27953570cd",
       "dirty_at_start": {
@@ -87,7 +87,8 @@
           "git": "1 .M N... 100644 100644 100644 0e01fd461ce5f5865851f10dffab9d78328fc0b0 0e01fd461ce5f5865851f10dffab9d78328fc0b0 .factory/stages.json\u0000\u0000100644 0e01fd461ce5f5865851f10dffab9d78328fc0b0 0\t.factory/stages.json\u0000\u0000H .factory/stages.json\u0000"
         }
       },
-      "task_sha256": "b51e5436a958b7a475327056954ade7a58d60384f8f6c296f0f0e0142921b882"
+      "task_sha256": "b51e5436a958b7a475327056954ade7a58d60384f8f6c296f0f0e0142921b882",
+      "completed_at": "2026-08-13T19:22:25+00:00"
     }
   ]
 }
