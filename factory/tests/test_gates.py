@@ -11307,6 +11307,48 @@ def test_delegate_brief_symlink_is_refused(
     assert victim.read_text() == "do not touch\n"
 
 
+def test_safe_factory_windows_helper_opens_nested_regular_file(tmp_path):
+    factory_lib = load_factory_lib(HARNESS)
+    target = tmp_path / ".factory"
+    descriptor = factory_lib._safe_factory_nt_open(
+        target, ("briefs", "T1.md"), os.O_WRONLY | os.O_CREAT)
+    assert descriptor is not None
+    try:
+        os.write(descriptor, b"brief\n")
+    finally:
+        os.close(descriptor)
+    assert (target / "briefs" / "T1.md").read_bytes() == b"brief\n"
+
+
+@pytest.mark.parametrize("parts, reparse_relative", [
+    (("T1.md",), "."),
+    (("T1.md",), "T1.md"),
+    (("briefs", "T1.md"), "briefs"),
+])
+def test_safe_factory_windows_helper_refuses_reparse_components(
+        tmp_path, monkeypatch, parts, reparse_relative):
+    factory_lib = load_factory_lib(HARNESS)
+    target = tmp_path / ".factory"
+    reparse_path = target / reparse_relative
+    if reparse_relative == parts[-1]:
+        target.mkdir()
+        reparse_path.touch()
+    real_lstat = factory_lib.os.lstat
+    reparse_flag = 0x400
+    monkeypatch.setattr(
+        factory_lib.stat, "FILE_ATTRIBUTE_REPARSE_POINT", reparse_flag,
+        raising=False)
+
+    def lstat(path):
+        if os.fspath(path) == os.fspath(reparse_path):
+            return types.SimpleNamespace(st_file_attributes=reparse_flag)
+        return real_lstat(path)
+
+    monkeypatch.setattr(factory_lib.os, "lstat", lstat)
+    assert factory_lib._safe_factory_nt_open(
+        target, parts, os.O_WRONLY | os.O_CREAT) is None
+
+
 def test_delegate_mirror_symlink_is_ignored(repo, tmp_path):
     start_stage(repo, tmp_path, STAGE_TASK, launch=False)
     victim = repo / "victim.txt"
