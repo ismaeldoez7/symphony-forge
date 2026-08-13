@@ -60,7 +60,7 @@ def fake_psutil(processes, *, current_user="owner"):
         NoSuchProcess=FakePsutilNoSuchProcess,
         Error=Exception,
         STATUS_ZOMBIE="zombie",
-        process_iter=lambda _attrs: iter(processes),
+        process_iter=lambda _attrs=None: iter(processes),
         Process=lambda pid=None: (
             types.SimpleNamespace(username=lambda: current_user)
             if pid is None else by_pid[pid]
@@ -7949,11 +7949,16 @@ def test_tagged_process_scan_skips_unreadable_environments(monkeypatch):
     class Process:
         def __init__(self, pid, environ, command):
             self.pid = pid
-            self.info = {"environ": environ}
+            self._environ = environ
             self._command = command
 
         def username(self):
             return "owner"
+
+        def environ(self):
+            if self._environ is None:
+                raise FakePsutilAccessDenied()
+            return self._environ
 
         def cmdline(self):
             if self._command is None:
@@ -11527,10 +11532,13 @@ def test_tagged_process_scan_is_limited_to_same_user_processes(
             def __init__(self, pid, user, environment):
                 self.pid = pid
                 self.user = user
-                self.info = {"environ": environment}
+                self._environment = environment
 
             def username(self):
                 return self.user
+
+            def environ(self):
+                return self._environment
 
             def cmdline(self):
                 return []
@@ -11557,11 +11565,16 @@ def test_tagged_process_scan_skips_permission_denied_candidates(
         class Process:
             def __init__(self, pid, environment, denied=False):
                 self.pid = pid
-                self.info = {"environ": environment}
+                self._environment = environment
                 self.denied = denied
 
             def username(self):
                 return "owner"
+
+            def environ(self):
+                if self.denied:
+                    raise FakePsutilAccessDenied()
+                return self._environment
 
             def cmdline(self):
                 if self.denied:
@@ -11590,10 +11603,12 @@ def test_tagged_process_scan_falls_back_when_cached_environment_is_denied(
 
         class Process:
             pid = 101
-            info = {"environ": None}
 
             def username(self):
                 return "owner"
+
+            def environ(self):
+                raise FakePsutilAccessDenied()
 
             def cmdline(self):
                 return ["worker", "FORGE_PROCESS_TOKEN=owned"]
