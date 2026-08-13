@@ -5,7 +5,7 @@ set "PYTHONUTF8=1"
 :python
 where py >nul 2>nul
 if errorlevel 1 goto python_fallback
-py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>nul
+cmd /d /c py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>nul
 if errorlevel 1 goto python_fallback
 set "FORGE_PYTHON=py"
 goto discover_shell
@@ -13,7 +13,7 @@ goto discover_shell
 :python_fallback
 where python >nul 2>nul
 if errorlevel 1 goto python3_fallback
-python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>nul
+cmd /d /c python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>nul
 if errorlevel 1 goto python3_fallback
 set "FORGE_PYTHON=python"
 goto discover_shell
@@ -21,7 +21,7 @@ goto discover_shell
 :python3_fallback
 where python3 >nul 2>nul
 if errorlevel 1 goto bootstrap
-python3 -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>nul
+cmd /d /c python3 -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>nul
 if errorlevel 1 goto bootstrap
 set "FORGE_PYTHON=python3"
 goto discover_shell

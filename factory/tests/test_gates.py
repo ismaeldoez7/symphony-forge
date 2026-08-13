@@ -2677,14 +2677,14 @@ def test_forge_cmd_routes_git_bash_then_python_fallbacks(tmp_path):
     assert 'python3 "%~dp0factory\\scripts\\forge.py" %*' in shim
     assert shim.count("sys.version_info >= (3, 10)") == 3
     assert (
-        'py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= '
+        'cmd /d /c py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= '
         '(3, 10) else 1)" >nul 2>nul\n'
         'if errorlevel 1 goto python_fallback\n'
         'set "FORGE_PYTHON=py"\n'
         'goto discover_shell'
     ) in shim
     assert (
-        'python -c "import sys; raise SystemExit(0 if sys.version_info >= '
+        'cmd /d /c python -c "import sys; raise SystemExit(0 if sys.version_info >= '
         '(3, 10) else 1)" >nul 2>nul\n'
         'if errorlevel 1 goto python3_fallback\n'
         'set "FORGE_PYTHON=python"\n'
@@ -2703,10 +2703,17 @@ def test_forge_cmd_routes_git_bash_then_python_fallbacks(tmp_path):
             b"if [ \"$1\" = \"--help\" ]; then printf 'OVERRIDE\\n'; exit 0; fi\n"
             b"exit 9\n"
         )
+        launcher_bin = tmp_path / "launcher-bin"
+        launcher_bin.mkdir()
+        (launcher_bin / "python.cmd").write_text(
+            '@echo off\n'
+            'if "%~1"=="-c" exit /b 0\n'
+            'echo PYTHON\n'
+            'exit /b 0\n'
+        )
+        system_root = Path(os.environ["SystemRoot"])
         path_without_sh = os.pathsep.join(
-            entry
-            for entry in os.environ["PATH"].split(os.pathsep)
-            if shutil.which("sh", path=entry) is None
+            [str(launcher_bin), str(system_root / "System32")]
         )
         assert shutil.which("sh", path=path_without_sh) is None
         isolated_env = {
@@ -2800,7 +2807,7 @@ def test_forge_cmd_routes_git_bash_then_python_fallbacks(tmp_path):
             capture_output=True,
             text=True,
             env={
-                **os.environ,
+                **isolated_env,
                 "FORGE_LITERAL": "%FORGE_LITERAL_PERCENT%",
                 "FORGE_LITERAL_PERCENT": "expanded",
             },
@@ -2815,6 +2822,10 @@ def test_forge_cmd_routes_git_bash_then_python_fallbacks(tmp_path):
             cwd=HARNESS,
             capture_output=True,
             text=True,
+            env={
+                **isolated_env,
+                "CLAUDE_CODE_GIT_BASH_PATH": executable_shell,
+            },
         )
         assert result.returncode == 0, result.stdout + result.stderr
 
@@ -2828,7 +2839,7 @@ def test_forge_cmd_probes_python3_as_final_fallback(tmp_path):
         ':python3_fallback\n'
         'where python3 >nul 2>nul\n'
         'if errorlevel 1 goto bootstrap\n'
-        'python3 -c "import sys; raise SystemExit(0 if sys.version_info >= '
+        'cmd /d /c python3 -c "import sys; raise SystemExit(0 if sys.version_info >= '
         '(3, 10) else 1)" >nul 2>nul\n'
         'if errorlevel 1 goto bootstrap\n'
         'set "FORGE_PYTHON=python3"\n'
@@ -2864,6 +2875,12 @@ def test_forge_cmd_probes_python3_as_final_fallback(tmp_path):
             text=True,
             env={
                 **os.environ,
+                "PATH": os.pathsep.join(
+                    [
+                        str(bootstrap_case),
+                        str(Path(os.environ["SystemRoot"]) / "System32"),
+                    ]
+                ),
                 "CLAUDE_CODE_GIT_BASH_PATH": executable_shell,
                 "FORGE_PYTHON_BOOTSTRAP_ATTEMPTED": "1",
             },
