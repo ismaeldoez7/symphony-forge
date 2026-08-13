@@ -12211,7 +12211,7 @@ def test_windows_delegation_launches_and_reaps(repo, tmp_path):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        env={**os.environ, "HOME": str(home)},
+        env={**os.environ, "HOME": str(home), "USERPROFILE": str(home)},
         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
     )
     child_pid = 0
@@ -12228,7 +12228,13 @@ def test_windows_delegation_launches_and_reaps(repo, tmp_path):
                         and child_pid_path.exists()):
                     break
             threading.Event().wait(0.05)
-        assert lock.exists() and latest["launch_status"] == "running"
+        if latest.get("launch_status") != "running":
+            if proc.poll() is None:
+                proc.terminate()
+            out, err = proc.communicate(timeout=10)
+            assert lock.exists() and latest.get("launch_status") == "running", (
+                f"delegate never recorded running; stdout={out!r} stderr={err!r}")
+        assert lock.exists()
         assert latest["argv"][-1] == "--write"
         child_pid = int(child_pid_path.read_text())
         child_started = psutil.Process(child_pid).create_time()
