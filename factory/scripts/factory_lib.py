@@ -515,6 +515,39 @@ def protected_decomposition_state_path(root: Path) -> Path:
     return git_control_dir(root) / "decomposition.json"
 
 
+def _windows_reparse_point(path: Path) -> bool:
+    info = os.lstat(path)
+    return bool(
+        hasattr(info, "st_file_attributes")
+        and info.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT)
+
+
+def _safe_factory_nt_open(
+        directory: Path, parts: tuple[str, ...], flags: int) -> int | None:
+    """Open a factory leaf after refusing Windows reparse points.
+
+    Windows lacks dir_fd, so this lstat-based walk has a narrower TOCTOU window
+    than the POSIX fd walk. That matches the deferred hard-link/TOCTOU hardening
+    backlog; the post-open regular-file and link-count check remains mandatory.
+    """
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        if _windows_reparse_point(directory):
+            return None
+        parent = directory
+        for part in parts[:-1]:
+            parent = parent / part
+            parent.mkdir(exist_ok=True)
+            if _windows_reparse_point(parent):
+                return None
+        leaf = parent / parts[-1]
+        if os.path.lexists(leaf) and _windows_reparse_point(leaf):
+            return None
+        return os.open(leaf, flags, 0o600)
+    except OSError:
+        return None
+
+
 def _safe_factory_fd(root: Path, name: str, flags: int) -> int | None:
     """Open one direct .factory diagnostic file without following links.
 
@@ -525,6 +558,15 @@ def _safe_factory_fd(root: Path, name: str, flags: int) -> int | None:
     if Path(name).name != name:
         raise ValueError("factory diagnostic name must be one path component")
     directory = factory_dir(root)
+    if os.name == "nt":
+        descriptor = _safe_factory_nt_open(directory, (name,), flags)
+        if descriptor is None:
+            return None
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            os.close(descriptor)
+            return None
+        return descriptor
     try:
         directory.mkdir(parents=True, exist_ok=True)
         directory_fd = os.open(
@@ -585,6 +627,21 @@ def safe_factory_write_bytes(root: Path, relative: str, body: bytes) -> bool:
             part in {"", ".", ".."} for part in rel.parts):
         return False
     directory = factory_dir(root)
+    if os.name == "nt":
+        descriptor = _safe_factory_nt_open(
+            directory, rel.parts, os.O_WRONLY | os.O_CREAT)
+        if descriptor is None:
+            return False
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            os.close(descriptor)
+            return False
+        try:
+            os.ftruncate(descriptor, 0)
+            os.write(descriptor, body)
+        finally:
+            os.close(descriptor)
+        return True
     try:
         directory.mkdir(parents=True, exist_ok=True)
         parent_fd = os.open(

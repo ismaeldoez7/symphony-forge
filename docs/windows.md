@@ -22,6 +22,16 @@ may show its own Windows prompt. If winget or a prerequisite cannot complete
 in user scope, install Git for Windows or Python from the URL printed in the
 red row and rerun the command.
 
+## Delegation
+
+Native Windows delegation is supported. `forge delegate` launches, supervises,
+and reaps the Codex worker tree on Windows, and a write delegation passes
+`--write` to select the companion's workspace-write sandbox.
+
+An explicitly unelevated sandbox is deferred. The companion does not expose an
+unelevated sandbox option, and Forge does not change user-global Codex
+configuration to simulate one. Run Forge from a normal, unelevated prompt.
+
 ## WSL2 escape hatch
 
 WSL2 is optional, not a prerequisite. Use it as an escape hatch when policy or

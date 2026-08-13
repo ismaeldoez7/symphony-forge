@@ -48,7 +48,7 @@ jobs:
       - name: Gate regression tests
         if: steps.repo_kind.outputs.is_harness == 'true'
         run: |
-          python3 -m pip install --quiet pytest
+          python3 -m pip install --quiet pytest psutil
           python3 -m pytest factory/tests -q
       # Scaffolds from THIS repo, so it inherits whatever .claude skills the repo
       # carries. In the harness that is just `forge`, whose canon lives in the
@@ -81,7 +81,7 @@ jobs:
           python-version: '3.11'
       - name: Install harness test runner
         if: steps.repo_kind.outputs.is_harness == 'true'
-        run: python -m pip install --quiet pytest
+        run: python -m pip install --quiet pytest psutil
       - name: Prove native launcher and armed hook gates
         if: steps.repo_kind.outputs.is_harness == 'true'
         run: >-
@@ -103,6 +103,8 @@ jobs:
           factory/tests/test_gates.py::test_doctor_fix_nonzero_already_installed_converges_after_refresh
           factory/tests/test_gates.py::test_doctor_fix_windows_refreshes_native_git_under_wow64
           factory/tests/test_gates.py::test_doctor_python_row_probes_working_windows_store_alias
+          factory/tests/test_gates.py::test_doctor_psutil_row_required_and_fix_installs
+          factory/tests/test_gates.py::test_windows_delegation_launches_and_reaps
           factory/tests/test_gates.py::test_companion_guard_admits_read_only_and_refuses_write_shapes
           factory/tests/test_gates.py::test_lockout_denies_product_write_under_approved_plan
           factory/tests/test_gates.py::test_degraded_window_allows_and_ledgers_product_write -q

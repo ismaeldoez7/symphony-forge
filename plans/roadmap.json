@@ -632,7 +632,7 @@
         "The recorded delegate invocation shows injected sandbox flags (unelevated, workspace-write) on Windows"
       ],
       "order": 29,
-      "status": "pending",
+      "status": "active",
       "epic": "windows-zero-setup",
       "skill": "backend",
       "kind": "feature",
