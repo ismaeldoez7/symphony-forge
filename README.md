@@ -2,6 +2,24 @@
 
 KnackLabs's process harness for building applications with **Claude Code coordination** and **Codex execution** — from discovery and client sign-off through scaffolding, per-feature delivery, and a self-evolving record of every decision.
 
+## Where this comes from
+
+In April 2026 OpenAI published [*An open-source spec for Codex orchestration: Symphony*](https://openai.com/index/open-source-codex-orchestration-symphony/) ([openai/symphony](https://github.com/openai/symphony), Apache-2.0) — deliberately a philosophy rather than a product: the repo is, in their words, *"technically just a `SPEC.md` file — a definition of the problem and the intended solution."*
+
+Its thesis: the bottleneck in agentic development was never agent speed, it was human attention. Engineers could hold three to five interactive sessions before context-switching ate the gains, so the fix was to stop supervising sessions and start assigning *objectives* — letting teams, as the spec repo puts it, *"manage work instead of supervising coding agents."* On some OpenAI teams, landed pull requests rose 500% in three weeks.
+
+**Symphony Forge is that philosophy engineered into a harness — and made hybrid rather than Codex-bound.** Three deliberate divergences from the spec:
+
+| | Symphony (the spec) | Symphony Forge |
+|---|---|---|
+| **Runtime** | Codex, over an app-server protocol | **Claude Code coordinates, Codex executes.** The `.factory` artifact contract is the invariant — any future orchestration must produce the same evidence. |
+| **Source of truth** | The issue tracker is the control plane | **The repo** owns workflow policy, plans, decisions and evidence. An external tracker (Linear, GitHub Issues, Jira) is optional and merely mirrored. |
+| **Governance** | An explicit non-goal — the spec declines to mandate any approval, sandbox, or operator-confirmation posture | **[The gates](#the-gates).** Sign-off, planning lock, evidence attestation, ship gate — refusals, not suggestions. |
+
+We kept Symphony's [`WORKFLOW.md`](WORKFLOW.md) convention: workflow policy lives in the repo, versioned alongside the code.
+
+That third row is why this exists. The spec optimises for velocity inside a high-trust internal environment, where one team owns the repo, the risk and the review. Delivery work for a client is not that environment — **throughput without a governance spine just ships defects faster.** The gates are the answer to the risk that speed creates.
+
 ## Quick Start (devs)
 
 Everything is conversation — setup included. In any Claude Code session, say:
