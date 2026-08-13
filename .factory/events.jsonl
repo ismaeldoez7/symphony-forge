@@ -1130,3 +1130,9 @@
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T08:13:55+00:00", "story": "FORGE-WIN-3", "detail": "2 task(s)"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T08:18:50+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3.2 (write)"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T08:34:04+00:00", "story": "FORGE-WIN-3", "detail": "2 task(s)"}
+{"event": "signal-contradiction", "generated_by": "implementer", "at": "2026-08-13T08:45:07+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3.2 says delegate.py is blob-identical to stage base cdb4da4, but HEAD b82e237 differs because 18ccb74 and b82e237 committed delegate.py after the stage started; do not attribute or edit it "}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T08:47:15+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3.2 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T08:47:55+00:00", "story": "FORGE-WIN-3", "detail": "2 task(s)"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-13T08:48:07+00:00", "story": "FORGE-WIN-3", "detail": "S-0003-354c: Correct \u2014 my earlier net-zero scope note is now stale: the degraded window Q-0060-d847 (commit b82e237) made a REAL delegate.py change during 3.2 (live-psutil graceful-degrade balk-loop fix), so deleg"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T08:53:52+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3.2 (write)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T09:22:37+00:00", "story": "FORGE-WIN-3", "detail": "FORGE-WIN-3.2 (write)"}

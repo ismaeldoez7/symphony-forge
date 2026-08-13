@@ -10,6 +10,7 @@ import platform
 import re
 import shlex
 import shutil
+import site
 import stat
 import subprocess
 import sys
@@ -537,6 +538,9 @@ def _install_psutil() -> tuple[bool, str]:
                 "psutil install"
             )
         return False, output or f"pip exited {code}"
+    if sys.prefix == sys.base_prefix:
+        site.addsitedir(site.getusersitepackages())
+        importlib.invalidate_caches()
     ok, detail = _psutil_import_status()
     if not ok:
         return False, f"pip exited successfully but psutil {detail}"

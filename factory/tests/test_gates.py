@@ -3467,6 +3467,7 @@ def test_doctor_psutil_row_required_and_fix_installs(tmp_path, monkeypatch):
 
     installed = {"psutil": False}
     commands = []
+    refreshed_sites = []
     monkeypatch.setattr(
         doctor.subprocess, "run",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
@@ -3486,6 +3487,14 @@ def test_doctor_psutil_row_required_and_fix_installs(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(doctor.sys, "prefix", "/system-python")
     monkeypatch.setattr(doctor.sys, "base_prefix", "/system-python")
+    monkeypatch.setattr(
+        doctor.site, "getusersitepackages", lambda: "/user/site-packages",
+    )
+    monkeypatch.setattr(doctor.site, "addsitedir", refreshed_sites.append)
+    monkeypatch.setattr(
+        doctor.importlib, "invalidate_caches",
+        lambda: refreshed_sites.append("caches-invalidated"),
+    )
 
     required_missing, _ = doctor.fast_status(tmp_path)
     assert "psutil" in required_missing
@@ -3505,6 +3514,7 @@ def test_doctor_psutil_row_required_and_fix_installs(tmp_path, monkeypatch):
     assert commands == [[
         sys.executable, "-m", "pip", "install", "--user", "psutil",
     ]]
+    assert refreshed_sites == ["/user/site-packages", "caches-invalidated"]
     assert "psutil" not in doctor.fast_status(tmp_path)[0]
     assert row["required"] and row["ok"]
 
@@ -3515,6 +3525,7 @@ def test_doctor_psutil_row_required_and_fix_installs(tmp_path, monkeypatch):
     row = doctor._psutil_check(fix=True)
     assert row["ok"]
     assert commands == [[sys.executable, "-m", "pip", "install", "psutil"]]
+    assert refreshed_sites == ["/user/site-packages", "caches-invalidated"]
 
     commands.clear()
     installed["psutil"] = False

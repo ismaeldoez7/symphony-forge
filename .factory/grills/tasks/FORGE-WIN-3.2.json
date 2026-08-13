@@ -16,7 +16,7 @@
   "open_items": [],
   "notes": "FORGE-WIN-3.2 interrogated against the approved plan, decision 0041, AC2-reframe, and lessons (test-fakes-hide-platform-runtime-exceptions \u2192 the nt E2E must exercise the real launch, not a fake). Frontier empty.",
   "task_id": "FORGE-WIN-3.2",
-  "input_sha256": "a3afad07bc2c6aab1321103fe5fc2b5f0024ecdd2c05efef87fc1ef7b09e7efb",
-  "recorded_at": "2026-08-13T08:14:13+00:00",
-  "commit": "4dbdce1b27df465454c16d42e260aaecb6a62bbd"
+  "input_sha256": "820dfaefb7d499c7ac5c2b355ada947cf54f78fe7e3f038b70c978f15c451efb",
+  "recorded_at": "2026-08-13T08:48:38+00:00",
+  "commit": "b82e237b3d0da6912443f1927650604a1ef81079"
 }
