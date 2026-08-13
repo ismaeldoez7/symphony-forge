@@ -1,0 +1,22 @@
+{
+  "generated_by": "griller",
+  "gate": "task",
+  "verdict": "pass",
+  "gaps": [
+    "Is the nt delegation E2E a real launch/reap or a text assertion?",
+    "Does the doctor psutil check stay subprocess-free in fast_status?",
+    "Can this stage be verified without real Windows?"
+  ],
+  "contradictions": [],
+  "resolutions": [
+    "It must genuinely launch a companion and reap the tree via the psutil path on windows-latest, asserting the running row then terminal failed + lock release \u2014 the nt analog of the POSIX-signal reap test (which stays POSIX-only). It joins the explicit windows-hook-gates selector so CI runs it for real.",
+    "Yes \u2014 the doctor psutil row uses importlib.util.find_spec (no subprocess); fast_status stays subprocess-free per the WIN-2 pattern.",
+    "The doctor row + --fix and AC2 argv assertion are POSIX-verifiable locally; the genuinely-Windows delegation launch/reap E2E is verified on windows-hook-gates CI (CI-blind, user-chosen). LESSON: do not pr_ready before windows CI is green."
+  ],
+  "open_items": [],
+  "notes": "FORGE-WIN-3.2 interrogated against the approved plan, decision 0041, AC2-reframe, and lessons (test-fakes-hide-platform-runtime-exceptions \u2192 the nt E2E must exercise the real launch, not a fake). Frontier empty.",
+  "task_id": "FORGE-WIN-3.2",
+  "input_sha256": "426f0a55227480b62cc852b0acd5c3769b8b57139aa83cda5273888ac5fba5a3",
+  "recorded_at": "2026-08-13T07:40:54+00:00",
+  "commit": "cdb4da4072b12e3ea9e8443406922c7ff0d76010"
+}

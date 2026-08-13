@@ -66,7 +66,8 @@
         "forge doctor gains a REQUIRED psutil row (import check); doctor --fix installs it (pip/uv, user scope, honest red row when it cannot) reusing the WIN-2 doctor-row + --fix patterns; fast_status stays subprocess-free (import check is a cheap importlib.util.find_spec, not an exec).",
         "A NEW nt-appropriate delegation E2E in test_gates.py exercises the real Windows path: a delegation launches (records `running`), then the worker tree is terminated via the psutil path and the terminal `failed` row + delegation-lock release are asserted \u2014 the nt analog of the POSIX-signal test_termination_signals_reap_companion_before_lock_release (which stays POSIX-only). This nt test joins the windows-hook-gates explicit selector in factory-scaffold.yml (explicit node-id list per D-0020, -q last); every selector id must exist.",
         "AC2: a test asserts the recorded .factory/delegations.jsonl argv carries --write (\u2192 workspace-write) on Windows; docs/windows.md documents that Windows delegation is supported and that the unelevated sandbox is deferred (D-0021).",
-        "Full POSIX suite green; the WIN-2 init/adopt/upgrade propagation tests confirm the psutil dep manifest ships to clients; windows-hook-gates green on the PR (the real cross-platform proof)."
+        "Full POSIX suite green; the WIN-2 init/adopt/upgrade propagation tests confirm the psutil dep manifest ships to clients; windows-hook-gates green on the PR (the real cross-platform proof).",
+        "doctor --fix psutil install target (learned in 3.1): install psutil for the INTERPRETER THAT RUNS forge (the one importing forge_cli.delegate), not an arbitrary python \u2014 on Windows the winget/py launcher's pip, on POSIX the running interpreter's pip. Handle a PEP-668 externally-managed environment gracefully: try `--user` and fall back to a clear named red row telling the user how (never silently `--break-system-packages`). The doctor row uses importlib.util.find_spec('psutil') (cheap, subprocess-free) so fast_status stays subprocess-free; the required red row when absent reuses the WIN-2 doctor-row + --fix patterns and names the manual `pip install psutil` fallback."
       ],
       "verify_commands": [
         "uvx --with pytest --with psutil python3 -m pytest factory/tests/test_gates.py -q -k \"doctor or psutil or delegat or windows\""
@@ -87,5 +88,5 @@
     }
   ],
   "plan_sha256": "e225e841ca0c094f4a23ac0075672092621d2d51581f02d94b9a6135d7a977f3",
-  "commit": "5205e4db19bbfb88009f1a7df2a74012b17c32fe"
+  "commit": "cdb4da4072b12e3ea9e8443406922c7ff0d76010"
 }
