@@ -1233,3 +1233,4 @@
 {"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-13T17:50:55+00:00", "detail": "accountable-engineering-loop: Accountable engineering loop: JIT contracts enforced, grills carry proof, diffs stay reviewable"}
 {"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-13T17:51:52+00:00", "detail": "accountable-engineering-loop"}
 {"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-13T17:52:03+00:00", "story": "FORGE-ACC-3", "detail": "docs/specs/accountable-engineering-loop.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T17:54:32+00:00", "story": "FORGE-ACC-1", "detail": "3 task(s)"}

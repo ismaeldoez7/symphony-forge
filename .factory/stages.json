@@ -66,12 +66,7 @@
         }
       },
       "task_sha256": "39c2d46321ddcd9302e406ea5252eacadad476b5c83a6cb7bde4893c99d5e32d",
-      "completed_at": "2026-08-13T17:29:15+00:00",
-      "contract_changed": {
-        "at": "2026-08-13T17:29:15+00:00",
-        "from": "c961e45c88b126c075f8f3607dbb0fc664a6a46151b73ac7c8781603293ec1ad",
-        "to": "39c2d46321ddcd9302e406ea5252eacadad476b5c83a6cb7bde4893c99d5e32d"
-      }
+      "completed_at": "2026-08-13T17:29:15+00:00"
     },
     {
       "id": "ACC1-T2",

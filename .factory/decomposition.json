@@ -78,6 +78,45 @@
       ],
       "dependencies": [
         "ACC1-T1"
+      ],
+      "write_scope": [
+        "factory/scripts/factory_lib.py",
+        "factory/scripts/forge_cli/stages.py",
+        "factory/scripts/forge_cli/delegate.py",
+        "factory/tests/test_gates.py"
+      ],
+      "verify_commands": [
+        "python3 factory/scripts/check_dual_runtime.py"
+      ],
+      "required_tests": [
+        {
+          "id": "test_stage_start_refuses_unready_or_ungrilled_contract",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_delegate_refuses_active_empty_scope_and_read_only_passes",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "Ordering is the risky seam: the readiness refusal in _cmd_start_locked must fire BEFORE any stage-state mutation and before the task_sha256 baseline stamp, or a refused start still pollutes measurement state. Second seam: delegate's write derivation - readiness re-check must precede launch for every write run; an active stage with empty write_scope refuses with a message naming the missing piece and the producing command; explicit --read-only stays exploration-only and must not satisfy stage done. Lite/quickfix/degraded behavior untouched. Self-application: this story's own T3 stage start runs through the new gate live - a wrong refusal wedges the loop.",
+      "plan_contracts": [
+        {
+          "id": "ACC1-C4",
+          "statement": "stage start refuses an incomplete or ungrilled frontier contract, naming the missing piece",
+          "source": "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria"
+        },
+        {
+          "id": "ACC1-C5",
+          "statement": "delegate re-checks readiness on write runs and refuses an active empty-scope stage",
+          "source": "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria"
+        },
+        {
+          "id": "ACC1-C6",
+          "statement": "explicit --read-only delegation still passes and cannot close a stage",
+          "source": "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria"
+        }
       ]
     },
     {
@@ -98,5 +137,5 @@
   "epic": "accountable-engineering",
   "plan_file": "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md",
   "plan_sha256": "77041f2719599d404428dd29f7efc45a2fac3a96a8b3b3fb757a246e9af5385f",
-  "commit": "7a0ad85615564a47fca3ddfc67a75713820c4ed0"
+  "commit": "bb4d4d3e2213f92ef2d213e80e212c2774999a3e"
 }
