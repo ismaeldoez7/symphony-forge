@@ -219,11 +219,12 @@ def _process_table() -> dict[int, tuple[int, float]]:
     psutil = _psutil()
     table: dict[int, tuple[int, float]] = {}
     try:
-        # Do NOT eagerly fetch "cmdline" here: on macOS psutil can raise a
-        # SystemError from proc_cmdline mid-iteration; cmdline is fetched
-        # lazily only for a token candidate below.
+        # Fetch ONLY pid/ppid/create_time — the fields this table uses. Eager
+        # "environ"/"cmdline" reads raise SystemError on macOS for processes we
+        # cannot inspect, aborting the whole scan; those are read lazily per
+        # token candidate in _tagged_processes instead.
         processes = list(psutil.process_iter(
-            ["pid", "ppid", "create_time", "environ"]))
+            ["pid", "ppid", "create_time"]))
         for process in processes:
             try:
                 pid = process.info["pid"]
@@ -273,8 +274,12 @@ def _tagged_processes(
             if baseline.get(pid) != details
         }
     found: dict[int, float] = {}
+    # Enumerate PIDs only — do NOT eagerly fetch environ/cmdline via
+    # process_iter attrs. On macOS the bulk environ read raises SystemError
+    # for processes we cannot inspect, which would abort the whole scan.
+    # environ/cmdline are read lazily, per candidate, below.
     try:
-        processes = list(psutil.process_iter(["environ"]))
+        processes = list(psutil.process_iter())
         current_user = psutil.Process().username()
     except (psutil.Error, OSError, SystemError) as exc:
         raise ProcessDiscoveryError("could not inspect tagged processes") from exc
@@ -285,10 +290,13 @@ def _tagged_processes(
         try:
             if process.username() != current_user:
                 continue
-        except (psutil.AccessDenied, psutil.NoSuchProcess):
+        except (psutil.AccessDenied, psutil.NoSuchProcess, SystemError):
             # Never use the command-line fallback until ownership is proven.
             continue
-        environment = process.info.get("environ")
+        try:
+            environment = process.environ()
+        except (psutil.AccessDenied, psutil.NoSuchProcess, SystemError, OSError):
+            environment = None
         tagged = (
             isinstance(environment, dict)
             and environment.get("FORGE_PROCESS_TOKEN") == token
@@ -297,7 +305,8 @@ def _tagged_processes(
             try:
                 command = process.cmdline()
                 tagged = any(marker in part for part in command)
-            except (psutil.AccessDenied, psutil.NoSuchProcess, SystemError):
+            except (psutil.AccessDenied, psutil.NoSuchProcess, SystemError,
+                    OSError):
                 continue
         if not tagged:
             continue
