@@ -1119,3 +1119,4 @@
 {"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-13T07:32:38+00:00", "story": "FORGE-WIN-SBX"}
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T07:32:39+00:00", "story": "FORGE-WIN-SBX"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-13T07:32:49+00:00", "story": "FORGE-WIN-SBX", "detail": "Every vendored Codex session in every client now defaults to workspace-write instead of full machine access, and the fail-closed hook wiring (.codex/hooks.json) is frozen vendor surface \u2014 a client edi"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-13T07:45:26+00:00", "story": "FORGE-WIN-SBX", "detail": "knacklabs/symphony-forge#89"}
