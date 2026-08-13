@@ -1212,3 +1212,5 @@
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T12:33:52+00:00", "story": "FORGE-WIN-3"}
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-13T12:46:30+00:00", "story": "FORGE-WIN-3", "detail": "knacklabs/symphony-forge#100"}
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-13T16:23:58+00:00", "story": "FORGE-WIN-3", "detail": "knacklabs/symphony-forge#102"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-13T17:02:18+00:00", "detail": "accountable-engineering-loop: Accountable engineering loop: JIT contracts enforced, grills carry proof, diffs stay reviewable"}
+{"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-13T17:03:15+00:00", "detail": "accountable-engineering-loop: Accountable engineering loop: JIT contracts enforced, grills carry proof, diffs stay reviewable"}
