@@ -1190,3 +1190,6 @@
 {"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-13T13:25:06+00:00", "story": "FORGE-WIN-ENC", "detail": "docs/specs/windows-zero-setup.md"}
 {"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-13T13:40:15+00:00", "story": "FORGE-WIN-3"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-13T13:40:15+00:00", "story": "FORGE-WIN-3", "detail": "Symphony Forge delegations now run end-to-end on native Windows: forge delegate launches, supervises, and reaps Codex workers through a single psutil-based process model (decision 0042) on both Window"}
+{"event": "intake", "generated_by": "orchestrator", "at": "2026-08-13T13:40:56+00:00", "story": "FORGE-WIN-ENC", "detail": "No code page can break the harness (encoding hardening)"}
+{"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-13T16:06:14+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC approved by Ravi"}
+{"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-13T16:06:14+00:00", "story": "FORGE-WIN-ENC", "detail": "plans/active/FORGE-WIN-ENC-no-code-page-can-break-the-harness-encoding-hardening.md"}

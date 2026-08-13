@@ -696,7 +696,7 @@
         "Vendored clients receive the hardening: the existing init/adopt/upgrade propagation tests cover the touched scripts."
       ],
       "order": 32,
-      "status": "pending",
+      "status": "active",
       "epic": "windows-zero-setup",
       "skill": "backend",
       "kind": "feature",
@@ -707,7 +707,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-13T13:40:15+00:00",
+  "updated_at": "2026-08-13T13:40:56+00:00",
   "epics": [
     {
       "id": "symphony-forge",
