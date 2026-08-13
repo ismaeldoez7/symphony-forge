@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import importlib.util
 import json
 import os
 import platform
@@ -493,6 +494,45 @@ def _python_check() -> dict:
     )
 
 
+def _psutil_available() -> bool:
+    return importlib.util.find_spec("psutil") is not None
+
+
+def _psutil_fix_message() -> str:
+    return (
+        f"`{sys.executable} -m pip install --user psutil` (manual `pip install "
+        "psutil` fallback); if Python is externally managed, install psutil "
+        "for this interpreter with your OS package manager or run Forge from "
+        "a user-managed Python environment — never use --break-system-packages"
+    )
+
+
+def _install_psutil() -> tuple[bool, str]:
+    command = [sys.executable, "-m", "pip", "install", "--user", "psutil"]
+    print(f"[fix ] installing psutil for {sys.executable} (user scope) ...")
+    code, output = run_quiet(command)
+    if code != 0:
+        if "externally-managed-environment" in output.lower():
+            return False, (
+                f"{sys.executable} is externally managed and refused the "
+                "user-scope psutil install"
+            )
+        return False, output or f"pip exited {code}"
+    if not _psutil_available():
+        return False, (
+            f"pip exited successfully but {sys.executable} still cannot import psutil"
+        )
+    return True, f"importable by {sys.executable}"
+
+
+def _psutil_check(*, fix: bool = False) -> dict:
+    ok = _psutil_available()
+    detail = f"importable by {sys.executable}" if ok else "not importable"
+    if not ok and fix:
+        ok, detail = _install_psutil()
+    return _check("psutil", ok, detail, _psutil_fix_message())
+
+
 def fast_status(home: Path | None = None) -> tuple[list[str], list[str]]:
     """Millisecond SessionStart check: lookups/existence only, no subprocesses.
     Returns (required_missing, advisory_missing). A fresh clone after
@@ -506,6 +546,7 @@ def fast_status(home: Path | None = None) -> tuple[list[str], list[str]]:
         "python >= 3.10": sys.version_info >= (3, 10) or any(
             shutil.which(name) for name in ("py", "python3", "python")
         ),
+        "psutil": _psutil_available(),
         "node": shutil.which("node") is not None,
         "direnv + shell hook": shutil.which("direnv") is not None and _has_direnv_hook(home),
         "codex CLI": shutil.which("codex") is not None,
@@ -1094,6 +1135,8 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         "git", git is not None, git or "not on PATH", _git_fix_message()))
     checks.append(python)
     checks.extend(windows_install_checks)
+
+    checks.append(_psutil_check(fix=args.fix))
 
     if repo:
         checks.extend(hook_health_checks(repo))
