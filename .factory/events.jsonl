@@ -1231,3 +1231,5 @@
 {"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-13T17:29:15+00:00", "story": "FORGE-ACC-1", "detail": "ACC1-T1: task contract re-recorded mid-stage"}
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-13T17:29:15+00:00", "story": "FORGE-ACC-1", "detail": "ACC1-T1 Recorder refuses future execution detail"}
 {"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-13T17:50:55+00:00", "detail": "accountable-engineering-loop: Accountable engineering loop: JIT contracts enforced, grills carry proof, diffs stay reviewable"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-13T17:51:52+00:00", "detail": "accountable-engineering-loop"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-13T17:52:03+00:00", "story": "FORGE-ACC-3", "detail": "docs/specs/accountable-engineering-loop.md"}

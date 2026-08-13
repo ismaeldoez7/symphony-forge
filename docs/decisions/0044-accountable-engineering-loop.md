@@ -2,7 +2,7 @@
 status: proposed
 confirmed_by: ""
 date: 2026-08-13
-stories: [FORGE-ACC-1, FORGE-ACC-2]
+stories: [FORGE-ACC-1, FORGE-ACC-2, FORGE-ACC-3]
 ---
 
 # Accountable Engineering Loop
@@ -49,3 +49,12 @@ target, not a derived p90); the grilled `criteria_map` lands as FORGE-REV-2
   representable.
 - The board gains task rows (state, grill freshness, budget) derived from
   the same routing state as `forge next`.
+- Amendment (2026-08-13, operator-sanctioned after the cross-model rescue
+  audit): every grill delivers its rounds via AskUserQuestion — zero rounds
+  refused; JIT re-records pin `generated_by: claude-code:plan-mode`; the
+  initial decomposition is fully skeletal with a frozen task graph and
+  immutable completed contracts; FORGE-ACC-3 adds approval and closeout
+  integrity (approved-plan digest binding, recorded local review gating
+  stage done, commit-before-done, one coherent branch review bound to
+  review-brief --all, ordered closeout gates, clean-tree pr_ready, and
+  write-window refusal during active stages).
