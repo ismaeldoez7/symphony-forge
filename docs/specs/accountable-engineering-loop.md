@@ -1,8 +1,8 @@
 ---
 slug: accountable-engineering-loop
 title: Accountable engineering loop: JIT contracts enforced, grills carry proof, diffs stay reviewable
-status: confirmed
-saved: 2026-08-13T17:03:15+00:00
+status: draft
+saved: 2026-08-13T17:50:55+00:00
 ---
 
 # Accountable engineering loop: JIT contracts enforced, grills carry proof, diffs stay reviewable
@@ -80,12 +80,37 @@ implementation does not enforce it end to end:
 - **Board task visibility.** The board renders the in-flight story's task
   rows — state (skeleton|ready|grilled|active|done), grill freshness, budget
   usage — from the same derivation `forge next` uses.
-- **Division of labor.** Frontier contracts are authored from read-only Codex
-  exploration; the grill is a second independent read-only run; humans are
-  interrupted only by escalation packets on authority questions (product,
+- **Division of labor.** Frontier contracts are authored in Claude plan mode
+  from read-only Codex exploration (JIT re-records pin
+  `generated_by: claude-code:plan-mode`); the grill is a second independent
+  read-only pass. Every grill delivers its rounds to the human through
+  AskUserQuestion: repo-answerable questions arrive already answered with
+  citations and a recommended resolution, authority questions (product,
   scope, architecture, security/privacy, destructive migration, material
-  cost, reliability). A grill that asks a human a repo-answerable question is
-  a defect.
+  cost, reliability) arrive as escalation packets. A grill records only
+  after its rounds are sanctioned; zero rounds is not a valid pass.
+- **Approval and closeout integrity (FORGE-ACC-3).** Approved `plan save`
+  stores an `approved_plan_sha256` (excluding the sanctioned assumptions
+  appendix) that every later gate rederives — an edited plan requires a
+  fresh grill and human approval, and `plan approve` refuses without a
+  fresh matching plan grill on an awaiting plan. The initial decomposition
+  recording refuses execution detail (including `reviewer_focus` and
+  `plan_contracts`) on every task; later recordings freeze the initial
+  id/order/dependency skeleton and permit contract changes only on the
+  frontier; completed task contracts are immutable under a full-contract
+  digest. The per-stage local review is recorded: a clean-review stamp in
+  `stages.json` bound to stage id, task digest, composed-brief SHA,
+  baseline, and the exact pre-commit diff digest — `stage done` refuses a
+  missing or stale stamp, refuses uncommitted or staged product changes,
+  and requires a non-empty committed stage delta. Branch review binds to a
+  fresh `review-brief --all`: all three lenses carry one `review_run_id`,
+  the brief SHA, and the branch diff digest, and the recorder rejects
+  incoherent lens sets. Closeout order is gated: all stages done → branch
+  review → verify → functional (when `user_facing`) → outcome → `pr_ready`,
+  with `pr_ready` also requiring a clean product worktree/index,
+  repo-kind-aware evidence exclusions, and the outcome stamp bound to the
+  same commit. Opening a Lite/quickfix/degraded write window while a stage
+  is active refuses.
 
 ## Acceptance criteria
 
@@ -99,16 +124,21 @@ implementation does not enforce it end to end:
 - Task-contract, plan, and product-tree changes each stale a grill; commits
   touching only `.factory/` and `plans/` do not.
 - A grill missing any required proof, with an unmapped criterion, an absent
-  `new_abstractions` field, or `pass`+split/block is refused; a fully-proved
-  grill with zero human questions passes; a `block` without an escalation
-  packet is refused.
+  `new_abstractions` field, or `pass`+split/block is refused; a `block`
+  without an escalation packet is refused; a grill records human rounds
+  (structured questions and sanctioned resolutions) — zero rounds is
+  refused.
 - The frontier task's `criteria_map` lands as `plan_contracts`; quality
   review refuses without per-contract verdicts (existing FORGE-REV-2
   enforcement).
 - Default, lowered, justified-higher, and exceeded review budgets behave as
   specified at `stage done`; workflow-evidence paths are excluded from the
   count.
-- Lite, quickfix, and degraded windows are unchanged.
+- Lite, quickfix, and degraded windows are unchanged, except that opening a
+  write window while a stage is active refuses (FORGE-ACC-3).
+- Approved-plan digest, frozen skeleton, immutable completed contracts,
+  recorded local review, commit-before-done, coherent one-run branch review,
+  and closeout ordering behave as specified (FORGE-ACC-3).
 
 ## Non-goals
 
