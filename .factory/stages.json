@@ -4,7 +4,7 @@
     {
       "id": "ACC1-T1",
       "title": "Recorder refuses future execution detail",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-13T17:13:17+00:00",
       "base_sha": "913b6cee715e2154e1bd79a8ebd4646fd77cf17a",
       "dirty_at_start": {
@@ -65,7 +65,13 @@
           "git": "1 .M N... 100644 100644 100644 4ac2c545cade02a7da28e9f06be2e2a3e7b19ec9 4ac2c545cade02a7da28e9f06be2e2a3e7b19ec9 plans/roadmap.json\u0000\u0000100644 4ac2c545cade02a7da28e9f06be2e2a3e7b19ec9 0\tplans/roadmap.json\u0000\u0000H plans/roadmap.json\u0000"
         }
       },
-      "task_sha256": "c961e45c88b126c075f8f3607dbb0fc664a6a46151b73ac7c8781603293ec1ad"
+      "task_sha256": "39c2d46321ddcd9302e406ea5252eacadad476b5c83a6cb7bde4893c99d5e32d",
+      "completed_at": "2026-08-13T17:29:15+00:00",
+      "contract_changed": {
+        "at": "2026-08-13T17:29:15+00:00",
+        "from": "c961e45c88b126c075f8f3607dbb0fc664a6a46151b73ac7c8781603293ec1ad",
+        "to": "39c2d46321ddcd9302e406ea5252eacadad476b5c83a6cb7bde4893c99d5e32d"
+      }
     },
     {
       "id": "ACC1-T2",

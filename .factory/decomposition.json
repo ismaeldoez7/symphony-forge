@@ -30,7 +30,8 @@
       "dependencies": [],
       "write_scope": [
         "factory/scripts/record_decomposition_from_json.py",
-        "factory/tests/test_gates.py"
+        "factory/tests/test_gates.py",
+        "docs/specs/accountable-engineering-loop.md"
       ],
       "verify_commands": [
         "python3 factory/scripts/check_dual_runtime.py"
@@ -97,5 +98,5 @@
   "epic": "accountable-engineering",
   "plan_file": "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md",
   "plan_sha256": "77041f2719599d404428dd29f7efc45a2fac3a96a8b3b3fb757a246e9af5385f",
-  "commit": "913b6cee715e2154e1bd79a8ebd4646fd77cf17a"
+  "commit": "7a0ad85615564a47fca3ddfc67a75713820c4ed0"
 }

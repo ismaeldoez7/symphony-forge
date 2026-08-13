@@ -9487,7 +9487,11 @@ def test_decomposition_accepts_frontier_detail_and_exempts_done_tasks(repo, tmp_
     frontier = {
         **skeletal_stage_task("T2"),
         "write_scope": ["src/frontier/"],
-        "required_tests": [],
+        "required_tests": [{
+            "id": "test_frontier",
+            "path": "factory/tests/test_gates.py",
+            "command": "python3 -m pytest {path}::{id} --junitxml={report}",
+        }],
         "verify_commands": ["true"],
     }
 
@@ -9503,6 +9507,7 @@ def test_decomposition_accepts_frontier_detail_and_exempts_done_tasks(repo, tmp_
     assert recorded["tasks"][0]["required_tests"] == completed["required_tests"]
     assert recorded["tasks"][0]["verify_commands"] == completed["verify_commands"]
     assert recorded["tasks"][1]["write_scope"] == ["src/frontier/"]
+    assert recorded["tasks"][1]["required_tests"] == frontier["required_tests"]
     assert recorded["tasks"][1]["verify_commands"] == ["true"]
 
 
