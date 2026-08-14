@@ -943,14 +943,14 @@ def require_grill(
 def require_task_grill(
     root: Path,
     task_id: str,
-    expect_digest_value: str,
+    task: dict,
 ) -> None:
-    """Require a passing grill bound to the current task contract digest."""
+    """Require a passing grill bound to the current grounding inputs."""
     path = factory_dir(root) / "grills" / "tasks" / f"{task_id}.json"
     data = load_json(path, default={})
     record_command = (
         "python3 factory/scripts/record_grill_from_json.py --gate task "
-        f"--task {task_id} --task-digest {expect_digest_value}"
+        f"--task {task_id}"
     )
     if not data:
         raise SystemExit(
@@ -968,15 +968,17 @@ def require_task_grill(
             f".factory/grills/tasks/{task_id}.json has no commit stamp — re-record "
             f"with current tooling using `{record_command}`."
         )
-    if data.get("input_sha256") != expect_digest_value:
+    if data.get("input_sha256") != grounding_digest(root, task):
         raise SystemExit(
-            f"the {task_id} task grill is STALE — it was not recorded against the "
-            f"current task contract. Re-grill and record `{record_command}`."
+            f"the {task_id} task grill is STALE — its grounding inputs changed. "
+            f"Re-grill and record `{record_command}`; --task-digest was removed "
+            "because the digest is derived from the protected contract, approved "
+            "plan, and product tree."
         )
 
 
 def task_digest(task: dict) -> str:
-    """Return the digest bound by task grills and stage measurement."""
+    """Return the unchanged four-field stage measurement digest."""
     payload = json.dumps(
         {
             key: task.get(key)
@@ -988,6 +990,79 @@ def task_digest(task: dict) -> str:
             )
         },
         sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def plan_digest_without_assumptions(path: Path) -> str:
+    """Hash the approved plan while excluding implementation-time appendices."""
+    text = path.read_text(encoding="utf-8")
+    approved_text = text.partition("\n## Implementation Assumptions")[0]
+    return hashlib.sha256(approved_text.encode()).hexdigest()
+
+
+def product_tree_digest(root: Path) -> str:
+    """Hash the deterministic index blob list, excluding workflow-only paths."""
+    proc = subprocess.run(
+        ["git", "ls-files", "--stage", "-z"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        env=clean_git_env(),
+        encoding="utf-8",
+        errors="surrogateescape",
+    )
+    if proc.returncode != 0:
+        raise SystemExit(
+            "cannot derive the task grounding digest from the Git index: "
+            + proc.stderr.strip()
+        )
+    blobs: list[tuple[str, str]] = []
+    for entry in proc.stdout.split("\0"):
+        if not entry:
+            continue
+        metadata, path = entry.split("\t", 1)
+        if path.startswith((".factory/", "plans/")):
+            continue
+        fields = metadata.split()
+        blobs.append((path, fields[1]))
+    payload = json.dumps(sorted(blobs), separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def grounding_digest(root: Path, task: dict) -> str:
+    """Bind a task grill to its full contract, approved plan, and product tree."""
+    decomposition = load_json(protected_decomposition_state_path(root), default={})
+    plan_file = decomposition.get("plan_file")
+    if not isinstance(plan_file, str) or not plan_file.strip():
+        plan_file = load_json(run_state_path(root), default={}).get("plan_file")
+    if not isinstance(plan_file, str) or not plan_file.strip():
+        raise SystemExit(
+            "cannot derive the task grounding digest: the protected decomposition "
+            "does not name its approved plan"
+        )
+    plan = (root / plan_file).resolve()
+    try:
+        plan.relative_to(root.resolve())
+    except ValueError:
+        raise SystemExit(
+            f"cannot derive the task grounding digest: plan path escapes the repo: "
+            f"{plan_file!r}"
+        )
+    if not plan.is_file():
+        raise SystemExit(
+            f"cannot derive the task grounding digest: approved plan {plan_file!r} "
+            "does not exist"
+        )
+    payload = json.dumps(
+        {
+            "contract": task,
+            "plan_sha256": plan_digest_without_assumptions(plan),
+            "product_tree_sha256": product_tree_digest(root),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
     )
     return hashlib.sha256(payload.encode()).hexdigest()
 
@@ -1035,7 +1110,7 @@ def task_frontier_state(root: Path) -> tuple[str, dict] | None:
     if (
         grill.get("verdict") == "pass"
         and grill.get("commit")
-        and grill.get("input_sha256") == task_digest(frontier)
+        and grill.get("input_sha256") == grounding_digest(root, frontier)
     ):
         stage = stage_by_id.get(task_id, {})
         state = "delegate" if stage.get("status") == "active" else "stage-start"
@@ -1076,7 +1151,7 @@ def require_ready_task(root: Path, task_id: str) -> dict:
                 "remains available for exploration only."
             )
 
-    require_task_grill(root, task_id, task_digest(task))
+    require_task_grill(root, task_id, task)
     return task
 
 

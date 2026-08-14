@@ -26,8 +26,8 @@ from pathlib import Path
 from factory_lib import (
     clean_git_env, decomposition_state_path, dump_json, git_control_dir,
     head_sha, load_json, now_iso, protected_decomposition_state_path, repo_root,
-    require_ready_task, run_state_path, safe_factory_write_json, sha256_of,
-    task_digest,
+    plan_digest_without_assumptions, require_ready_task, run_state_path,
+    safe_factory_write_json, sha256_of, task_digest,
 )
 
 from .common import fail
@@ -658,7 +658,7 @@ def _cmd_start_locked(args: argparse.Namespace, base: Path) -> None:
             fail(f"{args.id} cannot start: the plan this decomposition was built "
                  f"from ({plan_file}) is missing, so its binding cannot be "
                  "verified. Restore it or re-record against the current plan.")
-        if sha256_of(base / plan_file) != stamped:
+        if plan_digest_without_assumptions(base / plan_file) != stamped:
             fail(f"{args.id} cannot start: {plan_file} has changed since this "
                  "decomposition was recorded, so the task list describes a plan "
                  "that is no longer the approved one. Re-record the "

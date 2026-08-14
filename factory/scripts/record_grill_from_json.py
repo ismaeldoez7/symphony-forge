@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from factory_lib import (
-    dump_json, head_sha, load_json, now_iso, repo_root, run_state_path,
-    read_stdin_utf8, sha256_of, task_frontier_state, validate_payload,
+    dump_json, grounding_digest, head_sha, load_json, now_iso, read_stdin_utf8,
+    repo_root, run_state_path, sha256_of, task_frontier_state, validate_payload,
 )
 
 VERDICTS = {"pass", "blocked"}
@@ -28,7 +29,7 @@ def _non_empty_string(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def _validate_task_grill(root: Path, payload: dict, task_id: str) -> None:
+def _validate_task_grill(root: Path, payload: dict, task_id: str) -> dict:
     required = {
         "inspected_refs": list,
         "current_flow": str,
@@ -143,6 +144,17 @@ def _validate_task_grill(root: Path, payload: dict, task_id: str) -> None:
                 "these non-empty string fields: issue, evidence, recommendation, "
                 "alternatives, rollback"
             )
+    return frontier[1]
+
+
+if any(
+    arg == "--task-digest" or arg.startswith("--task-digest=")
+    for arg in sys.argv[1:]
+):
+    raise SystemExit(
+        "--task-digest is no longer accepted; the digest is derived from the "
+        "protected contract, approved plan, and product tree"
+    )
 
 parser = argparse.ArgumentParser(description="Record a handover/plan grill from structured JSON")
 parser.add_argument("--gate", required=True,
@@ -153,8 +165,6 @@ parser.add_argument("--input-digest", dest="input_digest",
                          "--gate spec/epics, the plan draft for --gate plan); its sha256 binds "
                          "the grill to THAT version. Required for epics and plan gates.")
 parser.add_argument("--task", help="Task id for --gate task.")
-parser.add_argument("--task-digest", dest="task_digest",
-                    help="Contract digest value for --gate task.")
 args = parser.parse_args()
 
 if args.input:
@@ -195,17 +205,15 @@ if args.gate in ("spec", "epics", "plan"):
 if args.gate == "task":
     if not args.task:
         raise SystemExit("--gate task requires --task <id>")
-    if not args.task_digest:
-        raise SystemExit("--gate task requires --task-digest <contract-hash>")
     if Path(args.task).name != args.task or args.task in (".", ".."):
         raise SystemExit("--task must be a single task id, not a path")
     if payload.get("task_id") and payload["task_id"] != args.task:
         raise SystemExit(
             f"payload task_id {payload['task_id']!r} does not match --task {args.task!r}"
         )
-    _validate_task_grill(root, payload, args.task)
+    task = _validate_task_grill(root, payload, args.task)
     payload["task_id"] = args.task
-    payload["input_sha256"] = args.task_digest
+    payload["input_sha256"] = grounding_digest(root, task)
 if args.gate == "plan":
     # Plan grills are per task: stamp the active issue so a stale grill from
     # a previous task can never satisfy this one's plan save.

@@ -31,6 +31,7 @@ import pytest
 HARNESS = Path(__file__).resolve().parents[2]
 FORGE_INIT_FIXTURE = HARNESS / ".factory" / "history" / "FORGE-INIT-1"
 sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+from factory_lib import grounding_digest, require_task_grill, task_frontier_state
 from forge_cli.stages import task_digest, write_stages
 from record_signoff import REQUIRED_BRIEF_HEADINGS
 
@@ -297,7 +298,19 @@ def task_grill_payload(task: dict, verdict: str = "pass", **over) -> dict:
 def seed_task_grill_frontier(repo: Path, task: dict) -> None:
     control = Path(git(repo, "rev-parse", "--absolute-git-dir")) / "forge"
     control.mkdir(parents=True, exist_ok=True)
-    (control / "decomposition.json").write_text(json.dumps({"tasks": [task]}))
+    plan = repo / "plans" / "active" / "TEST-1-test-plan.md"
+    plan.parent.mkdir(parents=True, exist_ok=True)
+    if not plan.exists():
+        plan.write_text("---\nstatus: approved\n---\n" + PLAN_BODY)
+    (repo / ".factory" / "run.json").write_text(json.dumps({
+        "issue_key": "TEST-1",
+        "plan_file": plan.relative_to(repo).as_posix(),
+    }))
+    (control / "decomposition.json").write_text(json.dumps({
+        "plan_file": plan.relative_to(repo).as_posix(),
+        "plan_sha256": hashlib.sha256(plan.read_bytes()).hexdigest(),
+        "tasks": [task],
+    }))
 
 
 def record_task_grill(repo: Path, task: dict,
@@ -305,7 +318,7 @@ def record_task_grill(repo: Path, task: dict,
     payload = task_grill_payload(task, verdict)
     return run(
         repo, "record_grill_from_json.py", "--gate", "task",
-        "--task", task["id"], "--task-digest", task_digest(task),
+        "--task", task["id"],
         stdin=json.dumps(payload),
     )
 
@@ -5245,13 +5258,12 @@ def test_next_tags_steps_with_roles(repo):
 
 def test_record_task_grill_writes_per_id_file(repo):
     task_id = "FORGE-BOARD-2.1"
-    digest = "a" * 64
     task = {**STAGE_TASK, "id": task_id}
     seed_task_grill_frontier(repo, task)
     payload = task_grill_payload(task, task_id=task_id)
 
     code, out = run(repo, "record_grill_from_json.py", "--gate", "task",
-                    "--task", task_id, "--task-digest", digest,
+                    "--task", task_id,
                     stdin=json.dumps(payload))
 
     assert code == 0, out
@@ -5264,29 +5276,117 @@ def test_record_task_grill_writes_per_id_file(repo):
     assert not (repo / ".factory" / "grills" / "task.json").exists()
 
 
-def test_record_task_grill_binds_digest(repo):
+def test_record_task_grill_binds_derived_digest(repo):
     task_id = "FORGE-BOARD-2.1"
-    task_digest = "0123456789abcdef" * 4
     task = {**STAGE_TASK, "id": task_id}
     seed_task_grill_frontier(repo, task)
     payload = task_grill_payload(task)
 
     code, out = run(repo, "record_grill_from_json.py", "--gate", "task",
-                    "--task", task_id, "--task-digest", task_digest,
+                    "--task", task_id,
                     stdin=json.dumps(payload))
 
     assert code == 0, out
     recorded = json.loads(
         (repo / ".factory" / "grills" / "tasks" / f"{task_id}.json").read_text()
     )
-    assert recorded["input_sha256"] == task_digest
+    assert recorded["input_sha256"] == grounding_digest(repo, task)
+
+
+def test_grounding_digest_staleness_matrix(repo):
+    task = STAGE_TASK
+    seed_task_grill_frontier(repo, task)
+    plan = repo / "plans" / "active" / "TEST-1-test-plan.md"
+
+    def record_current() -> None:
+        code, out = record_task_grill(repo, task)
+        assert code == 0, out
+
+    def state() -> str:
+        frontier = task_frontier_state(repo)
+        assert frontier is not None
+        return frontier[0]
+
+    record_current()
+    assert state() == "stage-start"
+
+    changed_contract = {**task, "reviewer_focus": "changed full-contract field"}
+    seed_task_grill_frontier(repo, changed_contract)
+    assert state() == "grill"
+    seed_task_grill_frontier(repo, task)
+    record_current()
+
+    original_plan = plan.read_text()
+    plan.write_text(original_plan.replace(
+        "Test content for Risks.", "Changed approved risk analysis."
+    ))
+    assert state() == "grill"
+    plan.write_text(original_plan)
+    record_current()
+
+    code, out = run(repo, "forge.py", "plan", "assume", "The adapter stays internal.")
+    assert code == 0, out
+    assert state() == "stage-start"
+
+    product = repo / "src" / "grounding.py"
+    product.parent.mkdir(exist_ok=True)
+    product.write_text("BOUND = True\n")
+    git(repo, "add", product.relative_to(repo).as_posix())
+    git(repo, "commit", "-q", "-m", "product change")
+    assert state() == "grill"
+    record_current()
+
+    evidence = repo / ".factory" / "grounding-note.json"
+    evidence.write_text("{}\n")
+    git(repo, "add", "-f", evidence.relative_to(repo).as_posix())
+    git(repo, "commit", "-q", "-m", "factory-only change")
+    assert state() == "stage-start"
+
+    plan_note = repo / "plans" / "grounding-note.md"
+    plan_note.write_text("planning note\n")
+    git(repo, "add", plan_note.relative_to(repo).as_posix())
+    git(repo, "commit", "-q", "-m", "plans-only change")
+    assert state() == "stage-start"
+
+    write_stages(repo, {
+        "issue": "TEST-1",
+        "stages": [{"id": "T1", "title": "grounding", "status": "pending"}],
+    })
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code == 0, out
+
+
+def test_task_digest_arg_is_removed_and_gates_rederive(repo):
+    task = STAGE_TASK
+    seed_task_grill_frontier(repo, task)
+    payload = task_grill_payload(task)
+
+    code, out = run(
+        repo, "record_grill_from_json.py", "--gate", "task", "--task", "T1",
+        "--task-digest", "0" * 64, stdin=json.dumps(payload),
+    )
+    assert code != 0 and "--task-digest is no longer accepted" in out
+    assert "digest is derived" in out
+
+    code, out = record_task_grill(repo, task)
+    assert code == 0, out
+    grill = repo / ".factory" / "grills" / "tasks" / "T1.json"
+    recorded = json.loads(grill.read_text())
+    assert recorded["input_sha256"] == grounding_digest(repo, task)
+
+    recorded["input_sha256"] = task_digest(task)
+    grill.write_text(json.dumps(recorded))
+    with pytest.raises(SystemExit) as exc:
+        require_task_grill(repo, "T1", task)
+    out = str(exc.value)
+    assert "STALE" in out and "digest is derived" in out
+    assert "--task-digest was removed" in out
 
 
 def test_task_grill_requires_proofs_and_rounds(repo):
     task = STAGE_TASK
     seed_task_grill_frontier(repo, task)
-    command = ("record_grill_from_json.py", "--gate", "task", "--task", "T1",
-               "--task-digest", task_digest(task))
+    command = ("record_grill_from_json.py", "--gate", "task", "--task", "T1")
 
     def record(payload):
         return run(repo, *command, stdin=json.dumps(payload))
@@ -5345,8 +5445,7 @@ def test_task_grill_block_requires_escalation_packet(repo):
     task = STAGE_TASK
     seed_task_grill_frontier(repo, task)
     payload = task_grill_payload(task, verdict="blocked", escalation_packet={})
-    command = ("record_grill_from_json.py", "--gate", "task", "--task", "T1",
-               "--task-digest", task_digest(task))
+    command = ("record_grill_from_json.py", "--gate", "task", "--task", "T1")
 
     code, out = run(repo, *command, stdin=json.dumps(payload))
     assert code != 0 and "escalation_packet" in out
@@ -11421,7 +11520,7 @@ def test_stage_start_refuses_unready_or_ungrilled_contract(repo, tmp_path):
     assert code == 0, out
     before = (authority.read_bytes(), mirror.read_bytes())
     code, out = run(repo, "forge.py", "stage", "start", "T1")
-    assert code != 0 and "STALE" in out and task_digest(changed) in out
+    assert code != 0 and "STALE" in out and "grounding inputs changed" in out
     assert (authority.read_bytes(), mirror.read_bytes()) == before
 
 
@@ -11518,7 +11617,7 @@ def test_delegate_refuses_without_task_grill(repo, tmp_path):
     grill.unlink()
     command = (
         "python3 factory/scripts/record_grill_from_json.py --gate task "
-        f"--task T1 --task-digest {task_digest(STAGE_TASK)}"
+        "--task T1"
     )
 
     code, out = run(repo, "forge.py", "delegate", "T1",
@@ -11537,18 +11636,16 @@ def test_delegate_refuses_without_task_grill(repo, tmp_path):
 @delegate_task_grill_test
 def test_delegate_refuses_stale_task_grill(repo, tmp_path):
     start_stage(repo, tmp_path, STAGE_TASK, launch=False)
-    payload = task_grill_payload(STAGE_TASK)
-    code, out = run(
-        repo, "record_grill_from_json.py", "--gate", "task", "--task", "T1",
-        "--task-digest", "0" * 64, stdin=json.dumps(payload),
-    )
-    assert code == 0, out
+    grill = repo / ".factory" / "grills" / "tasks" / "T1.json"
+    payload = json.loads(grill.read_text())
+    payload["input_sha256"] = "0" * 64
+    grill.write_text(json.dumps(payload))
 
     code, out = run(repo, "forge.py", "delegate", "T1",
                     env=fake_companion_env(tmp_path))
     assert code != 0 and "STALE" in out
-    assert "record_grill_from_json.py --gate task --task T1 --task-digest" in out
-    assert task_digest(STAGE_TASK) in out
+    assert "record_grill_from_json.py --gate task --task T1" in out
+    assert "--task-digest was removed" in out
     assert not delegation_ledger(repo).exists()
 
 

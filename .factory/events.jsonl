@@ -1289,3 +1289,5 @@
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T06:37:31+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T1 (write)"}
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-14T06:38:27+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T1 Task grills carry proof and rounds"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T06:52:22+00:00", "story": "FORGE-ACC-2", "detail": "5 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-14T06:54:16+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T2 Grounding digest derived internally"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T07:05:01+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T2 (write)"}
