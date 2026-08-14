@@ -38,9 +38,7 @@ Codex executes exploration, implementation, testing, and review. `./forge delega
 1. record client sign-off (the spec/roadmap gate is checked now)
 2. plan one roadmap story and record its ordered task list
 3. wait for approval
-4. for the next task, enter plan mode to author and re-record its JIT contract,
-   grill it, start its stage, then implement via `./forge delegate`; measure
-   under decision 0018
+4. per task: plan-mode JIT contract → re-record → grill → stage start → `./forge delegate`; measure under 0018
 5. run deterministic verify
 6. run one autoreview pass (three lenses: quality, performance, security)
 7. run the functional check when the decomposition says `user_facing: true`
