@@ -12665,13 +12665,113 @@ def test_next_names_delegation_step(repo, tmp_path):
     """Part of why the harness got skipped is that the delegation step was
     never printed anywhere — so "what should I have done" had no answer to
     point at."""
-    start_stage(repo, tmp_path, STAGE_TASK)
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
     code, out = run(repo, "forge.py", "next")
     assert code == 0, out
-    assert "forge delegate T1" in out and "forge codex status" in out
-    run(repo, "forge.py", "stage", "done", "T1", "--incomplete", "retry path missing")
-    code, out = run(repo, "forge.py", "next")
-    assert "INCOMPLETE" in out and "retry path missing" in out
+    assert "forge delegate T1" in out and "forge codex status" not in out
+
+
+def test_forge_next_routes_the_jit_frontier_states(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+
+    def next_action() -> str:
+        code, out = run(repo, "forge.py", "next")
+        assert code == 0 and "PHASE: implementing" in out, out
+        actions = [line for line in out.splitlines() if ". [dev]" in line]
+        assert len(actions) == 1, out
+        assert "emil-design-eng" in out
+        return actions[0]
+
+    skeleton = skeletal_stage_task("T1")
+    code, out = run(
+        repo,
+        "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [skeleton]}),
+    )
+    assert code == 0, out
+    action = next_action()
+    assert "Enter plan mode" in action
+    assert "factory/prompts/planner.md" in action
+    assert "record_decomposition_from_json.py" in action
+    assert "stage start" not in action and "forge delegate" not in action
+
+    code, out = run(
+        repo,
+        "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}),
+    )
+    assert code == 0, out
+    action = next_action()
+    assert "factory/prompts/griller.md --gate task" in action
+    assert "stage start" not in action and "forge delegate" not in action
+
+    code, out = record_task_grill(repo, STAGE_TASK)
+    assert code == 0, out
+    stale = {**STAGE_TASK, "reviewer_focus": "the changed bounded contract",
+             "write_scope": ["src/changed/"]}
+    code, out = run(
+        repo,
+        "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [stale]}),
+    )
+    assert code == 0, out
+    assert "factory/prompts/griller.md --gate task" in next_action()
+
+    code, out = record_task_grill(repo, stale)
+    assert code == 0, out
+    action = next_action()
+    assert f"./forge stage start {stale['id']}" in action
+    assert "forge delegate" not in action
+
+    code, out = run(repo, "forge.py", "stage", "start", stale["id"])
+    assert code == 0, out
+    action = next_action()
+    assert f"./forge delegate {stale['id']}" in action
+    assert "stage start" not in action
+
+    from forge_cli.board import next_actions
+    assert action.split(". ", 1)[1] in next_actions(repo)["steps"]
+
+
+def test_docs_state_the_enforced_jit_contract():
+    factory_doc = (HARNESS / "docs" / "FACTORY.md").read_text()
+    workflow = (HARNESS / "WORKFLOW.md").read_text()
+    decomposer = (HARNESS / "factory" / "prompts" / "decomposer.md").read_text()
+    forge_skill = (HARNESS / "factory" / "skills" / "forge.md").read_text()
+    agents = (HARNESS / "AGENTS.md").read_text()
+
+    initial_contract = factory_doc.split(
+        "The first decomposition records the ordered task list.", 1
+    )[1].split("Immediately before the next pending leaf", 1)[0]
+    for deferred in ("write scope", "verify commands", "required tests",
+                     "reviewer focus"):
+        assert deferred not in initial_contract.lower()
+
+    for text in (factory_doc, workflow, decomposer):
+        assert "factory/prompts/planner.md" in text
+        lowered = text.lower()
+        assert "re-record" in lowered
+        assert "task grill" in lowered
+        assert "stage start" in lowered
+        assert "delegate" in lowered
+    assert "Do not guess later-task execution detail" in factory_doc
+    assert "later-task detail during the initial decomposition" in workflow
+    assert "later tasks remains deferred" in decomposer
+    for field in ("`write_scope`", "`required_tests`", "`verify_commands`",
+                  "`acceptance_criteria`"):
+        assert field in decomposer.split("freshness digest", 1)[1]
+
+    implementing_route = next(
+        line for line in forge_skill.splitlines()
+        if line.startswith("| implementing |")
+    )
+    assert "one frontier action" in implementing_route
+    assert "author/re-record" in implementing_route
+    assert "task griller" in implementing_route
+    assert "stage start" in implementing_route and "delegate" in implementing_route
+    assert "findings and refusals always in full" in agents
 
 
 def test_plan_save_refuses_a_plan_missing_any_required_section(repo, tmp_path):
