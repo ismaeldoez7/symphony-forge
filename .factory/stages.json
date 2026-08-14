@@ -54,7 +54,11 @@
     {
       "id": "ACC2-T6",
       "title": "Migrate the last one-shot lifecycle fixture",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-14T11:43:31+00:00",
+      "base_sha": "192ca14afdfb14a5a0e43d024f0f05998aea2067",
+      "dirty_at_start": {},
+      "task_sha256": "3ef85a7d7efcb2a1d9978c70aeb757429359e15b5b5eba7e35aa15ab7a3970d7"
     }
   ]
 }

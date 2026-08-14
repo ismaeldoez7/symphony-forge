@@ -1322,3 +1322,5 @@
 {"event": "verify-failed", "generated_by": "orchestrator", "at": "2026-08-14T11:41:08+00:00", "story": "FORGE-ACC-2"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T11:42:52+00:00", "story": "FORGE-ACC-2", "detail": "6 task(s)"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T11:43:30+00:00", "story": "FORGE-ACC-2", "detail": "6 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-14T11:43:31+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T6 Migrate the last one-shot lifecycle fixture"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T11:46:03+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T6 (write)"}

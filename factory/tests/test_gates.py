@@ -519,9 +519,7 @@ def test_full_lifecycle_and_archive(repo, tmp_path):
     assert code == 0
     code, out = save_plan(repo, tmp_path)
     assert code == 0, out
-    code, out = run(repo, "record_decomposition_from_json.py",
-                    stdin=json.dumps(DECOMP))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
     write_passing_artifacts(repo)
     # D-0013: a per-task grill must be archived into history like plan.json.
     task_grills = repo / ".factory" / "grills" / "tasks"
