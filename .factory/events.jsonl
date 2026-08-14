@@ -1241,3 +1241,4 @@
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T23:16:17+00:00", "story": "FORGE-ACC-1", "detail": "ACC1-T2 (write)"}
 {"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-13T23:16:38+00:00", "story": "FORGE-ACC-1", "detail": "ACC1-T2: task contract re-recorded mid-stage"}
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-13T23:16:38+00:00", "story": "FORGE-ACC-1", "detail": "ACC1-T2 Shared readiness gate at stage start and delegate"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T02:12:14+00:00", "story": "FORGE-ACC-1", "detail": "3 task(s)"}

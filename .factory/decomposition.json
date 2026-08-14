@@ -132,11 +132,49 @@
       ],
       "dependencies": [
         "ACC1-T2"
+      ],
+      "write_scope": [
+        "factory/scripts/forge_cli/phase.py",
+        "factory/scripts/factory_lib.py",
+        "docs/FACTORY.md",
+        "WORKFLOW.md",
+        "factory/prompts/decomposer.md",
+        "factory/skills/forge.md",
+        "AGENTS.md",
+        "factory/tests/test_gates.py"
+      ],
+      "verify_commands": [
+        "python3 factory/scripts/check_dual_runtime.py"
+      ],
+      "required_tests": [
+        {
+          "id": "test_forge_next_routes_the_jit_frontier_states",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_docs_state_the_enforced_jit_contract",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "Single-action invariant is the risky seam: for the earliest unfinished task, forge next emits exactly ONE next action per state - skeleton contract -> enter plan mode, author the JIT contract, re-record (decisions 0029/0032); complete-but-ungrilled or stale -> run the task griller; fresh pass -> forge stage start; active -> forge delegate - never the current start+delegate pair. State must be DERIVED from the same primitives require_ready_task uses (a small non-raising task_frontier_state helper in factory_lib beside it; ACC-2's board rows consume the same helper), not recomputed independently. forge board's next_actions re-parse must keep working. Docs edits (FACTORY.md upfront-contract list, WORKFLOW/decomposer digest wording, forge skill task-loop, AGENTS.md narration line sharpened per conduct s8) must remove the contradiction without weakening any other stated contract.",
+      "plan_contracts": [
+        {
+          "id": "ACC1-C7",
+          "statement": "forge next reports author-contract (with plan-mode instruction) / grill / stage-start / delegate as the single next action per frontier state",
+          "source": "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria"
+        },
+        {
+          "id": "ACC1-C8",
+          "statement": "docs/FACTORY.md, WORKFLOW.md, and factory/prompts/decomposer.md state the enforced JIT contract with no upfront-contract instruction remaining",
+          "source": "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria"
+        }
       ]
     }
   ],
   "epic": "accountable-engineering",
   "plan_file": "plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md",
   "plan_sha256": "77041f2719599d404428dd29f7efc45a2fac3a96a8b3b3fb757a246e9af5385f",
-  "commit": "23bc62bf7cf3751bc2ddd5d1caf952f0c0d8f23e"
+  "commit": "84c074621d1d6cd895284b4f3e12a59436e89c50"
 }
