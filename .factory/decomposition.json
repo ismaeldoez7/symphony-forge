@@ -215,11 +215,44 @@
       ],
       "dependencies": [
         "ACC2-T4"
+      ],
+      "write_scope": [
+        "factory/scripts/factory_lib.py",
+        "factory/scripts/forge_cli/board.py",
+        "factory/tests/test_gates.py"
+      ],
+      "verify_commands": [
+        "python3 factory/scripts/check_dual_runtime.py"
+      ],
+      "required_tests": [
+        {
+          "id": "test_board_task_rows_match_frontier_states",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_board_task_rows_show_grill_freshness_and_budget",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "One derivation, two consumers: extend factory_lib with task_rows(root) returning ALL tasks' states (skeleton|ready|grilled|active|done, grill fresh/stale via the same grounding_digest compare, budget used/limit for the active stage via the same _measure-consistent counting), built ON TOP of the pieces task_frontier_state uses so routing and board can never disagree; task_frontier_state stays the single-action authority. Board renders rows in the story drawer read-only - no new endpoints, no approval affordances (the board never approves). Budget usage calls the same counting helper stages.py uses - do not reimplement the diff walk. Board redundancy watch-class: keep row derivation one call per render.",
+      "plan_contracts": [
+        {
+          "id": "ACC2-C10",
+          "statement": "board task rows match task_frontier_state for every state",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        },
+        {
+          "id": "ACC2-C11",
+          "statement": "existing board tests green",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        }
       ]
     }
   ],
   "epic": "accountable-engineering",
   "plan_file": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md",
   "plan_sha256": "771c66597fa464a60d4a89c77f534fb325753b6c26b46c43d9a40cf72f6e63dc",
-  "commit": "d7d6250804f1cc4ee8016d0e23a22a9af8e16455"
+  "commit": "386eda5cf2bfa664f0b6d28a8fc1546d106d4d10"
 }

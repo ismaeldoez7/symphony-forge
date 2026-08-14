@@ -1307,3 +1307,5 @@
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T10:49:11+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T4 (write)"}
 {"event": "signal-confusion", "generated_by": "implementer", "at": "2026-08-14T11:07:06+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T4 requires file and line budgets over the same stage diff, but _measure subtracts dirty-at-start content using hashes while exact additions/deletions from that content cannot be reconstructed; c"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T11:07:34+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T4 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-14T11:08:21+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T4 Review budget at stage done and in the brief"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T11:10:14+00:00", "story": "FORGE-ACC-2", "detail": "5 task(s)"}
