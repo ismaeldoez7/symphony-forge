@@ -676,7 +676,7 @@ def test_encoding_hygiene_gate_catches_each_violation_class(tmp_path):
         byte_path_allowlist={"allowed.py:3": "lossless path"},
         stdin_allowlist=frozenset({"allowed.py:8"}),
     ) == []
-    assert "factory/scripts/forge_cli/phase.py:23" in BYTE_PATH_ALLOWLIST
+    assert "factory/scripts/forge_cli/phase.py:25" in BYTE_PATH_ALLOWLIST
     assert "factory/scripts/forge_cli/upgrade.py:314" in BYTE_MODE_ALLOWLIST
     assert "factory/scripts/pr_ready.py:349" in BYTE_MODE_ALLOWLIST
 
