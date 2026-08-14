@@ -1298,3 +1298,5 @@
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T09:45:12+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T3 (write)"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T09:58:12+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T3 (write)"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T10:10:02+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T3 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-14T10:11:07+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T3 Frozen skeleton, immutable completed contracts, plan_contracts wiring"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T10:32:56+00:00", "story": "FORGE-ACC-2", "detail": "5 task(s)"}

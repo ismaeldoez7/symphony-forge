@@ -169,6 +169,40 @@
       ],
       "dependencies": [
         "ACC2-T3"
+      ],
+      "write_scope": [
+        "factory/scripts/record_decomposition_from_json.py",
+        "factory/scripts/forge_cli/stages.py",
+        "factory/scripts/forge_cli/delegate.py",
+        "factory/tests/test_gates.py"
+      ],
+      "verify_commands": [
+        "python3 factory/scripts/check_dual_runtime.py"
+      ],
+      "required_tests": [
+        {
+          "id": "test_review_budget_default_lowered_raised_and_exceeded",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_brief_states_budget_and_narration_line",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "Counting is the risky seam: files and lines (additions+deletions) measured over the SAME diff _measure already computes (baseline to now, commits plus working tree), excluding .factory/ and plans/ exactly as measurement's evidence exclusions do - two different diff computations would let the budget and the measurement disagree. Default 8 files/400 lines is a policy target (recorded p90s 5/256 product-only, 20/672 all-paths) - state it in the refusal. Raising needs a non-empty written reason validated at record time; lowering is free. The over-budget refusal names the split path (grill decision=split, prefix-freeze appends from T3). Brief additions are two lines in compose_brief - budget and the conduct s8 narration line - no new sections. Lite/quickfix/degraded windows untouched.",
+      "plan_contracts": [
+        {
+          "id": "ACC2-C8",
+          "statement": "default, lowered, justified-higher, and exceeded budgets behave as specified at stage done",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        },
+        {
+          "id": "ACC2-C9",
+          "statement": "the brief carries the budget and narration lines",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        }
       ]
     },
     {
@@ -187,5 +221,5 @@
   "epic": "accountable-engineering",
   "plan_file": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md",
   "plan_sha256": "771c66597fa464a60d4a89c77f534fb325753b6c26b46c43d9a40cf72f6e63dc",
-  "commit": "2680eb5fa010dee26caaaf350c1e9c1bc441fb52"
+  "commit": "d7d6250804f1cc4ee8016d0e23a22a9af8e16455"
 }
