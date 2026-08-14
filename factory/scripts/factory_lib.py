@@ -1075,6 +1075,85 @@ _TASK_CONTRACT_FIELDS = (
 )
 
 
+def _task_contract_complete(task: dict) -> bool:
+    return all(
+        value and (not isinstance(value, str) or value.strip())
+        for value in (task.get(field) for field in _TASK_CONTRACT_FIELDS)
+    )
+
+
+def _task_grill_fresh(root: Path, task: dict, grill: dict) -> bool:
+    return bool(
+        grill.get("verdict") == "pass"
+        and grill.get("commit")
+        and grill.get("input_sha256") == grounding_digest(root, task)
+    )
+
+
+def task_rows(root: Path) -> list[dict]:
+    """Derive every live task row from the same inputs as frontier routing."""
+    tasks = load_json(
+        protected_decomposition_state_path(root), default={}
+    ).get("tasks", [])
+    stages = load_json(git_control_dir(root) / "stages.json", default={})
+    stage_by_id = {
+        stage.get("id"): stage
+        for stage in stages.get("stages", [])
+        if isinstance(stage, dict)
+    }
+    rows = []
+    for task in tasks:
+        task_id = task.get("id")
+        stage = stage_by_id.get(task_id, {})
+        grill = load_json(
+            factory_dir(root) / "grills" / "tasks" / f"{task_id}.json",
+            default={},
+        )
+        fresh = _task_grill_fresh(root, task, grill) if grill else False
+        status = stage.get("status")
+        if status == "done":
+            state = "done"
+        elif status == "active":
+            state = "active"
+        elif not _task_contract_complete(task):
+            state = "skeleton"
+        else:
+            state = "grilled" if fresh else "ready"
+
+        budget = None
+        if state == "active":
+            from forge_cli.stages import (
+                WORKFLOW_PATHS, _changed_line_count, changed_paths,
+                review_budget, stage_baseline,
+            )
+
+            max_files, max_lines, _reason = review_budget(task)
+            base_sha = stage_baseline(root, stage)
+            product = [
+                path for path in changed_paths(
+                    root, base_sha, stage.get("dirty_at_start", {})
+                )
+                if not path.startswith(WORKFLOW_PATHS)
+            ] if base_sha else []
+            budget = {
+                "used": {
+                    "files": len(product),
+                    "lines": _changed_line_count(root, base_sha, product)
+                    if base_sha else 0,
+                },
+                "limit": {"files": max_files, "lines": max_lines},
+            }
+        rows.append({
+            "id": task_id,
+            "state": state,
+            "grill_freshness": (
+                "fresh" if fresh else "stale" if grill else "missing"
+            ),
+            "budget": budget,
+        })
+    return rows
+
+
 def task_frontier_state(root: Path) -> tuple[str, dict] | None:
     """Return the next JIT action and earliest unfinished task, without raising."""
     tasks = load_json(
@@ -1098,20 +1177,14 @@ def task_frontier_state(root: Path) -> tuple[str, dict] | None:
         return None
     task_id = frontier.get("id")
 
-    for field in _TASK_CONTRACT_FIELDS:
-        value = frontier.get(field)
-        if not value or (isinstance(value, str) and not value.strip()):
-            return "author-contract", frontier
+    if not _task_contract_complete(frontier):
+        return "author-contract", frontier
 
     grill = load_json(
         factory_dir(root) / "grills" / "tasks" / f"{task_id}.json",
         default={},
     )
-    if (
-        grill.get("verdict") == "pass"
-        and grill.get("commit")
-        and grill.get("input_sha256") == grounding_digest(root, frontier)
-    ):
+    if _task_grill_fresh(root, frontier, grill):
         stage = stage_by_id.get(task_id, {})
         state = "delegate" if stage.get("status") == "active" else "stage-start"
         return state, frontier

@@ -31,7 +31,9 @@ import pytest
 HARNESS = Path(__file__).resolve().parents[2]
 FORGE_INIT_FIXTURE = HARNESS / ".factory" / "history" / "FORGE-INIT-1"
 sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
-from factory_lib import grounding_digest, require_task_grill, task_frontier_state
+from factory_lib import (
+    grounding_digest, require_task_grill, task_frontier_state, task_rows,
+)
 from forge_cli.stages import task_digest, write_stages
 from record_signoff import REQUIRED_BRIEF_HEADINGS
 
@@ -13605,6 +13607,106 @@ def test_forge_next_routes_the_jit_frontier_states(repo, tmp_path):
 
     from forge_cli.board import next_actions
     assert action.split(". ", 1)[1] in next_actions(repo)["steps"]
+
+
+def test_board_task_rows_match_frontier_states(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+
+    def assert_state(action: str | None, state: str) -> None:
+        frontier = task_frontier_state(repo)
+        assert (frontier[0] if frontier else None) == action
+        assert task_rows(repo) == [{
+            "id": "T1", "state": state, "grill_freshness": "missing",
+            "budget": None,
+        }]
+
+    skeleton = skeletal_stage_task("T1")
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [skeleton]}),
+    )
+    assert code == 0, out
+    assert_state("author-contract", "skeleton")
+
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}),
+    )
+    assert code == 0, out
+    assert_state("grill", "ready")
+
+    code, out = record_task_grill(repo, STAGE_TASK)
+    assert code == 0, out
+    frontier = task_frontier_state(repo)
+    assert frontier and frontier[0] == "stage-start"
+    assert task_rows(repo)[0]["state"] == "grilled"
+    assert task_rows(repo)[0]["grill_freshness"] == "fresh"
+
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code == 0, out
+    frontier = task_frontier_state(repo)
+    assert frontier and frontier[0] == "delegate"
+    assert task_rows(repo)[0]["state"] == "active"
+
+    stages = json.loads((repo / ".factory" / "stages.json").read_text())
+    stages["stages"][0]["status"] = "done"
+    write_stages(repo, stages)
+    assert task_frontier_state(repo) is None
+    assert task_rows(repo)[0]["state"] == "done"
+
+
+def test_board_task_rows_show_grill_freshness_and_budget(
+        repo, tmp_path, monkeypatch):
+    task = {**STAGE_TASK, "review_budget": {
+        "max_changed_files": 2, "max_changed_lines": 5,
+    }}
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    record_skeleton_then_frontier(repo, [task])
+    code, out = record_task_grill(repo, task)
+    assert code == 0, out
+    assert task_rows(repo)[0]["grill_freshness"] == "fresh"
+
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code == 0, out
+    write_in_scope(repo, "src/core.py", "first\nsecond\n")
+    git(repo, "add", "src/core.py")
+    row = task_rows(repo)[0]
+    assert row["state"] == "active"
+    assert row["grill_freshness"] == "stale"
+    assert row["budget"] == {
+        "used": {"files": 1, "lines": 2},
+        "limit": {"files": 2, "lines": 5},
+    }
+
+    from forge_cli import board
+    real_task_rows = board.task_rows
+    calls = []
+
+    def counted_task_rows(root):
+        calls.append(root)
+        return real_task_rows(root)
+
+    monkeypatch.setattr(board, "task_rows", counted_task_rows)
+    state = board.aggregate_state(repo)
+    story = next(item for item in state["stories"] if item["key"] == "ENG-1")
+    assert story["tasks"][0]["state"] == "active"
+    assert len(calls) == 1
+    calls.clear()
+    detail = board.story_detail(repo, "ENG-1")
+    assert detail["tasks"][0]["budget"] == row["budget"]
+    assert len(calls) == 1
+
+    page = (HARNESS / "factory" / "board" / "index.html").read_text()
+    task_block = page[page.index("function taskBlock(story)"):
+                      page.index("function findingList(")]
+    assert "task-state" in task_block
+    assert "t.grill_freshness" in task_block
+    assert "t.budget.used.files" in task_block
+    assert "<b>Budget</b>" in task_block
 
 
 def test_docs_state_the_enforced_jit_contract():
