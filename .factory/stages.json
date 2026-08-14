@@ -24,7 +24,11 @@
     {
       "id": "ACC2-T3",
       "title": "Frozen skeleton, immutable completed contracts, plan_contracts wiring",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-14T09:22:45+00:00",
+      "base_sha": "8af3602c4043c1f2e47e2c14c7c74ace6ac79a61",
+      "dirty_at_start": {},
+      "task_sha256": "6b6a21dfeee39900d0e636cfef4bbf7f8bad90edfbed27f955a9a067dc15f092"
     },
     {
       "id": "ACC2-T4",

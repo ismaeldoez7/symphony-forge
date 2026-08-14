@@ -92,6 +92,24 @@ def _validate_task_grill(root: Path, payload: dict, task_id: str) -> dict:
         )
     if any(not _non_empty_string(value) for value in payload["criteria_map"].values()):
         raise SystemExit("task grill criteria_map values must be non-empty strings")
+    plan_contracts = frontier[1].get("plan_contracts")
+    if not isinstance(plan_contracts, list) or not plan_contracts:
+        raise SystemExit(
+            "task grill requires protected frontier plan_contracts whose statements "
+            "match criteria_map keys"
+        )
+    contract_statements = {
+        contract.get("statement")
+        for contract in plan_contracts
+        if isinstance(contract, dict)
+    }
+    if contract_statements != set(payload["criteria_map"]):
+        missing = sorted(set(payload["criteria_map"]) - contract_statements)
+        extra = sorted(contract_statements - set(payload["criteria_map"]))
+        raise SystemExit(
+            "task grill criteria_map keys must equal protected plan_contracts "
+            f"statements (missing={missing}, extra={extra})"
+        )
 
     covered: set[str] = set()
     for entry in payload["rounds"]:

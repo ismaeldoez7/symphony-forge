@@ -1876,9 +1876,7 @@ def test_pr_ready_accepts_decomposition_recorded_before_implementation(repo, tmp
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    code, _ = run(repo, "record_decomposition_from_json.py",
-                  stdin=json.dumps(DECOMP))
-    assert code == 0
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "plan + decomposition")
     (repo / "src.py").write_text("VALUE = 1\n")
@@ -4695,7 +4693,7 @@ def test_roadmap_lifecycle(repo, tmp_path):
     assert roadmap_items(repo)["ENG-1"]["status"] == "active"
     # drive to pr-ready: item completed with a history link
     save_plan(repo, tmp_path)
-    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
     write_passing_artifacts(repo)
     run(repo, "update_run.py", "--decomposition-status", "recorded")
     code, out = run(repo, "pr_ready.py")
@@ -6397,7 +6395,8 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
     code, out = hook(repo, {"tool_name": "Edit", "permission_mode": "default",
                             "tool_input": {"file_path": str(repo / "src" / "app.ts")}})
     assert "deny" in out and "forge delegate" in out
-    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    task = task_with_plan_contracts(DECOMP["tasks"][0])
+    record_skeleton_then_frontier(repo, [task])
     code, out = hook(repo, {"tool_name": "Edit", "permission_mode": "default",
                             "tool_input": {"file_path": str(repo / "src" / "app.ts")}})
     assert "deny" in out and "forge delegate" in out
@@ -6406,7 +6405,7 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": companion + " --write"}})
     assert "deny" in out and "forge delegate" in out
-    code, out = record_task_grill(repo, DECOMP["tasks"][0])
+    code, out = record_task_grill(repo, task)
     assert code == 0, out
     run(repo, "forge.py", "stage", "start", "T1")
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
@@ -9182,20 +9181,24 @@ def test_recorder_holds_the_task_narrative_contract(repo, tmp_path):
     no_ac = {**DECOMP, "tasks": [{**DECOMP["tasks"][0], "acceptance_criteria": []}]}
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(no_ac))
     assert code != 0 and "acceptance_criteria" in out
-    # and re-recording after a scope change keeps what is already built
-    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
-    assert code == 0, out
-    code, out = record_task_grill(repo, DECOMP["tasks"][0])
+    # The complete graph is captured up front; re-recording keeps completed
+    # state while the already-declared future task remains pending.
+    first = task_with_plan_contracts(DECOMP["tasks"][0])
+    second = {"id": "T2", "title": "second", "objective": "more",
+              "acceptance_criteria": ["works"]}
+    record_skeleton_then_frontier(repo, [first, second])
+    code, out = record_task_grill(repo, first)
     assert code == 0, out
     run(repo, "forge.py", "stage", "start", "T1")
     launch_fake(repo, tmp_path, "T1")
     write_in_scope(repo, "src/core.py")  # stage done measures the diff
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
-    grown = {**DECOMP, "tasks": [DECOMP["tasks"][0],
-                                 {"id": "T2", "title": "second", "objective": "more",
-                                  "acceptance_criteria": ["works"]}]}
-    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(grown))
+    rerecorded = {**DECOMP, "tasks": [first, second]}
+    code, out = run(
+        repo, "record_decomposition_from_json.py", stdin=json.dumps(rerecorded)
+    )
+    assert code == 0, out
     stages = {s["id"]: s for s in
               json.loads((repo / ".factory" / "stages.json").read_text())["stages"]}
     assert stages["T1"]["status"] == "done" and stages["T1"].get("completed_at")
@@ -9778,16 +9781,17 @@ def test_stage_loop_orders_execution_and_gates_pr_ready(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    t1 = {**STAGE_TASK, "id": "T1", "title": "api",
-          "write_scope": ["src/api/"], "objective": "Serve invoices over the api.",
-          "acceptance_criteria": ["200 ok"]}
+    t1 = task_with_plan_contracts({
+        **STAGE_TASK, "id": "T1", "title": "api",
+        "write_scope": ["src/api/"], "objective": "Serve invoices over the api.",
+        "acceptance_criteria": ["200 ok"],
+    }, "T1-C")
     decomp = {**DECOMP, "tasks": [
         t1,
         {"id": "T2", "title": "ui", "objective": "Render the invoice list.",
          "acceptance_criteria": ["rows show"]},
     ]}
-    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(decomp))
-    assert code == 0 and "stages.json" in out
+    record_skeleton_then_frontier(repo, decomp["tasks"])
     # Order is strict inside one story worktree.
     code, out = run(repo, "forge.py", "stage", "start", "T2")
     assert code != 0 and "T1" in out
@@ -9804,14 +9808,14 @@ def test_stage_loop_orders_execution_and_gates_pr_ready(repo, tmp_path):
     write_in_scope(repo, "src/api/invoices.py")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
-    decomp["tasks"][1] = {
+    decomp["tasks"][1] = task_with_plan_contracts({
         **STAGE_TASK,
         "id": "T2",
         "title": "ui",
         "write_scope": ["src/ui/"],
         "objective": "Render the invoice list.",
         "acceptance_criteria": ["rows show"],
-    }
+    }, "T2-C")
     code, out = run(
         repo, "record_decomposition_from_json.py", stdin=json.dumps(decomp)
     )
@@ -9820,6 +9824,17 @@ def test_stage_loop_orders_execution_and_gates_pr_ready(repo, tmp_path):
     stages_before_artifacts = json.loads(
         (repo / ".factory" / "stages.json").read_text())
     write_passing_artifacts(repo)
+    quality_path = repo / ".factory" / "reviews" / "quality.json"
+    quality = json.loads(quality_path.read_text())
+    quality["contract_verdicts"] = [
+        {
+            "contract_id": contract_id,
+            "verdict": "implemented",
+            "evidence": "focused stage proof",
+        }
+        for contract_id in ("T1-C1", "T2-C1")
+    ]
+    quality_path.write_text(json.dumps(quality))
     # write_passing_artifacts stamps the single-task DECOMP; T2's contract has
     # to survive, or stage done has nothing to measure it against
     (repo / ".factory" / "decomposition.json").write_text(
@@ -9898,16 +9913,49 @@ def delegation_lock(repo: Path, task_id: str) -> Path:
     return delegation_ledger(repo).parent / "locks" / "task" / f"{task_id}.lock"
 
 
+def task_skeleton(task: dict) -> dict:
+    fields = ("id", "title", "objective", "acceptance_criteria", "dependencies")
+    return {field: task[field] for field in fields if field in task}
+
+
+def task_with_plan_contracts(task: dict, prefix: str = "C") -> dict:
+    return {
+        **task,
+        "plan_contracts": [
+            {
+                "id": f"{prefix}{index}",
+                "statement": criterion,
+                "source": "plans/active/TEST-1-test-plan.md#acceptance-criteria",
+            }
+            for index, criterion in enumerate(task["acceptance_criteria"], 1)
+        ],
+    }
+
+
+def record_skeleton_then_frontier(repo: Path, tasks: list[dict]) -> None:
+    skeletons = [task_skeleton(task) for task in tasks]
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": skeletons}),
+    )
+    assert code == 0, out
+    if tasks != skeletons:
+        code, out = run(
+            repo, "record_decomposition_from_json.py",
+            stdin=json.dumps({**DECOMP, "tasks": tasks}),
+        )
+        assert code == 0, out
+
+
 def start_stage(repo: Path, tmp_path: Path, task: dict, stage_id: str = "T1",
-                *, launch: bool = True) -> None:
+                *, launch: bool = True,
+                future_tasks: list[dict] | None = None) -> None:
     """Signed off, planned, decomposed, and the stage started — the state every
     stage-done measurement test needs before it can measure anything."""
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    code, out = run(repo, "record_decomposition_from_json.py",
-                    stdin=json.dumps({**DECOMP, "tasks": [task]}))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, [task, *(future_tasks or [])])
     code, out = record_task_grill(repo, task)
     assert code == 0, out
     code, out = run(repo, "forge.py", "stage", "start", stage_id)
@@ -9925,6 +9973,11 @@ def write_in_scope(repo: Path, rel: str, text: str = "print('work')\n") -> None:
 STAGE_TASK = {"id": "T1", "title": "core slice", "write_scope": ["src/"],
               "objective": "Build the core slice so the feature works end to end.",
               "acceptance_criteria": ["the slice runs green"],
+              "plan_contracts": [{
+                  "id": "C1",
+                  "statement": "the slice runs green",
+                  "source": "plans/active/TEST-1-test-plan.md#acceptance-criteria",
+              }],
               **READY_TASK_FIELDS}
 
 
@@ -9937,10 +9990,183 @@ def skeletal_stage_task(task_id: str, title: str = "future slice") -> dict:
     }
 
 
+def test_initial_recording_is_fully_skeletal_and_graph_freezes(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    first = skeletal_stage_task("T1", "first slice")
+    second = {**skeletal_stage_task("T2", "second slice"),
+              "dependencies": ["T1"]}
+
+    execution_detail = {
+        "write_scope": ["src/"],
+        "required_tests": READY_TASK_FIELDS["required_tests"],
+        "verify_commands": ["true"],
+        "reviewer_focus": "the first bounded slice",
+        "plan_contracts": [{
+            "id": "C1",
+            "statement": first["acceptance_criteria"][0],
+            "source": "plans/active/TEST-1-test-plan.md#acceptance-criteria",
+        }],
+    }
+    for field, value in execution_detail.items():
+        payload = {**DECOMP, "tasks": [{**first, field: value}, second]}
+        code, out = run(
+            repo, "record_decomposition_from_json.py", stdin=json.dumps(payload)
+        )
+        assert code != 0 and "fully skeletal" in out and field in out
+    payload = {**DECOMP, "tasks": [{**first, "write_scope": []}, second]}
+    code, out = run(
+        repo, "record_decomposition_from_json.py", stdin=json.dumps(payload)
+    )
+    assert code != 0 and "fully skeletal" in out and "write_scope" in out
+
+    skeleton = {**DECOMP, "tasks": [first, second]}
+    code, out = run(
+        repo, "record_decomposition_from_json.py", stdin=json.dumps(skeleton)
+    )
+    assert code == 0, out
+
+    graph_edits = [
+        [{**first, "id": "RENAMED"},
+         {**second, "dependencies": ["RENAMED"]}],
+        [{**second, "dependencies": []},
+         {**first, "dependencies": ["T2"]}],
+        [first, {**second, "dependencies": []}],
+    ]
+    for tasks in graph_edits:
+        code, out = run(
+            repo, "record_decomposition_from_json.py",
+            stdin=json.dumps({**DECOMP, "tasks": tasks}),
+        )
+        assert code != 0 and "task graph is frozen" in out
+
+    appended = {**skeletal_stage_task("T3", "split-out slice"),
+                "dependencies": ["T2"]}
+    detailed_append = {**appended, "write_scope": ["src/split/"]}
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [first, second, detailed_append]}),
+    )
+    assert code != 0 and "appended task must be skeletal" in out
+    empty_detail_append = {**appended, "write_scope": []}
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [first, second, empty_detail_append]}),
+    )
+    assert code != 0 and "appended task must be skeletal" in out
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [first, second, appended]}),
+    )
+    assert code == 0, out
+
+    frontier = {**first, **execution_detail}
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [frontier, second, appended]}),
+    )
+    assert code == 0, out
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [
+            {"id": "T1", "title": frontier["title"], "status": "active"},
+            {"id": "T2", "title": second["title"], "status": "pending"},
+            {"id": "T3", "title": appended["title"], "status": "pending"},
+        ],
+    })
+    repaired = {**frontier, "write_scope": ["src/", "billing/"]}
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [repaired, second, appended]}),
+    )
+    assert code == 0, out
+
+
+def test_done_contracts_immutable_and_criteria_map_binds_plan_contracts(
+        repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    skeleton = skeletal_stage_task("T1")
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [skeleton]}),
+    )
+    assert code == 0, out
+    task = {
+        **skeleton,
+        "write_scope": ["src/"],
+        **READY_TASK_FIELDS,
+        "plan_contracts": [{
+            "id": "C1",
+            "statement": skeleton["acceptance_criteria"][0],
+            "source": "plans/active/TEST-1-test-plan.md#acceptance-criteria",
+        }],
+    }
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [task]}),
+    )
+    assert code == 0, out
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [{"id": "T1", "title": task["title"], "status": "done",
+                    "task_sha256": task_digest(task)}],
+    })
+
+    changed_full_contract = {**task, "reviewer_focus": "rewritten after done"}
+    assert task_digest(changed_full_contract) == task_digest(task)
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [changed_full_contract]}),
+    )
+    assert code != 0 and "full contract" in out
+
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [{"id": "T1", "title": task["title"], "status": "pending"}],
+    })
+    payload = task_grill_payload(task)
+    without_plan_contracts = {
+        key: value for key, value in task.items() if key != "plan_contracts"
+    }
+    seed_task_grill_frontier(repo, without_plan_contracts)
+    code, out = run(
+        repo, "record_grill_from_json.py", "--gate", "task", "--task", "T1",
+        stdin=json.dumps(payload),
+    )
+    assert code != 0 and "requires protected frontier plan_contracts" in out
+
+    seed_task_grill_frontier(repo, task)
+    code, out = run(
+        repo, "record_grill_from_json.py", "--gate", "task", "--task", "T1",
+        stdin=json.dumps(payload),
+    )
+    assert code == 0, out
+
+    mismatched = {**task, "plan_contracts": [{
+        **task["plan_contracts"][0], "statement": "a different plan promise",
+    }]}
+    seed_task_grill_frontier(repo, mismatched)
+    code, out = run(
+        repo, "record_grill_from_json.py", "--gate", "task", "--task", "T1",
+        stdin=json.dumps(payload),
+    )
+    assert code != 0 and "plan_contracts statements" in out
+
+
 def test_decomposition_refuses_future_execution_detail(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
+    first = task_skeleton(STAGE_TASK)
+    second = skeletal_stage_task("T2")
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [first, second]}),
+    )
+    assert code == 0, out
     future_detail = {
         "write_scope": ["src/future/"],
         "required_tests": [{
@@ -9949,6 +10175,12 @@ def test_decomposition_refuses_future_execution_detail(repo, tmp_path):
             "command": "python3 -m pytest {path}::{id} --junitxml={report}",
         }],
         "verify_commands": ["true"],
+        "reviewer_focus": "the future bounded slice",
+        "plan_contracts": [{
+            "id": "C2",
+            "statement": "the next slice runs green",
+            "source": "plans/active/TEST-1-test-plan.md#acceptance-criteria",
+        }],
     }
 
     for field, detail in future_detail.items():
@@ -9976,10 +10208,7 @@ def test_decomposition_accepts_frontier_detail_and_exempts_done_tasks(repo, tmp_
         "verify_commands": ["true"],
     }
     initial = {**DECOMP, "tasks": [completed, skeletal_stage_task("T2")]}
-    code, out = run(
-        repo, "record_decomposition_from_json.py", stdin=json.dumps(initial)
-    )
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, initial["tasks"])
     write_stages(repo, {
         "issue": "ENG-1",
         "stages": [
@@ -10764,7 +10993,7 @@ def test_decomposition_refuses_to_remove_an_active_task(repo, tmp_path):
         stdin=json.dumps(replacement),
     )
     assert code != 0
-    assert "active stage cannot be removed or renamed" in out
+    assert "task graph is frozen" in out
 
 
 def test_decomposition_refuses_to_rewrite_a_completed_task_contract(repo, tmp_path):
@@ -10781,12 +11010,15 @@ def test_decomposition_refuses_to_rewrite_a_completed_task_contract(repo, tmp_pa
     }
     code, out = run(
         repo, "record_decomposition_from_json.py", stdin=json.dumps(changed))
-    assert code != 0 and "completed stage's contract" in out
+    assert code != 0 and "full contract" in out
 
 
 def test_decomposition_backfills_unchanged_legacy_completed_contract(
         repo, tmp_path):
-    start_stage(repo, tmp_path, STAGE_TASK)
+    follow_up = skeletal_stage_task("T2", "follow-up")
+    follow_up["objective"] = "Add the next bounded slice."
+    follow_up["acceptance_criteria"] = ["the follow-up is recorded"]
+    start_stage(repo, tmp_path, STAGE_TASK, future_tasks=[follow_up])
     write_in_scope(repo, "src/core.py")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
@@ -10798,12 +11030,7 @@ def test_decomposition_backfills_unchanged_legacy_completed_contract(
         **DECOMP,
         "tasks": [
             STAGE_TASK,
-            {
-                "id": "T2",
-                "title": "follow-up",
-                "objective": "Add the next bounded slice.",
-                "acceptance_criteria": ["the follow-up is recorded"],
-            },
+            follow_up,
         ],
     }
     code, out = run(
@@ -10831,7 +11058,7 @@ def test_completed_contract_check_uses_protected_stage_digest(repo, tmp_path):
     code, out = run(
         repo, "record_decomposition_from_json.py",
         stdin=json.dumps({**DECOMP, "tasks": [changed_task]}))
-    assert code != 0 and "completed stage's contract" in out
+    assert code != 0 and "full contract" in out
 
 
 def test_stage_start_refuses_to_rebaseline_an_unchanged_active_contract(repo, tmp_path):
@@ -11002,9 +11229,7 @@ def test_stage_start_refuses_a_decomposition_whose_plan_moved(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    code, out = run(repo, "record_decomposition_from_json.py",
-                    stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, [STAGE_TASK])
     plan = next((repo / "plans" / "active").glob("*.md"))
     plan.write_text(plan.read_text() + "\n<!-- edited after decomposition -->\n")
     code, out = run(repo, "forge.py", "stage", "start", "T1")
@@ -11081,6 +11306,11 @@ def test_decomposition_refuses_prose_verify_commands(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [task_skeleton(STAGE_TASK)]}),
+    )
+    assert code == 0, out
     prose = {**DECOMP, "tasks": [{**STAGE_TASK,
                                   "verify_commands": ["package test script"]}]}
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(prose))
@@ -11114,6 +11344,11 @@ def test_decomposition_provenance_overrides_agent_supplied_fields(repo, tmp_path
         "plan_file": "plans/active/agent.md",
         "plan_sha256": hashlib.sha256(plan.read_bytes()).hexdigest(),
     }
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**payload, "tasks": [task_skeleton(payload["tasks"][0])]}),
+    )
+    assert code == 0, out
 
     code, out = run(repo, "record_decomposition_from_json.py",
                     stdin=json.dumps(payload))
@@ -11149,6 +11384,11 @@ def test_decomposition_accepts_empty_required_tests(repo, tmp_path):
     intake(repo)
     save_plan(repo, tmp_path)
     task = {**STAGE_TASK, "verify_commands": ["true"], "required_tests": []}
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [task_skeleton(task)]}),
+    )
+    assert code == 0, out
 
     code, out = run(repo, "record_decomposition_from_json.py",
                     stdin=json.dumps({**DECOMP, "tasks": [task]}))
@@ -11254,6 +11494,11 @@ def test_decomposition_refuses_required_test_command_without_path_or_id(repo, tm
     task = {**STAGE_TASK, "required_tests": [{
         "id": "test_slice", "path": "tests/test_slice.py", "command": "true",
     }]}
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [task_skeleton(task)]}),
+    )
+    assert code == 0, out
     code, out = run(repo, "record_decomposition_from_json.py",
                     stdin=json.dumps({**DECOMP, "tasks": [task]}))
     assert code != 0 and "{report}" in out
@@ -11477,6 +11722,12 @@ def test_stage_start_refuses_unready_or_ungrilled_contract(repo, tmp_path):
     save_plan(repo, tmp_path)
     authority = delegation_ledger(repo).parent / "stages.json"
     mirror = repo / ".factory" / "stages.json"
+    code, out = run(
+        repo,
+        "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [task_skeleton(STAGE_TASK)]}),
+    )
+    assert code == 0, out
 
     for field, empty in (
         ("write_scope", []),
@@ -11827,9 +12078,7 @@ def test_workspace_decomposition_mirror_cannot_forge_task_contract(
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    code, out = run(repo, "record_decomposition_from_json.py",
-                    stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, [STAGE_TASK])
     mirror = repo / ".factory" / "decomposition.json"
     forged = json.loads(mirror.read_text())
     forged["tasks"][0]["write_scope"] = ["billing/"]
@@ -11882,9 +12131,7 @@ def test_stage_migrate_requires_confirmation_and_adopts_legacy_state(
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    code, out = run(repo, "record_decomposition_from_json.py",
-                    stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, [STAGE_TASK])
     protected = delegation_ledger(repo).parent
     shutil.rmtree(protected)
     base = head(repo)
@@ -11908,9 +12155,7 @@ def test_stage_migrate_refuses_partial_protected_authority(
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    code, out = run(repo, "record_decomposition_from_json.py",
-                    stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, [STAGE_TASK])
     protected = delegation_ledger(repo).parent
     source = (repo / ".factory" / protected_name).read_bytes()
     shutil.rmtree(protected)
@@ -11928,9 +12173,7 @@ def prepare_legacy_stage_migration(repo, tmp_path, tasks=None):
     intake(repo)
     save_plan(repo, tmp_path)
     tasks = tasks or [STAGE_TASK]
-    code, out = run(repo, "record_decomposition_from_json.py",
-                    stdin=json.dumps({**DECOMP, "tasks": tasks}))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, tasks)
     protected = delegation_ledger(repo).parent
     shutil.rmtree(protected)
     return protected
@@ -13410,8 +13653,9 @@ def test_precompact_scratchpad_snapshots_facts_and_findings(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
-    code, out = record_task_grill(repo, DECOMP["tasks"][0])
+    task = task_with_plan_contracts(DECOMP["tasks"][0])
+    record_skeleton_then_frontier(repo, [task])
+    code, out = record_task_grill(repo, task)
     assert code == 0, out
     run(repo, "forge.py", "stage", "start", "T1")
     run(repo, "forge.py", "plan", "assume", "cache TTL is 60s")
@@ -13450,6 +13694,14 @@ def test_precompact_scratchpad_snapshots_facts_and_findings(repo, tmp_path):
     # a shipped task wipes the pad — session noise never crosses tasks
     run(repo, "forge.py", "stage", "done", "T1")
     write_passing_artifacts(repo)
+    quality_path = repo / ".factory" / "reviews" / "quality.json"
+    quality = json.loads(quality_path.read_text())
+    quality["contract_verdicts"] = [{
+        "contract_id": "C1",
+        "verdict": "implemented",
+        "evidence": "src/core.py:1",
+    }]
+    quality_path.write_text(json.dumps(quality))
     run(repo, "update_run.py", "--decomposition-status", "recorded")
     run(repo, "forge.py", "assumptions", "resolve", "A-0001",
         "--status", "confirmed", "--notes", "60s confirmed with EM")
@@ -13792,6 +14044,15 @@ def test_decomposition_recorder_validates_plan_contracts(repo, tmp_path):
                         stdin=json.dumps(payload))
         assert code != 0 and "task T1" in out and "entry 1" in out
 
+    skeletons = [task_skeleton(task),
+                 {**skeletal_stage_task("T2", "second slice"),
+                  "dependencies": ["T1"]}]
+    code, out = run(
+        repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": skeletons}),
+    )
+    assert code == 0, out
+
     contract = {"id": "C1", "statement": "does the thing",
                 "source": "plans/active/plan.md#scope"}
     second = {**skeletal_stage_task("T2", "second slice"),
@@ -13804,9 +14065,20 @@ def test_decomposition_recorder_validates_plan_contracts(repo, tmp_path):
     assert code != 0 and "task T2" in out and "entry 1" in out and "duplicate" in out
 
     valid = {**DECOMP, "tasks": [
-        {**task, "plan_contracts": [contract]},
-        {**second, "plan_contracts": [{**contract, "id": "C2"}]},
+        {**task, "plan_contracts": [contract]}, skeletons[1],
     ]}
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(valid))
+    assert code == 0, out
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [
+            {"id": "T1", "title": task["title"], "status": "done"},
+            {"id": "T2", "title": second["title"], "status": "pending"},
+        ],
+    })
+    valid["tasks"][1] = {
+        **second, "plan_contracts": [{**contract, "id": "C2"}],
+    }
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(valid))
     assert code == 0, out
     recorded = json.loads((repo / ".factory" / "decomposition.json").read_text())
@@ -13827,6 +14099,20 @@ def test_review_brief_composes_contract_brief(repo, tmp_path):
               "dependencies": ["T1"], "reviewer_focus": "focus two",
               "plan_contracts": [{"id": "C2", "statement": "second statement",
                                    "source": "plan.md#second"}]}
+    skeletons = [task_skeleton(first), task_skeleton(second)]
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
+        {**DECOMP, "tasks": skeletons}))
+    assert code == 0, out
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
+        {**DECOMP, "tasks": [first, skeletons[1]]}))
+    assert code == 0, out
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [
+            {"id": "T1", "title": first["title"], "status": "done"},
+            {"id": "T2", "title": second["title"], "status": "pending"},
+        ],
+    })
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
         {**DECOMP, "tasks": [first, second]}))
     assert code == 0, out
@@ -13869,6 +14155,20 @@ def test_quality_review_requires_contract_verdicts(repo, tmp_path):
         {**skeletal_stage_task("T2", "second slice"),
          "dependencies": ["T1"], "plan_contracts": [contracts[1]]},
     ]
+    skeletons = [task_skeleton(task) for task in tasks]
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
+        {**DECOMP, "tasks": skeletons}))
+    assert code == 0, out
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
+        {**DECOMP, "tasks": [tasks[0], skeletons[1]]}))
+    assert code == 0, out
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [
+            {"id": "T1", "title": tasks[0]["title"], "status": "done"},
+            {"id": "T2", "title": tasks[1]["title"], "status": "pending"},
+        ],
+    })
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
         {**DECOMP, "tasks": tasks}))
     assert code == 0, out
@@ -13916,9 +14216,7 @@ def test_lite_quality_review_ignores_shipped_plan_contracts(repo, tmp_path):
     task = {**DECOMP["tasks"][0], "plan_contracts": [{
         "id": "C1", "statement": "first statement", "source": "plan.md#first",
     }]}
-    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
-        {**DECOMP, "tasks": [task]}))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, [task])
 
     state = run_state(repo)
     (repo / ".factory" / "run.json").write_text(json.dumps({
@@ -13942,9 +14240,7 @@ def test_pr_ready_blocks_on_unverified_plan_contracts(repo, tmp_path):
         {"id": "C2", "statement": "second statement", "source": "plan.md#second"},
     ]
     task = {**DECOMP["tasks"][0], "plan_contracts": contracts}
-    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
-        {**DECOMP, "tasks": [task]}))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, [task])
     write_passing_artifacts(repo)
 
     code, out = run(repo, "pr_ready.py")
