@@ -1334,3 +1334,10 @@
 {"event": "verify-failed", "generated_by": "orchestrator", "at": "2026-08-14T13:03:54+00:00", "story": "FORGE-ACC-2"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T13:05:23+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T7 (write)"}
 {"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-14T13:23:39+00:00", "story": "FORGE-ACC-2"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-14T13:24:49+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T7 Batch-migrate all remaining one-shot fixtures"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-14T13:25:04+00:00", "story": "FORGE-ACC-2", "detail": "pass"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-14T13:26:07+00:00", "story": "FORGE-ACC-2"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-14T13:26:07+00:00", "story": "FORGE-ACC-2"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-14T13:26:08+00:00", "story": "FORGE-ACC-2"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-14T13:44:18+00:00", "story": "FORGE-ACC-2"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-14T13:44:36+00:00", "story": "FORGE-ACC-2", "detail": "A task can no longer be implemented on an unproven plan: its grill must show what was inspected, how the system currently flows, how every acceptance criterion will be proven, what new abstractions ar"}

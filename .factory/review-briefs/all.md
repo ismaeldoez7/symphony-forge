@@ -94,3 +94,18 @@ One derivation, two consumers: extend factory_lib with task_rows(root) returning
 ### Reviewer focus
 
 One fixture, one pattern: migrate test_full_lifecycle_and_archive to record-skeletal-then-re-record exactly as the eight prior migrations did; assert the lifecycle's later phases are untouched. No rule weakening.
+
+## Task ACC2-T7
+
+### Plan contracts
+
+- **ACC2-C14**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: every fixture recording execution detail as a first recording uses record_skeleton_then_frontier
+- **ACC2-C15**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: the full gate suite passes via verify.py
+
+### Reviewer focus
+
+Sixteen known failures, one class: first-recording detail refused by the skeletal rule. Known names: test_user_facing_artifacts_must_attest_design_skills, test_lockout_denies_product_write_under_approved_plan, test_registered_hook_path_keeps_recorder_and_lockout_armed, test_harness_repo_locks_machinery_writes_without_a_plan, test_story_timeline_is_recorded_and_archived_with_its_story, test_review_hardening_guards, test_structured_findings_recorded_and_malformed_refused, test_stage_tasks_are_sequential_and_parallel_flag_is_refused, test_delegate_derives_write_from_stage_state, plus seven more - run the full suite to enumerate, migrate EVERY instance to record_skeleton_then_frontier, and re-run the full suite to prove zero remain. No rule weakening; tests asserting refusal semantics keep their original assertions. review_budget note: this task may exceed 400 changed lines only because migrations are mechanical single-pattern rewrites - if so, raise with that written reason rather than splitting sixteen identical edits.

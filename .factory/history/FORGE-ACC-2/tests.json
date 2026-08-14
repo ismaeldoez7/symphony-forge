@@ -1,5 +1,5 @@
 {
-  "commit": "ff3e71bc82d8760cf267da7b12db718c0ec7a3fc",
+  "commit": "4e2e7a7cf239e9ca8412986863f3e57bc7df7242",
   "automated": {
     "generated_by": "implementer",
     "status": "pass",
@@ -17,7 +17,8 @@
       "uvx --with pytest --with psutil python3 -m pytest factory/tests/test_gates.py::test_board_task_rows_match_frontier_states -q",
       "uvx --with pytest --with psutil python3 -m pytest factory/tests/test_gates.py::test_board_task_rows_show_grill_freshness_and_budget -q",
       "uvx --with pytest --with psutil python3 -m pytest factory/tests/test_gates.py -q -k '(grill or digest or decomposition or budget or board) and not process'",
-      "python3 factory/scripts/check_dual_runtime.py"
+      "python3 factory/scripts/check_dual_runtime.py",
+      "python3 factory/scripts/verify.py (full suite green after batch migration)"
     ],
     "tests_added_or_updated": [
       "test_task_grill_requires_proofs_and_rounds",
@@ -29,16 +30,17 @@
       "test_review_budget_default_lowered_raised_and_exceeded",
       "test_brief_states_budget_and_narration_line",
       "test_board_task_rows_match_frontier_states",
-      "test_board_task_rows_show_grill_freshness_and_budget"
+      "test_board_task_rows_show_grill_freshness_and_budget",
+      "record_skeleton_then_frontier helper + seventeen fixture migrations"
     ],
-    "pass_fail_summary": "10/10 declared tests pass; per-task affected selections green after each fixture migration (16, 41, 69+1-fixed, 66+1-fixed, 21+2); full suite via verify.py",
+    "pass_fail_summary": "10/10 declared tests pass; full suite green via verify.py after seventeen fixture migrations (586 passed, 3 skipped)",
     "remaining_gaps": [],
     "non_blocking_findings": [],
     "residual_risks": [],
     "manual_validation_steps": [],
     "reviewed_scope": [],
-    "recorded_at": "2026-08-14T11:25:59+00:00",
-    "commit": "ff3e71bc82d8760cf267da7b12db718c0ec7a3fc"
+    "recorded_at": "2026-08-14T13:25:04+00:00",
+    "commit": "4e2e7a7cf239e9ca8412986863f3e57bc7df7242"
   },
-  "updated_at": "2026-08-14T11:25:59+00:00"
+  "updated_at": "2026-08-14T13:25:04+00:00"
 }
