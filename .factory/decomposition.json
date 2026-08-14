@@ -124,6 +124,39 @@
       ],
       "dependencies": [
         "ACC2-T2"
+      ],
+      "write_scope": [
+        "factory/scripts/record_decomposition_from_json.py",
+        "factory/scripts/record_grill_from_json.py",
+        "factory/tests/test_gates.py"
+      ],
+      "verify_commands": [
+        "python3 factory/scripts/check_dual_runtime.py"
+      ],
+      "required_tests": [
+        {
+          "id": "test_initial_recording_is_fully_skeletal_and_graph_freezes",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_done_contracts_immutable_and_criteria_map_binds_plan_contracts",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "Three seams. (1) First-recording detection is 'no protected authority exists'; the legacy-migration fixture flow becomes record-skeletal -> re-record frontier detail -> drop authority; prepare_legacy_stage_migration and stage-migrate tests must survive (recorded lesson: migrate before re-recording). (2) The freeze must not break the sanctioned mid-stage scope repair: re-recording the ACTIVE frontier task's contract fields stays legal; only pending id/order/dependency edits and done-task contract changes refuse. (3) plan_contracts binding is deterministic: the set of plan_contract statements equals the set of criteria_map keys (= protected acceptance criteria); the grill recorder refuses a mismatch; review-side verdicts are already FORGE-REV-2's.",
+      "plan_contracts": [
+        {
+          "id": "ACC2-C6",
+          "statement": "the task grill refuses when criteria_map does not cover the protected acceptance criteria or plan_contracts statements mismatch it",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        },
+        {
+          "id": "ACC2-C7",
+          "statement": "first recording is fully skeletal; pending graph edits refuse; done contracts are immutable under a full-contract digest",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        }
       ]
     },
     {
@@ -154,5 +187,5 @@
   "epic": "accountable-engineering",
   "plan_file": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md",
   "plan_sha256": "771c66597fa464a60d4a89c77f534fb325753b6c26b46c43d9a40cf72f6e63dc",
-  "commit": "61185dacf0182920a6ff01c478b407517fb4a5f0"
+  "commit": "2680eb5fa010dee26caaaf350c1e9c1bc441fb52"
 }
