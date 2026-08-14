@@ -64,7 +64,11 @@
     {
       "id": "ACC2-T7",
       "title": "Batch-migrate all remaining one-shot fixtures",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-14T12:34:35+00:00",
+      "base_sha": "a2d66ab5c20f529a61e7d80185366ed91bc59850",
+      "dirty_at_start": {},
+      "task_sha256": "78a065f9bb6f24e1a5c9fc2dabb9c10c03b41103f853b109d436b8eed39d75d1"
     }
   ]
 }

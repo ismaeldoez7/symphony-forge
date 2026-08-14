@@ -1330,3 +1330,7 @@
 {"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-14T12:23:59+00:00", "detail": "accountable-engineering-loop"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T12:33:47+00:00", "story": "FORGE-ACC-2", "detail": "7 task(s)"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T12:34:12+00:00", "story": "FORGE-ACC-2", "detail": "7 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-14T12:34:35+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T7 Batch-migrate all remaining one-shot fixtures"}
+{"event": "verify-failed", "generated_by": "orchestrator", "at": "2026-08-14T13:03:54+00:00", "story": "FORGE-ACC-2"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T13:05:23+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T7 (write)"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-14T13:23:39+00:00", "story": "FORGE-ACC-2"}

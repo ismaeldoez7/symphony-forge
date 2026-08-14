@@ -723,6 +723,7 @@ def test_recorder_stdin_reads_non_ascii_utf8(repo, tmp_path):
     assert code == 0, out
     payload = json.loads(json.dumps(DECOMP))
     payload["tasks"][0]["title"] = "Unicode arrow → snowman ☃"
+    record_skeleton_then_frontier(repo, payload["tasks"])
     env = {**os.environ, "PYTHONIOENCODING": "ascii:strict", "PYTHONUTF8": "0"}
 
     proc = subprocess.run(
@@ -1706,9 +1707,7 @@ def test_intake_preserves_signoff_and_refuses_to_clobber_evidence(repo, tmp_path
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    code, _ = run(repo, "record_decomposition_from_json.py",
-                  stdin=json.dumps(DECOMP))
-    assert code == 0
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
     # Mid-task second intake must refuse (autoreview r3)
     code, out = intake(repo, "ENG-2", "Refunds")
     assert code != 0 and "unarchived" in out
@@ -1747,8 +1746,7 @@ def test_intake_after_ship_needs_no_discard(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    code, _ = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
-    assert code == 0
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
     state = run_state(repo)
     state["phase"] = "shipped"
     (repo / ".factory" / "run.json").write_text(json.dumps(state))
@@ -1779,9 +1777,7 @@ def test_phase_implementing_requires_approved_saved_plan(repo, tmp_path):
     code, out = run(repo, "update_run.py", "--phase", "implementing",
                     "--decomposition-status", "recorded")
     assert code != 0 and "decomposition" in out
-    code, _ = run(repo, "record_decomposition_from_json.py",
-                  stdin=json.dumps(DECOMP))
-    assert code == 0
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
     code, out = run(repo, "update_run.py", "--phase", "implementing")
     assert code == 0, out
 
@@ -1791,8 +1787,7 @@ def test_update_run_enforces_artifact_phase_order(repo, tmp_path):
     intake(repo)
     code, out = save_plan(repo, tmp_path)
     assert code == 0, out
-    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
 
     code, out = run(repo, "update_run.py", "--phase", "reviewing")
     assert code != 0 and "verify.json" in out
@@ -4789,8 +4784,7 @@ def test_recorders_refuse_nonconforming_payloads(repo, tmp_path):
                                       "user_facing": True, "tasks": []}))
     assert code != 0 and "not pinned" in out and "harness PR" in out
     # valid decomposition opens the downstream gates
-    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
     # review: legacy 'blocking' alias no longer accepted as blocking_findings
     code, out = run(repo, "record_review_from_json.py", "--aspect", "quality",
                     stdin=json.dumps({"generated_by": "autoreview", "score": 9,
@@ -5159,7 +5153,7 @@ def test_next_routes_design_skills_by_feature_type(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))  # user_facing: true
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])  # user_facing: true
     run(repo, "update_run.py", "--decomposition-status", "recorded")
     code, out = run(repo, "forge.py", "next")
     assert code == 0 and "emil-design-eng" in out
@@ -5524,7 +5518,7 @@ def test_user_facing_artifacts_must_attest_design_skills(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))  # user_facing
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])  # user_facing
     # testing artifact without the mandatory design skills -> refused
     base = {"generated_by": "implementer", "status": "passed", "summary": "ok",
             "blocking_findings": [], "commands_run": ["pytest"]}
@@ -6099,9 +6093,7 @@ def test_lockout_denies_product_write_under_approved_plan(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    code, out = run(repo, "record_decomposition_from_json.py",
-                    stdin=json.dumps(DECOMP))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
 
     payloads = (
         {"tool_name": "Edit", "tool_input": {
@@ -6127,10 +6119,7 @@ def test_registered_hook_path_keeps_recorder_and_lockout_armed(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    code, out = run(
-        repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP),
-    )
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
 
     _route_fixture_hooks_through_forge(repo)
     shell = _runnable_hook_shell(dict(os.environ), repo)
@@ -6550,9 +6539,7 @@ def test_harness_repo_locks_machinery_writes_without_a_plan(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    code, out = run(repo, "record_decomposition_from_json.py",
-                    stdin=json.dumps(DECOMP))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
     # Approval authorizes the delegated worker, not direct session writes.
     for payload in (
         {"tool_name": "Edit", "permission_mode": "default",
@@ -8446,7 +8433,7 @@ def test_story_timeline_is_recorded_and_archived_with_its_story(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
     events = [json.loads(line) for line in
               (repo / ".factory" / "events.jsonl").read_text().splitlines()]
     kinds = [e["event"] for e in events]
@@ -9625,7 +9612,7 @@ def test_review_hardening_guards(repo, tmp_path):
     code, out = run(repo, "record_decomposition_from_json.py",
                     stdin=json.dumps({**DECOMP, "tasks": [{"id": 7}]}))
     assert code != 0 and "string 'id'" in out
-    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
     # out-of-scale review score refused at record time
     code, out = run(repo, "record_review_from_json.py", "--aspect", "quality",
                     stdin=json.dumps({"generated_by": "autoreview", "score": 999,
@@ -9704,7 +9691,7 @@ def test_structured_findings_recorded_and_malformed_refused(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
     # a structured finding missing its category is refused, not stringified
     code, out = run(repo, "record_review_from_json.py", "--aspect", "quality",
                     stdin=json.dumps(review_payload(
@@ -11042,9 +11029,7 @@ def test_stage_tasks_are_sequential_and_parallel_flag_is_refused(repo, tmp_path)
         {**STAGE_TASK, "id": "T1", "write_scope": ["src/api/"]},
         skeletal_stage_task("T2"),
     ]}
-    code, out = run(repo, "record_decomposition_from_json.py",
-                    stdin=json.dumps(decomp))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, decomp["tasks"])
     code, out = run(repo, "forge.py", "stage", "start", "T2", "--parallel")
     assert code != 0
     assert "task stages are sequential" in out
@@ -11966,9 +11951,7 @@ def test_delegate_derives_write_from_stage_state(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    code, out = run(repo, "record_decomposition_from_json.py",
-                    stdin=json.dumps({**DECOMP, "tasks": [DELEGATE_TASK]}))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, [DELEGATE_TASK])
     # stage not started -> read only
     home = str(fake_companion_home(tmp_path))
     code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
