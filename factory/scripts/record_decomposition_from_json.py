@@ -14,6 +14,7 @@ from factory_lib import (
     read_stdin_utf8, safe_factory_write_json, sha256_of, validate_payload,
 )
 from forge_cli.doctor import unrunnable_reason
+from forge_cli.stages import review_budget
 
 parser = argparse.ArgumentParser(description="Record decomposition from structured JSON")
 parser.add_argument("--input", help="Path to decomposition JSON. If omitted, read from stdin.")
@@ -152,6 +153,12 @@ for pos, task in enumerate(tasks, 1):
                 "name an earlier task; array order is the execution sequence."
             )
     seen_task_ids.add(task_id)
+    try:
+        review_budget(task)
+    except ValueError as exc:
+        raise SystemExit(
+            f"decomposition task {task_id}: review_budget {exc}"
+        ) from exc
     # The narrative fields were prompt-convention and silently droppable, so a
     # task could reach the board as an id and a title. They are the contract now.
     objective = task.get("objective")
@@ -340,7 +347,7 @@ with delegation_exclusion(
     )
     execution_fields = (
         "write_scope", "required_tests", "verify_commands", "reviewer_focus",
-        "plan_contracts",
+        "plan_contracts", "review_budget",
     )
     if first_recording:
         for task in tasks:

@@ -42,7 +42,7 @@ from .common import fail
 from .decisions import decision_records
 from .events import append_event
 from .lessons import relevant_lessons
-from .stages import load_stages
+from .stages import load_stages, review_budget
 
 SAFE_TASK_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\Z")
 # A brief is read by a model, so an inlined rule set that runs to thousands of
@@ -923,6 +923,11 @@ def _section(title: str, body: str) -> str:
 def compose_brief(base: Path, task: dict, *, write: bool, user_facing: bool,
                   story: str) -> str:
     scope = task.get("write_scope") or []
+    try:
+        max_files, max_lines, _reason = review_budget(task)
+    except ValueError as exc:
+        fail(f"{task.get('id', '(unknown)')} carries an invalid review_budget "
+             f"({exc}); re-record the decomposition before delegating")
     lines = [
         f"# Brief — {task['id']}: {task.get('title', '')}",
         "",
@@ -934,6 +939,13 @@ def compose_brief(base: Path, task: dict, *, write: bool, user_facing: bool,
         "and the lessons ledger. Do not go looking for the rules elsewhere; if "
         "something needed is missing, raise a signal instead of guessing "
         "(`./forge signal raise`).",
+        "",
+        f"Review budget: {max_files} files / {max_lines} changed lines "
+        "(additions + deletions), excluding `.factory/` and `plans/`. If the "
+        "work will exceed it, stop and return incomplete so the orchestrator "
+        "can split the task before more work.",
+        "Narration budget: one line per state change, findings and refusals "
+        "always in full, process chatter never (conduct §8).",
     ]
     body = "\n".join(lines) + "\n"
     body += _section("Objective", task.get("objective", ""))

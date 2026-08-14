@@ -6865,8 +6865,7 @@ def test_degraded_enforces_budget_inside_an_active_story(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(DECOMP))
-    assert code == 0, out
+    record_skeleton_then_frontier(repo, DECOMP["tasks"])
     code, out = run(repo, "forge.py", "mode", "degraded", "start",
                     "--reason", "repair active story")
     assert code == 0, out
@@ -10003,6 +10002,7 @@ def test_initial_recording_is_fully_skeletal_and_graph_freezes(repo, tmp_path):
         "required_tests": READY_TASK_FIELDS["required_tests"],
         "verify_commands": ["true"],
         "reviewer_focus": "the first bounded slice",
+        "review_budget": {"max_changed_files": 4, "max_changed_lines": 200},
         "plan_contracts": [{
             "id": "C1",
             "statement": first["acceptance_criteria"][0],
@@ -10252,6 +10252,110 @@ def test_stage_done_refuses_empty_diff(repo, tmp_path):
     write_in_scope(repo, "src/core.py")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
+
+
+def test_review_budget_default_lowered_raised_and_exceeded(
+        repo, tmp_path, capsys):
+    from forge_cli.stages import _measure
+
+    def clone_case(name: str) -> Path:
+        target = tmp_path / name
+        shutil.copytree(repo, target)
+        return target
+
+    def measure_case(
+            name: str, task: dict, files: int, *, commit_after: int = 0,
+            delete_tracked_lines: int = 0, lines_per_file: int = 1) -> None:
+        target = clone_case(name)
+        if delete_tracked_lines:
+            write_in_scope(
+                target, "src/removed.py",
+                "".join(f"line_{index}\n" for index in range(delete_tracked_lines)),
+            )
+            git(target, "add", "src/removed.py")
+            git(target, "commit", "-qm", "tracked removal fixture")
+        stage = {"id": "T1", "base_sha": head(target), "dirty_at_start": {}}
+        if delete_tracked_lines:
+            (target / "src" / "removed.py").unlink()
+        for index in range(files):
+            write_in_scope(
+                target, f"src/part_{index}.py", "changed = True\n" * lines_per_file,
+            )
+            if index + 1 == commit_after:
+                git(target, "add", "src")
+                git(target, "commit", "-qm", "stage work")
+        _measure(target, "T1", stage, task)
+
+    measure_case("budget-default", STAGE_TASK, 1)
+
+    lowered = {**STAGE_TASK, "review_budget": {
+        "max_changed_files": 1,
+        "max_changed_lines": 2,
+    }}
+    measure_case("budget-lowered", lowered, 0, delete_tracked_lines=2)
+
+    raised = {**STAGE_TASK, "review_budget": {
+        "max_changed_files": 9,
+        "max_changed_lines": 401,
+        "reason": "This mechanical split remains one reviewable change.",
+    }}
+    measure_case("budget-raised", raised, 9, commit_after=4)
+
+    exceeded_files = {**STAGE_TASK, "review_budget": {
+        "max_changed_files": 1,
+        "max_changed_lines": 10,
+    }}
+    with pytest.raises(SystemExit) as refusal:
+        measure_case("budget-files-exceeded", exceeded_files, 2)
+    assert refusal.value.code == 1
+    out = capsys.readouterr().out
+    assert "measured files=2, lines=2; budget files=1, lines=10" in out
+    assert "default 8 files / 400 lines is the policy target" in out
+    assert "decision=split" in out and "frozen graph prefix" in out
+    assert "stage done T1 --incomplete" in out
+
+    exceeded_lines = {**STAGE_TASK, "review_budget": {
+        "max_changed_files": 2,
+        "max_changed_lines": 1,
+    }}
+    with pytest.raises(SystemExit) as refusal:
+        measure_case(
+            "budget-lines-exceeded", exceeded_lines, 1, lines_per_file=2,
+        )
+    assert refusal.value.code == 1
+    out = capsys.readouterr().out
+    assert "measured files=1, lines=2; budget files=2, lines=1" in out
+
+    validation = clone_case("budget-validation")
+    sign_off(validation)
+    intake(validation)
+    save_plan(validation, tmp_path)
+    code, out = run(
+        validation,
+        "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [task_skeleton(raised)]}),
+    )
+    assert code == 0, out
+    invalid_budgets = [
+        (None, "must be an object"),
+        ({"max_changed_files": 1}, "needs exactly"),
+        ({"max_changed_files": True, "max_changed_lines": 1},
+         "positive integer"),
+        ({"max_changed_files": 1, "max_changed_lines": 0},
+         "positive integer"),
+        ({"max_changed_files": 1, "max_changed_lines": 1, "reason": 3},
+         "reason must be a string"),
+        ({"max_changed_files": 9, "max_changed_lines": 401},
+         "non-empty reason"),
+    ]
+    for budget, message in invalid_budgets:
+        malformed = {**raised, "review_budget": budget}
+        code, out = run(
+            validation,
+            "record_decomposition_from_json.py",
+            stdin=json.dumps({**DECOMP, "tasks": [malformed]}),
+        )
+        assert code != 0 and message in out, (budget, out)
 
 
 def test_stage_done_refuses_out_of_scope_change(repo, tmp_path):
@@ -11832,6 +11936,28 @@ def test_delegate_brief_carries_criteria_and_scope(repo, tmp_path):
     assert "orchestrator owns local autoreview" in brief
     assert "Do not run" in brief and "forge stage done" in brief
     assert "--prompt-file .factory/diagnostic-briefs/T1.md" in out
+
+
+def test_brief_states_budget_and_narration_line(repo, tmp_path):
+    task = {**DELEGATE_TASK, "review_budget": {
+        "max_changed_files": 3,
+        "max_changed_lines": 120,
+    }}
+    start_stage(repo, tmp_path, task, launch=False)
+    code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
+                    env={"HOME": str(fake_companion_home(tmp_path))})
+    assert code == 0, out
+    brief = (repo / ".factory" / "diagnostic-briefs" / "T1.md").read_text()
+    assert (
+        "Review budget: 3 files / 120 changed lines (additions + deletions), "
+        "excluding `.factory/` and `plans/`. If the work will exceed it, stop "
+        "and return incomplete so the orchestrator can split the task before "
+        "more work."
+    ) in brief
+    assert (
+        "Narration budget: one line per state change, findings and refusals "
+        "always in full, process chatter never (conduct §8)."
+    ) in brief
 
 
 def test_delegate_derives_write_from_stage_state(repo, tmp_path):

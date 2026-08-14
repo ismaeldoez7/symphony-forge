@@ -34,7 +34,11 @@
     {
       "id": "ACC2-T4",
       "title": "Review budget at stage done and in the brief",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-14T10:33:42+00:00",
+      "base_sha": "f6247a3a814deb8f6b9e1c8328951a8cf7d3f0d0",
+      "dirty_at_start": {},
+      "task_sha256": "e2b7f769ed4e977afb995386b35c530860906cae70a21064cf51c32fcde0f03e"
     },
     {
       "id": "ACC2-T5",
