@@ -1245,3 +1245,10 @@
 {"event": "stage-start", "generated_by": "implementer", "at": "2026-08-14T02:13:16+00:00", "story": "FORGE-ACC-1", "detail": "ACC1-T3 forge next routes the JIT loop; docs stop contradicting it"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T02:22:22+00:00", "story": "FORGE-ACC-1", "detail": "ACC1-T3 (write)"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T02:39:43+00:00", "story": "FORGE-ACC-1", "detail": "ACC1-T3 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-14T02:40:19+00:00", "story": "FORGE-ACC-1", "detail": "ACC1-T3 forge next routes the JIT loop; docs stop contradicting it"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-14T02:41:20+00:00", "story": "FORGE-ACC-1", "detail": "pass"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-14T02:55:20+00:00", "story": "FORGE-ACC-1"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-14T02:55:59+00:00", "story": "FORGE-ACC-1"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-14T02:55:59+00:00", "story": "FORGE-ACC-1"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-14T02:56:00+00:00", "story": "FORGE-ACC-1"}
+{"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-14T02:56:09+00:00", "story": "FORGE-ACC-1", "detail": "Implementation can no longer begin before its contract exists and survived an independent grill: the decomposition recorder refuses execution detail on future tasks, a shared readiness gate makes stag"}

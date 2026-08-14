@@ -81,11 +81,12 @@
     {
       "id": "ACC1-T3",
       "title": "forge next routes the JIT loop; docs stop contradicting it",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-14T02:13:16+00:00",
       "base_sha": "477afd5bc2753202b3dfbc11013f9baf8d3f9445",
       "dirty_at_start": {},
-      "task_sha256": "593d31a203e619e76e0be7a8176c0048eb7f829566d7818feca64f27e508cce0"
+      "task_sha256": "593d31a203e619e76e0be7a8176c0048eb7f829566d7818feca64f27e508cce0",
+      "completed_at": "2026-08-14T02:40:19+00:00"
     }
   ]
 }

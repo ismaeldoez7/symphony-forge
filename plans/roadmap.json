@@ -716,11 +716,14 @@
         "docs/FACTORY.md, WORKFLOW.md, and factory/prompts/decomposer.md state the enforced JIT contract with no upfront-contract contradiction"
       ],
       "order": 33,
-      "status": "active",
+      "status": "done",
       "epic": "accountable-engineering",
       "skill": "backend",
       "depends_on": [],
-      "spec": "docs/specs/accountable-engineering-loop.md"
+      "spec": "docs/specs/accountable-engineering-loop.md",
+      "completed_at": "2026-08-14T02:56:09+00:00",
+      "history": ".factory/history/FORGE-ACC-1/",
+      "outcome": "Implementation can no longer begin before its contract exists and survived an independent grill: the decomposition recorder refuses execution detail on future tasks, a shared readiness gate makes stage start and delegate refuse incomplete or ungrilled frontier contracts (and the silent empty-scope read-only downgrade is gone), and forge next walks the dev through the JIT loop one action at a time - enter plan mode and author, grill, start, delegate. The docs now say what the gates enforce. A dev following the rail cannot skip contract authoring or grilling by accident."
     },
     {
       "key": "FORGE-ACC-2",
@@ -765,7 +768,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-13T17:52:03+00:00",
+  "updated_at": "2026-08-14T02:56:09+00:00",
   "epics": [
     {
       "id": "symphony-forge",
