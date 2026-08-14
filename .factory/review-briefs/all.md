@@ -79,3 +79,18 @@ Counting is the risky seam: files and lines (additions+deletions) measured over 
 ### Reviewer focus
 
 One derivation, two consumers: extend factory_lib with task_rows(root) returning ALL tasks' states (skeleton|ready|grilled|active|done, grill fresh/stale via the same grounding_digest compare, budget used/limit for the active stage via the same _measure-consistent counting), built ON TOP of the pieces task_frontier_state uses so routing and board can never disagree; task_frontier_state stays the single-action authority. Board renders rows in the story drawer read-only - no new endpoints, no approval affordances (the board never approves). Budget usage calls the same counting helper stages.py uses - do not reimplement the diff walk. Board redundancy watch-class: keep row derivation one call per render.
+
+## Task ACC2-T6
+
+### Plan contracts
+
+- **ACC2-C12**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: test_full_lifecycle_and_archive passes under the skeletal-first rule
+- **ACC2-C13**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: full gate suite green via verify.py
+
+### Reviewer focus
+
+One fixture, one pattern: migrate test_full_lifecycle_and_archive to record-skeletal-then-re-record exactly as the eight prior migrations did; assert the lifecycle's later phases are untouched. No rule weakening.

@@ -1327,3 +1327,4 @@
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-14T11:46:30+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T6 Migrate the last one-shot lifecycle fixture"}
 {"event": "verify-failed", "generated_by": "orchestrator", "at": "2026-08-14T12:02:37+00:00", "story": "FORGE-ACC-2"}
 {"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-14T12:23:42+00:00", "detail": "accountable-engineering-loop: Accountable engineering loop: JIT contracts enforced, grills carry proof, diffs stay reviewable"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-14T12:23:59+00:00", "detail": "accountable-engineering-loop"}

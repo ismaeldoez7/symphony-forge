@@ -1,7 +1,7 @@
 ---
 slug: accountable-engineering-loop
 title: Accountable engineering loop: JIT contracts enforced, grills carry proof, diffs stay reviewable
-status: draft
+status: confirmed
 saved: 2026-08-14T12:23:42+00:00
 ---
 
