@@ -4,11 +4,12 @@
     {
       "id": "ACC2-T1",
       "title": "Task grills carry proof and rounds",
-      "status": "active",
+      "status": "done",
       "started_at": "2026-08-14T06:23:13+00:00",
       "base_sha": "765915a28280a14ef5745bed9c29d28626899249",
       "dirty_at_start": {},
-      "task_sha256": "a555e5e1ad6bef482b2d1c20fdc8c9e03381f2e4c34b14fd5a3e7fac32513607"
+      "task_sha256": "a555e5e1ad6bef482b2d1c20fdc8c9e03381f2e4c34b14fd5a3e7fac32513607",
+      "completed_at": "2026-08-14T06:38:27+00:00"
     },
     {
       "id": "ACC2-T2",

@@ -77,6 +77,41 @@
       ],
       "dependencies": [
         "ACC2-T1"
+      ],
+      "write_scope": [
+        "factory/scripts/factory_lib.py",
+        "factory/scripts/record_grill_from_json.py",
+        "factory/scripts/forge_cli/stages.py",
+        "factory/scripts/forge_cli/delegate.py",
+        "factory/tests/test_gates.py"
+      ],
+      "verify_commands": [
+        "python3 factory/scripts/check_dual_runtime.py"
+      ],
+      "required_tests": [
+        {
+          "id": "test_grounding_digest_staleness_matrix",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_task_digest_arg_is_removed_and_gates_rederive",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "The staleness matrix is the contract: contract-field change, plan-body change (excluding the appended Implementation Assumptions section - recorded lesson), and any product commit each stale a grill; commits touching only .factory/ or plans/ do NOT, or the regrill treadmill returns. product_tree_digest hashes the index blob list (path+sha) excluding those prefixes - deterministic, no mtime. Stage measurement's task_sha256 (four-field) is UNCHANGED - grounding_digest is the grill binding only; do not couple the two (decision 0023 no-rebaseline). --task-digest removal breaks callers: the refusal message tells them the digest is now derived. Self-application: the very next grill (ACC2-T3's) records under this derivation.",
+      "plan_contracts": [
+        {
+          "id": "ACC2-C4",
+          "statement": "contract, plan-body, and product-tree changes each stale a grill; .factory/ and plans/ commits and forge plan assume do not",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        },
+        {
+          "id": "ACC2-C5",
+          "statement": "caller-supplied --task-digest is gone; recorder and gates derive the same grounding digest",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        }
       ]
     },
     {
@@ -119,5 +154,5 @@
   "epic": "accountable-engineering",
   "plan_file": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md",
   "plan_sha256": "771c66597fa464a60d4a89c77f534fb325753b6c26b46c43d9a40cf72f6e63dc",
-  "commit": "f821fd8485aaa6e08bff2a91b40949ec7b341cfa"
+  "commit": "61185dacf0182920a6ff01c478b407517fb4a5f0"
 }
