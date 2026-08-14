@@ -288,10 +288,58 @@
           "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
         }
       ]
+    },
+    {
+      "id": "ACC2-T7",
+      "title": "Batch-migrate all remaining one-shot fixtures",
+      "objective": "The full suite surfaced sixteen more fixtures recording detailed decompositions as their first recording; migrate every remaining site to the record_skeleton_then_frontier helper in one pass so the whole suite is green under the skeletal-first rule.",
+      "acceptance_criteria": [
+        "every fixture recording execution detail as a first recording uses record_skeleton_then_frontier",
+        "the full gate suite passes via verify.py"
+      ],
+      "dependencies": [
+        "ACC2-T6"
+      ],
+      "write_scope": [
+        "factory/tests/test_gates.py"
+      ],
+      "verify_commands": [
+        "python3 factory/scripts/check_dual_runtime.py"
+      ],
+      "required_tests": [
+        {
+          "id": "test_delegate_derives_write_from_stage_state",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_lockout_denies_product_write_under_approved_plan",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "Sixteen known failures, one class: first-recording detail refused by the skeletal rule. Known names: test_user_facing_artifacts_must_attest_design_skills, test_lockout_denies_product_write_under_approved_plan, test_registered_hook_path_keeps_recorder_and_lockout_armed, test_harness_repo_locks_machinery_writes_without_a_plan, test_story_timeline_is_recorded_and_archived_with_its_story, test_review_hardening_guards, test_structured_findings_recorded_and_malformed_refused, test_stage_tasks_are_sequential_and_parallel_flag_is_refused, test_delegate_derives_write_from_stage_state, plus seven more - run the full suite to enumerate, migrate EVERY instance to record_skeleton_then_frontier, and re-run the full suite to prove zero remain. No rule weakening; tests asserting refusal semantics keep their original assertions. review_budget note: this task may exceed 400 changed lines only because migrations are mechanical single-pattern rewrites - if so, raise with that written reason rather than splitting sixteen identical edits.",
+      "plan_contracts": [
+        {
+          "id": "ACC2-C14",
+          "statement": "every fixture recording execution detail as a first recording uses record_skeleton_then_frontier",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        },
+        {
+          "id": "ACC2-C15",
+          "statement": "the full gate suite passes via verify.py",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        }
+      ],
+      "review_budget": {
+        "max_changed_files": 1,
+        "max_changed_lines": 900,
+        "reason": "sixteen mechanical single-pattern fixture rewrites in one file; splitting identical edits across tasks adds ceremony without adding reviewability"
+      }
     }
   ],
   "epic": "accountable-engineering",
   "plan_file": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md",
   "plan_sha256": "771c66597fa464a60d4a89c77f534fb325753b6c26b46c43d9a40cf72f6e63dc",
-  "commit": "ff3e71bc82d8760cf267da7b12db718c0ec7a3fc"
+  "commit": "3763e2766b3aa5364998b11977e2cc9b99f47a9c"
 }
