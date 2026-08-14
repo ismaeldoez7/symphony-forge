@@ -1316,3 +1316,9 @@
 {"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-14T11:15:02+00:00", "story": "FORGE-ACC-2", "detail": "S-0003-51e7: Operator sanctioned (AskUserQuestion round 2026-08-14): add factory/board/index.html to ACC2-T5's write_scope via the sanctioned active-frontier re-record; the contract and grill are being re-recorded"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T11:15:26+00:00", "story": "FORGE-ACC-2", "detail": "5 task(s)"}
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T11:23:45+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T5 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-14T11:24:57+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T5: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-14T11:24:57+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T5 Board renders task rows"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-14T11:25:59+00:00", "story": "FORGE-ACC-2", "detail": "pass"}
+{"event": "verify-failed", "generated_by": "orchestrator", "at": "2026-08-14T11:41:08+00:00", "story": "FORGE-ACC-2"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T11:42:52+00:00", "story": "FORGE-ACC-2", "detail": "6 task(s)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T11:43:30+00:00", "story": "FORGE-ACC-2", "detail": "6 task(s)"}

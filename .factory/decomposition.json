@@ -250,10 +250,48 @@
           "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
         }
       ]
+    },
+    {
+      "id": "ACC2-T6",
+      "title": "Migrate the last one-shot lifecycle fixture",
+      "objective": "test_full_lifecycle_and_archive still records a detailed decomposition as its first recording, refused by the skeletal rule; migrate it to the record-skeletal-then-re-record two-step so full verify passes.",
+      "acceptance_criteria": [
+        "test_full_lifecycle_and_archive passes under the skeletal-first rule",
+        "full gate suite green via verify.py"
+      ],
+      "dependencies": [
+        "ACC2-T5"
+      ],
+      "write_scope": [
+        "factory/tests/test_gates.py"
+      ],
+      "verify_commands": [
+        "python3 factory/scripts/check_dual_runtime.py"
+      ],
+      "required_tests": [
+        {
+          "id": "test_full_lifecycle_and_archive",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "One fixture, one pattern: migrate test_full_lifecycle_and_archive to record-skeletal-then-re-record exactly as the eight prior migrations did; assert the lifecycle's later phases are untouched. No rule weakening.",
+      "plan_contracts": [
+        {
+          "id": "ACC2-C12",
+          "statement": "test_full_lifecycle_and_archive passes under the skeletal-first rule",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        },
+        {
+          "id": "ACC2-C13",
+          "statement": "full gate suite green via verify.py",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        }
+      ]
     }
   ],
   "epic": "accountable-engineering",
   "plan_file": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md",
   "plan_sha256": "771c66597fa464a60d4a89c77f534fb325753b6c26b46c43d9a40cf72f6e63dc",
-  "commit": "631fb1469db343e8145af29bea0216f7bbde1176"
+  "commit": "ff3e71bc82d8760cf267da7b12db718c0ec7a3fc"
 }

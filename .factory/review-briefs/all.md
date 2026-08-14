@@ -2,53 +2,80 @@
 
 For each contract, emit a verdict — implemented | partial | missing — with file:line evidence, recorded as contract_verdicts in the quality artifact. Then review the diff normally; the contract check does not replace the quality/performance/security lenses.
 
-## Task ACC1-T1
+## Task ACC2-T1
 
 ### Plan contracts
 
-- **ACC1-C1**
-  - Source: plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria
-  - Statement: Recording execution detail (write_scope, required_tests, verify_commands) on a pending non-frontier task is refused with the task id and field named
-- **ACC1-C2**
-  - Source: plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria
-  - Statement: The frontier task records detail successfully and completed tasks keep theirs (legacy cutover)
-- **ACC1-C3**
-  - Source: plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria
-  - Statement: Existing suite is green after fixture migration with original refusal coverage preserved
+- **ACC2-C1**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: a task grill missing inspected_refs/current_flow/criteria_map/decision/new_abstractions, with an unmapped criterion, a gap covered by neither a {question, options, chosen} rounds entry nor a source-named citation, or pass+split/block is refused
+- **ACC2-C2**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: block without escalation_packet {issue, evidence, recommendation, alternatives, rollback} is refused
+- **ACC2-C3**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: existing task-grill fixtures migrate via the shared helper and the suite stays green
 
 ### Reviewer focus
 
-Frontier resolution is the risky seam: the recorder's earliest-pending-leaf computation must agree with the protected stage authority in stages.py (status source of truth), or recorder and gates will disagree about which task may carry detail. Second seam: the done-task exemption is the legacy-cutover path - refusing a completed task's existing detail would brick every historical re-record. Refusal messages must name the offending task id and field. Fixture migration must not weaken existing gate coverage (tests that deliberately record full decompositions must still exercise their original refusal).
+Task-gate-only conditionality is the risky seam: spec/signoff/epics/plan grill payloads must keep recording unchanged - regression risk across every existing gate fixture. inspected_refs existence-checking accepts path and path:symbol refs (validate the path part; a missing path refuses). Criteria coverage compares against the frontier task's acceptance_criteria in the PROTECTED decomposition, never the caller payload. Per-finding accountability is deterministic: every gap maps to a rounds entry ({question, options, chosen} - shape-checked) or a citation with a named source; the recorder refuses uncovered gaps - this encodes the operator's per-finding-choice protocol, not blanket sanction. New fields are machine evidence: keep values free of secret-shaped strings (evidence-vs-tooling watch class).
 
-## Task ACC1-T2
+## Task ACC2-T2
 
 ### Plan contracts
 
-- **ACC1-C4**
-  - Source: plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria
-  - Statement: stage start refuses an incomplete or ungrilled frontier contract, naming the missing piece
-- **ACC1-C5**
-  - Source: plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria
-  - Statement: delegate re-checks readiness on write runs and refuses an active empty-scope stage
-- **ACC1-C6**
-  - Source: plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria
-  - Statement: explicit --read-only delegation still passes and cannot close a stage
+- **ACC2-C4**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: contract, plan-body, and product-tree changes each stale a grill; .factory/ and plans/ commits and forge plan assume do not
+- **ACC2-C5**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: caller-supplied --task-digest is gone; recorder and gates derive the same grounding digest
 
 ### Reviewer focus
 
-Ordering is the risky seam: the readiness refusal in _cmd_start_locked must fire BEFORE any stage-state mutation and before the task_sha256 baseline stamp, or a refused start still pollutes measurement state. Second seam: delegate's write derivation - readiness re-check must precede launch for every write run; an active stage with empty write_scope refuses with a message naming the missing piece and the producing command; explicit --read-only stays exploration-only and must not satisfy stage done. Lite/quickfix/degraded behavior untouched. Self-application: this story's own T3 stage start runs through the new gate live - a wrong refusal wedges the loop.
+The staleness matrix is the contract: contract-field change, plan-body change (excluding the appended Implementation Assumptions section - recorded lesson), and any product commit each stale a grill; commits touching only .factory/ or plans/ do NOT, or the regrill treadmill returns. product_tree_digest hashes the index blob list (path+sha) excluding those prefixes - deterministic, no mtime. Stage measurement's task_sha256 (four-field) is UNCHANGED - grounding_digest is the grill binding only; do not couple the two (decision 0023 no-rebaseline). --task-digest removal breaks callers: the refusal message tells them the digest is now derived. Self-application: the very next grill (ACC2-T3's) records under this derivation.
 
-## Task ACC1-T3
+## Task ACC2-T3
 
 ### Plan contracts
 
-- **ACC1-C7**
-  - Source: plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria
-  - Statement: forge next reports author-contract (with plan-mode instruction) / grill / stage-start / delegate as the single next action per frontier state
-- **ACC1-C8**
-  - Source: plans/active/FORGE-ACC-1-jit-frontier-is-enforced-not-advisory.md#acceptance-criteria
-  - Statement: docs/FACTORY.md, WORKFLOW.md, and factory/prompts/decomposer.md state the enforced JIT contract with no upfront-contract instruction remaining
+- **ACC2-C6**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: the task grill refuses when criteria_map does not cover the protected acceptance criteria or plan_contracts statements mismatch it
+- **ACC2-C7**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: first recording is fully skeletal; pending graph edits refuse; done contracts are immutable under a full-contract digest
 
 ### Reviewer focus
 
-Single-action invariant is the risky seam: for the earliest unfinished task, forge next emits exactly ONE next action per state - skeleton contract -> enter plan mode, author the JIT contract, re-record (decisions 0029/0032); complete-but-ungrilled or stale -> run the task griller; fresh pass -> forge stage start; active -> forge delegate - never the current start+delegate pair. State must be DERIVED from the same primitives require_ready_task uses (a small non-raising task_frontier_state helper in factory_lib beside it; ACC-2's board rows consume the same helper), not recomputed independently. forge board's next_actions re-parse must keep working. Docs edits (FACTORY.md upfront-contract list, WORKFLOW/decomposer digest wording, forge skill task-loop, AGENTS.md narration line sharpened per conduct s8) must remove the contradiction without weakening any other stated contract.
+Three seams. (1) First-recording detection is 'no protected authority exists'; the legacy-migration fixture flow becomes record-skeletal -> re-record frontier detail -> drop authority; prepare_legacy_stage_migration and stage-migrate tests must survive (recorded lesson: migrate before re-recording). (2) The freeze must not break the sanctioned mid-stage scope repair: re-recording the ACTIVE frontier task's contract fields stays legal; only pending id/order/dependency edits and done-task contract changes refuse. (3) plan_contracts binding is deterministic: the set of plan_contract statements equals the set of criteria_map keys (= protected acceptance criteria); the grill recorder refuses a mismatch; review-side verdicts are already FORGE-REV-2's.
+
+## Task ACC2-T4
+
+### Plan contracts
+
+- **ACC2-C8**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: default, lowered, justified-higher, and exceeded budgets behave as specified at stage done
+- **ACC2-C9**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: the brief carries the budget and narration lines
+
+### Reviewer focus
+
+Counting is the risky seam: files and lines (additions+deletions) measured over the SAME diff _measure already computes (baseline to now, commits plus working tree), excluding .factory/ and plans/ exactly as measurement's evidence exclusions do - two different diff computations would let the budget and the measurement disagree. Default 8 files/400 lines is a policy target (recorded p90s 5/256 product-only, 20/672 all-paths) - state it in the refusal. Raising needs a non-empty written reason validated at record time; lowering is free. The over-budget refusal names the split path (grill decision=split, prefix-freeze appends from T3). Brief additions are two lines in compose_brief - budget and the conduct s8 narration line - no new sections. Lite/quickfix/degraded windows untouched.
+
+## Task ACC2-T5
+
+### Plan contracts
+
+- **ACC2-C10**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: board task rows match task_frontier_state for every state
+- **ACC2-C11**
+  - Source: plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria
+  - Statement: existing board tests green
+
+### Reviewer focus
+
+One derivation, two consumers: extend factory_lib with task_rows(root) returning ALL tasks' states (skeleton|ready|grilled|active|done, grill fresh/stale via the same grounding_digest compare, budget used/limit for the active stage via the same _measure-consistent counting), built ON TOP of the pieces task_frontier_state uses so routing and board can never disagree; task_frontier_state stays the single-action authority. Board renders rows in the story drawer read-only - no new endpoints, no approval affordances (the board never approves). Budget usage calls the same counting helper stages.py uses - do not reimplement the diff walk. Board redundancy watch-class: keep row derivation one call per render.
