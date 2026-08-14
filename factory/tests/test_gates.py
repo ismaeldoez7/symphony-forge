@@ -271,10 +271,38 @@ def record_grill(repo: Path, gate: str, verdict: str = "pass",
                stdin=json.dumps(payload))
 
 
+def task_grill_payload(task: dict, verdict: str = "pass", **over) -> dict:
+    payload = {"generated_by": "griller", "gate": "task", "verdict": verdict,
+               "gaps": [], "contradictions": [], "resolutions": [],
+               "inspected_refs": ["factory/scripts/record_grill_from_json.py"],
+               "current_flow": "The current task contract is recorded and ready to grill.",
+               "criteria_map": {
+                   criterion: "Inspected against the current task flow."
+                   for criterion in task["acceptance_criteria"]
+               },
+               "decision": "keep" if verdict == "pass" else "block",
+               "new_abstractions": [], "rounds": [], "citations": []}
+    if verdict == "blocked":
+        payload["escalation_packet"] = {
+            "issue": "The task cannot proceed as written.",
+            "evidence": "The inspected task contract contains a blocking gap.",
+            "recommendation": "Revise the task contract before delegation.",
+            "alternatives": "Split the task or revise its acceptance criteria.",
+            "rollback": "Keep the stage inactive until the contract is revised.",
+        }
+    payload.update(over)
+    return payload
+
+
+def seed_task_grill_frontier(repo: Path, task: dict) -> None:
+    control = Path(git(repo, "rev-parse", "--absolute-git-dir")) / "forge"
+    control.mkdir(parents=True, exist_ok=True)
+    (control / "decomposition.json").write_text(json.dumps({"tasks": [task]}))
+
+
 def record_task_grill(repo: Path, task: dict,
                       verdict: str = "pass") -> tuple[int, str]:
-    payload = {"generated_by": "griller", "gate": "task", "verdict": verdict,
-               "gaps": [], "contradictions": [], "resolutions": []}
+    payload = task_grill_payload(task, verdict)
     return run(
         repo, "record_grill_from_json.py", "--gate", "task",
         "--task", task["id"], "--task-digest", task_digest(task),
@@ -5218,9 +5246,9 @@ def test_next_tags_steps_with_roles(repo):
 def test_record_task_grill_writes_per_id_file(repo):
     task_id = "FORGE-BOARD-2.1"
     digest = "a" * 64
-    payload = {"generated_by": "griller", "gate": "task", "task_id": task_id,
-               "verdict": "pass",
-               "gaps": [], "contradictions": [], "resolutions": []}
+    task = {**STAGE_TASK, "id": task_id}
+    seed_task_grill_frontier(repo, task)
+    payload = task_grill_payload(task, task_id=task_id)
 
     code, out = run(repo, "record_grill_from_json.py", "--gate", "task",
                     "--task", task_id, "--task-digest", digest,
@@ -5239,8 +5267,9 @@ def test_record_task_grill_writes_per_id_file(repo):
 def test_record_task_grill_binds_digest(repo):
     task_id = "FORGE-BOARD-2.1"
     task_digest = "0123456789abcdef" * 4
-    payload = {"generated_by": "griller", "gate": "task", "verdict": "pass",
-               "gaps": [], "contradictions": [], "resolutions": []}
+    task = {**STAGE_TASK, "id": task_id}
+    seed_task_grill_frontier(repo, task)
+    payload = task_grill_payload(task)
 
     code, out = run(repo, "record_grill_from_json.py", "--gate", "task",
                     "--task", task_id, "--task-digest", task_digest,
@@ -5251,6 +5280,101 @@ def test_record_task_grill_binds_digest(repo):
         (repo / ".factory" / "grills" / "tasks" / f"{task_id}.json").read_text()
     )
     assert recorded["input_sha256"] == task_digest
+
+
+def test_task_grill_requires_proofs_and_rounds(repo):
+    task = STAGE_TASK
+    seed_task_grill_frontier(repo, task)
+    command = ("record_grill_from_json.py", "--gate", "task", "--task", "T1",
+               "--task-digest", task_digest(task))
+
+    def record(payload):
+        return run(repo, *command, stdin=json.dumps(payload))
+
+    complete = task_grill_payload(task)
+    for field in ("inspected_refs", "current_flow", "criteria_map", "decision",
+                  "new_abstractions", "rounds", "citations"):
+        code, out = record({key: value for key, value in complete.items() if key != field})
+        assert code != 0 and field in out
+
+    code, out = record({**complete, "inspected_refs": ["missing.py:symbol"]})
+    assert code != 0 and "does not exist" in out
+    code, out = record({**complete, "criteria_map": {}})
+    assert code != 0 and "acceptance criterion" in out
+    code, out = record({**complete, "decision": "split"})
+    assert code != 0 and "requires decision 'keep'" in out
+
+    gap = "Should this task keep its current boundary?"
+    cited_gap = "Does the contract already dictate the test command?"
+    uncovered = {**complete, "verdict": "blocked", "decision": "split",
+                 "gaps": [gap], "resolutions": ["Operator decision recorded."]}
+    code, out = record(uncovered)
+    assert code != 0 and "lack a rounds entry or citation" in out
+    code, out = record({**uncovered, "rounds": [{
+        "question": gap, "options": ["Keep", "Split"], "chosen": "Elsewhere",
+    }]})
+    assert code != 0 and "chosen must be one of" in out
+    four_option_round = {
+        **uncovered,
+        "rounds": [{
+            "question": gap,
+            "options": ["Keep", "Split", "Block", "Revise"],
+            "chosen": "Revise",
+        }],
+    }
+    code, out = record(four_option_round)
+    assert code == 0, out
+    code, out = record({**uncovered, "citations": [{"finding": gap, "source": ""}]})
+    assert code != 0 and "named source document" in out
+
+    proved = {
+        **complete,
+        "inspected_refs": ["factory/scripts/record_grill_from_json.py:_validate_task_grill"],
+        "gaps": [gap, cited_gap],
+        "resolutions": ["The operator chose to keep the bounded task.",
+                        "The declared test command remains binding."],
+        "rounds": [{"question": gap, "options": ["Keep", "Split"],
+                    "chosen": "Keep"}],
+        "citations": [{"finding": cited_gap, "source": "docs/QUALITY.md"}],
+    }
+    code, out = record(proved)
+    assert code == 0, out
+
+
+def test_task_grill_block_requires_escalation_packet(repo):
+    task = STAGE_TASK
+    seed_task_grill_frontier(repo, task)
+    payload = task_grill_payload(task, verdict="blocked", escalation_packet={})
+    command = ("record_grill_from_json.py", "--gate", "task", "--task", "T1",
+               "--task-digest", task_digest(task))
+
+    code, out = run(repo, *command, stdin=json.dumps(payload))
+    assert code != 0 and "escalation_packet" in out
+
+    payload["escalation_packet"] = {"issue": "The task is blocked."}
+    code, out = run(repo, *command, stdin=json.dumps(payload))
+    assert code != 0 and "exactly" in out
+
+    payload["escalation_packet"] = {
+        "issue": "The task boundary cannot be implemented safely as written.",
+        "evidence": "The inspected flow conflicts with the acceptance criteria.",
+        "recommendation": "Revise the task contract before delegation.",
+        "alternatives": "Split the task or remove the conflicting criterion.",
+        "rollback": "Keep the stage inactive until the contract is revised.",
+    }
+    code, out = run(repo, *command, stdin=json.dumps({
+        **payload,
+        "escalation_packet": {**payload["escalation_packet"], "rollback": " "},
+    }))
+    assert code != 0 and "non-empty" in out
+    code, out = run(repo, *command, stdin=json.dumps({
+        **payload,
+        "escalation_packet": {**payload["escalation_packet"], "owner": "PM"},
+    }))
+    assert code != 0 and "exactly" in out
+
+    code, out = run(repo, *command, stdin=json.dumps(payload))
+    assert code == 0, out
 
 
 def test_grill_recorder_refuses_pass_with_unresolved_findings(repo):
@@ -11413,8 +11537,7 @@ def test_delegate_refuses_without_task_grill(repo, tmp_path):
 @delegate_task_grill_test
 def test_delegate_refuses_stale_task_grill(repo, tmp_path):
     start_stage(repo, tmp_path, STAGE_TASK, launch=False)
-    payload = {"generated_by": "griller", "gate": "task", "verdict": "pass",
-               "gaps": [], "contradictions": [], "resolutions": []}
+    payload = task_grill_payload(STAGE_TASK)
     code, out = run(
         repo, "record_grill_from_json.py", "--gate", "task", "--task", "T1",
         "--task-digest", "0" * 64, stdin=json.dumps(payload),
