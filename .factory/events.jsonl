@@ -1282,3 +1282,5 @@
 {"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-14T06:01:01+00:00", "story": "FORGE-ACC-2", "detail": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T06:01:53+00:00", "story": "FORGE-ACC-2", "detail": "5 task(s)"}
 {"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-14T06:02:02+00:00", "story": "FORGE-ACC-2"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T06:15:30+00:00", "story": "FORGE-ACC-2", "detail": "5 task(s)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T06:20:03+00:00", "story": "FORGE-ACC-2", "detail": "5 task(s)"}

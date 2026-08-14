@@ -21,12 +21,51 @@
     {
       "id": "ACC2-T1",
       "title": "Task grills carry proof and rounds",
-      "objective": "Task-gate grills require inspected_refs (existing paths), current_flow, a total criteria_map, a keep/split/block decision, declare-or-empty new_abstractions, and at least one recorded human round; pass with split/block refused; block requires an escalation packet. Existing task-grill fixtures migrate.",
+      "objective": "Task-gate grills require inspected_refs (existing working-tree paths), current_flow, a total criteria_map, a keep/split/block decision, declare-or-empty new_abstractions, and per-finding accountability: every gap is covered by a rounds entry ({question, options, chosen} - the operator's AskUserQuestion pick) or a citation (document-dictated answer with named source); pass with split/block refused; block requires an escalation packet. Existing task-grill fixtures migrate.",
       "acceptance_criteria": [
-        "a task grill missing any proof field, with an unmapped criterion, zero rounds, pass+split/block, or block without an escalation packet is refused",
+        "a task grill missing any proof field, with an unmapped criterion, a gap covered by neither a rounds entry nor a citation, pass+split/block, or block without an escalation packet is refused",
+        "rounds entries carry {question, options, chosen}; citations name their source document",
         "a fully-proved grill records; existing suite green after fixture migration"
       ],
-      "dependencies": []
+      "dependencies": [],
+      "write_scope": [
+        "factory/schemas/grill.json",
+        "factory/scripts/record_grill_from_json.py",
+        "factory/tests/test_gates.py"
+      ],
+      "verify_commands": [
+        "python3 factory/scripts/check_dual_runtime.py"
+      ],
+      "required_tests": [
+        {
+          "id": "test_task_grill_requires_proofs_and_rounds",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_task_grill_block_requires_escalation_packet",
+          "path": "factory/tests/test_gates.py",
+          "command": "uvx --with pytest --with psutil python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "reviewer_focus": "Task-gate-only conditionality is the risky seam: spec/signoff/epics/plan grill payloads must keep recording unchanged - regression risk across every existing gate fixture. inspected_refs existence-checking accepts path and path:symbol refs (validate the path part; a missing path refuses). Criteria coverage compares against the frontier task's acceptance_criteria in the PROTECTED decomposition, never the caller payload. Per-finding accountability is deterministic: every gap maps to a rounds entry ({question, options, chosen} - shape-checked) or a citation with a named source; the recorder refuses uncovered gaps - this encodes the operator's per-finding-choice protocol, not blanket sanction. New fields are machine evidence: keep values free of secret-shaped strings (evidence-vs-tooling watch class).",
+      "plan_contracts": [
+        {
+          "id": "ACC2-C1",
+          "statement": "a task grill missing inspected_refs/current_flow/criteria_map/decision/new_abstractions, with an unmapped criterion, a gap covered by neither a {question, options, chosen} rounds entry nor a source-named citation, or pass+split/block is refused",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        },
+        {
+          "id": "ACC2-C2",
+          "statement": "block without escalation_packet {issue, evidence, recommendation, alternatives, rollback} is refused",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        },
+        {
+          "id": "ACC2-C3",
+          "statement": "existing task-grill fixtures migrate via the shared helper and the suite stays green",
+          "source": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md#acceptance-criteria"
+        }
+      ]
     },
     {
       "id": "ACC2-T2",
@@ -80,5 +119,5 @@
   "epic": "accountable-engineering",
   "plan_file": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md",
   "plan_sha256": "771c66597fa464a60d4a89c77f534fb325753b6c26b46c43d9a40cf72f6e63dc",
-  "commit": "0d00a7953b73e5ddb20b9d16ce7845b2f2517ee8"
+  "commit": "f821fd8485aaa6e08bff2a91b40949ec7b341cfa"
 }
