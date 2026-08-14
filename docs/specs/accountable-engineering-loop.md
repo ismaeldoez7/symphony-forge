@@ -1,8 +1,8 @@
 ---
 slug: accountable-engineering-loop
 title: Accountable engineering loop: JIT contracts enforced, grills carry proof, diffs stay reviewable
-status: confirmed
-saved: 2026-08-13T17:50:55+00:00
+status: draft
+saved: 2026-08-14T12:23:42+00:00
 ---
 
 # Accountable engineering loop: JIT contracts enforced, grills carry proof, diffs stay reviewable
@@ -93,7 +93,14 @@ implementation does not enforce it end to end:
   stores an `approved_plan_sha256` (excluding the sanctioned assumptions
   appendix) that every later gate rederives — an edited plan requires a
   fresh grill and human approval, and `plan approve` refuses without a
-  fresh matching plan grill on an awaiting plan. The initial decomposition
+  fresh matching plan grill on an awaiting plan. The task grill records
+  `approved_by`, stamped from the operator's sanctioned rounds AFTER the
+  grill passes; `require_ready_task` refuses a grill without the approval
+  stamp, bound to the same grounding digest — an approved-then-edited
+  contract needs re-grill and re-approval. `forge next`'s planning branch
+  routes a pre-draft requirements round: the confirmed spec is re-grilled
+  against current repository state (rounds via AskUserQuestion) before
+  story-plan drafting is instructed. The initial decomposition
   recording refuses execution detail (including `reviewer_focus` and
   `plan_contracts`) on every task; later recordings freeze the initial
   id/order/dependency skeleton and permit contract changes only on the
