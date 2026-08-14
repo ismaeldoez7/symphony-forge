@@ -1277,3 +1277,8 @@
 {"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-14T05:47:16+00:00", "detail": "conflict-free-story-state: Conflict-free story state: overlapping PRs stop colliding on recorded evidence"}
 {"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-14T05:48:50+00:00", "detail": "conflict-free-story-state"}
 {"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-14T05:49:12+00:00", "story": "FORGE-CFS-1", "detail": "docs/specs/conflict-free-story-state.md"}
+{"event": "intake", "generated_by": "orchestrator", "at": "2026-08-14T05:55:22+00:00", "story": "FORGE-ACC-2", "detail": "Grills carry proof, diffs stay reviewable"}
+{"event": "plan-human-approved", "generated_by": "human", "at": "2026-08-14T06:01:01+00:00", "story": "FORGE-ACC-2", "detail": "FORGE-ACC-2 approved by Ravi Kiran Vemula"}
+{"event": "plan-approved", "generated_by": "planner-high", "at": "2026-08-14T06:01:01+00:00", "story": "FORGE-ACC-2", "detail": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T06:01:53+00:00", "story": "FORGE-ACC-2", "detail": "5 task(s)"}
+{"event": "implementing", "generated_by": "orchestrator", "at": "2026-08-14T06:02:02+00:00", "story": "FORGE-ACC-2"}

@@ -1,0 +1,84 @@
+{
+  "generated_by": "claude-code:plan-mode",
+  "project": "",
+  "story": "FORGE-ACC-2",
+  "user_facing": false,
+  "doc_roots": [
+    "docs/specs/accountable-engineering-loop.md",
+    "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md"
+  ],
+  "epics": [
+    {
+      "id": "accountable-engineering",
+      "title": "Accountable engineering loop",
+      "objective": "Enforce decision 0032 end to end: JIT frontier contracts gated at stage start, evidence-backed grills, bounded reviewable diffs.",
+      "source_refs": [
+        "docs/specs/accountable-engineering-loop.md"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "ACC2-T1",
+      "title": "Task grills carry proof and rounds",
+      "objective": "Task-gate grills require inspected_refs (existing paths), current_flow, a total criteria_map, a keep/split/block decision, declare-or-empty new_abstractions, and at least one recorded human round; pass with split/block refused; block requires an escalation packet. Existing task-grill fixtures migrate.",
+      "acceptance_criteria": [
+        "a task grill missing any proof field, with an unmapped criterion, zero rounds, pass+split/block, or block without an escalation packet is refused",
+        "a fully-proved grill records; existing suite green after fixture migration"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "ACC2-T2",
+      "title": "Grounding digest derived internally",
+      "objective": "record_grill_from_json.py derives the task-grill digest from the full contract, the approved-plan digest excluding appended assumptions, and a product-tree hash excluding .factory/ and plans/; --task-digest is removed; require_task_grill and task_frontier_state re-derive.",
+      "acceptance_criteria": [
+        "contract, plan-body, and product-tree changes each stale a grill; .factory/ and plans/ commits and forge plan assume do not",
+        "caller-supplied --task-digest is gone; gates and recorder agree on the derivation"
+      ],
+      "dependencies": [
+        "ACC2-T1"
+      ]
+    },
+    {
+      "id": "ACC2-T3",
+      "title": "Frozen skeleton, immutable completed contracts, plan_contracts wiring",
+      "objective": "Initial decomposition recording refuses execution detail on every task and reviewer_focus/plan_contracts on non-frontier tasks; re-records freeze pending id/order/dependencies and refuse changes to a done task's full contract; the task grill refuses when criteria_map does not cover acceptance criteria or mismatches declared plan_contracts.",
+      "acceptance_criteria": [
+        "first recording is fully skeletal; pending graph edits refused; done contracts immutable under a full-contract digest",
+        "criteria_map must cover acceptance criteria and match plan_contracts or the grill is refused"
+      ],
+      "dependencies": [
+        "ACC2-T2"
+      ]
+    },
+    {
+      "id": "ACC2-T4",
+      "title": "Review budget at stage done and in the brief",
+      "objective": "Tasks may declare review_budget (default 8 files/400 lines excluding .factory/ and plans/; lower free, higher needs a written reason); stage done refuses an over-budget diff with split guidance; the composed brief states the budget and the conduct s8 narration line.",
+      "acceptance_criteria": [
+        "default, lowered, justified-higher, and exceeded budgets behave as specified at stage done",
+        "the brief carries the budget and narration lines"
+      ],
+      "dependencies": [
+        "ACC2-T3"
+      ]
+    },
+    {
+      "id": "ACC2-T5",
+      "title": "Board renders task rows",
+      "objective": "The board's in-flight story drawer shows one row per task (state skeleton|ready|grilled|active|done, grill freshness, budget usage) from the same shared derivation forge next uses.",
+      "acceptance_criteria": [
+        "board task rows match task_frontier_state for every state",
+        "existing board tests green"
+      ],
+      "dependencies": [
+        "ACC2-T4"
+      ]
+    }
+  ],
+  "epic": "accountable-engineering",
+  "plan_file": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md",
+  "plan_sha256": "771c66597fa464a60d4a89c77f534fb325753b6c26b46c43d9a40cf72f6e63dc",
+  "commit": "0d00a7953b73e5ddb20b9d16ce7845b2f2517ee8"
+}

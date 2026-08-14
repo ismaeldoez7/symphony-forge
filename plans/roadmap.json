@@ -737,7 +737,7 @@
         "the board renders the in-flight story's task rows (state, grill freshness, budget usage) from the same derivation forge next uses"
       ],
       "order": 34,
-      "status": "pending",
+      "status": "active",
       "epic": "accountable-engineering",
       "skill": "backend",
       "depends_on": [
@@ -787,7 +787,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-14T05:49:12+00:00",
+  "updated_at": "2026-08-14T05:55:22+00:00",
   "epics": [
     {
       "id": "symphony-forge",

@@ -1,0 +1,30 @@
+{
+  "issue": "FORGE-ACC-2",
+  "stages": [
+    {
+      "id": "ACC2-T1",
+      "title": "Task grills carry proof and rounds",
+      "status": "pending"
+    },
+    {
+      "id": "ACC2-T2",
+      "title": "Grounding digest derived internally",
+      "status": "pending"
+    },
+    {
+      "id": "ACC2-T3",
+      "title": "Frozen skeleton, immutable completed contracts, plan_contracts wiring",
+      "status": "pending"
+    },
+    {
+      "id": "ACC2-T4",
+      "title": "Review budget at stage done and in the brief",
+      "status": "pending"
+    },
+    {
+      "id": "ACC2-T5",
+      "title": "Board renders task rows",
+      "status": "pending"
+    }
+  ]
+}
