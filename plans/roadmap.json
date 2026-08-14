@@ -765,10 +765,29 @@
         "FORGE-ACC-2"
       ],
       "spec": "docs/specs/accountable-engineering-loop.md"
+    },
+    {
+      "key": "FORGE-CFS-1",
+      "title": "Story state stops conflicting across PRs",
+      "story": "As an orchestrator running parallel story worktrees, I want all recorded story evidence scoped per story with no archive move, no shared append ledger, and a merge-survivable hook, so that overlapping PRs merge without .factory conflicts and a conflicted tree can always be repaired through sanctioned commands",
+      "acceptance_criteria": [
+        "two story worktrees recording concurrently produce zero overlapping .factory paths and a merge simulation in the gate tests yields no .factory conflicts",
+        "pr_ready ships in place with no archive move; shipped evidence stays at its recorded story-scoped paths and forge history and the board read it",
+        "events are one file each (0022 pattern); forge history reads legacy events.jsonl and per-event files together; no merge-driver dependency remains",
+        "the active-story pointer is worktree-local; phase derives from story artifacts; no tracked run.json authority remains",
+        "forge next auto-heals the roadmap after a merge commit",
+        "with unmerged index entries the hook permits git-native resolution of exactly those paths and refuses content hand-writes; an unparseable factory_lib or state file engages a static deny-list fallback instead of crashing"
+      ],
+      "order": 36,
+      "status": "pending",
+      "epic": "accountable-engineering",
+      "skill": "backend",
+      "depends_on": [],
+      "spec": "docs/specs/conflict-free-story-state.md"
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-14T05:39:08+00:00",
+  "updated_at": "2026-08-14T05:49:12+00:00",
   "epics": [
     {
       "id": "symphony-forge",

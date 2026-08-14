@@ -2,39 +2,22 @@
   "generated_by": "griller",
   "gate": "spec",
   "verdict": "pass",
-  "questions_asked": 7,
+  "questions_asked": 1,
   "gaps": [
-    "A HEAD-bound grounding digest would stale every task grill on any commit, including the harness's own evidence commits and a resumed task's own work",
-    "Binding the digest to the raw plan file lets 'forge plan assume' stale every task grill in the story (recorded lesson: the assumptions ledger stales the plan it appends to)",
-    "Board had no task-level visibility although every new gate lives at task level",
-    "The 8-file/400-line default was presented as a derived p90 but matches no measurement (actual p90: 20/672 all-paths, 5/256 product-only)",
-    "The slim grill dropped the article's abstraction-justification and irreversibility/rollback proofs",
-    "Degraded-mode window behavior was unstated",
-    "Spec permitted zero-human-question grill passes, contradicting the operator mandate that every grill delivers AskUserQuestion rounds (both rescue models, top priority)",
-    "Approved plans were silently re-legitimizable after edit; task graph not frozen; completed contracts only four-fifths immutable; local review unrecorded; stage done accepted uncommitted work; branch review unbound to review-brief --all; closeout ordering unenforced (Sol xhigh audit)",
-    "Initial decomposition could carry execution detail on the first task; future reviewer_focus/plan_contracts unrestricted (both models)"
+    "run.json as tracked authority is the most-contested file; keeping it tracked would preserve the conflict class",
+    "pr_ready's archive move triggers rename detection between branches",
+    "events.jsonl depends on an unversionable per-clone union driver",
+    "A conflicted factory_lib or state file fail-closes the hook including the tools needed for repair"
   ],
-  "contradictions": [
-    "docs/FACTORY.md:129-138 requires full upfront task contracts, contradicting accepted decision 0032's JIT contract",
-    "Per-commit review suggestion contradicts decision 0011's single autoreview pass",
-    "griller.md requires AskUserQuestion rounds while the confirmed spec accepted zero-question passes"
-  ],
+  "contradictions": [],
   "resolutions": [
-    "Grounding digest uses a product-tree hash excluding .factory/ and plans/ \u2014 evidence and in-progress commits never stale a grill (spec Behaviour)",
-    "Plan digest computed excluding the appended Implementation Assumptions section (spec Behaviour)",
-    "Board renders in-flight story task rows (state, grill freshness, budget usage) from the same derivation forge next uses (spec Behaviour)",
-    "8/400 declared as a policy target with the measured p90s recorded alongside; lower free, higher requires written reason (spec Behaviour)",
-    "new_abstractions declare-or-empty proof with insufficiency evidence and irreversible-effects rollback notes; block decisions emit an escalation packet, never a transcript link (spec Behaviour)",
-    "Lite, quickfix, and degraded windows explicitly unchanged (spec Non-goals)",
-    "Story scope corrects docs/FACTORY.md to the 0032 skeletal-list + JIT contract (spec Behaviour and Acceptance)",
-    "Review cadence stays decision 0011; the grilled criteria_map lands as FORGE-REV-2 plan_contracts so completeness is verdicted by the existing quality review (spec Behaviour)",
-    "Spec amended: every grill delivers rounds via AskUserQuestion, zero rounds refused; JIT re-records pin claude-code:plan-mode (operator-sanctioned round 2026-08-13)",
-    "FORGE-ACC-3 behaviour block added: approved-plan digest binding, recorded local-review stamp, commit-before-done, coherent one-run branch review bound to review-brief --all, closeout ordering (stages\u2192review\u2192verify\u2192functional\u2192outcome\u2192pr_ready), clean-tree pr_ready, write-window refusal during active stages",
-    "Initial recording refuses execution detail on every task incl. reviewer_focus/plan_contracts; skeleton frozen after first recording; completed contracts immutable under full-contract digest",
-    "Contradiction resolved in the spec's favor of the mandate; griller.md and spec now agree"
+    "Active-story pointer goes worktree-local and phase derives from story artifacts; the tracked singleton is removed (operator-sanctioned round 2026-08-14)",
+    "Evidence is recorded story-scoped from intake; pr_ready ships in place with no move (spec Behaviour)",
+    "One event per file per the 0022 pattern; forge history reads both formats (spec Behaviour)",
+    "Mid-merge carve-out permits git-native resolution of exactly the unmerged paths; deny-list fallback replaces the crash (spec Behaviour; lessons factory-merge-resolution-needs-a-path, evidence-vs-tooling)"
   ],
   "open_items": [],
-  "input_sha256": "f8b059c325f88042105e6d70cec79f8c9b362c308afb3ff21d29da993e976a40",
-  "recorded_at": "2026-08-13T17:51:51+00:00",
-  "commit": "c53d5753741751df49d09fe4b8ede526554f7d9d"
+  "input_sha256": "cc8e4c8f7173c106c7a9a59cf2402105f3da7f6648c2338a2866b330c944ef21",
+  "recorded_at": "2026-08-14T05:48:41+00:00",
+  "commit": "2aa68fca358b2c28e9ae409e18828e96be5a89c6"
 }

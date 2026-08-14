@@ -1,7 +1,7 @@
 ---
 slug: conflict-free-story-state
 title: Conflict-free story state: overlapping PRs stop colliding on recorded evidence
-status: draft
+status: confirmed
 saved: 2026-08-14T05:47:16+00:00
 ---
 

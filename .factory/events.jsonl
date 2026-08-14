@@ -1275,3 +1275,5 @@
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T19:31:54+00:00", "story": "FORGE-WIN-ENC"}
 {"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-13T19:47:17+00:00", "story": "FORGE-WIN-ENC", "detail": "knacklabs/symphony-forge#103"}
 {"event": "spec-draft", "generated_by": "orchestrator", "at": "2026-08-14T05:47:16+00:00", "detail": "conflict-free-story-state: Conflict-free story state: overlapping PRs stop colliding on recorded evidence"}
+{"event": "spec-confirmed", "generated_by": "orchestrator", "at": "2026-08-14T05:48:50+00:00", "detail": "conflict-free-story-state"}
+{"event": "roadmap-add", "generated_by": "orchestrator", "at": "2026-08-14T05:49:12+00:00", "story": "FORGE-CFS-1", "detail": "docs/specs/conflict-free-story-state.md"}

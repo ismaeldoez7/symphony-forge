@@ -1,6 +1,6 @@
 ---
-status: proposed
-confirmed_by: ""
+status: accepted
+confirmed_by: "Ravi Kiran Vemula"
 date: 2026-08-14
 stories: [FORGE-CFS-1]
 ---
