@@ -44,7 +44,11 @@
     {
       "id": "ACC2-T5",
       "title": "Board renders task rows",
-      "status": "pending"
+      "status": "active",
+      "started_at": "2026-08-14T11:11:24+00:00",
+      "base_sha": "631fb1469db343e8145af29bea0216f7bbde1176",
+      "dirty_at_start": {},
+      "task_sha256": "7ff2dca175302c7bd9a44749d335ce8387c88cc72b65b320e7f99b7116b50564"
     }
   ]
 }

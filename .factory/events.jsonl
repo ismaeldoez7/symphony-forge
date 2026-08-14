@@ -1309,3 +1309,9 @@
 {"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T11:07:34+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T4 (write)"}
 {"event": "stage-done", "generated_by": "implementer", "at": "2026-08-14T11:08:21+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T4 Review budget at stage done and in the brief"}
 {"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T11:10:14+00:00", "story": "FORGE-ACC-2", "detail": "5 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-14T11:11:24+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T5 Board renders task rows"}
+{"event": "signal-scope-change", "generated_by": "implementer", "at": "2026-08-14T11:13:04+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T5 requires the story drawer to visibly render grill freshness and budget usage, but that renderer is factory/board/index.html and the declared write scope permits only factory_lib.py, board.py, "}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-14T11:14:07+00:00", "story": "FORGE-ACC-2", "detail": "ACC2-T5 (write)"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-14T11:15:02+00:00", "story": "FORGE-ACC-2", "detail": "S-0002-7410: Budget lines intentionally use the clean git base-to-now numstat over the product paths _measure attributes. Dirty-at-start content is acceptable imprecision in the count - the operator-recorded T4 ro"}
+{"event": "signal-resolved", "generated_by": "orchestrator", "at": "2026-08-14T11:15:02+00:00", "story": "FORGE-ACC-2", "detail": "S-0003-51e7: Operator sanctioned (AskUserQuestion round 2026-08-14): add factory/board/index.html to ACC2-T5's write_scope via the sanctioned active-frontier re-record; the contract and grill are being re-recorded"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-14T11:15:26+00:00", "story": "FORGE-ACC-2", "detail": "5 task(s)"}

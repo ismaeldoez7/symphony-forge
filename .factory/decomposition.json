@@ -219,6 +219,7 @@
       "write_scope": [
         "factory/scripts/factory_lib.py",
         "factory/scripts/forge_cli/board.py",
+        "factory/board/index.html",
         "factory/tests/test_gates.py"
       ],
       "verify_commands": [
@@ -254,5 +255,5 @@
   "epic": "accountable-engineering",
   "plan_file": "plans/active/FORGE-ACC-2-grills-carry-proof-diffs-stay-reviewable.md",
   "plan_sha256": "771c66597fa464a60d4a89c77f534fb325753b6c26b46c43d9a40cf72f6e63dc",
-  "commit": "386eda5cf2bfa664f0b6d28a8fc1546d106d4d10"
+  "commit": "631fb1469db343e8145af29bea0216f7bbde1176"
 }
