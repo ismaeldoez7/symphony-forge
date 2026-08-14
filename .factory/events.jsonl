@@ -1252,3 +1252,25 @@
 {"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-14T02:55:59+00:00", "story": "FORGE-ACC-1"}
 {"event": "review-security", "generated_by": "autoreview", "at": "2026-08-14T02:56:00+00:00", "story": "FORGE-ACC-1"}
 {"event": "shipped", "generated_by": "orchestrator", "at": "2026-08-14T02:56:09+00:00", "story": "FORGE-ACC-1", "detail": "Implementation can no longer begin before its contract exists and survived an independent grill: the decomposition recorder refuses execution detail on future tasks, a shared readiness gate makes stag"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T16:56:26+00:00", "story": "FORGE-WIN-ENC", "detail": "2 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-13T16:56:35+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.1 Encoding sweep + value-validating hygiene gate"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T17:15:52+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.1 (write)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T17:45:28+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.1 (write)"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T18:06:22+00:00", "story": "FORGE-WIN-ENC", "detail": "2 task(s)"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T18:50:23+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.1 (write)"}
+{"event": "stage-contract-changed", "generated_by": "implementer", "at": "2026-08-13T18:52:01+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.1: task contract re-recorded mid-stage"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-13T18:52:01+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.1 Encoding sweep + value-validating hygiene gate"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T18:52:46+00:00", "story": "FORGE-WIN-ENC", "detail": "2 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-13T18:52:57+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.2 Locale-forced CI proof + docs"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T19:07:11+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.2 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-13T19:08:03+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.2 Locale-forced CI proof + docs"}
+{"event": "decomposed", "generated_by": "docs-decomposer", "at": "2026-08-13T19:16:26+00:00", "story": "FORGE-WIN-ENC", "detail": "3 task(s)"}
+{"event": "stage-start", "generated_by": "implementer", "at": "2026-08-13T19:16:56+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.3 Story-review fixes: gate blind spots + isolation-scan decode"}
+{"event": "delegated", "generated_by": "orchestrator", "at": "2026-08-13T19:21:56+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.3 (write)"}
+{"event": "stage-done", "generated_by": "implementer", "at": "2026-08-13T19:22:25+00:00", "story": "FORGE-WIN-ENC", "detail": "FORGE-WIN-ENC.3 Story-review fixes: gate blind spots + isolation-scan decode"}
+{"event": "verify-passed", "generated_by": "orchestrator", "at": "2026-08-13T19:23:13+00:00", "story": "FORGE-WIN-ENC"}
+{"event": "tests-automated", "generated_by": "implementer", "at": "2026-08-13T19:31:01+00:00", "story": "FORGE-WIN-ENC", "detail": "pass"}
+{"event": "review-quality", "generated_by": "autoreview", "at": "2026-08-13T19:31:54+00:00", "story": "FORGE-WIN-ENC"}
+{"event": "review-performance", "generated_by": "autoreview", "at": "2026-08-13T19:31:54+00:00", "story": "FORGE-WIN-ENC"}
+{"event": "review-security", "generated_by": "autoreview", "at": "2026-08-13T19:31:54+00:00", "story": "FORGE-WIN-ENC"}
+{"event": "pr-linked", "generated_by": "orchestrator", "at": "2026-08-13T19:47:17+00:00", "story": "FORGE-WIN-ENC", "detail": "knacklabs/symphony-forge#103"}

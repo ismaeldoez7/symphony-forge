@@ -61,7 +61,8 @@ def unrunnable_reason(command: str) -> str | None:
     # Syntax first: `git status |` resolves `git` and would otherwise pass here
     # only to fail forever at stage close with a shell parse error.
     syntax = subprocess.run(["bash", "-n", "-c", text],
-                            capture_output=True, text=True)
+                            capture_output=True, text=True,
+                            encoding="utf-8", errors="replace")
     if syntax.returncode != 0:
         return f"is not valid shell ({syntax.stderr.strip().splitlines()[-1:] or ['parse error']})"
     try:
@@ -151,7 +152,7 @@ def legacy_capture_gaps(base: Path) -> list[tuple[str, str]]:
     # A missing brief is the most incomplete a brief can be. Reporting only
     # briefs that exist made the one project that needs this line the one
     # project that never sees it, while sign-off refuses it either way.
-    sections = parse_sections(brief.read_text()) if brief.is_file() else {}
+    sections = parse_sections(brief.read_text(encoding="utf-8")) if brief.is_file() else {}
     missing = [heading for heading in REQUIRED_BRIEF_HEADINGS
                if not sections.get(heading, "").strip()]
     if missing:
@@ -159,7 +160,7 @@ def legacy_capture_gaps(base: Path) -> list[tuple[str, str]]:
 
     specs = base / "docs" / "specs"
     for spec in sorted(specs.glob("*.md")) if specs.is_dir() else []:
-        document = spec.read_text()
+        document = spec.read_text(encoding="utf-8")
         if parse_frontmatter(document).get("status") != "confirmed":
             continue
         missing = missing_required_content(document)
@@ -346,7 +347,7 @@ def hook_health_checks(base: Path, *, env: dict[str, str] | None = None) -> list
     for relative in HOOK_CONFIGS:
         path = base / relative
         try:
-            document = json.loads(path.read_text())
+            document = json.loads(path.read_text(encoding="utf-8"))
             hooks = document.get("hooks") if isinstance(document, dict) else None
             if not isinstance(hooks, dict):
                 raise ValueError("top-level 'hooks' must be an object")
@@ -415,7 +416,7 @@ def hook_health_checks(base: Path, *, env: dict[str, str] | None = None) -> list
                             capture_output=True,
                             text=True,
                             env=run_env,
-                            timeout=30,
+                            timeout=30, encoding="utf-8", errors="replace",
                         )
                         output = (result.stdout + result.stderr).strip()
                         detail = command
@@ -471,6 +472,7 @@ def _python_status() -> tuple[bool, str]:
             result = subprocess.run(
                 [binary, *launcher_args, "--version"],
                 capture_output=True, text=True, timeout=5,
+                encoding="utf-8", errors="replace",
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             detail = f"{binary}: {exc}"
@@ -591,6 +593,7 @@ def _github_slug(repo: str | None = None) -> str:
         proc = subprocess.run(
             ["git", "remote", "get-url", "origin"],
             capture_output=True, text=True, timeout=15, cwd=repo,
+            encoding="utf-8", errors="replace",
         )
         code, out = proc.returncode, (proc.stdout + proc.stderr).strip()
     except (OSError, subprocess.TimeoutExpired) as exc:
@@ -652,7 +655,8 @@ def _merge_check_status(*, fix: bool, repo: str | None = None) -> tuple[bool, st
             proc = subprocess.run(
                 ["gh", "api", "-X", "PUT",
                  f"repos/{slug}/branches/{default}/protection", "--input", "-"],
-                input=payload, capture_output=True, text=True, timeout=15)
+                input=payload, capture_output=True, text=True, timeout=15,
+                encoding="utf-8", errors="replace")
             if proc.returncode != 0:
                 return False, f"fix failed (admin rights?): {proc.stderr.strip()[:120]}"
         else:
@@ -661,7 +665,8 @@ def _merge_check_status(*, fix: bool, repo: str | None = None) -> tuple[bool, st
                 ["gh", "api", "-X", "POST", f"{checks_url}/contexts",
                  "--input", "-"],
                 input=json.dumps(["scaffold-check"]),
-                capture_output=True, text=True, timeout=15)
+                capture_output=True, text=True, timeout=15,
+                encoding="utf-8", errors="replace")
             if proc.returncode != 0:
                 return False, f"fix failed (admin rights?): {proc.stderr.strip()[:120]}"
         current, definitive = contexts()
@@ -808,6 +813,7 @@ def _winget_user_install(
         result = subprocess.run(
             [winget, "install", "--id", package_id, "--exact", *WINDOWS_INSTALL_FLAGS],
             capture_output=True, text=True, timeout=WINDOWS_INSTALL_TIMEOUT,
+            encoding="utf-8", errors="replace",
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         print(f"[warn] winget failed while installing {label}: {exc}")
