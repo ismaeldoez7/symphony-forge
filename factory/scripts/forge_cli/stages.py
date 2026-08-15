@@ -26,7 +26,8 @@ from pathlib import Path
 from factory_lib import (
     clean_git_env, decomposition_state_path, dump_json, git_control_dir,
     head_sha, load_json, now_iso, protected_decomposition_state_path, repo_root,
-    run_state_path, safe_factory_write_json, sha256_of,
+    require_ready_task, run_state_path, safe_factory_write_json, sha256_of,
+    task_digest,
 )
 
 from .common import fail
@@ -565,19 +566,6 @@ def protected_authority_snapshot(base: Path) -> dict[str, str]:
     return result
 
 
-def task_digest(task: dict) -> str:
-    """The task contract a stage was started under.
-
-    The decomposition can be re-recorded while a stage is active — that is the
-    sanctioned repair when a scope turns out to be wrong — but it must not be
-    a way to widen `write_scope` or drop `required_tests` moments before
-    closing over them."""
-    payload = json.dumps({k: task.get(k) for k in
-                          ("write_scope", "required_tests", "verify_commands",
-                           "acceptance_criteria")}, sort_keys=True)
-    return hashlib.sha256(payload.encode()).hexdigest()
-
-
 def _covered(path: str, scope: list[str]) -> bool:
     for entry in scope:
         prefix = entry.strip().rstrip("/")
@@ -619,7 +607,6 @@ def _cmd_start_locked(args: argparse.Namespace, base: Path) -> None:
     if stage.get("status") == "done":
         fail(f"{args.id} is already done — stages don't reopen; a follow-up is a "
              "new stage in a re-recorded decomposition")
-    current_task = task_for(base, args.id)
     if stage.get("status") == "active":
         # No re-baselining, ever (decision 0023). The baseline is a ref written
         # once at start; a contract that changes mid-stage is LEDGERED, not
@@ -676,6 +663,7 @@ def _cmd_start_locked(args: argparse.Namespace, base: Path) -> None:
                  "decomposition was recorded, so the task list describes a plan "
                  "that is no longer the approved one. Re-record the "
                  "decomposition against the current plan, then start the stage.")
+    current_task = require_ready_task(base, args.id)
     stage["status"] = "active"
     stage["started_at"] = now_iso()
     # `stage done` measures the diff, and a measurement needs a fixed point —

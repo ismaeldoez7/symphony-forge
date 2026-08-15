@@ -2,18 +2,22 @@
   "generated_by": "griller",
   "gate": "spec",
   "verdict": "pass",
+  "questions_asked": 1,
   "gaps": [
-    "Is a prompt FILE actually inert, or can its content reach a shell later in the companion?",
-    "Does admitting --prompt-file on read-only calls open a write side-channel (a hostile brief instructing Codex to write)?",
-    "Why not reuse forge delegate's brief file mechanism instead of a guard change?"
+    "run.json as tracked authority is the most-contested file; keeping it tracked would preserve the conflict class",
+    "pr_ready's archive move triggers rename detection between branches",
+    "events.jsonl depends on an unversionable per-clone union driver",
+    "A conflicted factory_lib or state file fail-closes the hook including the tools needed for repair"
   ],
   "contradictions": [],
   "resolutions": [
-    "The companion invokes Codex with a fixed shell-free argv and passes the file path through; content is read by the runtime as prompt data \u2014 the same trust shape delegate already relies on for its composed briefs.",
-    "No: read-only invocations run the companion sandboxed without write access; the guard change only affects how the prompt travels, not the sandbox mode \u2014 write-shaped invocations keep routing to delegate.",
-    "Delegate is stage-bound (task id, write derivation, evidence recording); rescue is the anytime read-only route with no stage \u2014 the file hand-off is the shared pattern, the lifecycles differ deliberately."
+    "Active-story pointer goes worktree-local and phase derives from story artifacts; the tracked singleton is removed (operator-sanctioned round 2026-08-14)",
+    "Evidence is recorded story-scoped from intake; pr_ready ships in place with no move (spec Behaviour)",
+    "One event per file per the 0022 pattern; forge history reads both formats (spec Behaviour)",
+    "Mid-merge carve-out permits git-native resolution of exactly the unmerged paths; deny-list fallback replaces the crash (spec Behaviour; lessons factory-merge-resolution-needs-a-path, evidence-vs-tooling)"
   ],
-  "input_sha256": "a64d94e010fb76c8b0fd9b861b0986ee27ccb9ae105b10bee624ad55f4504f27",
-  "recorded_at": "2026-08-12T15:21:00+00:00",
-  "commit": "55016aaf5c1d56aec2101c69790c439bb5ecfc9f"
+  "open_items": [],
+  "input_sha256": "cc8e4c8f7173c106c7a9a59cf2402105f3da7f6648c2338a2866b330c944ef21",
+  "recorded_at": "2026-08-14T05:48:41+00:00",
+  "commit": "2aa68fca358b2c28e9ae409e18828e96be5a89c6"
 }

@@ -306,6 +306,29 @@ with delegation_exclusion(
         if isinstance(task, dict)
     }
     stages_data = load_stages(root)
+    stage_statuses = {
+        stage.get("id"): stage.get("status")
+        for stage in stages_data.get("stages") or []
+        if isinstance(stage, dict)
+    }
+    frontier_index = next(
+        (
+            index for index, task in enumerate(tasks)
+            if stage_statuses.get(task.get("id")) != "done"
+        ),
+        None,
+    )
+    if frontier_index is not None:
+        for task in tasks[frontier_index + 1:]:
+            if stage_statuses.get(task.get("id")) == "done":
+                continue
+            for field in ("write_scope", "required_tests", "verify_commands"):
+                if task.get(field):
+                    raise SystemExit(
+                        f"decomposition task {task['id']}: pending non-frontier "
+                        f"task must not declare {field}; author execution detail "
+                        "when the task reaches the frontier."
+                    )
     backfilled_stage_digest = False
     for stage in stages_data.get("stages") or []:
         if stage.get("status") not in {"active", "done"}:
