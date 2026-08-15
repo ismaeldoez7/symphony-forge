@@ -17,6 +17,8 @@ SCRIPTS = ROOT / "factory" / "scripts"
 # replacement-decoded text.  The scanner already ignores binary modes; this
 # inventory makes the review-sensitive exceptions explicit and auditable.
 BYTE_PATH_ALLOWLIST: dict[str, str] = {
+    "factory/scripts/factory_lib.py:1239": "git diff --name-only output (grounding staleness sweep)",
+    "factory/scripts/forge_cli/stages.py:644": "git diff --no-index numstat for untracked budget counting",
     # Lossless git path captures. These exact sites may use surrogateescape.
     "factory/scripts/check_dual_runtime.py:478": "git ls-files paths",
     "factory/scripts/check_dual_runtime.py:541": "git toplevel path",
@@ -29,7 +31,7 @@ BYTE_PATH_ALLOWLIST: dict[str, str] = {
     "factory/scripts/factory_lib.py:504": "git toplevel path",
     "factory/scripts/factory_lib.py:511": "git toplevel path",
     "factory/scripts/factory_lib.py:928": "git status paths",
-    "factory/scripts/factory_lib.py:1091": "git diff paths",
+    "factory/scripts/factory_lib.py:1006": "git diff paths",
     "factory/scripts/forge_cli/adopt.py:185": "git status paths",
     "factory/scripts/forge_cli/audit.py:95": "git ls-files paths",
     "factory/scripts/forge_cli/lessons.py:63": "git diff and ls-files paths",
@@ -38,7 +40,7 @@ BYTE_PATH_ALLOWLIST: dict[str, str] = {
     "factory/scripts/forge_cli/quickfix.py:294": "decoded git path bytes",
     "factory/scripts/forge_cli/sanitise.py:20": "decoded git path bytes",
     "factory/scripts/forge_cli/sanitise.py:104": "git rm path diagnostics",
-    "factory/scripts/forge_cli/stages.py:122": "decoded git path bytes",
+    "factory/scripts/forge_cli/stages.py:155": "decoded git path bytes",
     "factory/scripts/forge_cli/upgrade.py:163": "decoded git path bytes",
     "factory/scripts/forge_cli/upgrade.py:329": "indexed symlink target bytes",
     "factory/scripts/forge_cli/upgrade.py:332": "indexed symlink path bytes",
@@ -71,10 +73,10 @@ REPLACE_ALLOWLIST: frozenset[str] = frozenset({
     "factory/scripts/check_factory_scaffold.py:9",
     "factory/scripts/check_repo_budget.py:19",
     "factory/scripts/factory_lib.py:26",
-    "factory/scripts/factory_lib.py:1162",
+    "factory/scripts/factory_lib.py:1310",
     "factory/scripts/forge_cli/common.py:19",
-    "factory/scripts/forge_cli/delegate.py:1055",
-    "factory/scripts/forge_cli/delegate.py:1058",
+    "factory/scripts/forge_cli/delegate.py:1067",
+    "factory/scripts/forge_cli/delegate.py:1070",
     "factory/scripts/forge_cli/doctor.py:68",
     "factory/scripts/forge_cli/doctor.py:419",
     "factory/scripts/forge_cli/doctor.py:479",
@@ -82,14 +84,14 @@ REPLACE_ALLOWLIST: frozenset[str] = frozenset({
     "factory/scripts/forge_cli/doctor.py:662",
     "factory/scripts/forge_cli/doctor.py:671",
     "factory/scripts/forge_cli/doctor.py:820",
-    "factory/scripts/forge_cli/stages.py:844",
-    "factory/scripts/forge_cli/stages.py:846",
-    "factory/scripts/forge_cli/stages.py:938",
-    "factory/scripts/forge_cli/stages.py:940",
+    "factory/scripts/forge_cli/stages.py:935",
+    "factory/scripts/forge_cli/stages.py:937",
+    "factory/scripts/forge_cli/stages.py:1029",
+    "factory/scripts/forge_cli/stages.py:1031",
 })
 
 STDIN_ALLOWLIST: frozenset[str] = frozenset({
-    "factory/scripts/factory_lib.py:1110",
+    "factory/scripts/factory_lib.py:1258",
 })
 
 
