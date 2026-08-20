@@ -917,10 +917,27 @@
       "skill": "backend",
       "depends_on": [],
       "spec": "docs/specs/legacy-upgrade.md"
+    },
+    {
+      "key": "stage-done-proof-runner-robust",
+      "title": "Stage-done proof runner: read-only check excludes workflow paths; reap scan scales",
+      "story": "As a developer closing a stage, I want the stage-done proof runner to enforce read-only only on PRODUCT paths and to reap the proof's process tree without a full process-table scan, so a verify_command that writes .factory evidence cannot false-fail the close and a busy machine cannot hang it.",
+      "acceptance_criteria": [
+        "Stage-done's 'proof must be read-only' check compares only product paths (excludes .factory/ and plans/), so a verify_command that appends evidence there does not fail the close",
+        "The stage-done reap (_wait_and_reap) does not degrade on a large unrelated process table: the process-tree observation is scoped/bounded, not a full psutil scan polled every 20ms",
+        "Regression tests: a verify_command writing under .factory passes the read-only check; the reap completes promptly regardless of unrelated process count"
+      ],
+      "order": 44,
+      "status": "pending",
+      "epic": "accountable-engineering",
+      "skill": "backend",
+      "depends_on": [],
+      "origin": "adhoc",
+      "spec_debt_reason": "hardening follow-up from the 2026-08-20 issue-#112 story where stage done could not close (verify.py in verify_commands tripped the read-only check; reap scan spun on a bloated process table); no confirmed spec yet"
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-08-20T07:43:17+00:00",
+  "updated_at": "2026-08-20T13:25:43+00:00",
   "epics": [
     {
       "id": "symphony-forge",
