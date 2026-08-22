@@ -17390,3 +17390,36 @@ def test_rerecord_active_task_contract_change_warns_and_clears_stamp(
     after = json.loads((repo / ".factory" / "stages.json").read_text())
     assert after["stages"][0]["status"] == "active"
     assert "local_review_stamp" not in after["stages"][0]
+
+
+# --- fix/per-task-user-facing-skills ------------------------------------------
+# Design-skill enforcement keys off the ACTIVE TASK's user_facing flag, not the
+# story's — a backend task in a user_facing story is not forced to attest UI
+# design skills.
+
+
+def test_active_task_user_facing_is_per_task(repo):
+    from factory_lib import (active_task_user_facing, git_control_dir,
+                             protected_decomposition_state_path)
+
+    control = git_control_dir(repo)
+    control.mkdir(parents=True, exist_ok=True)
+    (control / "stages.json").write_text(
+        json.dumps({"issue": "S", "stages": [{"id": "T1", "status": "active"}]}))
+    decomp = protected_decomposition_state_path(repo)
+    decomp.parent.mkdir(parents=True, exist_ok=True)
+
+    # user_facing STORY, but the active BACKEND task is not user_facing
+    decomp.write_text(json.dumps(
+        {"user_facing": True, "tasks": [{"id": "T1", "user_facing": False}]}))
+    assert active_task_user_facing(repo) is False
+
+    # a UI task explicitly marked user_facing
+    decomp.write_text(json.dumps(
+        {"user_facing": True, "tasks": [{"id": "T1", "user_facing": True}]}))
+    assert active_task_user_facing(repo) is True
+
+    # no active stage -> not user_facing (nothing to gate)
+    (control / "stages.json").write_text(
+        json.dumps({"issue": "S", "stages": [{"id": "T1", "status": "done"}]}))
+    assert active_task_user_facing(repo) is False
