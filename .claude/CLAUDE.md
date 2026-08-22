@@ -9,15 +9,6 @@ Read `AGENTS.md` first; it is the contract. Standards live in `constitution/`
 - Claude Code coordinates: discovery, planning, decisions, orchestration.
 - Codex executes: exploration, implementation, testing. Review is Claude's —
   run the autoreview skill DIRECTLY, loop until clean post-rescue (0011).
-- Once implementation starts, ALL product changes are Codex's via
-  `forge delegate` — the initial code AND every fix inspection/verify/review
-  demands (a config tweak, dep bump, test rename, "trivial" fix is a fresh
-  delegate, never your own edit). Your hands do only orchestration. A clean
-  local autoreview + green checks IS the commit permission — commit and continue,
-  no human "ok to commit?" gate. Sole exception: a change provably impossible in
-  the companion's env (no network/DB/Docker) — make the MINIMAL host change and
-  log it (`forge signal raise --kind host-exception`). See WORKFLOW.md "Who
-  authors what — no ambiguity once implementation starts".
 - During planning, do NOT grep/read app code yourself — delegate `/codex:rescue`
   read-only: `gpt-5.6-terra` @ high to explore, `gpt-5.6-sol` @ xhigh to validate/debug. NEVER raw `codex exec`.
 
