@@ -5687,17 +5687,20 @@ def test_upgrade_delivers_gstack_setup_to_older_scaffolds(repo):
 
 
 def test_next_routes_design_skills_by_feature_type(repo, tmp_path):
+    # Design-skill routing is PER TASK: the active/frontier task's OWN
+    # user_facing flag decides, not the story's.
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    record_skeleton_then_frontier(repo, DECOMP["tasks"])  # user_facing: true
+    ui_task = {**DECOMP["tasks"][0], "user_facing": True}
+    record_skeleton_then_frontier(repo, [ui_task])
     run(repo, "update_run.py", "--decomposition-status", "recorded")
     code, out = run(repo, "forge.py", "next")
     assert code == 0 and "emil-design-eng" in out
-    # backend task: no design skills suggested
+    # a backend task in the same story: no design skills suggested
     decomp_path = story_state(repo) / "decomposition.json"
     data = json.loads(decomp_path.read_text())
-    data["user_facing"] = False
+    data["tasks"][0]["user_facing"] = False
     decomp_path.write_text(json.dumps(data))
     (delegation_ledger(repo).parent / "decomposition.json").write_text(json.dumps(data))
     code, out = run(repo, "forge.py", "next")
@@ -6053,10 +6056,16 @@ def test_stale_grill_refused_after_handover_docs_change(repo):
 # ------------------------------------------------ mandatory skill attestation
 
 def test_user_facing_artifacts_must_attest_design_skills(repo, tmp_path):
+    # Enforcement keys off the ACTIVE TASK's user_facing flag, so the story
+    # needs an active, user_facing task before the recorders gate on skills.
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    record_skeleton_then_frontier(repo, DECOMP["tasks"])  # user_facing
+    ui_task = {**DECOMP["tasks"][0], "user_facing": True}
+    record_skeleton_then_frontier(repo, [ui_task])
+    control = delegation_ledger(repo).parent
+    (control / "stages.json").write_text(json.dumps(
+        {"issue": "ENG-1", "stages": [{"id": "T1", "status": "active"}]}))
     # testing artifact without the mandatory design skills -> refused
     base = {"generated_by": "implementer", "status": "passed", "summary": "ok",
             "blocking_findings": [], "commands_run": ["pytest"]}
@@ -6082,10 +6091,11 @@ def test_user_facing_artifacts_must_attest_design_skills(repo, tmp_path):
     code, out = run(repo, "record_review_from_json.py", "--aspect", "quality",
                     stdin=json.dumps({**review, "skills_used": ["review-animations"]}))
     assert code == 0, out
-    # backend task: no design-skill requirement
-    code, out = run(repo, "record_decomposition_from_json.py",
-                    stdin=json.dumps({**DECOMP, "user_facing": False}))
-    assert code == 0, out
+    # a backend active task in the same story: no design-skill requirement —
+    # the active task's OWN flag governs, so flip it and re-check.
+    data = json.loads((control / "decomposition.json").read_text())
+    data["tasks"][0]["user_facing"] = False
+    (control / "decomposition.json").write_text(json.dumps(data))
     code, out = run(repo, "record_test_from_json.py", "--kind", "automated",
                     stdin=json.dumps(base))
     assert code == 0, out
@@ -15058,6 +15068,9 @@ def test_forge_next_routes_the_jit_frontier_states(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
+    # A user_facing task, so the per-task design-skill guidance surfaces at
+    # every frontier state as the task walks toward delegation.
+    ui_task = {**STAGE_TASK, "user_facing": True}
 
     def next_action() -> str:
         code, out = run(repo, "forge.py", "next")
@@ -15083,16 +15096,16 @@ def test_forge_next_routes_the_jit_frontier_states(repo, tmp_path):
     code, out = run(
         repo,
         "record_decomposition_from_json.py",
-        stdin=json.dumps({**DECOMP, "tasks": [STAGE_TASK]}),
+        stdin=json.dumps({**DECOMP, "tasks": [ui_task]}),
     )
     assert code == 0, out
     action = next_action()
     assert "factory/prompts/griller.md --gate task" in action
     assert "stage start" not in action and "forge delegate" not in action
 
-    code, out = record_task_grill(repo, STAGE_TASK)
+    code, out = record_task_grill(repo, ui_task)
     assert code == 0, out
-    stale = {**STAGE_TASK, "reviewer_focus": "the changed bounded contract",
+    stale = {**ui_task, "reviewer_focus": "the changed bounded contract",
              "write_scope": ["src/changed/"]}
     code, out = run(
         repo,
