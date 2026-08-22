@@ -367,12 +367,23 @@ def dirty_digests(base: Path) -> dict[str, dict[str, str]]:
 
 
 def product_tree_snapshot(base: Path) -> dict:
-    """The exact Git-visible product tree attested by proof commands."""
+    """The exact Git-visible product tree attested by proof commands.
+
+    WORKFLOW_PATHS (.factory/, plans/) are excluded from EVERY field, not just
+    `dirty`: proof commands legitimately churn them — verify.py appends a
+    .factory/events/ entry on every run, the stage tracker and events ledger
+    move — so including them made the read-only check flag its own bookkeeping
+    ("proof commands changed the product tree") for exactly the read-only runs
+    it is meant to pass. This check judges PRODUCT read-only-ness only. Git
+    pathspec `:(exclude)` drops the workflow paths at the git level so raw
+    status/diff output never carries them.
+    """
+    exclude = ["--"] + [f":(exclude){p.rstrip('/')}" for p in WORKFLOW_PATHS]
     tracked = [
-        rel for rel in _git(base, "ls-files", "-z", "--cached").split("\0")
+        rel for rel in _git(base, "ls-files", "-z", "--cached", *exclude).split("\0")
         if rel
     ]
-    index_stage = _git(base, "ls-files", "--stage", "-z")
+    index_stage = _git(base, "ls-files", "--stage", "-z", *exclude)
     dirty = [
         rel for rel in dirty_paths(base)
         if not rel.startswith(WORKFLOW_PATHS)
@@ -388,11 +399,11 @@ def product_tree_snapshot(base: Path) -> dict:
         digests[rel] = digest
     return {
         "head": head_sha(base) or "",
-        "status": _git(base, "status", "--porcelain=v2", "-z", "-uall"),
-        "worktree_raw": _git(base, "diff", "--raw", "-z"),
-        "index_raw": _git(base, "diff", "--cached", "--raw", "-z"),
+        "status": _git(base, "status", "--porcelain=v2", "-z", "-uall", *exclude),
+        "worktree_raw": _git(base, "diff", "--raw", "-z", *exclude),
+        "index_raw": _git(base, "diff", "--cached", "--raw", "-z", *exclude),
         "index_stage": index_stage,
-        "index_flags": _git(base, "ls-files", "-v", "-z"),
+        "index_flags": _git(base, "ls-files", "-v", "-z", *exclude),
         "tracked": {rel: digests[rel] for rel in tracked},
         "dirty": {rel: digests[rel] for rel in dirty},
     }
