@@ -8350,8 +8350,12 @@ def test_roadmap_gate_workflow_shape():
     assert "fetch-depth: 0" in pr_job and "fetch-depth: 0" not in coverage_job
     assert "github.event_name == 'push'" in coverage_job
     assert "github.ref_name == github.event.repository.default_branch" in coverage_job
-    for name in ("BASE_SHA", "HEAD_BRANCH", "PR_BODY"):
+    for name in ("HEAD_SHA", "HEAD_BRANCH", "PR_BODY"):
         assert f"{name}:" in pr_job and f"{name}:" not in coverage_job
+    # BASE_SHA is derived from the merge-base of the PR head and its target, not
+    # declared as an env var (fix/pr-ticket-check-merge-base).
+    assert 'BASE_SHA="$(git merge-base' in pr_job
+    assert "BASE_SHA:" not in pr_job
     for job in (pr_job, coverage_job):
         assert job.count("id: arm") == 1
         assert job.count("constitution/VENDORED_FROM") == 1
