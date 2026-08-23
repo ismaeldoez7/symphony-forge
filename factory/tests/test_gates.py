@@ -1427,6 +1427,39 @@ def test_symlinked_manifest_is_refused(repo, tmp_path):
     assert 'signoff_record: ""' in real.read_text(), "wrote through the symlink"
 
 
+def test_vendor_manifest_is_line_ending_independent(repo):
+    """A manifest generated on a Windows working tree (CRLF) must still verify
+    on a Linux CI checkout (LF). Hashing raw bytes made the whole gate surface
+    read as vendor-drift right after a Windows re-vendor (project audit /
+    roadmap-gate); compute_hashes now normalises CRLF->LF."""
+    from importlib import import_module
+    import sys
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    sys.modules.pop("check_vendor_integrity", None)
+    cvi = import_module("check_vendor_integrity")
+
+    target = next(p for p in (repo / cvi.GATE_TREES[0]).rglob("*.py")
+                  if p.is_file())
+    lf = target.read_bytes().replace(b"\r\n", b"\n")
+    crlf = lf.replace(b"\n", b"\r\n")
+
+    # Manifest generated from LF content (a Linux re-vendor); a CRLF working
+    # tree (Windows checkout) of the same file must NOT read as drift.
+    target.write_bytes(lf)
+    cvi.write_manifest(repo, "test-commit")
+    assert cvi.integrity_problems(repo) == []
+    target.write_bytes(crlf)
+    assert cvi.integrity_problems(repo) == [], \
+        "CRLF working tree must verify against an LF manifest"
+
+    # And the reverse: manifest from CRLF (a Windows re-vendor), verified on a
+    # LF checkout (Linux CI) — the exact roadmap-gate failure this fixes.
+    cvi.write_manifest(repo, "test-commit")
+    target.write_bytes(lf)
+    assert cvi.integrity_problems(repo) == [], \
+        "LF checkout must verify against a CRLF manifest"
+
+
 def test_migration_ignores_a_mentioned_but_unset_key(repo):
     """The key must be detected as a real top-level assignment: a project-owned
     harness.yaml may mention it in a comment, and a substring test would then
