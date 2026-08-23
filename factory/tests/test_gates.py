@@ -17352,6 +17352,12 @@ def test_vendored_client_extends_workflow_prefixes(repo, tmp_path):
     assert "factory/" in workflow_prefixes(repo)
     assert out_of_scope(repo, ["factory/scripts/x.py"], ["apps/api"]) == []
 
+    # Top-level vendored harness FILES are excluded too (not only directories):
+    # a coordinator's own harness patch can leave WORKFLOW.md dirty at stage
+    # start, and reverting it mid-stage must not read as an out-of-scope change.
+    assert "WORKFLOW.md" in workflow_prefixes(repo)
+    assert out_of_scope(repo, ["WORKFLOW.md"], ["apps/api"]) == []
+
     # A source-harness checkout has no marker: factory/ IS the product.
     source = tmp_path / "source"
     shutil.copytree(repo, source)
@@ -17361,6 +17367,8 @@ def test_vendored_client_extends_workflow_prefixes(repo, tmp_path):
     assert out_of_scope(
         source, ["factory/scripts/x.py"], ["apps/api"]
     ) == ["factory/scripts/x.py"]
+    assert "WORKFLOW.md" not in workflow_prefixes(source)
+    assert out_of_scope(source, ["WORKFLOW.md"], ["apps/api"]) == ["WORKFLOW.md"]
 
 
 def test_rerecord_active_task_contract_change_warns_and_clears_stamp(
