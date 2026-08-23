@@ -52,6 +52,12 @@ WORKFLOW_PATHS = (".factory/", "plans/")
 HARNESS_MACHINERY_PATHS = (
     "factory/", ".claude/", ".codex/", ".github/", "constitution/",
     "harness/", ".gstack/",
+    # Top-level vendored harness FILES (not directories) that `forge upgrade`
+    # rewrites and a client never authors as its own product. Excluding them
+    # keeps the per-task scope/dirt check honest when the coordinator's own
+    # harness patch left one dirty at stage start (startswith matches the
+    # exact filename; no product file shares these prefixes).
+    "WORKFLOW.md",
 )
 
 
