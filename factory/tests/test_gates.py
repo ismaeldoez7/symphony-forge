@@ -17365,6 +17365,12 @@ def test_vendored_client_extends_workflow_prefixes(repo, tmp_path):
     assert "factory/" in workflow_prefixes(repo)
     assert out_of_scope(repo, ["factory/scripts/x.py"], ["apps/api"]) == []
 
+    # Top-level vendored harness FILES are excluded too (not only directories):
+    # a coordinator's own harness patch can leave WORKFLOW.md dirty at stage
+    # start, and reverting it mid-stage must not read as an out-of-scope change.
+    assert "WORKFLOW.md" in workflow_prefixes(repo)
+    assert out_of_scope(repo, ["WORKFLOW.md"], ["apps/api"]) == []
+
     # A source-harness checkout has no marker: factory/ IS the product.
     source = tmp_path / "source"
     shutil.copytree(repo, source)
@@ -17374,6 +17380,8 @@ def test_vendored_client_extends_workflow_prefixes(repo, tmp_path):
     assert out_of_scope(
         source, ["factory/scripts/x.py"], ["apps/api"]
     ) == ["factory/scripts/x.py"]
+    assert "WORKFLOW.md" not in workflow_prefixes(source)
+    assert out_of_scope(source, ["WORKFLOW.md"], ["apps/api"]) == ["WORKFLOW.md"]
 
 
 def test_rerecord_active_task_contract_change_warns_and_clears_stamp(
@@ -17436,3 +17444,58 @@ def test_active_task_user_facing_is_per_task(repo):
     (control / "stages.json").write_text(
         json.dumps({"issue": "S", "stages": [{"id": "T1", "status": "done"}]}))
     assert active_task_user_facing(repo) is False
+
+
+# --- fix/coordinator-contract-and-windows-lock-read ---------------------------
+# The Windows lock-read race in the authority snapshot, and robust required-test
+# attribution (vitest/jest leaf names + classname / root-relative file paths).
+
+
+def test_protected_authority_snapshot_excludes_locks(repo):
+    """The transient locks/ subtree is not attested authority: the delegation
+    machinery holds those files open (exclusively on Windows) while the snapshot
+    runs, so including them attests nothing durable and hard-fails the read on
+    Windows. Non-lock authority is still captured."""
+    from factory_lib import git_control_dir
+    from forge_cli.stages import protected_authority_snapshot
+
+    control = git_control_dir(repo)
+    control.mkdir(parents=True, exist_ok=True)
+    (control / "run.json").write_text('{"issue_key":"X"}')
+    (control / "locks" / "task").mkdir(parents=True, exist_ok=True)
+    (control / "locks" / "task" / "T1.lock").write_text('{"kind":"stage-close"}')
+    snap = protected_authority_snapshot(repo)
+    assert "run.json" in snap, "snapshot must still capture non-lock authority"
+    assert not any(rel == "locks" or rel.startswith("locks/") for rel in snap)
+
+
+def test_junit_case_matches_id_exact_and_leaf():
+    import xml.etree.ElementTree as ET
+
+    from forge_cli.stages import _junit_case_matches_id
+
+    exact = ET.fromstring('<testcase name="t1-boot-migrate"/>')
+    leaf = ET.fromstring(
+        '<testcase name="application backbone &gt; t1-boot-migrate"/>')
+    other = ET.fromstring('<testcase name="unrelated case"/>')
+    assert _junit_case_matches_id(exact, "t1-boot-migrate")
+    assert _junit_case_matches_id(leaf, "t1-boot-migrate")
+    assert not _junit_case_matches_id(other, "t1-boot-migrate")
+
+
+def test_junit_case_attributed_file_or_classname_suffix():
+    import xml.etree.ElementTree as ET
+
+    from forge_cli.stages import _junit_case_attributed
+
+    rel = "apps/api/test/backbone.e2e-spec.ts"
+    # vitest/jest: the source path is in `classname`, relative to the runner root
+    vitest = ET.fromstring(
+        '<testcase classname="test/backbone.e2e-spec.ts" name="t1-boot-migrate"/>')
+    # some runners emit an explicit `file`, repo-relative with a ./ prefix
+    withfile = ET.fromstring(f'<testcase file="./{rel}" name="t1-boot-migrate"/>')
+    wrong = ET.fromstring(
+        '<testcase classname="test/other.spec.ts" name="t1-boot-migrate"/>')
+    assert _junit_case_attributed(vitest, rel)
+    assert _junit_case_attributed(withfile, rel)
+    assert not _junit_case_attributed(wrong, rel)
