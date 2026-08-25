@@ -2459,7 +2459,11 @@ def test_decomposition_not_frozen_by_previous_story_authority(repo, tmp_path):
     assert "Cleared stale protected authority" in out
     assert json.loads(protected.read_text())["story"] == "ENG-2"
 
-    # Same-story re-record keeps the freeze: a NON-prefix rewrite still fails.
+    # Same-story freeze still applies to STARTED work: once T2-1 is done, a
+    # non-prefix rewrite is frozen. (An unstarted rewrite would instead be an
+    # amendment — allowed but human-gated — which is covered elsewhere.)
+    write_stages(repo, {"issue": "ENG-2", "stages": [
+        {"id": "T2-1", "title": "receipts slice", "status": "done"}]})
     rogue = [{**DECOMP["tasks"][0], "id": "T2-ROGUE", "title": "rewrite"}]
     code, out = run(repo, "record_decomposition_from_json.py",
                     stdin=json.dumps({**DECOMP, "tasks": [
@@ -11976,6 +11980,9 @@ def test_initial_recording_is_fully_skeletal_and_graph_freezes(repo, tmp_path):
     )
     assert code == 0, out
 
+    # Nothing has STARTED yet: the pending graph may be reshaped, but every such
+    # change is an APPROVED-PLAN AMENDMENT (it prints the amendment NOTE and marks
+    # the approval/grills stale), never a silent reshuffle.
     graph_edits = [
         [{**first, "id": "RENAMED"},
          {**second, "dependencies": ["RENAMED"]}],
@@ -11988,7 +11995,38 @@ def test_initial_recording_is_fully_skeletal_and_graph_freezes(repo, tmp_path):
             repo, "record_decomposition_from_json.py",
             stdin=json.dumps({**DECOMP, "tasks": tasks}),
         )
-        assert code != 0 and "task graph is frozen" in out
+        assert code == 0 and "AMENDED" in out, out
+    # Restore the original skeleton for the checks that follow.
+    run(repo, "record_decomposition_from_json.py",
+        stdin=json.dumps({**DECOMP, "tasks": [first, second]}))
+
+    # Once T1 has STARTED (here: done) its graph position — id, order,
+    # dependencies — is HARD frozen; only `forge task reopen` can move started
+    # work, a plain re-record cannot.
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [
+            {"id": "T1", "title": first["title"], "status": "done"},
+            {"id": "T2", "title": second["title"], "status": "pending"},
+        ],
+    })
+    for tasks in (
+        [{**first, "id": "RENAMED"}, {**second, "dependencies": ["RENAMED"]}],
+        [{**second, "dependencies": []}, {**first, "dependencies": ["T2"]}],
+    ):
+        code, out = run(
+            repo, "record_decomposition_from_json.py",
+            stdin=json.dumps({**DECOMP, "tasks": tasks}),
+        )
+        assert code != 0 and "frozen for work that has started" in out, out
+    # Back to pending so the append + frontier-detail checks below are unaffected.
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [
+            {"id": "T1", "title": first["title"], "status": "pending"},
+            {"id": "T2", "title": second["title"], "status": "pending"},
+        ],
+    })
 
     appended = {**skeletal_stage_task("T3", "split-out slice"),
                 "dependencies": ["T2"]}
@@ -11997,13 +12035,13 @@ def test_initial_recording_is_fully_skeletal_and_graph_freezes(repo, tmp_path):
         repo, "record_decomposition_from_json.py",
         stdin=json.dumps({**DECOMP, "tasks": [first, second, detailed_append]}),
     )
-    assert code != 0 and "appended task must be skeletal" in out
+    assert code != 0 and "pending non-frontier task must not declare" in out, out
     empty_detail_append = {**appended, "write_scope": []}
     code, out = run(
         repo, "record_decomposition_from_json.py",
         stdin=json.dumps({**DECOMP, "tasks": [first, second, empty_detail_append]}),
     )
-    assert code != 0 and "appended task must be skeletal" in out
+    assert code != 0 and "pending non-frontier task must not declare" in out, out
     code, out = run(
         repo, "record_decomposition_from_json.py",
         stdin=json.dumps({**DECOMP, "tasks": [first, second, appended]}),
@@ -12030,6 +12068,37 @@ def test_initial_recording_is_fully_skeletal_and_graph_freezes(repo, tmp_path):
         stdin=json.dumps({**DECOMP, "tasks": [repaired, second, appended]}),
     )
     assert code == 0, out
+
+
+def test_task_reopen_moves_frontier_back_and_ripples_the_done_tail(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    record_skeleton_then_frontier(
+        repo, [skeletal_stage_task("T1"), skeletal_stage_task("T2")])
+    # T1 and the tail built on it (T2) are both done but unshipped.
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [
+            {"id": "T1", "title": "first", "status": "done", "task_sha256": "abc",
+             "local_review_stamp": {"score": 9}},
+            {"id": "T2", "title": "second", "status": "done", "task_sha256": "def"},
+        ],
+    })
+    code, out = run(repo, "forge.py", "task", "reopen", "T1")
+    assert code == 0 and "Reopened" in out and "T1" in out and "T2" in out, out
+    # T1 is now the pending frontier again; reopening a pending task refuses.
+    code, out = run(repo, "forge.py", "task", "reopen", "T1")
+    assert code != 0 and "not done" in out, out
+
+
+def test_task_reopen_refuses_a_task_not_in_the_decomposition(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    record_skeleton_then_frontier(repo, [skeletal_stage_task("T1")])
+    code, out = run(repo, "forge.py", "task", "reopen", "NOPE")
+    assert code != 0 and "not in the current decomposition" in out, out
 
 
 def test_done_contracts_immutable_and_criteria_map_binds_plan_contracts(
