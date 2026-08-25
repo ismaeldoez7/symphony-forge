@@ -7,12 +7,13 @@ import os
 import re
 import shutil
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 from factory_lib import (
     clean_git_env, dump_json, evidence_path, git_control_dir, load_json, now_iso,
     plan_digest_without_assumptions, repo_root, require_ready_task,
-    require_task_sealed,
+    require_plan_mode_marker, require_task_sealed,
     protected_decomposition_state_path, run_state_path,
     task_marker_on_main, task_marker_path, validate_payload,
 )
@@ -64,7 +65,9 @@ def _task_plan_path(base: Path, task_id: str, *, for_write: bool = False) -> Pat
 
 def cmd_plan_save(args: argparse.Namespace) -> None:
     base = Path(args.repo).resolve() if args.repo else repo_root()
-    require_ready_task(base, args.id, require_approval=False)
+    require_ready_task(
+        base, args.id, require_approval=False, require_grill=False,
+    )
     source = Path(args.source).expanduser()
     if not source.is_file():
         fail(f"task plan source {source} not found — pass the plan-mode file via --from")
@@ -74,9 +77,29 @@ def cmd_plan_save(args: argparse.Namespace) -> None:
         fail("task plan source must be UTF-8 Markdown")
     if not content.strip():
         fail("task plan source must not be empty")
+    require_plan_mode_marker(base, source)
     dest = _task_plan_path(base, args.id, for_write=True)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(content, encoding="utf-8")
+    state = load_json(run_state_path(base), default={})
+    story = state.get("issue_key") or state.get("story")
+    grill_path = evidence_path(
+        base, story, f"grills/tasks/{args.id}.json", for_write=True,
+    )
+    grill = load_json(grill_path, default={})
+    if grill and "task_plan_sha256" not in grill:
+        try:
+            grilled_at = datetime.fromisoformat(grill["recorded_at"])
+            if grilled_at.tzinfo is None:
+                grilled_at = grilled_at.replace(tzinfo=timezone.utc)
+            saved_at = datetime.fromtimestamp(dest.stat().st_mtime, timezone.utc)
+        except (KeyError, TypeError, ValueError, OSError):
+            pass
+        else:
+            if grilled_at <= saved_at:
+                grill["task_plan_sha256"] = plan_digest_without_assumptions(dest)
+                validate_payload(base, "grill", grill)
+                dump_json(grill_path, grill)
     print(f"Saved task plan: {dest.relative_to(base)}")
 
 
@@ -92,6 +115,7 @@ def cmd_approve(args: argparse.Namespace) -> None:
             f"task approval refused: no saved task plan for {args.id}. "
             f"Run `./forge task plan save {args.id} --from <path>` first."
         )
+    require_plan_mode_marker(base, plan)
     state = load_json(run_state_path(base), default={})
     story = state.get("issue_key") or state.get("story")
     grill_path = evidence_path(
