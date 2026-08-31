@@ -1566,14 +1566,24 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     def ponytail_ok() -> bool:
         return ponytail_cache.is_dir() and any(ponytail_cache.glob("*ponytail*"))
 
+    # ponytail is the minimal-diff coding discipline EVERY code writer/editor
+    # follows (the implementer brief inlines its ladder; prototype 0b uses it
+    # too), so --fix installs it alongside the other required skills.
+    if not ponytail_ok() and args.fix and claude_bin:
+        print("[fix ] installing the ponytail plugin ...")
+        install_claude_plugin(
+            "https://github.com/DietrichGebert/ponytail",
+            "ponytail@ponytail",
+        )
+
     checks.append(_check(
         "ponytail plugin",
         ponytail_ok(),
         "installed" if ponytail_ok() else "not installed",
         "`claude plugin marketplace add https://github.com/DietrichGebert/ponytail && "
         "claude plugin install ponytail@ponytail` "
-        "(prototype phase 0b only — see harness.yaml)",
-        required=False,
+        "(the minimal-diff coding discipline every implementer follows) — "
+        "or rerun with --fix",
     ))
 
     width = max(len(c["name"]) for c in checks)

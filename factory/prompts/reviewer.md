@@ -85,6 +85,15 @@ Procedure:
      `reviewer_focus` citations — the constitution, not your taste, is the standard
      (do not impose an invented layout beyond it). This holds whichever engine runs
      the lens and in any environment: `constitution/` is on disk, always readable.
+     **Cyclomatic complexity — assess EVERY review, no exceptions.** Measure the
+     branching complexity of each function/method the diff adds or changes; any
+     whose control flow is excessively tangled (roughly >10 independent paths —
+     deep nesting, long if/elif/switch chains, compound boolean conditions) is a
+     BLOCKING finding under a stable `cyclomatic-complexity` category, naming the
+     decomposition it needs (guard clauses, extracted helpers, table/polymorphic
+     dispatch). Flag genuinely knotted control flow, never mere file or line
+     count — constitution-mandated structure is never the target, and a run of
+     simple sequential statements is not complexity.
      When the decomposition has `user_facing: true`, loading the
      `review-animations` skill as input to this lens is MANDATORY
      (easing/duration/spring choices, reduced-motion) — attest it in each
