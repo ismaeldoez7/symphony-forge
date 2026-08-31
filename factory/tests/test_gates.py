@@ -17200,7 +17200,7 @@ def test_init_vendors_only_the_harness_owned_skill_not_a_source_decoy(
     ))
 
     assert {
-        str(path.relative_to(target / ".claude"))
+        path.relative_to(target / ".claude").as_posix()
         for path in (target / ".claude").rglob("*") if path.is_file()
     } == {"CLAUDE.md", "settings.json", "skills/forge/SKILL.md"}
     assert {

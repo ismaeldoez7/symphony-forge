@@ -112,11 +112,15 @@ phases:
         when: "naming a motion effect precisely in a spec or prompt"
     notes: >-
       Ponytail is the BINDING minimal-diff coding discipline for whoever writes
-      or edits code — held strictly, but NOT a record-time attestation gate:
-      doctor installs the skill into BOTH runtimes' skill dirs (so the Codex
-      delegate LOADS and runs it, not only Claude), `./forge delegate` also
-      inlines the full ladder into every implementer brief as the offline floor,
-      rather than the recorder demanding it in skills_used.
+      or edits code — held strictly, but NOT a record-time attestation gate.
+      It is enforced on BOTH ends: (1) doctor installs the skill (REQUIRED) into
+      both runtimes' skill dirs from upstream, so a re-run of `doctor --fix`
+      picks up updates — never vendor the skill files into the repo; (2) since a
+      per-machine install can be missing, `./forge delegate` ALWAYS inlines the
+      full ladder into every implementer brief as the guaranteed floor, so the
+      delegate is never without it; (3) the autoreview quality lens flags
+      ladder violations (over-engineering) at review. The recorder never demands
+      it in skills_used.
       The implementer also writes and runs the automated tests and records
       the testing artifact — there is no separate tester subagent.
       Design skills (emilkowalski/skills + Anthropic frontend-design,

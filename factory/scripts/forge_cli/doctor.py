@@ -1592,10 +1592,17 @@ def cmd_doctor(args: argparse.Namespace) -> None:
                 "https://github.com/DietrichGebert/ponytail.git", tmp,
             ])
             src = Path(tmp) / "skills" / "ponytail"
-            if code == 0 and src.is_dir():
+            # Gate the copy on the actual SKILL.md, not just the directory: a
+            # partial or failed clone must leave the row RED, never a
+            # half-install that reads as ready.
+            if code == 0 and (src / "SKILL.md").is_file():
                 for dest in ponytail_homes:
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copytree(src, dest, dirs_exist_ok=True)
+            else:
+                print("[warn] ponytail install failed (clone or SKILL.md "
+                      "missing) — the implementer brief still carries the "
+                      "discipline inline, but native loading is unavailable.")
 
     checks.append(_check(
         "ponytail skill (both runtimes)",
