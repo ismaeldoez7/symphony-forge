@@ -17200,18 +17200,13 @@ def test_init_vendors_only_the_harness_owned_skill_not_a_source_decoy(
     ))
 
     assert {
-        str(path.relative_to(target / ".claude")).replace("\\", "/")
+        str(path.relative_to(target / ".claude"))
         for path in (target / ".claude").rglob("*") if path.is_file()
-    } == {
-        "CLAUDE.md", "settings.json",
-        "skills/forge/SKILL.md",
-        "skills/grill-me/SKILL.md",
-        "skills/ponytail/SKILL.md",
-    }
+    } == {"CLAUDE.md", "settings.json", "skills/forge/SKILL.md"}
     assert {
         path.parent.name
         for path in (target / ".codex" / "skills").glob("*/SKILL.md")
-    } == {"forge", "grill-me", "ponytail"}
+    } == {"forge"}
     code, out = run(target, "check_dual_runtime.py", str(target))
     assert code == 0, out
 

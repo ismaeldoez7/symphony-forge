@@ -13,7 +13,7 @@ from factory_lib import dump_json, head_sha, now_iso, repo_root
 from .common import fail
 
 COPY_TREES = ["factory", "constitution", "harness"]
-HARNESS_OWNED_SKILLS = ("forge", "grill-me", "ponytail")
+HARNESS_OWNED_SKILLS = ("forge",)
 COPY_CLAUDE = ("CLAUDE.md", "settings.json")
 INIT_COPY_TREES = [
     *COPY_TREES,

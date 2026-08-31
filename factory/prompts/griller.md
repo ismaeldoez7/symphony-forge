@@ -23,10 +23,9 @@ Interrogate as an adversary trying to break the handover, never as its author
 defending it.
 
 The read-only Codex cold-reader LOADS and RUNS the `grill-me` skill (Matt
-Pocock's, vendored in this repo at `.codex/skills/grill-me`, present in the
-worktree) to structure its interrogation; this contract is the harness-side
-floor, the skill is the technique. In Claude, the `/grill-me` skill (repo
-`.claude/skills/grill-me`) satisfies the same.
+Pocock's, installed into `~/.codex/skills/grill-me` by `./forge doctor --fix`)
+to structure its interrogation; this contract is the harness-side floor, the
+skill is the technique. In Claude, the `/grill-me` skill satisfies the same.
 
 For the two gates whose rounds are recorded from the AskUserQuestion ledger
 (`--gate plan` and `--gate task`, decision 0048), independence is a COLD READ,

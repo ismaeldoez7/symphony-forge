@@ -72,11 +72,10 @@ Say: **"Set up my machine for KnackLabs projects."**
 
 `--fix` auto-installs everything installable (Codex CLI via npm,
 codex-plugin-cc via the `claude plugin` CLI, gstack and autoreview from their
-GitHub repos, mattpocock/skills, emilkowalski/skills, and Anthropic's
-frontend-design via the `skills` CLI). The `grill-me` and `ponytail` skills are
-**vendored into the repo** (`.claude/skills/` + `.codex/skills/`) and shipped to
-every project, so both runtimes load them from any worktree — no per-machine
-install. On Windows it also
+GitHub repos, mattpocock/skills — grill-me mirrored into `~/.codex/skills` too
+— emilkowalski/skills, Anthropic's frontend-design via the `skills` CLI, and
+ponytail cloned into BOTH `~/.claude/skills` and `~/.codex/skills` so Claude and
+Codex each load it). On Windows it also
 installs Git for Windows and Python 3.10+ through winget in user scope; Forge
 does not elevate itself, though an installer may show its own Windows prompt.
 See [Windows support](windows.md) for the native flow and WSL2 escape hatch.
