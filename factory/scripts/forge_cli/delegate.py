@@ -996,7 +996,13 @@ def compose_brief(base: Path, task: dict, *, write: bool, user_facing: bool,
     ]
     body = "\n".join(lines) + "\n"
     body += _section("Constitution — coding standards (BINDING)", CONSTITUTION_BRIEF)
-    body += _section("Ponytail — minimal-diff coding discipline (BINDING)", PONYTAIL_BRIEF)
+    body += _section(
+        "Ponytail — minimal-diff coding discipline (BINDING)",
+        "LOAD and RUN the `ponytail` skill from your Codex skills dir "
+        "(`~/.codex/skills/ponytail`, installed by `./forge doctor --fix`) and hold "
+        "it on every line you write or edit. Its rules are reproduced below as the "
+        "binding floor in case your runtime cannot load it:\n\n"
+        + (_skill_text("ponytail") or PONYTAIL_BRIEF))
     body += _section("Objective", task.get("objective", ""))
     body += _section("Acceptance criteria", "\n".join(
         f"- {c}" for c in task.get("acceptance_criteria") or []))
