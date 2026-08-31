@@ -909,9 +909,16 @@ def existing_modules(base: Path, scope: list[str]) -> list[str]:
     return found
 
 
-def _skill_text(skill: str) -> str:
-    for candidate in (Path.home() / ".claude" / "skills" / skill / "SKILL.md",
-                      Path.home() / ".codex" / "skills" / skill / "SKILL.md"):
+def _skill_text(skill: str, base: Path | None = None) -> str:
+    candidates = []
+    if base is not None:
+        # Repo-vendored copy first: it travels with every worktree/checkout, so
+        # the coordinator inlines the SAME text the delegate loads, offline.
+        candidates += [base / ".codex" / "skills" / skill / "SKILL.md",
+                       base / ".claude" / "skills" / skill / "SKILL.md"]
+    candidates += [Path.home() / ".claude" / "skills" / skill / "SKILL.md",
+                   Path.home() / ".codex" / "skills" / skill / "SKILL.md"]
+    for candidate in candidates:
         if candidate.is_file():
             return candidate.read_text(encoding="utf-8")[:SKILL_INLINE_CHARS]
     return ""
@@ -998,11 +1005,11 @@ def compose_brief(base: Path, task: dict, *, write: bool, user_facing: bool,
     body += _section("Constitution — coding standards (BINDING)", CONSTITUTION_BRIEF)
     body += _section(
         "Ponytail — minimal-diff coding discipline (BINDING)",
-        "LOAD and RUN the `ponytail` skill from your Codex skills dir "
-        "(`~/.codex/skills/ponytail`, installed by `./forge doctor --fix`) and hold "
-        "it on every line you write or edit. Its rules are reproduced below as the "
-        "binding floor in case your runtime cannot load it:\n\n"
-        + (_skill_text("ponytail") or PONYTAIL_BRIEF))
+        "LOAD and RUN the `ponytail` skill vendored in this repo at "
+        "`.codex/skills/ponytail` (present in your worktree) and hold it on every "
+        "line you write or edit. Its rules are reproduced below as the binding "
+        "floor in case your runtime cannot load it:\n\n"
+        + (_skill_text("ponytail", base) or PONYTAIL_BRIEF))
     body += _section("Objective", task.get("objective", ""))
     body += _section("Acceptance criteria", "\n".join(
         f"- {c}" for c in task.get("acceptance_criteria") or []))
@@ -1037,7 +1044,7 @@ def compose_brief(base: Path, task: dict, *, write: bool, user_facing: bool,
         body += _section("Implementer contract", prompt.read_text(encoding="utf-8"))
     if user_facing:
         for skill in required_skills(base):
-            text = _skill_text(skill)
+            text = _skill_text(skill, base)
             body += _section(
                 f"Design rules — {skill} (inlined; your runtime cannot load it)",
                 text or f"NOT INSTALLED on this machine. `./forge doctor --fix` "
