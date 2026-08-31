@@ -9193,6 +9193,35 @@ def test_check_pr_ticket_fails_no_ticket(repo):
     assert code != 0 and "no ticket was found" in out, out
 
 
+def test_check_pr_ticket_harness_source_dev_accepts_ticket(repo):
+    # The harness-SOURCE repo defines the roadmap/quickfix machinery, so its own
+    # development PRs complete no client story; a `Ticket:` line tracks them.
+    (repo / ".factory").mkdir(exist_ok=True)
+    (repo / ".factory" / "harness-source.json").write_text("{}\n")
+    base = pr_ticket_base(repo)
+    (repo / "factory" / "scripts" / "verify.py").write_text("# harness change\n")
+    git(repo, "add", "factory/scripts/verify.py")
+    git(repo, "commit", "-q", "-m", "feat: harness change")
+
+    code, out = check_pr_ticket(
+        repo, base, "feat/ponytail-and-cyclomatic", body="Ticket: 152\n")
+
+    assert code == 0 and "harness-source development PR" in out, out
+
+
+def test_check_pr_ticket_harness_source_dev_requires_a_ticket(repo):
+    (repo / ".factory").mkdir(exist_ok=True)
+    (repo / ".factory" / "harness-source.json").write_text("{}\n")
+    base = pr_ticket_base(repo)
+    (repo / "factory" / "scripts" / "verify.py").write_text("# harness change\n")
+    git(repo, "add", "factory/scripts/verify.py")
+    git(repo, "commit", "-q", "-m", "feat: harness change")
+
+    code, out = check_pr_ticket(repo, base, "chore/no-ticket")
+
+    assert code != 0 and "harness-source development PR needs a" in out, out
+
+
 def test_check_pr_ticket_fails_missing_done_flip(repo):
     key = "BOARD-103"
     base = pr_ticket_base(repo, key)
