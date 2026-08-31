@@ -98,10 +98,10 @@ A task is not PR-ready until all of these exist:
 ## Non-Negotiables
 
 - The constitution binds HOW code is written (not just conduct) for EVERY executor — Claude, Codex, or any subagent, any environment: follow the `constitution/README.md` coding standards at implement/grill/review, cite them, never re-derive. Approval then LOCKS the contract until the PR opens — any post-approval change stops for the human (done+shipped is immutable → new task; done-but-unshipped → `forge task reopen`; active → amend + re-grill); never reshuffle the graph on your own authority.
+- Run ponytail on EVERY code change (write OR edit), any executor — Claude, Codex, or any subagent: climb the minimal-diff ladder (necessity/YAGNI → reuse what exists → stdlib → native → installed dep → one line → minimum viable), lazy but never negligent (never drop validation, error handling, security, or accessibility). The delegate brief always inlines it and review enforces it (harness.yaml implementation notes); it is not a record-time gate.
 - Keep tasks bounded and capability-driven; plans bind one roadmap story and attest all active decisions.
 - The session write lock is always armed: delegate locked writes; use `forge mode degraded` only during a companion outage.
-- Do not decompose by document file or arbitrary file count.
-- Do not bypass `verify.py` with ad hoc validation commands.
+- Do not decompose by document file or arbitrary file count, nor bypass `verify.py` with ad hoc validation commands.
 - Evidence enters `.factory/` only via schema-validated recorders (pinned `generated_by`), never by hand.
 - Narration budget (conduct §8): one line per state change; findings and refusals always in full; process chatter never.
 - Review = the orchestrating session's autoreview (0011), looped until clean: review → delegate fixes to Codex → re-review; never a Codex review job, never nested reviewers.
