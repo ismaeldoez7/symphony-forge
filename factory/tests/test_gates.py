@@ -6117,6 +6117,29 @@ def test_record_task_grill_binds_derived_digest(repo):
     assert recorded["input_sha256"] == grounding_digest(repo, task)
 
 
+def test_board_survives_active_story_whose_approved_plan_is_gone(repo):
+    # A shipped/archived story can remain the active run pointer while its
+    # approved plan has moved out of plans/active/ (its task-plan + grill still
+    # exist). grounding_digest then raises SystemExit; the read-only board's
+    # task_rows/aggregate_state must degrade (grill = not-fresh), not crash the
+    # /api/state response and strand the connection pill on "connecting".
+    from factory_lib import task_rows
+    from forge_cli.board import aggregate_state
+
+    task = STAGE_TASK
+    seed_task_grill_frontier(repo, task)
+    code, out = record_task_grill(repo, task)
+    assert code == 0, out
+    assert task_rows(repo)  # sanity: rows build while the plan is present
+
+    (repo / "plans" / "active" / "TEST-1-test-plan.md").unlink()
+
+    rows = task_rows(repo)  # must NOT raise SystemExit
+    assert isinstance(rows, list)
+    assert not any(row.get("fresh") for row in rows)
+    assert isinstance(aggregate_state(repo), dict)  # /api/state stays 200
+
+
 def test_grounding_digest_staleness_matrix(repo):
     task = STAGE_TASK
     seed_task_grill_frontier(repo, task)
