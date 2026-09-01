@@ -1635,10 +1635,20 @@ def _task_grill_fresh(root: Path, task: dict, grill: dict) -> bool:
     plan_provenance_ok = (
         grill.get("task_plan_sha256") == plan_digest_without_assumptions(plan)
     )
+    try:
+        grounding = grounding_digest(root, task)
+    except SystemExit:
+        # The approved story plan is gone — e.g. a shipped or archived story
+        # whose plan moved out of plans/active/. A grill cannot be "fresh"
+        # against a plan that no longer exists, and read-only callers (the
+        # board's /api/state, `forge next`) must degrade, not crash. Gate
+        # callers that require the plan call grounding_digest directly and
+        # still raise.
+        return False
     return bool(
         grill.get("verdict") == "pass"
         and grill.get("commit")
-        and grill.get("input_sha256") == grounding_digest(root, task)
+        and grill.get("input_sha256") == grounding
         and plan_provenance_ok
     )
 
