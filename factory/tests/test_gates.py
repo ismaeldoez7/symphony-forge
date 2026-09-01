@@ -1047,6 +1047,37 @@ def test_board_and_history_read_shipped_story_dir(repo, tmp_path):
     assert "shipped" in out and "Story: ENG-1" in out
 
 
+def test_board_shows_shipped_story_tasks_when_plan_left_active_and_completed(
+    repo, tmp_path,
+):
+    # A shipped story's plan can move out of plans/active|completed (to debt/, or
+    # be archived) while its decomposition stays under .factory/stories/<key>/.
+    # The board must still render its task graph from the archived decomposition,
+    # never silently drop it to zero tasks (the "no task graph for a completed
+    # story" board bug).
+    from forge_cli.board import aggregate_state
+
+    prepare_pr_ready_story(repo, tmp_path, scoped_layout=True)
+    code, out = run(repo, "pr_ready.py")
+    assert code == 0, out
+
+    def eng1():
+        return next(s for s in aggregate_state(repo)["stories"] if s["key"] == "ENG-1")
+
+    assert eng1()["state"] == "shipped" and eng1()["tasks"], "tasks present at ship"
+
+    # Move the plan entirely out of the dirs the board scans for plan records.
+    (repo / "plans" / "debt").mkdir(exist_ok=True)
+    for location in ("active", "completed"):
+        for plan_file in (repo / "plans" / location).glob("*.md"):
+            plan_file.rename(repo / "plans" / "debt" / plan_file.name)
+
+    story = eng1()
+    assert story["state"] == "shipped"
+    assert story["tasks"], "shipped story's task graph must survive the plan moving"
+    assert story["lifecycle"]["planned"] is True
+
+
 def test_pr_ready_legacy_story_still_archives_to_history(repo, tmp_path):
     sign_off(repo)
     assert signed_off(repo)
