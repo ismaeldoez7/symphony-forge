@@ -39,6 +39,48 @@ def repo_root() -> Path:
     return Path(out.stdout.strip())
 
 
+CEREMONY_POINTER_NAME = "ceremony-target"
+
+
+def ceremony_pointer_path(root: Path) -> Path:
+    return root / ".factory" / CEREMONY_POINTER_NAME
+
+
+def read_ceremony_target(root: Path) -> Path | None:
+    """The validated ceremony-target checkout for ``root``, or None.
+
+    `forge ceremony target set` points one session's interactive ceremony
+    (AskUserQuestion grill rounds, plan-mode markers) at a sibling worktree so
+    a single session can orchestrate a second story there. Fail-open to the
+    session checkout: a missing, unreadable, relative, self-pointing or
+    non-factory target yields None so evidence is never dropped.
+    """
+    try:
+        raw = ceremony_pointer_path(root).read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    if not raw:
+        return None
+    target = Path(raw)
+    if not target.is_absolute():
+        return None
+    try:
+        resolved = target.resolve()
+        session = root.resolve()
+    except OSError:
+        return None
+    if resolved == session:
+        return None
+    if not (resolved / ".factory").is_dir():
+        return None
+    if not (resolved / "factory" / "schemas").is_dir():
+        # A bare .factory without the harness schemas would make hook-side
+        # validation fail and silently DROP evidence — only a full factory
+        # checkout qualifies as a ceremony target.
+        return None
+    return resolved
+
+
 def vendored_client(root: Path) -> bool:
     """True when this repo VENDORED the harness — factory/ and the vendored
     adapters/canon are infrastructure a `forge upgrade` may rewrite mid-task, not
