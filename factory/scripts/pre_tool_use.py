@@ -755,16 +755,24 @@ DISPLAY_SAFE_ARGV0 = {
 }
 
 
-# The one exec-capable option among DISPLAY_SAFE_ARGV0 tools: rg --pre /
-# --pre-glob run a preprocessor command. Every other flag (grep -n, rg -i,
-# tail -n, ls -la, head -c ...) only reads or formats, so a display command
-# that merely MENTIONS the companion may carry them.
-DISPLAY_EXEC_OPTIONS = ("--pre",)
+# Exec-capable or non-terminating options among DISPLAY_SAFE_ARGV0 tools,
+# per tool: rg --pre / --pre-glob run a preprocessor command; tail -f / -F /
+# --follow / --pid follow forever. Every other flag (grep -n, rg -i, tail -n,
+# ls -la, head -c ...) only reads or formats, so a display command that
+# merely MENTIONS the companion may carry them. Pager-style `+` tokens stay
+# denied. Per tool, because `-f` is a harmless read flag for grep/stat.
+DISPLAY_EXEC_OPTIONS = {
+    "rg": ("--pre",),
+    "tail": ("-f", "-F", "--follow", "--pid"),
+}
 
 
 def _display_safe(tokens):
-    """Display command whose options cannot execute anything."""
-    return not any(t.startswith(DISPLAY_EXEC_OPTIONS) for t in tokens[1:])
+    """Display command whose options cannot execute or hang."""
+    denied = DISPLAY_EXEC_OPTIONS.get(Path(tokens[0]).name, ())
+    return not any(
+        t.startswith("+") or t.startswith(denied) for t in tokens[1:]
+    )
 
 
 def _has_active_shell_syntax(value: str) -> bool:

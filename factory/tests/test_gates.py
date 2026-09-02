@@ -7405,12 +7405,15 @@ def test_hook_allows_display_options_on_companion_mentions(repo):
         assert code == 0 and "deny" not in out, command
 
 
-def test_hook_still_denies_rg_pre_on_companion_mentions(repo):
-    # rg --pre / --pre-glob run a preprocessor: the one exec-capable
-    # display option stays off-contract.
+def test_hook_still_denies_exec_capable_options_on_companion_mentions(repo):
+    # rg --pre / --pre-glob run a preprocessor and tail -f follows forever:
+    # the pinned exec-capable display options stay off-contract even though
+    # read/format flags are now allowed.
     for command in (
         "rg --pre ./decode codex-companion .",
         "rg --pre-glob '*.gz' --pre gunzip codex-companion .",
+        "tail -f /x/codex-companion.log",
+        "tail --follow=name /x/codex-companion.log",
     ):
         code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                                 "tool_input": {"command": command}})
