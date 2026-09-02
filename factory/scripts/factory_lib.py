@@ -796,16 +796,28 @@ def task_marker_on_main(root: Path, key: str, task_id: str) -> bool:
         text=True, env=clean_git_env(), encoding="utf-8", errors="surrogateescape",
     )
     if fetch.returncode != 0:
-        detail = fetch.stderr.strip() or fetch.stdout.strip()
-        raise SystemExit(
-            f"fetching origin/{trunk} failed" + (f": {detail}" if detail else "")
-        )
+        # No origin, or an offline/transient fetch: the marker cannot be
+        # confirmed on the trunk, so report not-yet-shipped rather than crashing
+        # every caller. `forge next` and the board read this on repos that have
+        # no origin (they never crash); the per-task ship gate re-checks live.
+        return False
     present = subprocess.run(
         ["git", "cat-file", "-e", f"origin/{trunk}:{marker.as_posix()}"],
         cwd=root, capture_output=True, text=True, env=clean_git_env(),
         encoding="utf-8", errors="surrogateescape",
     )
     return present.returncode == 0
+
+
+def _has_origin(root: Path) -> bool:
+    """Whether an `origin` remote is configured (cheap; no network). Marker-on-
+    trunk per-task routing only applies when there is a trunk to ship a PR to;
+    without an origin the frontier keeps its stage-status behaviour."""
+    result = subprocess.run(
+        ["git", "remote", "get-url", "origin"], cwd=root,
+        capture_output=True, text=True, env=clean_git_env(),
+    )
+    return result.returncode == 0
 
 
 def _windows_reparse_point(path: Path) -> bool:
@@ -1684,6 +1696,11 @@ def task_rows(root: Path) -> list[dict]:
     }
     rows = []
     key = _active_story_key(root)
+    # Per-task PRs are the symphony standard when an origin/trunk exists to ship
+    # to: a stage-done task reads "done" only once its completion marker is on the
+    # trunk, else "await-merge" — mirroring task_frontier_state so the board and
+    # `forge next` agree. Without an origin the row keeps its stage status.
+    has_origin = _has_origin(root)
     for task in tasks:
         task_id = task.get("id")
         stage = stage_by_id.get(task_id, {})
@@ -1691,15 +1708,10 @@ def task_rows(root: Path) -> list[dict]:
         grill = load_json(grill_path, default={})
         fresh = _task_grill_fresh(root, task, grill) if grill else False
         status = stage.get("status")
-        # Per-task PRs are the symphony standard in BOTH run-pointer modes
-        # (WORKFLOW.md Stage Loop). A stage-done task is "done" only once its
-        # completion marker is on the trunk; until then its row is "await-merge",
-        # mirroring task_frontier_state so the board and `forge next` agree.
-        marker_present = (
-            task_marker_on_main(root, key, task_id) if status == "done" else False
-        )
-        if status == "done":
-            state = "done" if marker_present else "await-merge"
+        if status == "done" and has_origin:
+            state = "done" if task_marker_on_main(root, key, task_id) else "await-merge"
+        elif status == "done":
+            state = "done"
         elif status == "active":
             state = "active"
         elif not _task_contract_complete(task):
@@ -1828,16 +1840,19 @@ def task_frontier_state(root: Path) -> tuple[str, dict] | None:
     # stage running in the story worktree). In story-level mode `_task_schedule`
     # folds stage-done tasks into `done`, so the frontier selection below would
     # skip past this task; this pre-check catches it first, before selection.
-    await_merge = next(
-        (
-            candidate for candidate in tasks
-            if stage_by_id.get(candidate.get("id"), {}).get("status") == "done"
-            and not task_marker_on_main(root, key, candidate.get("id"))
-        ),
-        None,
-    )
-    if await_merge is not None:
-        return "await-merge", await_merge
+    # Only applies when an origin/trunk exists to ship the PR to — a repo without
+    # an origin keeps the stage-status frontier (no per-task PR to await).
+    if _has_origin(root):
+        await_merge = next(
+            (
+                candidate for candidate in tasks
+                if stage_by_id.get(candidate.get("id"), {}).get("status") == "done"
+                and not task_marker_on_main(root, key, candidate.get("id"))
+            ),
+            None,
+        )
+        if await_merge is not None:
+            return "await-merge", await_merge
 
     ready = set(task_ready_ids(root))
     frontier = next(
