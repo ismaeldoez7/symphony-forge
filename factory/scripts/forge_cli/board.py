@@ -10,9 +10,13 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from factory_lib import (
-    evidence_path, load_json, now_iso, parse_sections, plan_digest_without_assumptions,
-    repo_root, run_state_path, task_rows,
+    evidence_path, load_json, now_iso, parse_sections,
+    plan_digest_without_assumptions, repo_root, run_state_path, story_dir, task_rows,
 )
+
+# Shipped/archived plans move out of active|completed; scan debt too or a
+# shipped story reads as unplanned (no plan, stale approval blockers).
+PLAN_LOCATIONS = ("active", "completed", "debt")
 from record_signoff import REQUIRED_BRIEF_HEADINGS
 
 from . import events
@@ -38,9 +42,28 @@ def _plan_records(base: Path, location: str) -> list[dict]:
     return records
 
 
+def _stages_for(base: Path, story: str) -> dict:
+    """Stage state for exactly this story.
+
+    Stage status lives in a single git-local ``stages.json`` keyed to the active
+    story, unlike every other evidence file (decomposition/verify/tests/reviews),
+    which is per-story. A per-story scoped snapshot wins when present; otherwise
+    the singleton is trusted only when its ``issue`` names THIS story — so a newly
+    active but undecomposed story no longer inherits the previous story's stages,
+    and a shipped story is not mislabelled from the next story's file.
+    """
+    if not story:  # no active story -> no active stages (story_dir rejects "")
+        return {}
+    scoped = story_dir(base, story) / "stages.json"
+    if scoped.is_file():
+        return load_json(scoped, default={})
+    data = load_json(base / ".factory" / "stages.json", default={})
+    return data if data.get("issue") == story else {}
+
+
 def _stage_summary(base: Path) -> dict:
     story = load_json(run_state_path(base), default={}).get("issue_key", "")
-    data = load_json(evidence_path(base, story, "stages.json"), default={})
+    data = _stages_for(base, story)
     items = data.get("stages", [])
     return {
         "issue": data.get("issue"),
@@ -104,7 +127,7 @@ def _plan_evidence(
                                default={}) if story else {})
     if not plan and not decomposition.get("tasks"):
         return None, {"verify": False, "tests": False, "reviews": empty_reviews}, []
-    stages_data = load_json(evidence_path(base, story, "stages.json"), default={})
+    stages_data = _stages_for(base, story)
     stages = stages_data.get("stages", [])
     progress = None
     if stages:
@@ -262,15 +285,13 @@ def aggregate_state(base: Path) -> dict:
     items = roadmap.get("items", [])
     ready, _ = ready_pending(items)
     frontier = [item["key"] for item in ready]
-    plans = {
-        "active": _plan_records(base, "active"),
-        "completed": _plan_records(base, "completed"),
-    }
+    plans = {loc: _plan_records(base, loc) for loc in PLAN_LOCATIONS}
     # `story` postdates the earliest plans; fall back to `issue`, or every
-    # story on a legacy project renders unplanned.
+    # story on a legacy project renders unplanned. Iterate so a live plan wins
+    # over an archived one for the same story (active is last, overwrites debt).
     plan_by_story = {
         plan.get("story") or plan.get("issue"): plan
-        for location in ("completed", "active")
+        for location in reversed(PLAN_LOCATIONS)
         for plan in plans[location]
         if plan.get("story") or plan.get("issue")
     }
@@ -437,7 +458,7 @@ def story_detail(base: Path, key: str) -> dict | None:
     if item is None:
         return None
     plan = next(
-        (record for location in ("active", "completed")
+        (record for location in PLAN_LOCATIONS
          for record in _plan_records(base, location)
          if record.get("story") == key or record.get("issue") == key),
         None,
@@ -448,8 +469,11 @@ def story_detail(base: Path, key: str) -> dict | None:
     active = load_json(run_state_path(base), default={}).get("issue_key")
     evidence = {
         name: load_json(evidence_path(base, key, f"{name}.json"), default=None)
-        for name in ("decomposition", "verify", "tests", "stages", "outcome")
+        for name in ("decomposition", "verify", "tests", "outcome")
     }
+    # Stages are the one evidence file that is not per-story on disk; read them
+    # issue-guarded so a shipped or non-active story shows its own task status.
+    evidence["stages"] = _stages_for(base, key) or None
     evidence["reviews"] = {
         aspect: load_json(
             evidence_path(base, key, f"reviews/{aspect}.json"), default=None)
