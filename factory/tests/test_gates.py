@@ -7421,6 +7421,86 @@ def test_hook_allows_readonly_companion_task_launch(repo):
         assert code == 0 and "deny" not in out, command
 
 
+def test_hook_allows_display_options_on_companion_mentions(repo):
+    # grep -n / rg -i / ls -la / tail -n only read or format: a display
+    # command that merely mentions the companion may carry them.
+    for command in (
+        "grep -n codex-companion factory/scripts",
+        "rg -n --ignore-case codex-companion .",
+        "ls -la /x/codex-companion.mjs",
+        "tail -n 20 /x/codex-companion.log",
+        "head -c 400 /x/codex-companion.mjs",
+    ):
+        code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                                "tool_input": {"command": command}})
+        assert code == 0 and "deny" not in out, command
+
+
+def test_hook_still_denies_exec_capable_options_on_companion_mentions(repo):
+    # rg --pre / --pre-glob run a preprocessor and tail -f follows forever:
+    # the pinned exec-capable display options stay off-contract even though
+    # read/format flags are now allowed.
+    for command in (
+        "rg --pre ./decode codex-companion .",
+        "rg --pre-glob '*.gz' --pre gunzip codex-companion .",
+        "tail -f /x/codex-companion.log",
+        "tail --follow=name /x/codex-companion.log",
+    ):
+        code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                                "tool_input": {"command": command}})
+        assert code == 0 and "deny" in out and "forge delegate" in out, command
+
+
+def test_hook_allows_readonly_companion_result_and_background(repo):
+    # `result` only prints a stored job (the fetch path for a backgrounded
+    # rescue run); `--background` detaches a read-only task. Neither writes.
+    for command in (
+        "node /x/codex-companion.mjs result task-abc123 --json",
+        "node /x/codex-companion.mjs result --json",
+        COMPANION + " --background 'explore the sender chain'",
+        "node /x/codex-companion.mjs task --background --effort high 'explore'",
+    ):
+        code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                                "tool_input": {"command": command}})
+        assert code == 0 and "deny" not in out, command
+    for command in (
+        "node /x/codex-companion.mjs cancel task-abc123 --json",
+        "node /x/codex-companion.mjs task --background --write 'explore'",
+        "node /x/codex-companion.mjs setup --json",
+    ):
+        code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                                "tool_input": {"command": command}})
+        assert code == 0 and "deny" in out and "forge delegate" in out, command
+
+
+def test_hook_allows_note_heredoc_that_mentions_the_companion(repo):
+    # A heredoc whose only consumer is a data sink is data: a note may name
+    # the companion and hold a quote/backtick that breaks shlex.
+    note = (
+        "cat >> plans/exploration/notes.md <<'EOF'\n"
+        "it's the codex-companion.mjs `task` launcher; see $CODEX_COMPANION\n"
+        "EOF\n"
+    )
+    code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                            "tool_input": {"command": note}})
+    assert code == 0 and "deny" not in out, out
+
+
+def test_hook_keeps_heredoc_bodies_fed_to_executors(repo):
+    # A body that reaches sh, a pipe, a separator, or trailing text can
+    # carry a launch: nothing outside the exact sink shape is stripped.
+    launch = "node /x/codex-companion.mjs task --write\n"
+    for command in (
+        "sh <<'EOF'\n" + launch + "EOF",
+        "cat <<'EOF' | sh\n" + launch + "EOF",
+        "cat >> plans/notes.md <<'EOF'\n" + launch + "EOF\nsh plans/notes.md",
+        "cat <<'EOF'; sh plans/notes.md\n" + launch + "EOF",
+    ):
+        code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
+                                "tool_input": {"command": command}})
+        assert code == 0 and "deny" in out and "forge delegate" in out, command
+
+
 def test_hook_routes_absolute_and_quoted_node_companion_invocations(repo):
     for command in (
         "/usr/local/bin/node /x/codex-companion.mjs task --write",
