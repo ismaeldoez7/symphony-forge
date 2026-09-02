@@ -52,6 +52,8 @@ def _stages_for(base: Path, story: str) -> dict:
     active but undecomposed story no longer inherits the previous story's stages,
     and a shipped story is not mislabelled from the next story's file.
     """
+    if not story:  # no active story -> no active stages (story_dir rejects "")
+        return {}
     scoped = story_dir(base, story) / "stages.json"
     if scoped.is_file():
         return load_json(scoped, default={})

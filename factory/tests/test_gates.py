@@ -1093,7 +1093,8 @@ def test_board_stages_are_attributed_per_story(repo):
     from forge_cli.board import _stages_for
     from forge_cli import stages as stages_mod
 
-    # STORY-A gets stages (one done); write_stages must drop a per-story snapshot.
+    # A scoped-layout story (intake created its dir) gets a per-story snapshot.
+    (repo / ".factory" / "stories" / "STORY-A").mkdir(parents=True)
     stages_mod.write_stages(
         repo, {"issue": "STORY-A",
                "stages": [{"id": "T1", "title": "t", "status": "done"}]})
@@ -1110,6 +1111,7 @@ def test_board_stages_are_attributed_per_story(repo):
     assert all(s["status"] == "pending"
                for s in _stages_for(repo, "STORY-B")["stages"])
     assert _stages_for(repo, "STORY-C") == {}, "no bleed to an unrelated story"
+    assert _stages_for(repo, "") == {}, "no active story: empty key must not crash"
 
 
 def test_pr_ready_legacy_story_still_archives_to_history(repo, tmp_path):

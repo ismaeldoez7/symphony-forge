@@ -146,8 +146,10 @@ def write_stages(base: Path, data: dict) -> None:
     so a shipped story no longer loses its task-completion on the board."""
     dump_json(authoritative_stages_path(base), data)
     safe_factory_write_json(base, stages_path(base).name, data)
+    # Only for a scoped-layout story (its dir already exists): creating the dir
+    # would flip a legacy story to scoped and break its history archival.
     issue = data.get("issue")
-    if issue:
+    if issue and story_dir(base, issue).is_dir():
         dump_json(story_dir(base, issue) / "stages.json", data)
 
 
@@ -161,8 +163,9 @@ def write_skeleton(base: Path, issue: str, tasks: list[dict]) -> None:
     # legacy shipped story keeps its task-completion on the board.
     prior_issue = existing.get("issue")
     if prior_issue and prior_issue != issue:
-        outgoing = story_dir(base, prior_issue) / "stages.json"
-        if not outgoing.is_file():
+        prior_dir = story_dir(base, prior_issue)
+        outgoing = prior_dir / "stages.json"
+        if prior_dir.is_dir() and not outgoing.is_file():
             dump_json(outgoing, existing)
     previous = ({s.get("id"): s for s in existing.get("stages", [])}
                 if existing.get("issue") == issue else {})
