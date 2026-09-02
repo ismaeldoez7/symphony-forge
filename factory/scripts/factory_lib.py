@@ -1673,8 +1673,6 @@ def _task_plan_state(root: Path, task: dict, grill: dict) -> str:
 
 def task_rows(root: Path) -> list[dict]:
     """Derive every live task row from the same inputs as frontier routing."""
-    run_state = load_json(run_state_path(root), default={})
-    is_task_level = bool(run_state.get("base_main_sha"))
     tasks = load_json(
         protected_decomposition_state_path(root), default={}
     ).get("tasks", [])
@@ -1693,13 +1691,15 @@ def task_rows(root: Path) -> list[dict]:
         grill = load_json(grill_path, default={})
         fresh = _task_grill_fresh(root, task, grill) if grill else False
         status = stage.get("status")
+        # Per-task PRs are the symphony standard in BOTH run-pointer modes
+        # (WORKFLOW.md Stage Loop). A stage-done task is "done" only once its
+        # completion marker is on the trunk; until then its row is "await-merge",
+        # mirroring task_frontier_state so the board and `forge next` agree.
         marker_present = (
-            task_marker_on_main(root, key, task_id) if is_task_level else False
+            task_marker_on_main(root, key, task_id) if status == "done" else False
         )
-        if marker_present or (not is_task_level and status == "done"):
-            state = "done"
-        elif is_task_level and status == "done":
-            state = "await-merge"
+        if status == "done":
+            state = "done" if marker_present else "await-merge"
         elif status == "active":
             state = "active"
         elif not _task_contract_complete(task):
@@ -1818,6 +1818,27 @@ def task_frontier_state(root: Path) -> tuple[str, dict] | None:
     (dependencies done), falling back to the earliest unfinished task.
     """
     tasks, stage_by_id, done = _task_schedule(root)
+    key = _active_story_key(root)
+
+    # Per-task PRs are the symphony standard: every task ships its OWN PR after
+    # its local autoreview + `forge stage done`, and merges to the trunk before
+    # the next task starts (WORKFLOW.md "Stage Loop"). A stage-done task whose
+    # completion marker is not yet on the trunk must surface the per-task PR in
+    # BOTH run-pointer modes — task-level (`base_main_sha`) and story-level (a
+    # stage running in the story worktree). In story-level mode `_task_schedule`
+    # folds stage-done tasks into `done`, so the frontier selection below would
+    # skip past this task; this pre-check catches it first, before selection.
+    await_merge = next(
+        (
+            candidate for candidate in tasks
+            if stage_by_id.get(candidate.get("id"), {}).get("status") == "done"
+            and not task_marker_on_main(root, key, candidate.get("id"))
+        ),
+        None,
+    )
+    if await_merge is not None:
+        return "await-merge", await_merge
+
     ready = set(task_ready_ids(root))
     frontier = next(
         (
@@ -1835,14 +1856,8 @@ def task_frontier_state(root: Path) -> tuple[str, dict] | None:
     )
     if frontier is None:
         return None
-    run_state = load_json(run_state_path(root), default={})
-    is_task_level = bool(run_state.get("base_main_sha"))
-    key = _active_story_key(root)
     task_id = frontier.get("id")
     stage = stage_by_id.get(task_id, {})
-
-    if is_task_level and stage.get("status") == "done":
-        return "await-merge", frontier
 
     if not _task_contract_complete(frontier):
         return "author-contract", frontier

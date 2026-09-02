@@ -12181,7 +12181,7 @@ def test_task_frontier_awaits_marker_on_main_between_tasks(repo, tmp_path):
     code, out = run(repo, "forge.py", "next")
     actions = [line for line in out.splitlines() if ". [dev]" in line]
     assert code == 0 and len(actions) == 1, out
-    assert "T1" in actions[0] and "main" in actions[0]
+    assert "T1" in actions[0] and "pr-ready" in actions[0]
     assert "T2" not in actions[0]
 
     publish_task_marker(repo, "ENG-1", "T1")
@@ -12194,7 +12194,13 @@ def test_task_frontier_awaits_marker_on_main_between_tasks(repo, tmp_path):
     assert "T2" in actions[0] and "T1" not in actions[0]
 
 
-def test_story_level_frontier_unchanged_without_task_markers(repo, tmp_path):
+def test_story_level_frontier_surfaces_per_task_pr(repo, tmp_path):
+    # Per-task PRs are the symphony standard in BOTH run-pointer modes. A
+    # STORY-level run (no base_main_sha, tasks running as stages in the story
+    # worktree) must still surface the per-task PR for a stage-done task whose
+    # completion marker is not yet on the trunk — it must NOT skip ahead to the
+    # next task (WORKFLOW.md Stage Loop). This replaces the earlier
+    # "frontier_unchanged" test, which asserted the old skip-past-done behavior.
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
@@ -12207,14 +12213,25 @@ def test_story_level_frontier_unchanged_without_task_markers(repo, tmp_path):
             {"id": "T2", "title": "second slice", "status": "pending"},
         ],
     })
+    configure_origin_main(repo, tmp_path / "story-frontier-origin.git")
+
+    # Story-level pointer: `forge task start` never ran, so no base_main_sha.
+    control = delegation_ledger(repo).parent
+    pointer = json.loads((control / "run.json").read_text())
+    assert "base_main_sha" not in pointer
 
     frontier = task_frontier_state(repo)
-    assert frontier and frontier[0] == "author-contract" and frontier[1]["id"] == "T2"
-    assert [row["state"] for row in task_rows(repo)] == ["done", "skeleton"]
+    assert frontier and frontier[0] == "await-merge" and frontier[1]["id"] == "T1"
+    assert task_rows(repo)[0]["state"] == "await-merge"
     code, out = run(repo, "forge.py", "next")
     actions = [line for line in out.splitlines() if ". [dev]" in line]
     assert code == 0 and len(actions) == 1, out
-    assert "T2" in actions[0] and "T1" not in actions[0]
+    assert "T1" in actions[0] and "T2" not in actions[0]
+
+    # Once T1's marker lands on the trunk, the frontier advances to T2.
+    publish_task_marker(repo, "ENG-1", "T1")
+    frontier = task_frontier_state(repo)
+    assert frontier and frontier[0] == "author-contract" and frontier[1]["id"] == "T2"
 
 
 def test_task_pr_ready_refuses_unsealed_then_writes_marker_and_opens_pr(
@@ -16354,9 +16371,17 @@ def test_board_task_rows_match_frontier_states(repo, tmp_path):
     assert frontier and frontier[0] == "delegate"
     assert task_rows(repo)[0]["state"] == "active"
 
+    # Per-task PRs are the symphony standard: a stage-done task first surfaces
+    # its own PR (await-merge) and only reads "done" once its marker is on the
+    # trunk. Configure a trunk and land the marker so the story is truly done.
+    configure_origin_main(repo, tmp_path / "board-rows-origin.git")
     stages = json.loads((repo / ".factory" / "stages.json").read_text())
     stages["stages"][0]["status"] = "done"
     write_stages(repo, stages)
+    assert task_frontier_state(repo)[0:1] == ("await-merge",)
+    assert task_rows(repo)[0]["state"] == "await-merge"
+
+    publish_task_marker(repo, "ENG-1", "T1")
     assert task_frontier_state(repo) is None
     assert task_rows(repo)[0]["state"] == "done"
 
@@ -16399,11 +16424,16 @@ def test_task_frontier_honours_dependency_dag(repo, tmp_path):
     assert code == 0, out
     # Nothing done yet: only T1 is ready (T2 follows its predecessor T1).
     assert task_ready_ids(repo) == ["T1"]
+    configure_origin_main(repo, tmp_path / "dag-origin.git")
     stages = json.loads((repo / ".factory" / "stages.json").read_text())
     stages["stages"][0]["status"] = "done"
     write_stages(repo, stages)
     # T1 done: T2 (predecessor default) and T3 (explicit dep) are ready; T4 waits on T2.
     assert task_ready_ids(repo) == ["T2", "T3"]
+    # Per-task PRs are the symphony standard: T1's own PR merges (its marker
+    # lands on the trunk) before the next task, so the frontier advances to T2
+    # rather than staying on T1's await-merge.
+    publish_task_marker(repo, "ENG-1", "T1")
     frontier = task_frontier_state(repo)
     assert frontier and frontier[1]["id"] == "T2"
     # Execution detail may be authored on the ready T3 ahead of T2, never on T4.

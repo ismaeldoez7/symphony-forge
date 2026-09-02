@@ -9,6 +9,9 @@ Read `AGENTS.md` first; it is the contract. Standards live in `constitution/`
 - Claude Code coordinates: discovery, planning, decisions, orchestration.
 - Codex executes: exploration, implementation, testing. Review is Claude's —
   run autoreview DIRECTLY; on findings delegate fixes to Codex and re-review, loop until clean (0011); then pr-ready → PR to default branch → poll CI green (fix failures). Never stop at review.
+  Never stop to ask who fixes a finding: it is ALWAYS delegated to Codex; host-fix
+  ONLY a fix the companion sandbox genuinely cannot verify (needs DB/network/Docker
+  it lacks), via a bounded `forge mode degraded start --reason ...` (WORKFLOW.md Stage Loop step 10).
 - During planning, do NOT grep/read app code yourself — delegate `/codex:rescue`
   read-only: `gpt-5.6-terra` @ high to explore, `gpt-5.6-sol` @ xhigh to validate/debug. NEVER raw `codex exec`.
 
@@ -34,6 +37,10 @@ Read `AGENTS.md` first; it is the contract. Standards live in `constitution/`
   EXACTLY ONCE — `./forge plan approve --by "<name>"` + re-save. Never approve before convergence, or twice.
 - Decisions: `./forge decision new <slug>`; acceptance is HUMAN chat
   confirmation — then run accept/sign-off yourself, `--by "<name>"` + trailer.
+- Per-task PRs are the standard: after a task passes local autoreview + `forge
+  stage done`, raise ITS OWN PR with `./forge task pr-ready <id>` (marker + push +
+  PR + poll CI) and let it merge before the next task — never batch a story into
+  one PR. `forge next` surfaces this as `await-merge` (task-level AND story-level).
 - Recording sign-off requires confirmed specs and their derived roadmap.
 - Project facts go in `docs/memory/` (0012); user-level memory is personal only.
 - `python3 factory/scripts/check_dual_runtime.py` must stay green.
