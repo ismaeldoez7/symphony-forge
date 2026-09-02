@@ -30,7 +30,7 @@ from factory_lib import (
     product_tree_digest,
     protected_decomposition_state_path, repo_root, require_approved_plan_digest,
     require_ready_task, require_task_worktree, run_state_path,
-    safe_factory_write_json, sha256_of, task_digest,
+    safe_factory_write_json, sha256_of, story_dir, task_digest,
 )
 
 from .common import fail
@@ -139,9 +139,16 @@ def authoritative_stages_path(base: Path) -> Path:
 
 
 def write_stages(base: Path, data: dict) -> None:
-    """Publish protected authority first, then a best-effort workspace mirror."""
+    """Publish protected authority first, then a best-effort workspace mirror,
+    then a per-story snapshot so a story keeps its own stages after the run
+    pointer moves on. The single git-local stages.json only ever holds the
+    active story; the board reads the per-story snapshot for any other story,
+    so a shipped story no longer loses its task-completion on the board."""
     dump_json(authoritative_stages_path(base), data)
     safe_factory_write_json(base, stages_path(base).name, data)
+    issue = data.get("issue")
+    if issue:
+        dump_json(story_dir(base, issue) / "stages.json", data)
 
 
 def write_skeleton(base: Path, issue: str, tasks: list[dict]) -> None:
@@ -149,6 +156,14 @@ def write_skeleton(base: Path, issue: str, tasks: list[dict]) -> None:
     erase what is already built: surviving task ids keep their status and
     timestamps, new ids arrive pending, removed ids drop out."""
     existing = load_stages(base)
+    # A story decomposed before per-story snapshots existed would lose its stages
+    # when the singleton flips to this new story; preserve the outgoing one so a
+    # legacy shipped story keeps its task-completion on the board.
+    prior_issue = existing.get("issue")
+    if prior_issue and prior_issue != issue:
+        outgoing = story_dir(base, prior_issue) / "stages.json"
+        if not outgoing.is_file():
+            dump_json(outgoing, existing)
     previous = ({s.get("id"): s for s in existing.get("stages", [])}
                 if existing.get("issue") == issue else {})
     stages = []

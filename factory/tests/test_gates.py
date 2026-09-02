@@ -1077,6 +1077,40 @@ def test_board_shows_shipped_story_tasks_when_plan_left_active_and_completed(
     assert story["tasks"], "shipped story's task graph must survive the plan moving"
     assert story["lifecycle"]["planned"] is True
 
+    # The plan RECORD (not just the task graph) must load from debt/, or the
+    # shipped story reads as unplanned (no plan, stale approval blockers).
+    from forge_cli.board import story_detail
+    detail = story_detail(repo, "ENG-1")
+    assert detail["plan"] is not None, "shipped plan in debt/ still loads on the board"
+    assert detail["plan"].get("location") == "debt"
+
+
+def test_board_stages_are_attributed_per_story(repo):
+    # Stage status lives in a single git-local stages.json keyed to the ACTIVE
+    # story. Regression: a shipped/non-active story lost its task-completion on
+    # the board, and a newly-active undecomposed story inherited the previous
+    # story's stages. Fix: per-story snapshots + an issue-guarded singleton read.
+    from forge_cli.board import _stages_for
+    from forge_cli import stages as stages_mod
+
+    # STORY-A gets stages (one done); write_stages must drop a per-story snapshot.
+    stages_mod.write_stages(
+        repo, {"issue": "STORY-A",
+               "stages": [{"id": "T1", "title": "t", "status": "done"}]})
+    snap_a = repo / ".factory" / "stories" / "STORY-A" / "stages.json"
+    assert snap_a.is_file(), "write_stages writes a per-story snapshot"
+
+    # Decomposing STORY-B flips the singleton; the outgoing STORY-A is preserved
+    # (covers a story decomposed before per-story snapshots existed).
+    stages_mod.write_skeleton(repo, "STORY-B", [{"id": "T1", "title": "t"}])
+    assert json.loads(snap_a.read_text(encoding="utf-8"))["stages"][0]["status"] == "done"
+
+    # Each story shows its OWN stages; neither bleeds from the singleton.
+    assert _stages_for(repo, "STORY-A")["stages"][0]["status"] == "done"
+    assert all(s["status"] == "pending"
+               for s in _stages_for(repo, "STORY-B")["stages"])
+    assert _stages_for(repo, "STORY-C") == {}, "no bleed to an unrelated story"
+
 
 def test_pr_ready_legacy_story_still_archives_to_history(repo, tmp_path):
     sign_off(repo)
