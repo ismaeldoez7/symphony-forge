@@ -816,6 +816,7 @@ def _has_origin(root: Path) -> bool:
     result = subprocess.run(
         ["git", "remote", "get-url", "origin"], cwd=root,
         capture_output=True, text=True, env=clean_git_env(),
+        encoding="utf-8",
     )
     return result.returncode == 0
 
