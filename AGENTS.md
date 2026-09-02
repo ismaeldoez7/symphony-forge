@@ -105,8 +105,6 @@ A task is not PR-ready until all of these exist:
 - Evidence enters `.factory/` only via schema-validated recorders (pinned `generated_by`), never by hand.
 - Narration budget (conduct §8): one line per state change; findings and refusals always in full; process chatter never.
 - Review = the orchestrating session's autoreview (0011), looped until clean: review → delegate fixes to Codex → re-review; never a Codex review job, never nested reviewers.
-- Review-fix ownership is decided — never stop to ask who fixes: every review finding is fixed by delegating to Codex (`./forge delegate` / the task fix loop). The orchestrator host-fixes ONLY a fix that genuinely cannot be verified in the companion sandbox (needs a database/network/Docker it lacks), via a bounded degraded window (`forge mode degraded start --reason ...`) — WORKFLOW.md Stage Loop step 10.
-- Per-task PRs are the standard: after a task passes its local autoreview and `forge stage done`, raise ITS OWN PR with `./forge task pr-ready <id>` (marker + push + PR + poll CI) and let it merge to the trunk before the next task starts — never batch a whole story into one PR. `forge next` surfaces this as the `await-merge` step in both task-level and story-level runs.
 - One worktree/story; sequential tasks; dependency-ready stories may parallelize (0002). Delegation/proof commands are trusted inputs; observed descendant cleanup is not hostile-code containment.
 - Keep the template repo independent of any client-specific source repo.
 - Do not keep long policy blocks in `AGENTS.md`; move them into docs.
