@@ -38,7 +38,7 @@ Codex executes exploration, implementation, testing, and the review: the orchest
 1. record client sign-off (the spec/roadmap gate is checked now)
 2. plan one roadmap story and record its ordered task list
 3. wait for approval
-4. per task: JIT contract (any mode, 0050; needs `## Manual Verification` + diagram) → re-record → grill to CONVERGED → approve on board → stage start → `./forge delegate`; measure under 0018
+4. per task: plan-mode JIT contract → re-record → grill → stage start → `./forge delegate`; measure under 0018
 5. run deterministic verify
 6. review, once per task after implementation and verify: `./forge review <task-id>` releases Codex for the three lenses and records them as the task's proof (0049), then LOOP — delegate fixes to Codex, re-review — until every lens is clean
 7. run the functional check when the decomposition says `user_facing: true`

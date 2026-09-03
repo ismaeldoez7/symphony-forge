@@ -108,27 +108,29 @@ def story_uses_scoped_layout(root: Path, key: str) -> bool:
 
 
 def active_story_key(root: Path) -> str:
-    """The active story key, read directly.
+    """The active story, read cheaply and memoised against run.json.
 
     `evidence_path` needs only this one field, but reached it through
-    `load_json(run_state_path(...))` — a full parse PLUS `derive_phase`'s extra
+    `load_json(run_state_path(...))` — a full parse plus `derive_phase`'s extra
     stats — and the board calls `evidence_path` a dozen times per story across
-    every story in the roadmap. Skipping `derive_phase` removes that
-    amplification on its own.
+    every story in the roadmap. Reading just the key, once per run.json version,
+    removes that amplification. Memoised on the file's stamp, so a run-pointer
+    change is picked up immediately."""
+    from forge_cli import fscache
 
-    Deliberately NOT memoised, unlike the directory scans: run.json is a small
-    file the harness rewrites constantly, and a same-size rewrite inside one
-    filesystem timestamp tick is invisible to an (mtime, size) stamp — which is
-    a real risk on 2-second-granularity filesystems (FAT/exFAT, some network
-    mounts) rather than a theoretical one. One small read is cheap enough that
-    correctness wins."""
-    try:
-        data = json.loads(run_state_path(root).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return ""
-    if not isinstance(data, dict):
-        return ""
-    return str(data.get("issue_key") or data.get("story") or "")
+    path = run_state_path(root)
+
+    def compute() -> str:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return ""
+        if not isinstance(data, dict):
+            return ""
+        return str(data.get("issue_key") or data.get("story") or "")
+
+    return fscache.cached(
+        f"active_story:{path}", fscache.file_stamp(path), compute)
 
 
 def evidence_path(
@@ -1438,23 +1440,10 @@ def require_grill(
     path = evidence_path(root, key, f"grills/{gate}.json")
     data = load_json(path, default={})
     if not data:
-        # The COMPLETE command, not a prefix of it: naming the script without
-        # --input-digest (and without the round floor) meant the caller learned
-        # the remaining requirements one refusal at a time.
-        digest_hint = (
-            " --input-digest <the exact artifact you grilled>"
-            if gate in ("spec", "roadmap", "plan") else ""
-        )
         raise SystemExit(
             f"Handover grill required first: interrogate the handover for gaps and "
-            f"contradictions per factory/prompts/griller.md, resolve findings, then "
-            f"record the pass with\n"
-            f"  python3 factory/scripts/record_grill_from_json.py --gate {gate}"
-            f"{digest_hint} --input <grill.json>\n"
-            "The payload needs generated_by/gate/verdict/gaps/contradictions/"
-            "resolutions (factory/schemas/grill.json), and this gate needs at "
-            "least 2 logged AskUserQuestion rounds — a grill is rounds of "
-            "questions to the human, not a single verdict."
+            f"contradictions per factory/prompts/griller.md, resolve findings, then record "
+            f"`python3 factory/scripts/record_grill_from_json.py --gate {gate}`."
         )
     if data.get("verdict") != "pass":
         raise SystemExit(

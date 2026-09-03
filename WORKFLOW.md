@@ -353,22 +353,16 @@ mutable execution twin of the re-recordable decomposition (decision 0007),
 one stage per leaf task in execution order. Decision 0032 makes the pre-work
 sequence a JIT contract loop for every pending task:
 
-1. author the next task's full contract (`factory/prompts/planner.md`) against
-   the approved plan and the real repository state left by completed
-   dependencies — in whatever mode the session is already in (0050: plan mode is
-   a permission mode, not a thinking mode, and the always-armed write lock
-   already provides its read-only surface; never switch modes to plan)
+1. enter plan mode (decision 0029; `factory/prompts/planner.md`) and author the
+   next task's full contract against the approved plan and the real repository
+   state left by completed dependencies
 2. re-record the decomposition with that contract
 3. run `factory/prompts/griller.md` with `--gate task`, resolve its findings,
    and record the pass for that id; the recorder derives the current grounding
    digest: `record_grill_from_json.py --gate task --task <id>`
-4. save the contract at `.factory/stories/<KEY>/task-plans/<id>.md` — it must
-   carry a `## Manual Verification` section stating what a HUMAN can do to see
-   the task working (endpoint/screen/command, what to send, what comes back)
-   plus a ```mermaid diagram of the flow it builds; the saver refuses without
-   both. Confirm the plan renders on the BOARD, then ask for approval there —
-   never approve a plan the human cannot see; editing that artifact requires
-   approval again
+4. save the plan-mode result at
+   `.factory/stories/<KEY>/task-plans/<id>.md`, then record the human task-plan
+   approval; editing that artifact requires approval again
 5. `forge stage start <id>` (strictly order-enforced; task-level `--parallel`
    is refused)
 6. `forge delegate <id>` composes the task brief and launches the installed
@@ -461,15 +455,13 @@ visibility of what it does versus what it delegates, and only genuine
 human-only acts (decisions, sign-off) or unresolvable gate refusals pause it.
 
 ## Task Planning
-Per-task planning runs in WHATEVER MODE the session is already in (decision
-0050 supersedes 0048's plan-mode clause): plan mode is a permission mode, not a
-thinking mode, and the always-armed write lock already gives its read-only
-surface, so forcing it only churned modes mid-story. The task plan is authored,
-saved with its `## Manual Verification` section and flow diagram, then the task
-grill delivers its rounds through AskUserQuestion until `frontier_empty` and a
-CONVERGED verdict, then the plan is visible on the BOARD and a human approves it
-THERE (`forge task approve --by`), then `stage start`, then `delegate`. A grill
-whose rounds are not in the ledger is still refused by the recorders. (Exploration
+Per-task planning runs in Claude Code plan mode — enforced, not advisory
+(decision 0048): the task plan is authored in plan mode (the PostToolUse
+hook records its plan-mode marker), then the task grill delivers its rounds
+through AskUserQuestion until `frontier_empty`, then a human approves
+(`forge task approve --by`), then `stage start`, then `delegate`. A task
+plan without a marker, or a grill whose rounds are not in the ledger, is
+refused by the recorders. (Exploration
 delegated to Codex: `/codex:rescue --model gpt-5.6-terra --effort high` —
 read-only by default, never Claude Code itself, never raw `codex exec`; plan
 validation, debugging and root-cause runs use `--model gpt-5.6-sol --effort xhigh`,

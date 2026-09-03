@@ -31,7 +31,7 @@ For the two gates whose rounds are recorded from the AskUserQuestion ledger
 (`--gate plan` and `--gate task`, decision 0048), independence is a COLD READ,
 not necessarily a separate process. The recorder accepts ONLY rounds that match a
 logged AskUserQuestion record (`record_grill_from_json.py`), and only the
-top-level Claude session produces those log entries — a subagent or
+top-level Claude session in plan mode produces those log entries — a subagent or
 read-only Codex pass cannot. So for plan/task grills the top-level session drives
 the rounds through AskUserQuestion itself — but because the coordinating session
 authored the plan, the independent cold-read pass is MANDATORY, not optional: on

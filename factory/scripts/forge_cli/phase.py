@@ -342,18 +342,13 @@ def cmd_next(args: argparse.Namespace) -> None:
                     )
                 elif frontier == "await-approval":
                     steps.append(
-                        f"[dev] OPEN THE BOARD (`./forge board`) and confirm the "
-                        f"{task_id} plan actually renders there — including its "
-                        "Manual Verification section and flow diagram — BEFORE you "
-                        "ask for anything. Never ask a human to approve a plan they "
-                        "cannot see; if it is not on the board, it is not ready to "
-                        "approve. Then ask for approval EXACTLY ONCE, and only after "
-                        "the grill reported CONVERGED (a clean round AND the plan "
-                        "final — no pending edits): the human reviews it THERE (not "
-                        "in chat) and approves; then record it: `./forge task approve "
-                        f"{task_id} --by \"<name>\"`. Do NOT approve after an "
-                        "intermediate grill — a later edit re-stales the approval and "
-                        "forces another round."
+                        f"[dev] The grilled {task_id} plan is now visible on the board. "
+                        "Ask for approval EXACTLY ONCE, and only after the grill has "
+                        "converged (a clean round AND the plan is final — no pending "
+                        "edits): the human reviews it THERE (not in chat) and approves; "
+                        f"then record it: `./forge task approve {task_id} --by \"<name>\"`. "
+                        "Do NOT approve after an intermediate grill — a later edit "
+                        "re-stales the approval and forces another round."
                     )
                 elif frontier == "stage-start":
                     steps.append(f"[dev] Start {task_id}: ./forge stage start {task_id}")

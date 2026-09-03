@@ -14,7 +14,7 @@ from factory_lib import (
     clean_git_env, default_trunk_branch, dump_json, evidence_path,
     git_control_dir, load_json, now_iso,
     plan_digest_without_assumptions, repo_root, require_ready_task,
-    require_task_sealed,
+    require_plan_mode_marker, require_task_sealed,
     protected_decomposition_state_path, run_state_path,
     task_marker_on_main, task_marker_path, validate_payload,
 )
@@ -59,42 +59,6 @@ def _task_plan_path(base: Path, task_id: str, *, for_write: bool = False) -> Pat
     )
 
 
-MANUAL_VERIFICATION_HEADING = "Manual Verification"
-
-
-def _require_manual_verification(content: str) -> None:
-    """A task plan must say what a HUMAN can do to see the work, and draw the
-    flow it builds.
-
-    An approver reading a plan of write scopes and acceptance criteria cannot
-    tell what to click, call, or look at once it ships — so the plan gets
-    approved without anyone knowing how they would check it by hand. The section
-    carries a diagram because the flow being built is a shape (who calls what, in
-    what order, and what changes); prose describing a sequence is the thing a
-    picture replaces.
-    """
-    from factory_lib import parse_sections
-
-    section = (parse_sections(content) or {}).get(MANUAL_VERIFICATION_HEADING, "")
-    if not section.strip():
-        fail(
-            f"the task plan is missing a `## {MANUAL_VERIFICATION_HEADING}` "
-            "section. State what a human can do to see this task working once it "
-            "ships — the exact endpoint, screen, or command, what to send, and "
-            "what they should see back — and include a diagram of the flow this "
-            "task builds (a ```mermaid block: sequenceDiagram or flowchart). An "
-            "approver cannot judge a plan they would not know how to check."
-        )
-    if "```mermaid" not in section and "```" not in section:
-        fail(
-            f"the `## {MANUAL_VERIFICATION_HEADING}` section needs a DIAGRAM of "
-            "the flow this task builds — a ```mermaid block (sequenceDiagram for "
-            "a request/response flow, flowchart for a state or decision flow). "
-            "The steps to run it by hand belong there too, but the diagram is "
-            "what makes the shape reviewable at a glance."
-        )
-
-
 def cmd_plan_save(args: argparse.Namespace) -> None:
     base = Path(args.repo).resolve() if args.repo else repo_root()
     require_ready_task(
@@ -109,7 +73,7 @@ def cmd_plan_save(args: argparse.Namespace) -> None:
         fail("task plan source must be UTF-8 Markdown")
     if not content.strip():
         fail("task plan source must not be empty")
-    _require_manual_verification(content)
+    require_plan_mode_marker(base, source)
     dest = _task_plan_path(base, args.id, for_write=True)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(content, encoding="utf-8")
@@ -152,6 +116,7 @@ def cmd_approve(args: argparse.Namespace) -> None:
             f"task approval refused: no saved task plan for {args.id}. "
             f"Run `./forge task plan save {args.id} --from <path>` first."
         )
+    require_plan_mode_marker(base, plan)
     state = load_json(run_state_path(base), default={})
     story = state.get("issue_key") or state.get("story")
     grill_path = evidence_path(

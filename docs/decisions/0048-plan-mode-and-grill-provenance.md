@@ -1,9 +1,8 @@
 ---
-status: superseded
+status: accepted
 confirmed_by: "Ravi Kiran Vemula"
 date: 2026-08-21
 stories: [plan-mode-and-grill-provenance]
-superseded_by: 0050-plan-authoring-is-mode-agnostic
 ---
 
 # Plan mode and grill provenance are enforced, not advisory
