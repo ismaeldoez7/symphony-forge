@@ -152,9 +152,22 @@ def cmd_next(args: argparse.Namespace) -> None:
                      "run: python3 factory/scripts/intake.py --issue <KEY> --title \"<title>\"")
     elif not signed_off:
         phase("discovery/prototype/specs/roadmap (0a/0b/0c)")
-        steps.append("[PM] Capture discovery and the product brief — ask for them; "
-                     "prototype freely meanwhile (no ceremony)")
-        steps.append("[PM] Record each client decision as it is made — ask, then confirm it in chat")
+        # These two used to print unconditionally, so they still read as "to do"
+        # after the docs were written and decisions accepted — which makes the
+        # whole list look inert and teaches the reader to ignore it.
+        from record_signoff import REQUIRED_BRIEF_HEADINGS
+        from factory_lib import parse_sections
+
+        brief = base / "docs" / "product" / "BRIEF.md"
+        brief_sections = parse_sections(
+            brief.read_text(encoding="utf-8")) if brief.is_file() else {}
+        if [h for h in REQUIRED_BRIEF_HEADINGS if not brief_sections.get(h, "").strip()]:
+            steps.append("[PM] Capture discovery and the product brief — ask for them; "
+                         "prototype freely meanwhile (no ceremony)")
+        from .decisions import decision_records
+        if not [d for d in decision_records(base) if d.get("status") == "accepted"]:
+            steps.append("[PM] Record each client decision as it is made — ask, "
+                         "then confirm it in chat")
         from .specs import spec_records
         specs = spec_records(base)
         if not specs:
@@ -162,9 +175,15 @@ def cmd_next(args: argparse.Namespace) -> None:
                          "from its draft, then confirm it")
         drafts = [spec["slug"] for spec in specs if spec.get("status") != "confirmed"]
         if drafts:
-            steps.append("[PM] Grill and confirm every draft spec: "
-                         f"{', '.join(drafts)} (`record_grill_from_json.py --gate spec "
-                         "--input-digest docs/specs/<slug>.md`, then `forge spec confirm <slug>`)")
+            steps.append(
+                "[PM] Grill and confirm every draft spec: "
+                f"{', '.join(drafts)} — the spec gate is LEDGER-MATCHED, so its "
+                "rounds must come from AskUserQuestion in THIS top-level Claude "
+                "session (Codex and subagents cannot record it). Ask at least 2 "
+                "real rounds, mark the last `\"frontier_empty\": true`, then: "
+                "`record_grill_from_json.py --gate spec --input-digest "
+                "docs/specs/<slug>.md --input <grill.json>` and `forge spec "
+                "confirm <slug>`")
         if specs and not drafts and not load_items(base):
             steps.append("[PM/EM] Derive the spec-linked roadmap before sign-off: "
                          "./forge roadmap derive --input <json> "
@@ -174,9 +193,12 @@ def cmd_next(args: argparse.Namespace) -> None:
             steps.append("[PM] Before sign-off: grill the handover for gaps/contradictions "
                          "(factory/prompts/griller.md), resolve findings, record: "
                          "record_grill_from_json.py --gate signoff")
-        steps.append("[PM] When the client confirms: forge.py decision new client-signoff, "
-                     "then forge.py decision accept client-signoff --by <name> (human), "
-                     "then run record_signoff.py")
+        steps.append(
+            "[PM] When the client confirms: forge.py decision new client-signoff, "
+            "then forge.py decision accept client-signoff --by <name> (human), "
+            "then run record_signoff.py — which ALSO needs every spec confirmed "
+            "and a derived roadmap (`forge roadmap derive`), so do those first; "
+            "`roadmap add` cannot substitute, it is post-sign-off grooming")
     elif not state.get("issue_key"):
         phase("signed off — no active task")
         if state.get("phase") == "shipped" and any(

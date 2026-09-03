@@ -133,6 +133,13 @@ def cmd_save(args: argparse.Namespace) -> None:
     destination.write_text(header + body, encoding="utf-8")
     append_event(base, "spec-draft", actor="orchestrator", detail=f"{slug}: {title}")
     print(f"Spec saved as draft: {destination.relative_to(base)}")
+    # Save deliberately still accepts an incomplete draft — a spec grows. But
+    # saying nothing meant the author only learned the required shape at
+    # `spec confirm`, a grill later, and had to come back and redo it.
+    missing = missing_required_content(body)
+    if missing:
+        print(f"  NOTE: still missing {', '.join(missing)} — `spec confirm` "
+              "refuses until the draft has all of them.")
 
 
 def cmd_confirm(args: argparse.Namespace) -> None:

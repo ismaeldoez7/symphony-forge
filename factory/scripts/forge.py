@@ -276,12 +276,18 @@ def main() -> None:
 
     p_mode = sub.add_parser("mode", help="manage developer-selected workflow modes")
     mode_sub = p_mode.add_subparsers(dest="mode_command", required=True)
-    p_ml = mode_sub.add_parser("lite", help="open a lite workflow window")
+    p_ml = mode_sub.add_parser(
+        "lite",
+        help="open a lite workflow window — `lite` IS the verb, there is no "
+             "`lite start` (unlike `degraded start`)")
     p_ml.add_argument("--by", required=True, help="person opening the lite window")
     p_ml.add_argument("--reason", required=True, help="why lite mode is appropriate")
     p_ml.add_argument("--repo")
     p_ml.set_defaults(func=quickfix_mod.cmd_lite)
-    p_mdeg = mode_sub.add_parser("degraded", help="manage a degraded write window")
+    p_mdeg = mode_sub.add_parser(
+        "degraded",
+        help="manage a degraded write window — open it with `degraded start "
+             "--reason ...`, close it with `mode done`")
     degraded_sub = p_mdeg.add_subparsers(dest="degraded_command", required=True)
     p_mdegs = degraded_sub.add_parser("start", help="open a five-file degraded window")
     p_mdegs.add_argument("--reason", required=True, help="why degraded mode is required")
@@ -306,10 +312,19 @@ def main() -> None:
 
     p_spec = sub.add_parser("spec", help="capture and confirm capability specs")
     spec_sub = p_spec.add_subparsers(dest="spec_command", required=True)
-    p_sps = spec_sub.add_parser("save", help="save a capability spec as draft")
-    p_sps.add_argument("slug")
-    p_sps.add_argument("--from", dest="source", required=True)
-    p_sps.add_argument("--title")
+    p_sps = spec_sub.add_parser(
+        "save", help="save a capability spec as draft",
+        description="Save a capability spec as a draft. The source must be "
+                    "Markdown with an H1 title and the sections `## Why`, "
+                    "`## Behaviour` and `## Acceptance criteria` — `spec "
+                    "confirm` refuses without all three, so writing them now "
+                    "saves a round trip.")
+    p_sps.add_argument("slug", help="spec slug; becomes docs/specs/<slug>.md")
+    p_sps.add_argument(
+        "--from", dest="source", required=True,
+        help="Markdown draft: H1 title plus ## Why / ## Behaviour / "
+             "## Acceptance criteria")
+    p_sps.add_argument("--title", help="override the title (default: the H1)")
     p_sps.add_argument("--repo")
     p_sps.set_defaults(func=specs.cmd_save)
     p_spc = spec_sub.add_parser("confirm", help="confirm a freshly grilled spec")
