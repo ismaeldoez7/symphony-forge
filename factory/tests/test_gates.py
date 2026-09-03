@@ -12449,6 +12449,80 @@ def test_task_reconcile_refuses_when_work_is_not_on_the_trunk(repo, tmp_path):
     assert not marker.exists()
 
 
+def test_task_stage_resolves_from_the_tasks_own_worktree(repo, tmp_path):
+    # `forge task start` gives a task its own worktree, and a worktree has its
+    # own git control dir -- so stages.json exists once per tree and the copies
+    # drift the moment one closes a stage. A task closed in its worktree still
+    # read `active` in the main repo, so `record_grill` there ground the grill
+    # on the working tree while the seal (run in the worktree, where the stage
+    # reads done) checked the stage baseline. Same task, same code, two
+    # answers, and a passing grill that could never verify.
+    lib = load_factory_lib(repo)
+    worktree = tmp_path / "repo-T1"
+    git(repo, "worktree", "add", "-q", "-b", "feat/S-T1", str(worktree))
+
+    def control(root):
+        return Path(git(root, "rev-parse", "--absolute-git-dir")) / "forge"
+
+    baseline = git(repo, "rev-parse", "HEAD")
+    for root, status, pointer in (
+        (repo, "active", {"issue_key": "ENG-1"}),
+        (worktree, "done", {"issue_key": "ENG-1", "task_id": "T1",
+                            "base_main_sha": baseline}),
+    ):
+        target = control(root)
+        target.mkdir(parents=True, exist_ok=True)
+        lib.dump_json(target / "stages.json", {"issue": "ENG-1", "stages": [
+            {"id": "T1", "title": "t", "status": status,
+             "base_sha": baseline}]})
+        lib.dump_json(target / "run.json", pointer)
+
+    # The split is real: each directory reports its own copy.
+    assert json.loads((control(repo) / "stages.json").read_text()
+                      )["stages"][0]["status"] == "active"
+    assert json.loads((control(worktree) / "stages.json").read_text()
+                      )["stages"][0]["status"] == "done"
+
+    # The task's own worktree is the authority, from EITHER directory.
+    for root in (repo, worktree):
+        assert lib.task_state_root(root, "T1").resolve() == worktree.resolve()
+        assert lib.task_stage_record(root, "T1").get("status") == "done"
+
+    # A task with no worktree falls back to the local copy rather than guessing.
+    assert lib.task_state_root(repo, "T-none").resolve() == repo.resolve()
+
+
+def test_task_grill_names_a_basis_mismatch_instead_of_reporting_stale(
+        repo, tmp_path):
+    # A digest mismatch has two very different causes. Reporting a
+    # different-BASIS grill as "STALE" sent a reader hunting for a content
+    # change that never happened -- and no amount of re-grilling converges,
+    # because the two sides are measuring different trees.
+    task = task_with_plan_contracts({**DECOMP["tasks"][0], "user_facing": False})
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    record_skeleton_then_frontier(repo, [task])
+    record_task_grill(repo, task)
+
+    lib = load_factory_lib(repo)
+    key = "ENG-1"
+    grill_path = lib.evidence_path(repo, key, "grills/tasks/T1.json")
+    grill = json.loads(grill_path.read_text())
+    # Recorded against the working tree (an active task), then checked as a
+    # completed one -- exactly the split the worktree bug produced.
+    grill["grounding_basis"] = "working-tree"
+    grill_path.write_text(json.dumps(grill), encoding="utf-8")
+
+    with pytest.raises(SystemExit) as excinfo:
+        lib.require_task_grill(repo, "T1", task, treeish=git(repo, "rev-parse", "HEAD"))
+    message = str(excinfo.value)
+    assert "working-tree" in message and "stage-baseline" in message
+    assert "STALE" not in message
+    # It must name the fix, and say not to hand-edit the digest.
+    assert "worktree" in message and "by hand" in message
+
+
 def test_require_task_worktree_noops_for_story_level_run(repo, tmp_path):
     # A story-level run pointer carries `branch` (from intake) but no task_id;
     # require_task_worktree must NOT gate it. Regression: it refused a
