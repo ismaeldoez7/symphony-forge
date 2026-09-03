@@ -1,66 +1,70 @@
 ---
-id: 0050
-title: Plan authoring is mode-agnostic; the grill is the provenance
 status: accepted
+confirmed_by: "Nandu"
 date: 2026-09-03
-supersedes: 0048 (plan-mode marker requirement only)
+stories: [upgrade-preserves-doc-contracts]
 ---
 
+# Plan authoring is mode-agnostic; the grill is the provenance
+
 ## Context
+<!-- Why this decision was needed; the forces at play. -->
 
 Decision 0048 required a **plan-mode marker** before a plan or task plan could
 be saved or approved: the `post_tool_use` hook records a marker whenever a
 Claude session writes a plan file while in plan mode, and
-`require_plan_mode_marker` refused the save/approve unless a marker's
+`require_plan_mode_marker` refused the save or approve unless a marker's
 `sha256_body` matched the plan body exactly.
 
 The intent was provenance — evidence that a plan was authored deliberately
-rather than generated in passing. In practice the marker does not deliver that,
-and it costs something real:
+rather than produced in passing. It does not deliver that, and it costs
+something real:
 
-- **It forces an IDE mode change the operator did not ask for.** An operator
-  running in auto mode is pushed into plan mode purely to satisfy the marker,
-  then pushed back. The harness is dictating editor state to get a file
-  written, which is not its business.
-- **It is trivially satisfiable and therefore proves nothing.** Entering plan
-  mode and touching the file produces a marker. The marker attests to a mode,
-  not to thought.
-- **It is redundant.** The real provenance already exists and is far stronger:
+- **It dictates the operator's session mode.** Someone working in auto mode is
+  pushed into plan mode purely to get a file written, then pushed back. The
+  harness has no business deciding which mode an editor is in.
+- **It is trivially satisfiable, so it proves nothing.** Entering plan mode and
+  touching the file produces a marker. The marker attests to a mode, not to
+  thought.
+- **It is redundant.** The real provenance is stronger and already enforced:
   the task grill is bound to the plan's exact digest, requires a floor of
   recorded `AskUserQuestion` rounds that only the hook can write, and must be
-  **fresh** — recorded against the current plan text — before the board will
-  show the plan or a human can approve it. A plan that survives that has
-  demonstrably been examined; a plan-mode marker has demonstrated only that a
-  mode was entered.
-- **Its digest is fragile across platforms.** `plan_body_digest` exists solely
-  to normalise line endings so a marker written on Windows still matches a plan
-  checked out under `core.autocrlf` — complexity that only the marker needs.
+  fresh — recorded against the current plan text — before the board will show
+  the plan. A plan that survives that has demonstrably been examined.
+- **Its digest is fragile across platforms.** `plan_body_digest` exists only so
+  that a marker written on Windows still matches a plan checked out under
+  `core.autocrlf` — complexity nothing else needs.
 
 ## Decision
+<!-- What was decided, in one or two sentences. -->
 
 **Plan authoring is mode-agnostic.** The plan-mode marker is no longer required
-to save or approve a plan or a task plan. `require_plan_mode_marker` is
-removed, along with its four call sites in `plans.py` and `tasks.py`.
+to save or approve a plan or task plan; `require_plan_mode_marker` and its four
+call sites in `plans.py` and `tasks.py` are removed. This replaces 0048's
+plan-mode provision only — 0048's grill-round provenance and ledger-matched
+round floors stay in force.
 
-**The grill is the provenance, and it is now enforced where it was only
-implied.** `task approve` previously carried a comment claiming a fresh passing
-grill was required; no code checked it. Approval now refuses unless the task
-grill's verdict is `pass` **and** it was recorded against the current plan
-digest — the same predicate the board uses to decide whether to show a task
-plan at all. Approving a plan the board would refuse to display was the gap
-that let a stale or failing grill through.
+**The grill becomes the enforced gate where it was only implied.** `task
+approve` carried a comment claiming a fresh passing grill was required and
+checked nothing, so a stale or failing grill could approve a plan the board was
+refusing to display. Approval now applies the board's own predicate: verdict
+`pass`, recorded against the current plan digest.
 
-The `post_tool_use` hook keeps recording plan-mode markers. They remain useful
-provenance in the event log, and the hook is the only thing that can write
-them; nothing gates on them.
+**A task plan must carry `## Workflow` and `## Manual Verification`.** It is
+read by the human approving it and by whoever confirms the thing works, and a
+file-by-file work order serves neither. Heading level is not enforced. A
+```mermaid diagram is asked for in words, not mechanically — demanding one
+would produce box-and-arrow filler.
 
 ## Consequences
+<!-- What follows: tradeoffs accepted, doors closed, work implied. -->
 
-- An operator in auto mode stays in auto mode. No forced mode switch.
-- Approval is gated on the thing that actually carries meaning, and the board
-  and the approval gate can no longer disagree about whether a plan is ready.
-- `plan_body_digest` and the plan-mode marker schema stay (the hook still
-  writes them), but nothing depends on their cross-platform stability for a
-  gate to open.
-- 0048's other provisions — grill-round provenance and the ledger-matched
-  round floors — are untouched and remain in force.
+- An operator in auto mode stays in auto mode.
+- The board and the approval gate can no longer disagree about whether the same
+  plan is ready.
+- `post_tool_use` keeps recording plan-mode markers as event-log provenance;
+  nothing gates on them. `plan_body_digest` and the marker schema stay for that
+  recording, but no gate now depends on their cross-platform stability.
+- Trades a cheap mechanical check for one that cannot be satisfied by ritual.
+  A plan can now be authored in any mode — including badly — and the grill is
+  what has to catch that. That is the intended shift, not a gap.

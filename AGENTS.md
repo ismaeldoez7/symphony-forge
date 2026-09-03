@@ -95,6 +95,20 @@ A task is not PR-ready until all of these exist:
 - `.factory/reviews/{quality,performance,security}.json`
 - `.factory/outcome.json` (what the story delivered — `./forge outcome set`)
 
+## Review findings are not a menu
+
+A finding the review just raised is work, and work goes to Codex. Delegate the
+fix and re-review; loop until clean. Do not put it to the human as a choice
+between fixing now, shipping and deferring, or fixing it yourself.
+
+- **Blocking findings** cannot be deferred or shipped past — readiness refuses
+  them — so there is nothing to arbitrate.
+- **Non-blocking findings** default to the same fix loop. Defer one only when it
+  is genuinely outside the task's scope, with a reason and a revisit trigger.
+- **Host-side fixing** is the single exception, and only when the defect cannot
+  be reproduced or fixed inside the Codex sandbox. Open a ledgered degraded
+  window and state why.
+
 ## Non-Negotiables
 
 - The constitution binds HOW code is written (not just conduct) for EVERY executor — Claude, Codex, or any subagent, any environment: follow the `constitution/README.md` coding standards at implement/grill/review, cite them, never re-derive. Approval then LOCKS the contract until the PR opens — any post-approval change stops for the human (done+shipped is immutable → new task; done-but-unshipped → `forge task reopen`; active → amend + re-grill); never reshuffle the graph on your own authority.

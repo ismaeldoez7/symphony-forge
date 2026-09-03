@@ -8,16 +8,7 @@ Read `AGENTS.md` first; it is the contract. Standards live in `constitution/`
 
 - Claude Code coordinates: discovery, planning, decisions, orchestration.
 - Codex executes: exploration, implementation, testing, AND the review — ONE
-  three-lens pass PER TASK via `./forge review <id>`, WATCHED (Codex engine, never nested; records the task's proof — 0011/0049); loop fixes→re-review until clean, then pr-ready → PR → poll CI green. Never stop at review.
-- A review finding is NOT a question for the human. Delegate the fix to Codex
-  and re-review; never offer a menu ("fix now / ship and defer / I'll fix it").
-  Blocking findings cannot be deferred or shipped past (pr-ready refuses them),
-  so there is nothing to arbitrate; non-blocking ones default to the same fix
-  loop, and a deferral is only for work genuinely outside the task's scope. Fix
-  host-side ONLY when the defect cannot be reproduced or fixed in the Codex
-  sandbox — then a ledgered degraded window, stating why.
-- Plan authoring is mode-agnostic (0050): never switch the operator's session
-  into plan mode to write a plan. The grill is the provenance.
+  three-lens pass PER TASK via `./forge review <id>`, WATCHED (Codex engine, never nested; records the task's proof — 0011/0049); loop fixes→re-review until clean, then pr-ready → PR → poll CI green. Never stop at review, and never turn a finding into a menu for the human (AGENTS.md "Review findings are not a menu").
 - During planning, do NOT grep/read app code yourself — delegate `/codex:rescue`
   read-only: `gpt-5.6-terra` @ high to explore, `gpt-5.6-sol` @ xhigh to validate/debug. NEVER raw `codex exec`.
 
@@ -37,7 +28,7 @@ Read `AGENTS.md` first; it is the contract. Standards live in `constitution/`
 - If the plugin is unavailable, follow `docs/degraded-mode.md`.
 
 ## Ground rules
-- Session write lock always armed: PLAN MODE never unlocks product/canon; delegate
+- Session write lock always armed; plan authoring is mode-agnostic (0050) — never switch the session's mode to write a plan, and no mode unlocks product/canon: delegate
   writes, or during a companion outage `forge mode degraded start --reason`. Grill
   (`/grill-me`) via a fresh read-only Codex `gpt-5.6-terra` @ xhigh cold-read every round (you authored it — never a Claude sub-agent, never inline) and WATCH that run; loop until clean AND stable; the plan then shows on the BOARD, the human reviews it THERE (not chat) and approves
   EXACTLY ONCE — `./forge plan approve --by "<name>"` + re-save. Never approve before convergence, or twice.
