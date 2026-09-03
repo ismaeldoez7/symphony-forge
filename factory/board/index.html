@@ -890,6 +890,33 @@
   .task-ac ul { list-style: none; display: grid; gap: .15rem; }
   .task-ac li { padding-left: .9rem; position: relative; line-height: 1.45; }
   .task-ac li::before { content: "◦"; position: absolute; left: 0; color: var(--stone); }
+  .task-progress { margin: 0 0 .9rem; }
+  .tp-head {
+    display: flex; align-items: baseline; gap: .4rem;
+    font-size: .74rem; color: var(--quiet);
+  }
+  .tp-head b { font-size: .78rem; color: var(--ink); flex: none; }
+  .tp-head b.bad { color: var(--bad, #b4442e); }
+  .tp-head > span { flex: 1 1 auto; min-width: 0; }
+  .tp-pct { font-family: var(--mono); font-size: .7rem; margin-left: auto; flex: none; }
+  .tp-bar {
+    display: flex; gap: 2px; margin-top: .35rem;
+    height: .3rem; border-radius: 999px; overflow: hidden;
+  }
+  .tp-bar .seg { flex: 1; position: relative; background: var(--rule); }
+  .tp-bar .seg:first-child { border-radius: 999px 0 0 999px; }
+  .tp-bar .seg:last-child { border-radius: 0 999px 999px 0; }
+  .tp-bar .seg.done { background: var(--shipped); }
+  .tp-bar .seg.blocked { background: var(--bad, #b4442e); }
+  .tp-bar .seg.now { background: color-mix(in srgb, var(--build) 26%, transparent); }
+  .tp-bar .seg.now > i {
+    position: absolute; inset: 0 auto 0 0; display: block;
+    background: var(--build); border-radius: inherit;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .tp-bar .seg.now > i { animation: tp-pulse 1.8s ease-in-out infinite; }
+  }
+  @keyframes tp-pulse { 50% { opacity: .5; } }
   .task-plan { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: .5rem .7rem; }
   .task-plan p { font-family: var(--serif); line-height: 1.55; margin: .2rem 0; }
   .task-proof div { line-height: 1.6; }
@@ -3265,10 +3292,18 @@ function taskDossier(t) {
   const bits = [];
   if (proof.spec) bits.push(`<div><b>Spec</b> ${openFile(proof.spec)}</div>`);
   if ((proof.required_tests || []).length) {
-    const covered = new Set(proof.covered_tests || []);
-    bits.push(`<div><b>Tests</b> ${proof.required_tests.map(name =>
-      `<span class="${covered.has(name) ? "ran" : "unproven"}">${
-        covered.has(name) ? "✓" : "○"} ${esc(name)}</span>`).join(" ")}</div>`);
+    // Required tests are {id, path, command} objects. Rendering the object
+    // printed "[object Object]", and matching coverage by object identity was
+    // always false once the payload had been through JSON — so every required
+    // test read as unproven, contradicting the counts the backend computes.
+    const testId = e => (e && typeof e === "object" ? e.id : e);
+    const covered = new Set((proof.covered_tests || []).map(testId));
+    bits.push(`<div><b>Tests</b> ${proof.required_tests.map(entry => {
+      const id = testId(entry);
+      const ran = covered.has(id);
+      return `<span class="${ran ? "ran" : "unproven"}">${
+        ran ? "✓" : "○"} ${esc(String(id ?? ""))}</span>`;
+    }).join(" ")}</div>`);
   }
   if (proof.verify_ok) {
     bits.push(`<div><b>Verify</b> passed${proof.verify_at
@@ -3435,12 +3470,72 @@ function tabBar(detail) {
        <button type="button" class="raw" data-raw="1" aria-selected="${drawer.raw}">raw json</button>`;
 }
 
+// Where this ONE task actually is, above its plan. The plan says what was
+// meant to happen; without this the board could not say whether anything was
+// still happening -- a companion that died an hour ago read exactly like one
+// taking a while. Scoped to the selected task on purpose: a global banner
+// would report on tasks nobody is looking at.
+//
+// One line and one bar, deliberately. The step names live in the segment
+// tooltips: spelling all seven out under the bar turned a status line into a
+// second table, and the only step worth naming is the one in flight.
+function taskProgress(task) {
+  const p = task.progress;
+  if (!p || !(p.steps || []).length) return "";
+  const steps = p.steps;
+  const live = p.live || null;
+  const dead = live && live.status === "dead";
+
+  // Steps actually finished -- NOT how far along the pipeline the task got.
+  // A task can ship with a step skipped (that is exactly the review gap this
+  // release closes), and reading to the furthest done step would report that
+  // as 100%. The grey segment between green ones says which step was missed.
+  const pct = Math.round(
+    (steps.filter(s => s.state === "done").length / steps.length) * 100);
+  // The step in flight fills from work actually written, so a long
+  // implementation step is not one dead block.
+  const frac = live && live.files_limit
+    ? Math.min(1, (live.files || 0) / live.files_limit) : 0;
+  const segs = steps.map(s =>
+    `<span class="seg ${esc(s.state)}"
+       title="${esc(s.label)}${s.note ? ` \u2014 ${esc(s.note)}` : ""}"
+       >${s.state === "now" && frac
+          ? `<i style="width:${esc(String(Math.round(frac * 100)))}%"></i>` : ""}</span>`)
+    .join("");
+
+  let line;
+  if (dead) {
+    line = `<b class="bad">Codex crashed</b><span>pid ${esc(String(live.pid))} is gone,
+      nothing is coming \u2014 re-run <code>./forge delegate ${esc(task.id)}</code></span>`;
+  } else {
+    const bits = [];
+    if (live) {
+      const idle = live.idle_minutes;
+      bits.push(live.phase || live.summary || "Codex working");
+      if (typeof idle === "number") bits.push(idle < 1 ? "moving" : `quiet ${Math.round(idle)}m`);
+      if (live.files_limit) bits.push(`${live.files || 0}/${live.files_limit} files`);
+    } else if (p.headline) {
+      bits.push(p.headline);
+    }
+    line = `<b>${esc(p.current || "Nothing in flight")}</b>${
+      bits.length ? `<span>${esc(bits.join(" \u00b7 "))}</span>` : ""}`;
+  }
+
+  return `<div class="task-progress${p.stalled ? " stalled" : ""}">
+      <div class="tp-head">${line}<span class="tp-pct">${esc(String(pct))}%</span></div>
+      <div class="tp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+           aria-valuenow="${esc(String(pct))}"
+           aria-label="${esc(task.id || "task")} progress: ${esc(p.current || "")}">${segs}</div>
+    </div>`;
+}
+
 function taskPlanContent(detail) {
   const tasks = (detail.tasks || []).filter(t => t.plan_state === "clean");
   const active = tasks.find(t => t.id === drawer.taskPlan) || tasks[0];
   if (!active) return `<p class="quiet">No grill-clean task plan to show yet.</p>`;
   drawer.taskPlan = active.id;
-  return `${active.plan_path ? openFile(active.plan_path) : ""}${md(active.plan || "")}`;
+  return `${taskProgress(active)}${
+    active.plan_path ? openFile(active.plan_path) : ""}${md(active.plan || "")}`;
 }
 
 function liveStory(key) {
@@ -3487,6 +3582,41 @@ function refocus(selector) {
   if (el) el.focus();
 }
 
+// The drawer was fetched once on open and never again, so anything live in it
+// aged silently -- worst exactly while something is running. This re-reads it
+// on the same poll WITHOUT openDrawer's view reset (which tab, which task
+// plan, wide or narrow are the reader's choices, not the server's), and
+// repaints only on a real change so open rows and keyboard focus survive.
+let drawerSig = "";
+let drawerTicks = 0;
+// The story endpoint assembles every evidence artifact for the story (~280ms
+// here), so re-reading it on every 4s poll is real work to spend on a panel
+// that usually is not changing. Pay it at full rate only while something is
+// actually in flight -- a step mid-run, a stall, or a live companion -- and
+// idle back to every fifth poll otherwise.
+function drawerIsHot() {
+  return ((drawer.detail || {}).tasks || []).some(task => {
+    const p = task.progress || {};
+    return p.stalled || (p.launch || {}).status === "running"
+      || (p.steps || []).some(s => s.state === "now");
+  });
+}
+
+async function refreshDrawer(key) {
+  if (!drawerIsHot() && ++drawerTicks % 5) return;
+  drawerTicks = 0;
+  try {
+    const res = await fetch(`/api/story/${encodeURIComponent(key)}`, {cache: "no-store"});
+    const detail = await res.json();
+    if (detail.error || drawer.key !== key) return;
+    const sig = JSON.stringify(detail);
+    if (sig === drawerSig) return;
+    drawerSig = sig;
+    drawer.detail = detail;
+    paintDrawer();
+  } catch { /* the tick already shows staleness */ }
+}
+
 async function openDrawer(key, fromEl) {
   drawer.key = key;
   drawer.wide = false;
@@ -3506,6 +3636,7 @@ async function openDrawer(key, fromEl) {
     if (detail.error) throw new Error(detail.error);
     if (drawer.key !== key) return;
     drawer.detail = detail;
+    drawerSig = JSON.stringify(detail);
   } catch {
     if (drawer.key !== key) return;
     drawer.detail = {story: liveStory(key) || {key}, readiness: [], evidence: {}};
@@ -3600,6 +3731,10 @@ async function poll() {
     const state = await res.json();
     render(state);
     lastOk = Date.now();
+    // The drawer used to be fetched once on open and never again: a task's
+    // progress would freeze at whatever it was when the panel opened, which
+    // is worst exactly while something is running.
+    if (drawer.key) refreshDrawer(drawer.key);
     // Cache for a warm start on the next load.
     try { localStorage.setItem("forge-board:laststate", JSON.stringify(state)); } catch { /* private mode */ }
   } catch { /* staleness shows in the tick */ }
@@ -3608,8 +3743,12 @@ async function poll() {
 function tick() {
   const el = $("tick"), label = $("tick-label");
   if (!lastOk) { label.textContent = "connecting"; return; }
+  // Paused on purpose is not stale, and an idle cadence is not a dead board:
+  // accusing `forge board` of being down while we are deliberately not asking
+  // would send someone to restart a server that is working fine.
+  if (document.hidden) { el.classList.remove("stale"); label.textContent = "paused"; return; }
   const secs = Math.round((Date.now() - lastOk) / 1000);
-  const stale = secs > 15;
+  const stale = secs > (stateIsHot(lastState) ? 15 : 45);
   el.classList.toggle("stale", stale);
   label.textContent = stale ? `stale ${secs}s — is \`./forge board\` still running?` : "live";
 }
@@ -3653,7 +3792,46 @@ try {
 } catch { /* ignore a bad cache */ }
 
 poll().then(() => { if (deepLink()) followHash(); });
-setInterval(poll, 4000);
+// A fixed 4s poll asked a ~280ms question every four seconds forever, most
+// often to be told nothing had changed -- and kept asking a board left open in
+// a background tab that nobody was reading. Cadence follows what is actually
+// happening instead: full rate only while something is in flight, idle
+// otherwise, and nothing at all while the tab is hidden.
+const POLL_LIVE = 4000, POLL_IDLE = 20000;
+
+function stateIsHot(state) {
+  const s = state || {};
+  if ((s.summary || {}).stories && s.summary.stories.building) return true;
+  if ((s.signals || []).length) return true;   // a worker is paused on a question
+  if (s.quickfix) return true;                 // a quickfix window is open
+  // The state payload carries the stage list under `items` (story-detail is
+  // the payload that nests it under `stages`); accept either rather than
+  // depending on which endpoint this state came from.
+  const st = s.stages || {};
+  const stages = Array.isArray(st.items) ? st.items
+    : (Array.isArray(st.stages) ? st.stages : []);
+  return stages.some(x => x && x.status === "active");
+}
+
+let pollTimer = null;
+function schedulePoll() {
+  clearTimeout(pollTimer);
+  // Hidden: stop entirely. visibilitychange resumes with an immediate poll, so
+  // coming back to the tab shows current state rather than the last frame
+  // before it was hidden.
+  if (document.hidden) return;
+  pollTimer = setTimeout(async () => {
+    await poll();
+    schedulePoll();
+  }, stateIsHot(lastState) ? POLL_LIVE : POLL_IDLE);
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { clearTimeout(pollTimer); return; }
+  poll().then(schedulePoll);
+});
+
+schedulePoll();
 setInterval(tick, 1000);
 </script>
 </body>

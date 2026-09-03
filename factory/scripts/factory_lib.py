@@ -9,6 +9,7 @@ import re
 import stat
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -106,6 +107,32 @@ def story_uses_scoped_layout(root: Path, key: str) -> bool:
     return story_dir(root, key).is_dir()
 
 
+def active_story_key(root: Path) -> str:
+    """The active story, read cheaply and memoised against run.json.
+
+    `evidence_path` needs only this one field, but reached it through
+    `load_json(run_state_path(...))` — a full parse plus `derive_phase`'s extra
+    stats — and the board calls `evidence_path` a dozen times per story across
+    every story in the roadmap. Reading just the key, once per run.json version,
+    removes that amplification. Memoised on the file's stamp, so a run-pointer
+    change is picked up immediately."""
+    from forge_cli import fscache
+
+    path = run_state_path(root)
+
+    def compute() -> str:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return ""
+        if not isinstance(data, dict):
+            return ""
+        return str(data.get("issue_key") or data.get("story") or "")
+
+    return fscache.cached(
+        f"active_story:{path}", fscache.file_stamp(path), compute)
+
+
 def evidence_path(
     root: Path,
     key: str | None,
@@ -129,8 +156,7 @@ def evidence_path(
 
     scoped_dir = story_dir(root, key)
     scoped = scoped_dir / relative
-    state = load_json(run_state_path(root), default={})
-    active = (state.get("issue_key") or state.get("story")) == key
+    active = active_story_key(root) == key
     if for_write:
         return scoped if story_uses_scoped_layout(root, key) or not active else live
     if scoped.exists():
@@ -702,12 +728,23 @@ def dump_json(path: Path, data: Any) -> None:
 # cached; a failure re-runs so a transient git error is not pinned for the
 # process's life.
 _GIT_CONTROL_DIR_CACHE: dict[Path, Path] = {}
+_GIT_CONTROL_DIR_LITERAL: dict[Path, Path] = {}
 
 
 def git_control_dir(root: Path) -> Path:
+    # Callers hand the same Path object back hundreds of times per board
+    # render, and `resolve()` is itself a filesystem call -- on Windows the
+    # single largest cost in the polled path. Key the fast lane on the path AS
+    # GIVEN, falling through to the resolved cache for a root spelled a new
+    # way. A given path cannot come to mean a different repository inside one
+    # process, so this cannot go stale.
+    literal = _GIT_CONTROL_DIR_LITERAL.get(root)
+    if literal is not None:
+        return literal
     resolved = root.resolve()
     cached = _GIT_CONTROL_DIR_CACHE.get(resolved)
     if cached is not None:
+        _GIT_CONTROL_DIR_LITERAL[root] = cached
         return cached
     proc = subprocess.run(
         ["git", "rev-parse", "--absolute-git-dir"],
@@ -734,6 +771,7 @@ def git_control_dir(root: Path) -> Path:
         )
     result = Path(proc.stdout.strip()) / "forge"
     _GIT_CONTROL_DIR_CACHE[resolved] = result
+    _GIT_CONTROL_DIR_LITERAL[root] = result
     return result
 
 
@@ -753,49 +791,126 @@ def task_marker_path(key: str, task_id: str) -> Path:
     return Path(".factory") / "stories" / key / "tasks" / task_id / "pr-ready.json"
 
 
+# The trunk branch of a repo does not change during a process, but resolving it
+# shells out to git (symbolic-ref, sometimes a networked `remote show`). The
+# board calls it once per task per render — memoize against the deciding refs so
+# the board's hot path pays that cost once per change, not N times per render.
+
+
 def default_trunk_branch(root: Path) -> str:
     """The repo's integration trunk — origin's default branch, not a hardcoded
     'main'. Task markers, the task-start base, and the branch-review diff all
     live on whatever ``origin/HEAD`` points at (main / develop / trunk / …), so
     deriving it keeps the harness correct on every repo instead of only on
     main-trunk ones. Falls back to 'main' when the default cannot be resolved,
-    which preserves prior behaviour for main-trunk repos (zero regression)."""
+    which preserves prior behaviour for main-trunk repos (zero regression).
+
+    Memoized against the refs that DECIDE the answer, not for the lifetime of
+    the process. The board resolves this once per task per render, so removing
+    the subprocess amplification is worth it — but "stable for a process" holds
+    only for a one-shot CLI run. The board runs for hours, and a repo that
+    gains an origin/HEAD, or repoints it, while the board is up would otherwise
+    be answered forever from a cache nothing could refill."""
+    from forge_cli import fscache
+
+    return fscache.cached(f"trunk_branch:{root}", _trunk_ref_stamp(root),
+                          lambda: _resolve_trunk_branch(root))
+
+
+def _trunk_ref_stamp(root: Path) -> tuple:
+    """What origin/HEAD resolution actually reads. `config` counts too: adding
+    the `origin` remote is what turns the fallback path into a real answer."""
+    from forge_cli import fscache
+
+    try:
+        git_dir = git_control_dir(root).parent
+    except SystemExit:
+        return ()
+    # From inside a linked worktree the refs live in the shared control dir.
+    common = (git_dir.parent.parent
+              if git_dir.parent.name == "worktrees" else git_dir)
+    return tuple(
+        fscache.file_stamp(common / name)
+        for name in ("refs/remotes/origin/HEAD", "packed-refs", "config")
+    )
+
+
+def _resolve_trunk_branch(root: Path) -> str:
     # Branch/ref names are UTF-8 (unlike arbitrary file paths), so strict UTF-8
     # decoding is correct here and needs no lossless surrogateescape.
+    result = "main"
     ref = subprocess.run(
         ["git", "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
         cwd=root, capture_output=True, text=True, env=clean_git_env(),
         encoding="utf-8",
     )
     if ref.returncode == 0 and ref.stdout.strip():
-        return ref.stdout.strip().rsplit("/", 1)[-1]
-    # origin/HEAD not set locally — ask the remote once, then fall back to main.
-    show = subprocess.run(
-        ["git", "remote", "show", "origin"],
-        cwd=root, capture_output=True, text=True, env=clean_git_env(),
-        encoding="utf-8",
-    )
-    for line in show.stdout.splitlines():
-        if "HEAD branch:" in line:
-            name = line.split("HEAD branch:", 1)[1].strip()
-            if name and name != "(unknown)":
-                return name
-    return "main"
+        result = ref.stdout.strip().rsplit("/", 1)[-1]
+    else:
+        # origin/HEAD not set locally — ask the remote once, then fall back.
+        show = subprocess.run(
+            ["git", "remote", "show", "origin"],
+            cwd=root, capture_output=True, text=True, env=clean_git_env(),
+            encoding="utf-8",
+        )
+        for line in show.stdout.splitlines():
+            if "HEAD branch:" in line:
+                name = line.split("HEAD branch:", 1)[1].strip()
+                if name and name != "(unknown)":
+                    result = name
+                    break
+    return result
 
 
-def task_marker_on_main(root: Path, key: str, task_id: str) -> bool:
-    """Refresh the trunk and report whether its tree contains the task marker.
+# How long a trunk fetch stays "fresh enough", in seconds. ZERO everywhere by
+# default: the frontier and the per-task ship gate must see a marker the instant
+# it lands, so every CLI process fetches live. Only the long-running BOARD
+# process raises it (see `forge_cli.board.make_server`) — it re-renders every few
+# seconds, a network fetch per render is what made opening a story take ~1s, and
+# a few seconds of staleness on "has this marker landed yet" costs a read-only
+# dashboard nothing.
+MARKER_FETCH_TTL = 0.0
+_TRUNK_FETCH_AT: dict[tuple[str, str], float] = {}
 
-    'main' in the name is historical: the branch queried is the resolved trunk
-    (``default_trunk_branch``), so a develop/trunk repo finds its markers too.
-    """
-    marker = task_marker_path(key, task_id)
-    trunk = default_trunk_branch(root)
+
+def fetch_trunk(root: Path, trunk: str, *, ttl: float = 0.0) -> bool:
+    """Fetch ``origin/<trunk>`` and report whether it should now be present.
+
+    Factored out so the board fetches the trunk ONCE per render (before checking
+    every task's marker) instead of once per task, while the CLI frontier and
+    ship gates keep fetching live per check. With ``ttl > 0`` a fetch made within
+    the last ``ttl`` seconds is reused instead of hitting the network again."""
+    cache_key = (str(root), trunk)
+    if ttl > 0.0:
+        last = _TRUNK_FETCH_AT.get(cache_key)
+        if last is not None and (time.monotonic() - last) < ttl:
+            return True
     fetch = subprocess.run(
         ["git", "fetch", "origin", trunk], cwd=root, capture_output=True,
         text=True, env=clean_git_env(), encoding="utf-8", errors="surrogateescape",
     )
     if fetch.returncode != 0:
+        return False
+    _TRUNK_FETCH_AT[cache_key] = time.monotonic()
+    return True
+
+
+def task_marker_on_main(
+    root: Path, key: str, task_id: str, *, refresh: bool = True,
+) -> bool:
+    """Report whether the trunk's tree contains the task's completion marker.
+
+    'main' in the name is historical: the branch queried is the resolved trunk
+    (``default_trunk_branch``), so a develop/trunk repo finds its markers too.
+
+    ``refresh=True`` (default) fetches ``origin/<trunk>`` first — the live check
+    the frontier and per-task ship gates need. ``refresh=False`` checks only the
+    already-fetched origin ref, so the board can fetch the trunk once per render
+    and then check every task's marker without a network call each.
+    """
+    marker = task_marker_path(key, task_id)
+    trunk = default_trunk_branch(root)
+    if refresh and not fetch_trunk(root, trunk):
         # No origin, or an offline/transient fetch: the marker cannot be
         # confirmed on the trunk, so report not-yet-shipped rather than crashing
         # every caller. `forge next` and the board read this on repos that have
@@ -1490,23 +1605,6 @@ def plan_body_digest(path: Path) -> str:
     return hashlib.sha256(approved_body).hexdigest()
 
 
-def require_plan_mode_marker(root: Path, plan: Path) -> None:
-    """Require plan-mode provenance for the current plan body."""
-    story_directory = evidence_path(root, _active_story_key(root), "plan-mode")
-    root_directory = evidence_path(root, None, "plan-mode")
-    digest = plan_body_digest(plan)
-    for directory in dict.fromkeys((story_directory, root_directory)):
-        markers = sorted(directory.glob("*.json")) if directory.is_dir() else ()
-        for marker_path in markers:
-            marker = load_json(marker_path, default={})
-            if marker.get("sha256_body") == digest:
-                return
-    raise SystemExit(
-        f"plan-mode marker required for {plan.name}: enter plan mode, edit or save "
-        "this exact plan file there, then retry without changing its body."
-    )
-
-
 def approved_plan_digest(
     root: Path, state: dict[str, Any], plan: Path,
 ) -> str | None:
@@ -1702,6 +1800,12 @@ def task_rows(root: Path) -> list[dict]:
     # trunk, else "await-merge" — mirroring task_frontier_state so the board and
     # `forge next` agree. Without an origin the row keeps its stage status.
     has_origin = _has_origin(root)
+    # The board renders every task row per poll and per drawer open. Fetch the
+    # trunk ONCE here, then check each done task's marker against that
+    # already-fetched ref (refresh=False) instead of a live network fetch per
+    # task — the fix for the "very very slow" board (N fetches per render -> 1).
+    if has_origin:
+        fetch_trunk(root, default_trunk_branch(root), ttl=MARKER_FETCH_TTL)
     for task in tasks:
         task_id = task.get("id")
         stage = stage_by_id.get(task_id, {})
@@ -1710,7 +1814,11 @@ def task_rows(root: Path) -> list[dict]:
         fresh = _task_grill_fresh(root, task, grill) if grill else False
         status = stage.get("status")
         if status == "done" and has_origin:
-            state = "done" if task_marker_on_main(root, key, task_id) else "await-merge"
+            state = (
+                "done"
+                if task_marker_on_main(root, key, task_id, refresh=False)
+                else "await-merge"
+            )
         elif status == "done":
             state = "done"
         elif status == "active":

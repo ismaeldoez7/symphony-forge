@@ -56,6 +56,7 @@ from forge_cli import lessons as lessons_mod
 from forge_cli import outcome as outcome_mod
 from forge_cli import project as project_mod
 from forge_cli import quickfix as quickfix_mod
+from forge_cli import review as review_mod
 from forge_cli import review_brief as review_brief_mod
 from forge_cli import scratchpad as scratchpad_mod
 from forge_cli import sanitise as sanitise_mod
@@ -203,6 +204,24 @@ def main() -> None:
     p_task_reopen.add_argument("id", help="task id")
     p_task_reopen.add_argument("--repo")
     p_task_reopen.set_defaults(func=tasks_mod.cmd_task_reopen)
+    p_task_reconcile = task_sub.add_parser(
+        "reconcile",
+        help="adopt a task already merged to the trunk out of band (write its "
+             "marker + flip its stage done, no new PR)",
+    )
+    p_task_reconcile.add_argument("id", help="task id")
+    p_task_reconcile.add_argument(
+        "--commit",
+        help="the merge/sealed commit that shipped the task (default: the "
+             "current trunk head); must be an ancestor of origin's trunk",
+    )
+    p_task_reconcile.add_argument(
+        "--branch",
+        help="the task's original branch for the marker (default: "
+             "feat/<story>-<task>)",
+    )
+    p_task_reconcile.add_argument("--repo")
+    p_task_reconcile.set_defaults(func=tasks_mod.cmd_task_reconcile)
     p_task_plan = task_sub.add_parser("plan", help="manage a task plan")
     task_plan_sub = p_task_plan.add_subparsers(
         dest="task_plan_command", required=True,
@@ -257,12 +276,22 @@ def main() -> None:
 
     p_mode = sub.add_parser("mode", help="manage developer-selected workflow modes")
     mode_sub = p_mode.add_subparsers(dest="mode_command", required=True)
-    p_ml = mode_sub.add_parser("lite", help="open a lite workflow window")
+    p_ml = mode_sub.add_parser(
+        "lite",
+        help="open a lite workflow window — `lite` IS the verb, there is no "
+             "`lite start` (unlike `degraded start`). USE IT FOR: a small, "
+             "bounded, ledgered change that does not deserve a full story. It "
+             "does NOT relax any grill or approval gate")
     p_ml.add_argument("--by", required=True, help="person opening the lite window")
     p_ml.add_argument("--reason", required=True, help="why lite mode is appropriate")
     p_ml.add_argument("--repo")
     p_ml.set_defaults(func=quickfix_mod.cmd_lite)
-    p_mdeg = mode_sub.add_parser("degraded", help="manage a degraded write window")
+    p_mdeg = mode_sub.add_parser(
+        "degraded",
+        help="manage a degraded write window — open it with `degraded start "
+             "--reason ...`, close it with `mode done`. USE IT FOR: a companion "
+             "outage, or a fix only the host can make (max five files). It is a "
+             "WRITE window, not a gate window — it relaxes no grill or approval")
     degraded_sub = p_mdeg.add_subparsers(dest="degraded_command", required=True)
     p_mdegs = degraded_sub.add_parser("start", help="open a five-file degraded window")
     p_mdegs.add_argument("--reason", required=True, help="why degraded mode is required")
@@ -287,10 +316,19 @@ def main() -> None:
 
     p_spec = sub.add_parser("spec", help="capture and confirm capability specs")
     spec_sub = p_spec.add_subparsers(dest="spec_command", required=True)
-    p_sps = spec_sub.add_parser("save", help="save a capability spec as draft")
-    p_sps.add_argument("slug")
-    p_sps.add_argument("--from", dest="source", required=True)
-    p_sps.add_argument("--title")
+    p_sps = spec_sub.add_parser(
+        "save", help="save a capability spec as draft",
+        description="Save a capability spec as a draft. The source must be "
+                    "Markdown with an H1 title and the sections `## Why`, "
+                    "`## Behaviour` and `## Acceptance criteria` — `spec "
+                    "confirm` refuses without all three, so writing them now "
+                    "saves a round trip.")
+    p_sps.add_argument("slug", help="spec slug; becomes docs/specs/<slug>.md")
+    p_sps.add_argument(
+        "--from", dest="source", required=True,
+        help="Markdown draft: H1 title plus ## Why / ## Behaviour / "
+             "## Acceptance criteria")
+    p_sps.add_argument("--title", help="override the title (default: the H1)")
     p_sps.add_argument("--repo")
     p_sps.set_defaults(func=specs.cmd_save)
     p_spc = spec_sub.add_parser("confirm", help="confirm a freshly grilled spec")
@@ -509,6 +547,25 @@ def main() -> None:
                        help="print the argv without launching or recording evidence")
     p_del.add_argument("--repo")
     p_del.set_defaults(func=delegate_mod.cmd_delegate)
+
+    p_review = sub.add_parser(
+        "review",
+        help="release Codex for a task's three-lens review and record its proof")
+    p_review.add_argument("id", help="task id from the decomposition")
+    p_review.add_argument(
+        "--lens", choices=list(review_mod.LENSES),
+        help="run a single lens (default: all three)")
+    p_review.add_argument(
+        "--engine", default="codex",
+        help="autoreview engine (default: codex — the review is Codex's, 0011)")
+    p_review.add_argument(
+        "--max-priority", default="P2", choices=["P0", "P1", "P2", "P3"],
+        help="lowest priority to report (default: P2, not the P0-only default)")
+    p_review.add_argument(
+        "--skill", help="path to the autoreview helper (default: $AUTOREVIEW "
+                        "or ~/.codex/skills/autoreview/scripts/autoreview)")
+    p_review.add_argument("--repo")
+    p_review.set_defaults(func=review_mod.cmd_review)
 
     p_review_brief = sub.add_parser(
         "review-brief", help="compose the plan-contract prompt for autoreview")
