@@ -631,42 +631,51 @@ def _worktree_roots(base: Path) -> list[Path]:
     running companion writes lives under the WORKTREE, not here. A board
     reading only its own root is therefore blind to exactly the runs it most
     needs to report on.
+
+    Read from git's own bookkeeping rather than `git worktree list`: the
+    control directory already holds one `worktrees/<name>/gitdir` file per
+    linked worktree, so this is a couple of small reads instead of a
+    subprocess on a polled path -- and it needs no lenient decode policy for
+    process output.
     """
-    roots = [base]
     try:
-        from factory_lib import clean_git_env, git_control_dir
-        import subprocess
+        from factory_lib import git_control_dir
         from .fscache import cached, dir_stamp
-        # The worktree set changes only when `task start`/`worktree prune`
-        # touches it, so stamp the control directory rather than shelling out
-        # to git on every poll.
-        control = git_control_dir(base)
-        stamp = dir_stamp(control / "worktrees")
-        return cached("board.worktree_roots", (str(base), stamp),
-                      lambda: _scan_worktrees(base))
+        # git_control_dir appends forge's own subdirectory, so the git dir
+        # itself is its parent. From inside a LINKED worktree that git dir is
+        # .git/worktrees/<name>, whose grandparent is the shared .git holding
+        # the registry every worktree is listed in.
+        git_dir = git_control_dir(base).parent
+        common = (git_dir.parent.parent
+                  if git_dir.parent.name == "worktrees" else git_dir)
+        registry = common / "worktrees"
+        # The set changes only when `task start` or `worktree prune` touches
+        # it, so stamp the registry rather than re-reading on every poll.
+        return cached("board.worktree_roots", (str(base), dir_stamp(registry)),
+                      lambda: _scan_worktrees(base, registry))
     except (Exception, SystemExit):
-        return roots
+        return [base]
 
 
-def _scan_worktrees(base: Path) -> list[Path]:
+def _scan_worktrees(base: Path, registry: Path) -> list[Path]:
     roots = [base]
-    try:
-        from factory_lib import clean_git_env
-        import subprocess
-        proc = subprocess.run(
-            ["git", "worktree", "list", "--porcelain"], cwd=base,
-            capture_output=True, text=True, env=clean_git_env(),
-            encoding="utf-8", errors="replace", timeout=10,
-        )
-        if proc.returncode != 0:
-            return roots
-        for line in proc.stdout.splitlines():
-            if line.startswith("worktree "):
-                path = Path(line[len("worktree "):].strip())
-                if path.is_dir() and path.resolve() != base.resolve():
-                    roots.append(path)
-    except (Exception, SystemExit):
+    if not registry.is_dir():
         return roots
+    for entry in sorted(registry.iterdir()):
+        pointer = entry / "gitdir"
+        try:
+            # Points at the worktree's own `.git` file; its parent is the tree.
+            recorded = pointer.read_text(encoding="utf-8").strip()
+        except (OSError, UnicodeDecodeError):
+            continue
+        if not recorded:
+            continue
+        root = Path(recorded).parent
+        try:
+            if root.is_dir() and root.resolve() != base.resolve():
+                roots.append(root)
+        except OSError:
+            continue
     return roots
 
 
@@ -822,7 +831,12 @@ def task_progress(task: dict, launch: dict | None, reviews: dict) -> dict:
     else:
         start_step = step("start", "Started", "todo")
 
-    if launch and launch.get("status") == "running":
+    # A finished task is finished: a stale launch row left behind by a crash
+    # that was later recovered (a re-run, or a ledgered degraded window) must
+    # not put a dead companion on a shipped task.
+    if done:
+        build = step("build", "Implementation", "done")
+    elif launch and launch.get("status") == "running":
         # Say what it is DOING, not just that it exists: an implementation step
         # with no live detail looks identical at minute 1 and minute 90.
         idle = launch.get("idle_minutes")
@@ -848,8 +862,6 @@ def task_progress(task: dict, launch: dict | None, reviews: dict) -> dict:
         build = step("build", "Implementation", "blocked", "last launch failed")
     elif launch and launch.get("status") == "succeeded":
         build = step("build", "Implementation", "done", "companion finished")
-    elif done:
-        build = step("build", "Implementation", "done")
     else:
         build = step("build", "Implementation",
                      "now" if state == "active" else "todo",

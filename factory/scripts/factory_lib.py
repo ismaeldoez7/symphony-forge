@@ -728,12 +728,23 @@ def dump_json(path: Path, data: Any) -> None:
 # cached; a failure re-runs so a transient git error is not pinned for the
 # process's life.
 _GIT_CONTROL_DIR_CACHE: dict[Path, Path] = {}
+_GIT_CONTROL_DIR_LITERAL: dict[Path, Path] = {}
 
 
 def git_control_dir(root: Path) -> Path:
+    # Callers hand the same Path object back hundreds of times per board
+    # render, and `resolve()` is itself a filesystem call -- on Windows the
+    # single largest cost in the polled path. Key the fast lane on the path AS
+    # GIVEN, falling through to the resolved cache for a root spelled a new
+    # way. A given path cannot come to mean a different repository inside one
+    # process, so this cannot go stale.
+    literal = _GIT_CONTROL_DIR_LITERAL.get(root)
+    if literal is not None:
+        return literal
     resolved = root.resolve()
     cached = _GIT_CONTROL_DIR_CACHE.get(resolved)
     if cached is not None:
+        _GIT_CONTROL_DIR_LITERAL[root] = cached
         return cached
     proc = subprocess.run(
         ["git", "rev-parse", "--absolute-git-dir"],
@@ -760,6 +771,7 @@ def git_control_dir(root: Path) -> Path:
         )
     result = Path(proc.stdout.strip()) / "forge"
     _GIT_CONTROL_DIR_CACHE[resolved] = result
+    _GIT_CONTROL_DIR_LITERAL[root] = result
     return result
 
 
@@ -781,9 +793,8 @@ def task_marker_path(key: str, task_id: str) -> Path:
 
 # The trunk branch of a repo does not change during a process, but resolving it
 # shells out to git (symbolic-ref, sometimes a networked `remote show`). The
-# board calls it once per task per render — memoize per repo root so the board's
-# hot path pays that cost once, not N times.
-_TRUNK_BRANCH_CACHE: dict[str, str] = {}
+# board calls it once per task per render — memoize against the deciding refs so
+# the board's hot path pays that cost once per change, not N times per render.
 
 
 def default_trunk_branch(root: Path) -> str:
@@ -794,12 +805,37 @@ def default_trunk_branch(root: Path) -> str:
     main-trunk ones. Falls back to 'main' when the default cannot be resolved,
     which preserves prior behaviour for main-trunk repos (zero regression).
 
-    Memoized per repo root: the trunk is stable for a process, and the board
-    resolves it once per task per render."""
-    cache_key = str(root)
-    cached = _TRUNK_BRANCH_CACHE.get(cache_key)
-    if cached is not None:
-        return cached
+    Memoized against the refs that DECIDE the answer, not for the lifetime of
+    the process. The board resolves this once per task per render, so removing
+    the subprocess amplification is worth it — but "stable for a process" holds
+    only for a one-shot CLI run. The board runs for hours, and a repo that
+    gains an origin/HEAD, or repoints it, while the board is up would otherwise
+    be answered forever from a cache nothing could refill."""
+    from forge_cli import fscache
+
+    return fscache.cached(f"trunk_branch:{root}", _trunk_ref_stamp(root),
+                          lambda: _resolve_trunk_branch(root))
+
+
+def _trunk_ref_stamp(root: Path) -> tuple:
+    """What origin/HEAD resolution actually reads. `config` counts too: adding
+    the `origin` remote is what turns the fallback path into a real answer."""
+    from forge_cli import fscache
+
+    try:
+        git_dir = git_control_dir(root).parent
+    except SystemExit:
+        return ()
+    # From inside a linked worktree the refs live in the shared control dir.
+    common = (git_dir.parent.parent
+              if git_dir.parent.name == "worktrees" else git_dir)
+    return tuple(
+        fscache.file_stamp(common / name)
+        for name in ("refs/remotes/origin/HEAD", "packed-refs", "config")
+    )
+
+
+def _resolve_trunk_branch(root: Path) -> str:
     # Branch/ref names are UTF-8 (unlike arbitrary file paths), so strict UTF-8
     # decoding is correct here and needs no lossless surrogateescape.
     result = "main"
@@ -823,7 +859,6 @@ def default_trunk_branch(root: Path) -> str:
                 if name and name != "(unknown)":
                     result = name
                     break
-    _TRUNK_BRANCH_CACHE[cache_key] = result
     return result
 
 
