@@ -9,6 +9,7 @@ import re
 import stat
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -106,6 +107,32 @@ def story_uses_scoped_layout(root: Path, key: str) -> bool:
     return story_dir(root, key).is_dir()
 
 
+def active_story_key(root: Path) -> str:
+    """The active story, read cheaply and memoised against run.json.
+
+    `evidence_path` needs only this one field, but reached it through
+    `load_json(run_state_path(...))` — a full parse plus `derive_phase`'s extra
+    stats — and the board calls `evidence_path` a dozen times per story across
+    every story in the roadmap. Reading just the key, once per run.json version,
+    removes that amplification. Memoised on the file's stamp, so a run-pointer
+    change is picked up immediately."""
+    from forge_cli import fscache
+
+    path = run_state_path(root)
+
+    def compute() -> str:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return ""
+        if not isinstance(data, dict):
+            return ""
+        return str(data.get("issue_key") or data.get("story") or "")
+
+    return fscache.cached(
+        f"active_story:{path}", fscache.file_stamp(path), compute)
+
+
 def evidence_path(
     root: Path,
     key: str | None,
@@ -129,8 +156,7 @@ def evidence_path(
 
     scoped_dir = story_dir(root, key)
     scoped = scoped_dir / relative
-    state = load_json(run_state_path(root), default={})
-    active = (state.get("issue_key") or state.get("story")) == key
+    active = active_story_key(root) == key
     if for_write:
         return scoped if story_uses_scoped_layout(root, key) or not active else live
     if scoped.exists():
@@ -801,16 +827,37 @@ def default_trunk_branch(root: Path) -> str:
     return result
 
 
-def fetch_trunk(root: Path, trunk: str) -> bool:
-    """Fetch ``origin/<trunk>`` and report whether it succeeded. Factored out so
-    the board can fetch the trunk ONCE per render (before checking every task's
-    marker) instead of once per task — the fix for the slow board — while the CLI
-    frontier and ship gates keep fetching live per check."""
+# How long a trunk fetch stays "fresh enough", in seconds. ZERO everywhere by
+# default: the frontier and the per-task ship gate must see a marker the instant
+# it lands, so every CLI process fetches live. Only the long-running BOARD
+# process raises it (see `forge_cli.board.make_server`) — it re-renders every few
+# seconds, a network fetch per render is what made opening a story take ~1s, and
+# a few seconds of staleness on "has this marker landed yet" costs a read-only
+# dashboard nothing.
+MARKER_FETCH_TTL = 0.0
+_TRUNK_FETCH_AT: dict[tuple[str, str], float] = {}
+
+
+def fetch_trunk(root: Path, trunk: str, *, ttl: float = 0.0) -> bool:
+    """Fetch ``origin/<trunk>`` and report whether it should now be present.
+
+    Factored out so the board fetches the trunk ONCE per render (before checking
+    every task's marker) instead of once per task, while the CLI frontier and
+    ship gates keep fetching live per check. With ``ttl > 0`` a fetch made within
+    the last ``ttl`` seconds is reused instead of hitting the network again."""
+    cache_key = (str(root), trunk)
+    if ttl > 0.0:
+        last = _TRUNK_FETCH_AT.get(cache_key)
+        if last is not None and (time.monotonic() - last) < ttl:
+            return True
     fetch = subprocess.run(
         ["git", "fetch", "origin", trunk], cwd=root, capture_output=True,
         text=True, env=clean_git_env(), encoding="utf-8", errors="surrogateescape",
     )
-    return fetch.returncode == 0
+    if fetch.returncode != 0:
+        return False
+    _TRUNK_FETCH_AT[cache_key] = time.monotonic()
+    return True
 
 
 def task_marker_on_main(
@@ -1740,7 +1787,7 @@ def task_rows(root: Path) -> list[dict]:
     # already-fetched ref (refresh=False) instead of a live network fetch per
     # task — the fix for the "very very slow" board (N fetches per render -> 1).
     if has_origin:
-        fetch_trunk(root, default_trunk_branch(root))
+        fetch_trunk(root, default_trunk_branch(root), ttl=MARKER_FETCH_TTL)
     for task in tasks:
         task_id = task.get("id")
         stage = stage_by_id.get(task_id, {})

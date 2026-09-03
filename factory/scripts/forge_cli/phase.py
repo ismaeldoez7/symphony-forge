@@ -360,7 +360,13 @@ def cmd_next(args: argparse.Namespace) -> None:
                         f"{task_id} (writes the task marker, pushes the branch, opens "
                         "the PR to the trunk, then poll its CI to green and fix any "
                         "failure). Its marker is not on the trunk yet; after it "
-                        "merges, rerun ./forge next."
+                        "merges, rerun ./forge next. BUT if this task's work is "
+                        "ALREADY merged — it shipped through a story-level or direct "
+                        "PR that skipped pr-ready — do NOT open a second PR: record "
+                        f"what shipped with ./forge task reconcile {task_id}, land "
+                        "that marker on the trunk, and the frontier advances. "
+                        "'await-merge' means the MARKER is missing, which is not the "
+                        "same as the work being unshipped."
                     )
                 # Design-skill guidance is PER TASK, not per story. Before the
                 # contract is authored the task flag is not set, so prompt

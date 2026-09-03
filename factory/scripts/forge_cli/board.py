@@ -20,6 +20,7 @@ PLAN_LOCATIONS = ("active", "completed", "debt")
 from record_signoff import REQUIRED_BRIEF_HEADINGS
 
 from . import events
+from . import fscache
 from .assumptions import open_count as open_assumptions
 from .decisions import decision_records
 from .plans import parse_frontmatter
@@ -31,15 +32,28 @@ from .specs import spec_records
 
 
 def _plan_records(base: Path, location: str) -> list[dict]:
-    records = []
-    for path in sorted((base / "plans" / location).glob("*.md")):
-        fields, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
-        records.append({
-            **fields,
-            "path": path.relative_to(base).as_posix(),
-            "location": location,
-        })
-    return records
+    # Every request scans all three plan locations to find one plan, and the
+    # board polls itself every few seconds. Memoised against the directory's
+    # stamp, so an added, edited, renamed or removed plan still reads fresh.
+    directory = base / "plans" / location
+
+    def compute() -> list[dict]:
+        records = []
+        for path in sorted(directory.glob("*.md")):
+            fields, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
+            records.append({
+                **fields,
+                "path": path.relative_to(base).as_posix(),
+                "location": location,
+            })
+        return records
+
+    records = fscache.cached(
+        f"plan_records:{base}:{location}",
+        fscache.dir_stamp(directory, ".md"), compute,
+    )
+    # Hand out copies: a caller mutating a record must not corrupt the memo.
+    return [dict(record) for record in records]
 
 
 def _stages_for(base: Path, story: str) -> dict:
@@ -359,12 +373,44 @@ def aggregate_state(base: Path) -> dict:
                         "plan_file", "story")
         },
         "stages": stages,
-        "signals": open_signals(base),
+        # Same read as `signals` above; calling open_signals twice re-parsed the
+        # signal log for one response.
+        "signals": signals,
         "quickfix": load_active(base) or None,
         "quickfix_ledger": quickfix_ledger(base),
         "next": next_actions(base),
         "decisions": active_decisions(base),
     }
+
+
+def _next_actions_stamp(base: Path) -> tuple:
+    """What `forge next` derives from, read cheaply. The git-control dir holds
+    the authoritative run/stage/decomposition state; `.factory` and `plans` hold
+    the workspace mirrors and the roadmap; HEAD and the index move on checkout,
+    commit and staging. Seven scandir/stat calls stand in for the ~750ms of git
+    subprocesses `cmd_next` costs."""
+    from factory_lib import git_control_dir
+
+    try:
+        control = git_control_dir(base)
+        git_stamps: tuple = (
+            fscache.dir_stamp(control),
+            fscache.file_stamp(control.parent / "HEAD"),
+            fscache.file_stamp(control.parent / "index"),
+        )
+    except SystemExit:
+        # The bundled board example — and any directory the board is pointed at
+        # that is not a git repo root — has no control dir. `cmd_next` already
+        # tolerates that, so the stamp must too rather than turning a rendered
+        # board into a crash.
+        git_stamps = ("<no-git-control-dir>",)
+    return (
+        git_stamps,
+        fscache.dir_stamp(base / ".factory"),
+        fscache.dir_stamp(base / ".factory" / "stories"),
+        fscache.dir_stamp(base / "plans" / "active", ".md"),
+        fscache.file_stamp(base / "plans" / "roadmap.json"),
+    )
 
 
 def next_actions(base: Path) -> dict:
@@ -373,26 +419,34 @@ def next_actions(base: Path) -> dict:
     # ponytail: captures cmd_next's own output rather than duplicating 100
     # lines of gate branching — one source of truth. If the shape ever needs
     # more than phase + steps, extract a builder from cmd_next instead.
+
+    `cmd_next` shells out to git repeatedly, which dominated every `/api/state`
+    poll; memoised against the state it reads.
     """
-    import argparse
-    import contextlib
-    import io
+    def compute() -> dict:
+        import argparse
+        import contextlib
+        import io
 
-    from .phase import cmd_next
+        from .phase import cmd_next
 
-    buffer = io.StringIO()
-    try:
-        with contextlib.redirect_stdout(buffer):
-            cmd_next(argparse.Namespace(repo=str(base)))
-    except SystemExit:
-        pass
-    phase, steps = "", []
-    for line in buffer.getvalue().splitlines():
-        if line.startswith("PHASE:"):
-            phase = line[len("PHASE:"):].strip()
-        elif re.match(r"\s+\d+\.\s", line):
-            steps.append(line.strip().split(". ", 1)[-1])
-    return {"phase": phase, "steps": steps}
+        buffer = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buffer):
+                cmd_next(argparse.Namespace(repo=str(base)))
+        except SystemExit:
+            pass
+        phase, steps = "", []
+        for line in buffer.getvalue().splitlines():
+            if line.startswith("PHASE:"):
+                phase = line[len("PHASE:"):].strip()
+            elif re.match(r"\s+\d+\.\s", line):
+                steps.append(line.strip().split(". ", 1)[-1])
+        return {"phase": phase, "steps": steps}
+
+    actions = fscache.cached(
+        f"next_actions:{base}", _next_actions_stamp(base), compute)
+    return {"phase": actions["phase"], "steps": list(actions["steps"])}
 
 
 def active_decisions(base: Path) -> list[dict]:
@@ -630,6 +684,13 @@ def task_dossiers(base: Path, key: str, detail: dict) -> list[dict]:
 
 def make_server(base: Path, port: int) -> ThreadingHTTPServer:
     root = base.resolve()
+    # This process is the read-only board: it re-renders every few seconds, and
+    # a live `git fetch` per render is what made opening a story slow. Let the
+    # marker check reuse a recent fetch here — and ONLY here; every CLI process
+    # leaves the TTL at zero so the frontier and ship gates stay live.
+    import factory_lib
+
+    factory_lib.MARKER_FETCH_TTL = 15.0
 
     class BoardHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802 - stdlib handler API

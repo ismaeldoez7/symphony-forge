@@ -496,6 +496,12 @@ def cmd_task_reconcile(args: argparse.Namespace) -> None:
         if any(not isinstance(value, str) or not value.strip()
                for value in payload.values()):
             fail("reconcile marker fields must all be non-empty strings")
+        # Marks the marker as ADOPTED, not sealed: the PR proof gate
+        # (check_task_proof.py) does not demand recorded proof for work that was
+        # already on the trunk before the harness learned about it. It cannot be
+        # abused to skip proof for new work — reconcile refuses unless the work
+        # is genuinely on the trunk already.
+        payload["reconciled"] = True
         dump_json(base / marker, payload)
 
     # Flip the stage to done directly (bypassing the unsatisfiable stage-done

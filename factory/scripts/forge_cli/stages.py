@@ -43,7 +43,12 @@ from .events import append_event
 # all of `factory/` and `docs/`, which in the harness's own repo is the product
 # — exempting it here would make the scope check vacuous exactly where it is
 # being dogfooded.
-WORKFLOW_PATHS = (".factory/", "plans/")
+# `docs/context/ledger.json` is written by `forge context scan`, which the
+# harness runs itself during a stage — a coordinator never authors it as
+# product, but stage done refused on it as an out-of-scope path, which is one of
+# the refusals that made shipping around the flow look necessary. Named exactly,
+# so the rest of `docs/` stays product.
+WORKFLOW_PATHS = (".factory/", "plans/", "docs/context/ledger.json")
 # In a repo that VENDORED the harness, factory/ and the vendored adapters/canon
 # are infrastructure a `forge upgrade` may rewrite mid-task — not the task's
 # product; pr_ready.EVIDENCE_PATHS already treats them so. The SOURCE harness
@@ -968,6 +973,32 @@ def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> None:
         )
 
 
+def _host_window_covering(base: Path, stage: dict) -> dict | None:
+    """A ledgered degraded (host-fix) window opened during this stage.
+
+    Codex's sandbox cannot see every defect — a failure that only appears against
+    a real database, or a check that only runs on the host — so the coordinator
+    fixes those itself inside a bounded, ledgered window. That window IS a
+    sanctioned write path, but `stage done` used to demand a Codex launch that
+    could not exist for such a fix, leaving no way to close the stage and making
+    shipping around the flow look like the only option. Accepting the window
+    keeps the evidence (it is ledgered and bounded) without the dead end."""
+    from .quickfix import DEGRADED, load_active, load_events, profile_of
+
+    started = str(stage.get("started_at") or "")
+    active = load_active(base)
+    if (active and profile_of(active) == DEGRADED
+            and str(active.get("started_at") or "") >= started):
+        return active
+    for event in load_events(base):
+        if (event.get("event") == "done"
+                and (event.get("profile") == DEGRADED
+                     or event.get("kind") == DEGRADED)
+                and str(event.get("started_at") or "") >= started):
+            return event
+    return None
+
+
 def _require_successful_launch(base: Path, stage_id: str, stage: dict,
                                task: dict) -> None:
     from .delegate import argv_digest, brief_path, current_delegation
@@ -1014,9 +1045,19 @@ def _require_successful_launch(base: Path, stage_id: str, stage: dict,
         and argv_valid
     )
     if not valid:
+        window = _host_window_covering(base, stage)
+        if window:
+            print(f"{stage_id}: no Codex write launch, but ledgered host-fix "
+                  f"window {window.get('id', '?')} covers this stage — accepted "
+                  "as the sanctioned write path.")
+            return
         fail(f"{stage_id} has no successful write launch bound to this stage, "
-             "task contract and brief. Run `forge delegate "
-             f"{stage_id}` successfully; `--print-only` is diagnostic only.")
+             "task contract and brief. Either run `forge delegate "
+             f"{stage_id}` successfully (`--print-only` is diagnostic only), or "
+             "— when the fix is one Codex's sandbox cannot make (a DB-surfaced "
+             "defect, a host-only check) — make it inside a ledgered window: "
+             "`forge mode degraded start --reason \"<why Codex cannot>\"`, fix, "
+             "`forge mode done`.")
 
 
 def _junit_case_matches_id(case, test_id: str) -> bool:

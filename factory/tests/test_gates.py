@@ -12335,8 +12335,10 @@ def test_task_reconcile_adopts_out_of_band_merge_without_a_pr(repo, tmp_path):
     # The five-field marker is written and NO PR was opened.
     payload = json.loads(marker.read_text())
     assert set(payload) == {
-        "task_id", "branch", "base_main_sha", "commit", "sealed_at"}
+        "task_id", "branch", "base_main_sha", "commit", "sealed_at", "reconciled"}
     assert payload["task_id"] == "T1" and payload["branch"] == "feat/ENG-1-T1"
+    # Adopted, not sealed: the PR proof gate exempts already-shipped work.
+    assert payload["reconciled"] is True
     assert not argv_path.exists()
     # The stage flipped to done, and the marker rides an evidence commit.
     data = json.loads((delegation_ledger(repo).parent / "stages.json").read_text())

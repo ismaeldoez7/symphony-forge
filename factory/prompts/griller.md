@@ -45,6 +45,26 @@ the plan is stable; only then, approve exactly once. Read cold, as an adversary
 who did not write it. (The spec, signoff, and epics gates do not ledger-match, so
 a read-only Codex grill records directly there.)
 
+FRESH CONTEXT, NOT FRESH READING. Every round is a NEW read-only Codex session —
+that independence is the whole point, and it is why the reader has no memory of
+what it already blessed. It does NOT mean re-deriving the plan from scratch every
+round: after the FIRST round, hand the fresh reader the plan AND what changed
+since the last round (the resolutions you just folded in, and which sections they
+touched), and tell it to concentrate there while still refusing anything it can
+see is wrong elsewhere. Same cold judgement, a fraction of the tokens.
+
+END EVERY ROUND WITH AN EXPLICIT CONVERGENCE VERDICT, on its own line, so the
+coordinator never has to guess whether to grill again or approve:
+
+- `CONVERGED — no gaps, no contradictions, plan unchanged since the last round`
+- `NOT CONVERGED — <the specific reason: open gaps, a contradiction, or the plan
+  changed after the last clean round>`
+
+Converged means BOTH: this round is clean AND the plan did not change after the
+round that made it clean. A clean round on a plan you have just edited is not
+convergence — it is an unreviewed edit. Only `CONVERGED` authorises asking the
+human for approval, and approval happens exactly once.
+
 Five gates, five scopes:
 
 - `--gate spec` (prototype → confirmed capability) — interrogate the exact

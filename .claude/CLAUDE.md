@@ -7,8 +7,8 @@ Read `AGENTS.md` first; it is the contract. Standards live in `constitution/`
 ## Role split (enforced)
 
 - Claude Code coordinates: discovery, planning, decisions, orchestration.
-- Codex executes: exploration, implementation, testing. Review is Claude's —
-  run autoreview DIRECTLY; on findings delegate fixes to Codex and re-review, loop until clean (0011); then pr-ready → PR to default branch → poll CI green (fix failures). Never stop at review.
+- Codex executes: exploration, implementation, testing, AND the review — ONE
+  three-lens pass PER TASK via `./forge review <id>`, WATCHED (Codex engine, never nested; records the task's proof — 0011/0049); loop fixes→re-review until clean, then pr-ready → PR → poll CI green. Never stop at review.
 - During planning, do NOT grep/read app code yourself — delegate `/codex:rescue`
   read-only: `gpt-5.6-terra` @ high to explore, `gpt-5.6-sol` @ xhigh to validate/debug. NEVER raw `codex exec`.
 
@@ -17,7 +17,7 @@ Read `AGENTS.md` first; it is the contract. Standards live in `constitution/`
 - `./forge delegate <task-id>` composes the brief and runs the installed companion
   with a fixed shell-free argv, deriving `--write` from stage state.
   Allowlisted direct read-only status/resume/task calls pass; writes route to delegate.
-- WATCH it EVERY time — every Codex release (delegate AND the read-only grill),
+- WATCH it EVERY time — every Codex release (delegate, the read-only grill, AND the review),
   never fire-and-forget: `./forge codex status` + Monitor `.factory/signals.jsonl`;
   workers raise contradiction/confusion/blocked/scope-change and PAUSE — `./forge
   signal resolve <id>`, then resume. `stage done` MEASURES the diff; partial work is `--incomplete "<gap>"`.

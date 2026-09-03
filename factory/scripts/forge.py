@@ -56,6 +56,7 @@ from forge_cli import lessons as lessons_mod
 from forge_cli import outcome as outcome_mod
 from forge_cli import project as project_mod
 from forge_cli import quickfix as quickfix_mod
+from forge_cli import review as review_mod
 from forge_cli import review_brief as review_brief_mod
 from forge_cli import scratchpad as scratchpad_mod
 from forge_cli import sanitise as sanitise_mod
@@ -527,6 +528,25 @@ def main() -> None:
                        help="print the argv without launching or recording evidence")
     p_del.add_argument("--repo")
     p_del.set_defaults(func=delegate_mod.cmd_delegate)
+
+    p_review = sub.add_parser(
+        "review",
+        help="release Codex for a task's three-lens review and record its proof")
+    p_review.add_argument("id", help="task id from the decomposition")
+    p_review.add_argument(
+        "--lens", choices=list(review_mod.LENSES),
+        help="run a single lens (default: all three)")
+    p_review.add_argument(
+        "--engine", default="codex",
+        help="autoreview engine (default: codex — the review is Codex's, 0011)")
+    p_review.add_argument(
+        "--max-priority", default="P2", choices=["P0", "P1", "P2", "P3"],
+        help="lowest priority to report (default: P2, not the P0-only default)")
+    p_review.add_argument(
+        "--skill", help="path to the autoreview helper (default: $AUTOREVIEW "
+                        "or ~/.codex/skills/autoreview/scripts/autoreview)")
+    p_review.add_argument("--repo")
+    p_review.set_defaults(func=review_mod.cmd_review)
 
     p_review_brief = sub.add_parser(
         "review-brief", help="compose the plan-contract prompt for autoreview")

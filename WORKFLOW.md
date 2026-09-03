@@ -286,7 +286,14 @@ history, but are exempt from the newer outcome and link requirements.
   acceptance criteria, verify commands, required tests, and reviewer focus.
   Re-record the decomposition before grilling that contract. Do not guess
   later-task detail during the initial decomposition (decision 0032).
-- One task should fit one implementation session and one review package.
+- Task size is a JUDGEMENT, not a number. One task fits ONE bounded session end
+  to end — implement, verify, three-lens review, fix the findings — and its diff
+  stays small enough for a reviewer to hold at once. Backend and frontend are
+  always separate tasks (disjoint write scopes, different reviewer focus, only
+  the frontend is `user_facing`); when either side is still too large, split that
+  side again along its own seam. Do not fragment: each sliver costs a full plan,
+  grill, approval, review and PR, so a task too small to justify that ceremony
+  belongs merged with its neighbour.
 
 ## Project Roadmap
 
