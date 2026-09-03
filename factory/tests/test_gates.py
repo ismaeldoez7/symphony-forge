@@ -12511,8 +12511,10 @@ def test_incomplete_is_refused_when_the_proof_says_the_work_is_done(
         lib.dump_json(
             lib.evidence_path(repo, key, f"reviews/{aspect}.json",
                               for_write=True),
+            # review_passed also requires a score >= MIN_SCORE: a lens nobody
+            # rated is not evidence the lens was clean.
             {"generated_by": "t", "aspect": aspect, "verdict": "pass",
-             "blocking_findings": [], "non_blocking_findings": []})
+             "score": 9, "blocking_findings": [], "non_blocking_findings": []})
 
     code, out = run(repo, "forge.py", "stage", "done", "T1",
                     "--incomplete", "cannot seal, gate refuses")
