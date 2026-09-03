@@ -40,7 +40,7 @@ Codex executes exploration, implementation, testing, and the review: the orchest
 3. wait for approval
 4. per task: plan-mode JIT contract → re-record → grill → stage start → `./forge delegate`; measure under 0018
 5. run deterministic verify
-6. review, once per task after implementation and verify: `./forge review <task-id>` releases Codex for the three lenses and records them as the task's proof (0049), then LOOP — delegate fixes to Codex, re-review — until every lens is clean
+6. review, once per task after implementation and verify: `./forge review <task-id>` releases Codex for the three lenses and records them as the task's proof (0049), then LOOP — delegate fixes to Codex, re-review — until every lens is clean (never a menu for the human — `docs/QUALITY.md`)
 7. run the functional check when the decomposition says `user_facing: true`
 8. record the shipped outcome, mark PR ready, open the PR to the default branch, and poll CI green (fixing CI failures)
 
@@ -94,20 +94,6 @@ A task is not PR-ready until all of these exist:
 - `.factory/tests.json`
 - `.factory/reviews/{quality,performance,security}.json`
 - `.factory/outcome.json` (what the story delivered — `./forge outcome set`)
-
-## Review findings are not a menu
-
-A finding the review just raised is work, and work goes to Codex. Delegate the
-fix and re-review; loop until clean. Do not put it to the human as a choice
-between fixing now, shipping and deferring, or fixing it yourself.
-
-- **Blocking findings** cannot be deferred or shipped past — readiness refuses
-  them — so there is nothing to arbitrate.
-- **Non-blocking findings** default to the same fix loop. Defer one only when it
-  is genuinely outside the task's scope, with a reason and a revisit trigger.
-- **Host-side fixing** is the single exception, and only when the defect cannot
-  be reproduced or fixed inside the Codex sandbox. Open a ledgered degraded
-  window and state why.
 
 ## Non-Negotiables
 
