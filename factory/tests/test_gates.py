@@ -378,11 +378,27 @@ def seed_task_grill_frontier(repo: Path, task: dict) -> None:
     assert code == 0, out
 
 
+# Every task plan must say how a human checks the work and draw the flow it
+# builds; the saver refuses without it, so the fixtures carry a real one.
+MANUAL_VERIFICATION = (
+    "## Manual Verification\n\n"
+    "Call `GET /v1/thing`; expect 200 and the recorded row.\n\n"
+    "```mermaid\nsequenceDiagram\n"
+    "  Client->>API: GET /v1/thing\n"
+    "  API-->>Client: 200 {thing}\n"
+    "```\n"
+)
+
+
 def record_task_grill(repo: Path, task: dict, verdict: str = "pass",
                       *, approve: bool = True) -> tuple[int, str]:
     source = repo / ".factory" / "task-plan-drafts" / f"{task['id']}.md"
     source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_text(f"# Task plan — {task['id']}\n\nImplement the recorded contract.\n", encoding="utf-8")
+    source.write_text(
+        f"# Task plan — {task['id']}\n\nImplement the recorded contract.\n\n"
+        + MANUAL_VERIFICATION,
+        encoding="utf-8",
+    )
     code, marker_out = post_hook(repo, plan_hook_payload(source))
     if code != 0:
         return code, marker_out
@@ -6091,7 +6107,7 @@ def test_task_grill_requires_saved_task_plan_with_tolerance(repo):
     assert code != 0 and "requires a saved task plan first" in out
 
     source = repo / "plans" / "T1-draft.md"
-    source.write_text("# T1 plan\n")
+    source.write_text("# T1 plan\n\n" + MANUAL_VERIFICATION)
     code, out = post_hook(repo, plan_hook_payload(source))
     assert code == 0, out
     code, out = run(
@@ -6126,7 +6142,7 @@ def test_frontier_orders_task_plan_before_grill(repo, tmp_path):
         and "do NOT present the plan in chat" in out
 
     source = tmp_path / "T1.md"
-    source.write_text("# T1 plan\n")
+    source.write_text("# T1 plan\n\n" + MANUAL_VERIFICATION)
     code, out = post_hook(repo, plan_hook_payload(source))
     assert code == 0, out
     code, out = run(
@@ -8663,7 +8679,12 @@ def test_plan_save_refuses_approved_without_a_matching_marker(repo, tmp_path):
     assert code != 0 and "requires an approved, saved plan" in out
 
 
-def test_plan_save_refuses_plan_without_plan_mode_marker(repo, tmp_path):
+def test_plan_save_accepts_a_plan_authored_outside_plan_mode(repo, tmp_path):
+    # Plan mode is a PERMISSION mode, not a thinking mode: it restricts tools,
+    # which the always-armed session write lock already does. Requiring it only
+    # forced the coordinator to switch modes mid-session for no planning gain
+    # (0050 supersedes 0048's plan-mode clause), so a plan authored in any mode
+    # saves — the grill and the human's approval on the board are the gates.
     sign_off(repo)
     intake(repo)
     plan = tmp_path / "normal-mode-plan.md"
@@ -8674,9 +8695,9 @@ def test_plan_save_refuses_plan_without_plan_mode_marker(repo, tmp_path):
     code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
                     "--story", "ENG-1")
 
-    assert code != 0 and "plan-mode marker required" in out
-    assert "enter plan mode" in out and "this exact plan file" in out
-    assert not list((repo / "plans" / "active").glob("ENG-1-*.md"))
+    assert code == 0, out
+    assert "plan-mode marker" not in out
+    assert list((repo / "plans" / "active").glob("ENG-1-*.md"))
 
 
 def test_plan_save_and_approve_accept_plan_with_plan_mode_marker(repo, tmp_path):
@@ -8704,7 +8725,9 @@ def test_plan_save_and_approve_accept_plan_with_plan_mode_marker(repo, tmp_path)
     assert code == 0 and run_state(repo)["plan_status"] == "approved", out
 
 
-def test_task_plan_save_and_approve_require_plan_mode_marker(repo, tmp_path):
+def test_task_plan_save_and_approve_need_no_plan_mode_marker(repo, tmp_path):
+    # 0050: authoring a task plan no longer forces a mode switch. Save and
+    # approve work with no plan-mode marker anywhere.
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
@@ -8712,29 +8735,48 @@ def test_task_plan_save_and_approve_require_plan_mode_marker(repo, tmp_path):
     code, out = record_task_grill(repo, STAGE_TASK, approve=False)
     assert code == 0, out
     source = tmp_path / "T1.md"
-    source.write_text("# T1 plan\n\nImplement the bounded task.\n")
+    source.write_text("# T1 plan\n\nImplement the bounded task.\n\n" + MANUAL_VERIFICATION)
 
-    code, out = run(repo, "forge.py", "task", "plan", "save", "T1",
-                    "--from", str(source))
-    assert code != 0 and "plan-mode marker required" in out
-    code, out = post_hook(repo, plan_hook_payload(source))
-    assert code == 0, out
     code, out = run(repo, "forge.py", "task", "plan", "save", "T1",
                     "--from", str(source))
     assert code == 0, out
 
     records = story_state(repo) / "plan-mode"
-    for marker in records.glob("*.json"):
+    for marker in records.glob("*.json") if records.is_dir() else ():
         marker.unlink()
     code, out = run(repo, "forge.py", "task", "approve", "T1",
                     "--by", "Test Human")
-    assert code != 0 and "plan-mode marker required" in out
-    saved = story_state(repo) / "task-plans" / "T1.md"
-    code, out = post_hook(repo, plan_hook_payload(saved))
-    assert code == 0, out
-    code, out = run(repo, "forge.py", "task", "approve", "T1",
-                    "--by", "Test Human")
     assert code == 0 and "Approved task plan" in out, out
+
+
+def test_task_plan_save_refuses_without_manual_verification(repo, tmp_path):
+    # An approver cannot judge a plan they would not know how to check by hand,
+    # so the saver demands the section AND a diagram of the flow being built.
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    record_skeleton_then_frontier(repo, [STAGE_TASK])
+    code, out = record_task_grill(repo, STAGE_TASK, approve=False)
+    assert code == 0, out
+
+    bare = tmp_path / "bare.md"
+    bare.write_text("# T1 plan\n\nImplement the bounded task.\n")
+    code, out = run(repo, "forge.py", "task", "plan", "save", "T1",
+                    "--from", str(bare))
+    assert code != 0 and "Manual Verification" in out, out
+
+    no_diagram = tmp_path / "no-diagram.md"
+    no_diagram.write_text(
+        "# T1 plan\n\nImplement it.\n\n## Manual Verification\n\nCall the endpoint.\n")
+    code, out = run(repo, "forge.py", "task", "plan", "save", "T1",
+                    "--from", str(no_diagram))
+    assert code != 0 and "DIAGRAM" in out, out
+
+    good = tmp_path / "good.md"
+    good.write_text("# T1 plan\n\nImplement it.\n\n" + MANUAL_VERIFICATION)
+    code, out = run(repo, "forge.py", "task", "plan", "save", "T1",
+                    "--from", str(good))
+    assert code == 0, out
 
 
 def test_plan_mode_marker_matches_body_not_assumptions(repo, tmp_path):
@@ -16589,7 +16631,7 @@ def test_forge_next_and_board_route_author_task_plan_and_await_approval(
 
     assert_route("author-task-plan", "author-task-plan", "task plan save T1")
     source = tmp_path / "T1.md"
-    source.write_text("# T1 plan\n\nImplement the bounded task.\n")
+    source.write_text("# T1 plan\n\nImplement the bounded task.\n\n" + MANUAL_VERIFICATION)
     code, out = post_hook(repo, plan_hook_payload(source))
     assert code == 0, out
     code, out = run(
