@@ -23,6 +23,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Reuse the sibling gate's lossless path reader rather than adding a second
+# surrogateescape site: a changed path may legitimately not be UTF-8, and that
+# capture is already reviewed and content-pinned in check_encoding_hygiene.
+from check_pr_ticket import git_paths
+
 TASK_MARKER_PATH = re.compile(
     r"^\.factory/stories/([^/]+)/tasks/([^/]+)/pr-ready\.json$"
 )
@@ -30,21 +35,15 @@ LENSES = ("quality", "performance", "security")
 MIN_SCORE = 8
 
 
-def git(root: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", *args], cwd=root, capture_output=True, text=True,
-        encoding="utf-8", errors="surrogateescape",
-    )
-    if proc.returncode != 0:
-        raise SystemExit(proc.stderr.strip() or f"git {' '.join(args)} failed")
-    return proc.stdout
-
-
 def read_at_head(root: Path, path: str) -> dict | None:
-    """The committed artifact, or None when the PR does not carry it."""
+    """The committed artifact, or None when the PR does not carry it.
+
+    Strict decoding: these are the harness's own JSON artifacts, so anything
+    that is not valid UTF-8 is a real defect, not a path to preserve losslessly.
+    """
     proc = subprocess.run(
         ["git", "show", f"HEAD:{path}"], cwd=root, capture_output=True,
-        text=True, encoding="utf-8", errors="surrogateescape",
+        text=True, encoding="utf-8",
     )
     if proc.returncode != 0:
         return None
@@ -67,7 +66,7 @@ def evidence(root: Path, key: str, name: str) -> dict | None:
 
 def added_markers(root: Path, base: str) -> list[tuple[str, str, dict]]:
     markers = []
-    for line in git(root, "diff", "--name-status", f"{base}..HEAD").splitlines():
+    for line in git_paths(root, "diff", "--name-status", f"{base}..HEAD").splitlines():
         fields = line.split("\t")
         if len(fields) < 2 or fields[0] != "A":
             continue

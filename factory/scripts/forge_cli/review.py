@@ -30,6 +30,9 @@ from factory_lib import (
 
 from .common import fail
 from .review_brief import VERDICT_INSTRUCTION, _task_section, cmd_review_brief
+# Reuse the task module's git helpers rather than adding another lossless
+# capture site: theirs is already reviewed and content-pinned for path output.
+from .tasks import _git, _require_git
 
 LENSES = ("quality", "performance", "security")
 # Harness bookkeeping is never the subject of a product review.
@@ -95,21 +98,6 @@ VERDICT <contract-id>: implemented|partial|missing — <file:line evidence>
 
 Every listed contract must get a line. Do not rename contract ids.
 """
-
-
-def _git(base: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args], cwd=base, capture_output=True, text=True,
-        env=clean_git_env(), encoding="utf-8", errors="surrogateescape",
-    )
-
-
-def _require_git(base: Path, description: str, *args: str) -> str:
-    proc = _git(base, *args)
-    if proc.returncode != 0:
-        detail = proc.stderr.strip() or proc.stdout.strip()
-        fail(f"{description} failed" + (f": {detail}" if detail else ""))
-    return proc.stdout.strip()
 
 
 def resolve_skill(explicit: str | None) -> Path:
@@ -391,7 +379,7 @@ def cmd_review(args: argparse.Namespace) -> None:
         proc = subprocess.run(
             [sys.executable, str(recorder), "--aspect", lens, "--input", str(payload)],
             cwd=base, capture_output=True, text=True, encoding="utf-8",
-            errors="surrogateescape", env={**os.environ, "PYTHONUTF8": "1"},
+            env={**os.environ, "PYTHONUTF8": "1"},
         )
         if proc.returncode != 0:
             fail(f"recording the {lens} artifact failed:\n"
