@@ -2364,10 +2364,19 @@ def test_mark_harvested_requires_real_in_repo_outputs(repo):
 # ------------------------------------------------------------ intake safety
 
 def test_intake_refuses_off_board_key(repo):
+    # BEFORE sign-off, `roadmap add` itself refuses as post-sign-off grooming,
+    # so naming it would send the caller to a command that cannot run. Name the
+    # gate actually in the way, and the 0c path out of it.
     code, out = run(repo, "intake.py", "--issue", "OFF-1", "--title", "Off board")
-
     assert code != 0
-    assert "roadmap add --no-spec" in out
+    assert "no client sign-off yet" in out, out
+    assert "roadmap derive" in out, out
+
+    # AFTER sign-off, grooming the roadmap by hand IS the way to add a story.
+    sign_off(repo)
+    code, out = run(repo, "intake.py", "--issue", "OFF-2", "--title", "Off board")
+    assert code != 0
+    assert "roadmap add --no-spec" in out, out
 
 
 def test_intake_allows_on_board_key(repo):
