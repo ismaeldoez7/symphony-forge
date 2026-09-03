@@ -708,6 +708,40 @@ def _covered(path: str, scope: list[str]) -> bool:
     return False
 
 
+def scope_amendments_path(base: Path):
+    """Protected, like the decomposition it annotates."""
+    from factory_lib import git_control_dir
+    return git_control_dir(base) / "scope_amendments.json"
+
+
+def amended_scope_paths(base: Path, task_id: str) -> list[str]:
+    """Measured paths this task touched that its declared scope did not name.
+
+    Recorded ALONGSIDE the contract rather than edited into it, and that is the
+    whole point. `stage done` measures the diff, finds an under-declared path,
+    and tells the operator to re-record the decomposition -- but re-recording
+    changes the contract digest, which invalidates the delegate launch bound to
+    it and stales the grill ground on it. `stage done` then demands a fresh
+    Codex run for a correction it demanded itself, and any further correction
+    restarts the loop. There is no flag out of that.
+
+    Leaving the contract untouched keeps both bindings valid and keeps the
+    record of what was actually grilled, delegated and approved. The amendment
+    records what the work really touched. Two honest records beat one rewritten
+    one -- editing the contract after the fact destroys the evidence of what
+    was approved.
+    """
+    from factory_lib import load_json
+    record = load_json(scope_amendments_path(base), default={})
+    entry = (record.get("tasks") or {}).get(task_id) or {}
+    paths = entry.get("added_paths") or []
+    return [p for p in paths if isinstance(p, str) and p]
+
+
+def effective_scope(base: Path, task_id: str, scope: list[str]) -> list[str]:
+    return list(scope) + amended_scope_paths(base, task_id)
+
+
 def out_of_scope(base: Path, paths: list[str], scope: list[str]) -> list[str]:
     """Product paths this sequential task touched but never declared."""
     return [p for p in paths
@@ -946,13 +980,21 @@ def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> None:
         if not any(_covered(path, scope) for path in contributions):
             fail(f"{stage_id} closes without changing anything in its own "
                  "write_scope.")
-        strays = out_of_scope(base, product, scope)
+        # A recorded amendment is measured fact, not a widened permission: it
+        # only ever names paths a previous measurement already found changed.
+        strays = out_of_scope(base, product, effective_scope(base, stage_id, scope))
         if strays:
             fail(f"{stage_id} changed {len(strays)} path(s) outside its declared "
                  f"write_scope: {', '.join(strays[:10])}"
-                 f"{'…' if len(strays) > 10 else ''}. Either the work exceeded the "
-                 "task or the scope was wrong — re-record the decomposition with "
-                 "the real scope rather than closing over it.")
+                 f"{'…' if len(strays) > 10 else ''}. Either the work exceeded "
+                 "the task, or the scope was under-declared. If the scope was "
+                 f"wrong, record it: `forge stage amend-scope {stage_id} "
+                 "--reason \"<why these paths belong>\"` — it re-measures and "
+                 "adds EXACTLY the paths it finds, leaving the contract (and so "
+                 "the grill and the delegate launch bound to it) intact. Do NOT "
+                 "re-record the decomposition to fix this: that changes the "
+                 "contract digest, invalidates the launch this same command "
+                 "demands, and deadlocks the close.")
     try:
         max_files, max_lines, _reason = review_budget(task)
     except ValueError as exc:
@@ -1378,6 +1420,78 @@ def _finish_stage(base: Path, args: argparse.Namespace, data: dict,
               f"({len(remaining)} pending)")
     else:
         print(f"Stage {args.id} done — all {len(data['stages'])} stage(s) complete")
+
+
+def cmd_amend_scope(args) -> None:
+    """Record the paths this task really touched that its scope did not name.
+
+    Bounded by measurement, not by assertion: it re-runs the SAME diff `stage
+    done` runs and adds exactly the out-of-scope paths that measurement
+    reports. Nothing can be pre-authorised, because a path that was not changed
+    is never added.
+    """
+    from factory_lib import (protected_decomposition_state_path,
+                             require_task_worktree, repo_root)
+
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    require_task_worktree(base, allow_completed=True)
+    reason = (args.reason or "").strip()
+    if len(reason) < 12:
+        fail("--reason must say why these paths belong to this task (a dozen "
+             "characters at least); it is the only part of this record a "
+             "measurement cannot supply.")
+
+    stages = load_stages(base)
+    stage = next((item for item in stages.get("stages", [])
+                  if item.get("id") == args.id), None)
+    if stage is None:
+        fail(f"{args.id} is not a recorded stage")
+    tasks = load_json(protected_decomposition_state_path(base),
+                      default={}).get("tasks", [])
+    task = next((t for t in tasks if t.get("id") == args.id), None)
+    if task is None:
+        fail(f"{args.id} is not a task in the protected decomposition")
+    scope = task.get("write_scope") or []
+    if not scope:
+        fail(f"{args.id} declares no write_scope; there is nothing to amend — "
+             "record the contract first.")
+
+    base_sha = stage_baseline(base, stage)
+    if not base_sha:
+        fail(f"{args.id} has no stage baseline to measure from; start the stage "
+             "before amending its scope.")
+    # The SAME measurement `stage done` performs -- that is what bounds this.
+    product = [
+        path for path in changed_paths(base, base_sha,
+                                       stage.get("dirty_at_start", {}))
+        if not path.startswith(workflow_prefixes(base))
+    ]
+    strays = out_of_scope(base, product, effective_scope(base, args.id, scope))
+    if not strays:
+        fail(f"{args.id} has no measured path outside its scope — nothing to "
+             "amend. If `stage done` is refusing, it is refusing for another "
+             "reason; read the refusal.")
+
+    record = load_json(scope_amendments_path(base), default={})
+    if not isinstance(record, dict):
+        record = {}
+    by_task = record.setdefault("tasks", {})
+    entry = by_task.setdefault(args.id, {"added_paths": [], "amendments": []})
+    already = set(entry.get("added_paths") or [])
+    entry["added_paths"] = sorted(already | set(strays))
+    entry.setdefault("amendments", []).append({
+        "at": now_iso(),
+        "by": args.by or "",
+        "reason": reason,
+        "added_paths": sorted(strays),
+        "measured_from": base_sha,
+        "measured_head": head_sha(base),
+    })
+    dump_json(scope_amendments_path(base), record)
+    print(f"Amended {args.id} scope with {len(strays)} measured path(s): "
+          f"{', '.join(sorted(strays)[:6])}"
+          f"{'…' if len(strays) > 6 else ''} — contract, grill and delegate "
+          f"launch untouched; `forge stage done {args.id}` can proceed")
 
 
 def cmd_done(args: argparse.Namespace) -> None:

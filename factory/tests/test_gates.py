@@ -12449,6 +12449,70 @@ def test_task_reconcile_refuses_when_work_is_not_on_the_trunk(repo, tmp_path):
     assert not marker.exists()
 
 
+def test_scope_amendment_breaks_the_seal_deadlock_without_touching_the_contract(
+        repo, tmp_path):
+    # `stage done` measures the diff, finds an under-declared path, and tells
+    # the operator to re-record the decomposition. Doing that changes the
+    # contract digest -- which invalidates the delegate launch `stage done`
+    # matches on and stales the grill ground on it. The same command then
+    # demands a fresh Codex run for a correction it demanded itself, and any
+    # further correction restarts the loop. There is no flag out of it.
+    lib = load_factory_lib(repo)
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    from forge_cli.stages import (  # noqa: E402
+        amended_scope_paths, effective_scope, out_of_scope,
+        scope_amendments_path,
+    )
+
+    task = {
+        "id": "T3",
+        "write_scope": ["src/api"],
+        "required_tests": [{"id": "t1", "path": "t/a.spec.ts", "command": "x"}],
+        "verify_commands": ["pnpm verify"],
+        "acceptance_criteria": ["it works"],
+    }
+    before = lib.task_digest(task)
+    # What the refusal used to instruct: widen the scope in the contract.
+    corrected = {**task, "write_scope": ["src/api", "src/db"]}
+    assert lib.task_digest(corrected) != before, (
+        "expected a contract correction to break the launch binding")
+
+    # The amendment records the same measured truth ALONGSIDE the contract.
+    lib.dump_json(scope_amendments_path(repo), {"tasks": {"T3": {
+        "added_paths": ["src/db"],
+        "amendments": [{"reason": "measured", "added_paths": ["src/db"]}],
+    }}})
+    assert amended_scope_paths(repo, "T3") == ["src/db"]
+    effective = effective_scope(repo, "T3", task["write_scope"])
+    assert effective == ["src/api", "src/db"]
+
+    # The contract is untouched, so both bindings still hold.
+    assert lib.task_digest(task) == before
+
+    # And the boundary still bites: only MEASURED paths were added.
+    assert out_of_scope(repo, ["src/api/x.ts", "src/db/y.ts"], effective) == []
+    assert out_of_scope(repo, ["src/secret/k.ts"], effective) == ["src/secret/k.ts"]
+
+
+def test_amend_scope_refuses_a_reason_that_says_nothing(repo):
+    # The measurement supplies the paths; the reason is the only part a human
+    # has to supply, so an empty one makes the record worthless.
+    code, out = run(repo, "forge.py", "stage", "amend-scope", "T1",
+                    "--reason", "oops")
+    assert code != 0
+    assert "--reason" in out
+
+
+def test_stage_done_scope_refusal_names_amend_scope_not_a_rerecord(repo):
+    # The old refusal instructed the one action that deadlocks the close.
+    source = (HARNESS / "factory" / "scripts" / "forge_cli" / "stages.py"
+              ).read_text(encoding="utf-8")
+    refusal = source[source.index("changed {len(strays)} path(s) outside"):]
+    refusal = refusal[:1200]
+    assert "amend-scope" in refusal
+    assert "Do NOT" in refusal and "re-record the decomposition" in refusal
+
+
 def test_task_stage_resolves_from_the_tasks_own_worktree(repo, tmp_path):
     # `forge task start` gives a task its own worktree, and a worktree has its
     # own git control dir -- so stages.json exists once per tree and the copies
