@@ -120,6 +120,20 @@ def cmd_next(args: argparse.Namespace) -> None:
             f"[dev] Hook launcher is broken ({hook_detail}) — run `./forge doctor --fix` first"
         )
 
+    # A crashed companion leaves launch_status "running" on disk forever, so a
+    # coordinator waiting on it waits for a process that no longer exists. Say
+    # so HERE too: `forge next` is what gets run when nothing seems to be
+    # happening, and nobody thinks to ask `codex status` about a job they
+    # believe is still working.
+    from .codex_status import dead_launches
+    for corpse in dead_launches(base):
+        steps.append(
+            f"[orchestrator] DEAD delegate for {corpse.get('task', '?')}: pid "
+            f"{corpse.get('pid')} is GONE but the ledger still says "
+            f"{str(corpse.get('launch_status'))!r}. It CRASHED — it is not slow, "
+            "and nothing is coming. Read its log, then re-run `./forge delegate "
+            f"{corpse.get('task', '<task-id>')}`"
+        )
     open_sigs = open_signals(base)
     if open_sigs:
         ids = ", ".join(s["id"] for s in open_sigs[:3])
@@ -377,9 +391,36 @@ def cmd_next(args: argparse.Namespace) -> None:
                         "re-stales the approval and forces another round."
                     )
                 elif frontier == "stage-start":
-                    steps.append(f"[dev] Start {task_id}: ./forge stage start {task_id}")
+                    # Naming only `stage start` sent the work to the trunk's own
+                    # tree: run.json kept base_main_sha/task_branch/worktree
+                    # null, which breaks the later seal and lets any commit on
+                    # the trunk stale the HEAD-bound grill. `task start` is the
+                    # step that creates the branch and worktree, so it comes
+                    # FIRST and is not optional.
+                    steps.append(
+                        f"[dev] Start {task_id} — TWO commands, in this order. "
+                        f"FIRST `./forge task start {task_id}`: it creates "
+                        f"feat/<story>-{task_id} plus a SIBLING WORKTREE from "
+                        "the trunk and mirrors the uncommitted .factory task "
+                        "state (decomposition, task-plan, task grill) into it. "
+                        f"THEN, from INSIDE that worktree, `./forge stage start "
+                        f"{task_id}`. Skipping `task start` leaves the work on "
+                        "the trunk's tree with base_main_sha/task_branch/"
+                        "worktree null and breaks the seal later."
+                    )
                 elif frontier == "delegate":
-                    steps.append(f"[dev] Delegate {task_id}: ./forge delegate {task_id}")
+                    steps.append(
+                        f"[dev] Delegate {task_id}: ./forge delegate {task_id} — "
+                        "run it FROM INSIDE the task worktree (every shell call "
+                        "resets the working directory, so cd in each time). "
+                        "Stage state and write access are PER WORKTREE: the "
+                        "worktree's stage is still `pending` even if you started "
+                        "the stage in the main repo, and `delegate --print-only` "
+                        "reports `Write access: NO` until you `stage start` "
+                        "there. The worktree also gets its OWN codex job "
+                        "directory (hashed from its path), so watch THAT job, "
+                        "not the main repo's."
+                    )
                 elif frontier == "await-merge":
                     steps.append(
                         f"[dev] Ship {task_id} as its own PR: ./forge task pr-ready "
