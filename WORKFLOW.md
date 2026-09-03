@@ -372,16 +372,25 @@ sequence a JIT contract loop for every pending task:
    through this fix/review loop and commit ONCE when it is clean — committing
    product code mid-loop stales the task grill (its grounding is contract + plan
    + product tree) and the write `forge delegate` refuses until you `git reset
-   --mixed HEAD~1`. When a review-driven fix genuinely cannot be verified inside
-   the companion sandbox (needs a database/network/Docker it lacks), the
-   orchestrator opens a bounded degraded window (`forge mode degraded start
-   --reason ...`, allowed mid-stage), makes the MINIMAL host fix, logs it with
-   `forge signal raise --kind host-exception`, verifies host-side, and resumes —
-   rather than re-delegating an unverifiable guess.
+   --mixed HEAD~1`. A review finding is ALWAYS fixed by re-delegating to Codex —
+   the orchestrator never stops to ask who fixes; this rule decides it. The ONE
+   exception: when a review-driven fix genuinely cannot be verified inside the
+   companion sandbox (needs a database/network/Docker it lacks), the orchestrator
+   opens a bounded degraded window (`forge mode degraded start --reason ...`,
+   allowed mid-stage), makes the MINIMAL host fix, logs it with `forge signal
+   raise --kind host-exception`, verifies host-side, and resumes — rather than
+   re-delegating an unverifiable guess.
 11. commit, then `forge stage done <id>`
 
 `forge next` derives this frontier from the same readiness gate and reports
-exactly one of author contract, task grill, stage start, or delegate.
+exactly one of author contract, task grill, stage start, delegate, or
+`await-merge`. **Per-task PRs are the standard:** after a task's local autoreview
+and `forge stage done`, ship it as its OWN PR — `forge task pr-ready <id>` (writes
+the marker, pushes, opens the PR, poll CI to green) — and let it merge to the
+trunk before the next task starts, never batching a whole story into one PR.
+`await-merge` surfaces this in BOTH run-pointer modes (task-level and a stage
+running in the story worktree), so the frontier never skips past a done-but-
+unshipped task.
 
 Per-stage local reviews are pre-commit hygiene and record nothing; the ONE
 branch-wide autoreview at the review phase remains the only review gate and

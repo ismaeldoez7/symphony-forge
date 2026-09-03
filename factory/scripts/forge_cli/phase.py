@@ -356,8 +356,11 @@ def cmd_next(args: argparse.Namespace) -> None:
                     steps.append(f"[dev] Delegate {task_id}: ./forge delegate {task_id}")
                 elif frontier == "await-merge":
                     steps.append(
-                        f"[dev] Await {task_id} merge into main; its task marker is "
-                        "not on origin/main yet, then rerun ./forge next"
+                        f"[dev] Ship {task_id} as its own PR: ./forge task pr-ready "
+                        f"{task_id} (writes the task marker, pushes the branch, opens "
+                        "the PR to the trunk, then poll its CI to green and fix any "
+                        "failure). Its marker is not on the trunk yet; after it "
+                        "merges, rerun ./forge next."
                     )
                 # Design-skill guidance is PER TASK, not per story. Before the
                 # contract is authored the task flag is not set, so prompt
