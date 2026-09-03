@@ -14,7 +14,7 @@ from factory_lib import (
     clean_git_env, default_trunk_branch, dump_json, evidence_path,
     git_control_dir, load_json, now_iso,
     plan_digest_without_assumptions, repo_root, require_ready_task,
-    require_plan_mode_marker, require_task_sealed,
+    require_task_sealed,
     protected_decomposition_state_path, run_state_path,
     task_marker_on_main, task_marker_path, validate_payload,
 )
@@ -59,6 +59,38 @@ def _task_plan_path(base: Path, task_id: str, *, for_write: bool = False) -> Pat
     )
 
 
+# A task plan is read by two people the author is not: the human approving it,
+# and whoever has to confirm the thing actually works. Neither is served by a
+# file-by-file work order, so these sections are required rather than suggested
+# (decision 0050). A diagram is asked for in words, not enforced: a fenced
+# ```mermaid block is the cheap way to render one on the board, and demanding
+# one mechanically would only produce box-and-arrow filler.
+REQUIRED_TASK_PLAN_SECTIONS = (
+    ("## Workflow", "the end-to-end flow this task builds or changes — what "
+                    "moves through it, and where this task starts and stops. "
+                    "A ```mermaid diagram renders on the board and is worth "
+                    "far more than prose here"),
+    ("## Manual Verification", "the steps a human runs to see it work, in "
+                               "order, with what they should observe. "
+                               "Automated tests prove it did not break; this "
+                               "is how someone confirms it does the job"),
+)
+
+
+def require_task_plan_sections(content: str, task_id: str) -> None:
+    lowered = content.lower()
+    missing = [
+        (heading, why) for heading, why in REQUIRED_TASK_PLAN_SECTIONS
+        # Match the heading text, not its exact level: an author who writes
+        # `### Workflow` inside a deeper structure has still written it.
+        if heading.lstrip("# ").lower() not in lowered
+    ]
+    if missing:
+        detail = "; ".join(f"{heading} — {why}" for heading, why in missing)
+        fail(f"task plan for {task_id} is missing {len(missing)} required "
+             f"section(s): {detail}. Add them and re-save.")
+
+
 def cmd_plan_save(args: argparse.Namespace) -> None:
     base = Path(args.repo).resolve() if args.repo else repo_root()
     require_ready_task(
@@ -66,14 +98,14 @@ def cmd_plan_save(args: argparse.Namespace) -> None:
     )
     source = Path(args.source).expanduser()
     if not source.is_file():
-        fail(f"task plan source {source} not found — pass the plan-mode file via --from")
+        fail(f"task plan source {source} not found — pass the plan file via --from")
     try:
         content = source.read_text(encoding="utf-8")
     except UnicodeDecodeError:
         fail("task plan source must be UTF-8 Markdown")
     if not content.strip():
         fail("task plan source must not be empty")
-    require_plan_mode_marker(base, source)
+    require_task_plan_sections(content, args.id)
     dest = _task_plan_path(base, args.id, for_write=True)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(content, encoding="utf-8")
@@ -99,13 +131,44 @@ def cmd_plan_save(args: argparse.Namespace) -> None:
     print(f"Saved task plan: {dest.relative_to(base)}")
 
 
+def require_fresh_task_grill(
+    base: Path, task_id: str, plan: Path, grill: dict,
+) -> None:
+    """Refuse approval unless the grill passed against THIS plan text.
+
+    `cmd_approve` used to claim in a comment that a fresh passing grill was
+    required and then check nothing. The board already withholds a task plan
+    until its grill both passed and was recorded against the current digest —
+    so a stale or failing grill could be approved for a plan the board would
+    refuse to display, and the approval gate and the board disagreed about
+    whether the same plan was ready. Same predicate, one source of truth.
+    """
+    if not grill:
+        fail(f"task approval refused: {task_id} has no recorded grill. Grill "
+             f"the plan first (factory/prompts/griller.md --gate task), then "
+             f"`./forge task approve {task_id} --by \"<name>\"`.")
+    verdict = grill.get("verdict")
+    if verdict != "pass":
+        fail(f"task approval refused: the grill for {task_id} recorded verdict "
+             f"{str(verdict)!r}, not 'pass'. Fix what it found, re-grill until a "
+             "round is clean, then approve.")
+    digest = plan_digest_without_assumptions(plan)
+    if digest not in (grill.get("task_plan_sha256"),
+                      grill.get("approved_task_plan_sha256")):
+        fail(f"task approval refused: the grill for {task_id} was recorded "
+             "against different plan text — the plan was edited after it passed, "
+             "so the grill no longer covers what you are approving (this is why "
+             "the board is not showing it). Re-grill the current plan, then "
+             "approve.")
+
+
 def cmd_approve(args: argparse.Namespace) -> None:
     base = Path(args.repo).resolve() if args.repo else repo_root()
     # allow_completed: a done/active task can be RE-approved after a legitimate
     # re-grill (a re-decomposition or a post-approval plan edit re-grilled it and
-    # the frontier has moved past it). The plan-mode marker and a fresh passing
-    # grill are still required below — this only lifts the "must be the earliest
-    # unfinished task" frontier gate for a task already under way.
+    # the frontier has moved past it). A fresh passing grill is still required
+    # below — this only lifts the "must be the earliest unfinished task"
+    # frontier gate for a task already under way.
     require_ready_task(base, args.id, require_approval=False, allow_completed=True)
     approved_by = args.by.strip()
     if not approved_by:
@@ -116,13 +179,13 @@ def cmd_approve(args: argparse.Namespace) -> None:
             f"task approval refused: no saved task plan for {args.id}. "
             f"Run `./forge task plan save {args.id} --from <path>` first."
         )
-    require_plan_mode_marker(base, plan)
     state = load_json(run_state_path(base), default={})
     story = state.get("issue_key") or state.get("story")
     grill_path = evidence_path(
         base, story, f"grills/tasks/{args.id}.json", for_write=True,
     )
     grill = load_json(grill_path, default={})
+    require_fresh_task_grill(base, args.id, plan, grill)
     grill["approved_task_plan_sha256"] = plan_digest_without_assumptions(plan)
     grill["approved_by"] = approved_by
     grill["approved_at"] = now_iso()

@@ -3582,33 +3582,6 @@ function refocus(selector) {
   if (el) el.focus();
 }
 
-async function openDrawer(key, fromEl) {
-  drawer.key = key;
-  drawer.wide = false;
-  drawer.tab = "plan";
-  drawer.raw = false;
-  drawer.taskPlan = null;
-  // Seed from the already-loaded board state so the drawer paints its gate
-  // rail, status and tasks INSTANTLY on click; the fetch only fills in the
-  // readiness checks and the plan/spec/proof artifacts.
-  const live = liveStory(key);
-  drawer.detail = live ? {story: live, readiness: [], evidence: {}, tasks: live.tasks || []} : null;
-  paintDrawer();
-  showPanel($("drawer"), fromEl || null);
-  try {
-    const res = await fetch(`/api/story/${encodeURIComponent(key)}`, {cache: "no-store"});
-    const detail = await res.json();
-    if (detail.error) throw new Error(detail.error);
-    if (drawer.key !== key) return;
-    drawer.detail = detail;
-    drawerSig = JSON.stringify(detail);
-  } catch {
-    if (drawer.key !== key) return;
-    drawer.detail = {story: liveStory(key) || {key}, readiness: [], evidence: {}};
-  }
-  paintDrawer();
-}
-
 // The drawer was fetched once on open and never again, so anything live in it
 // aged silently -- worst exactly while something is running. This re-reads it
 // on the same poll WITHOUT openDrawer's view reset (which tab, which task
@@ -3642,6 +3615,33 @@ async function refreshDrawer(key) {
     drawer.detail = detail;
     paintDrawer();
   } catch { /* the tick already shows staleness */ }
+}
+
+async function openDrawer(key, fromEl) {
+  drawer.key = key;
+  drawer.wide = false;
+  drawer.tab = "plan";
+  drawer.raw = false;
+  drawer.taskPlan = null;
+  // Seed from the already-loaded board state so the drawer paints its gate
+  // rail, status and tasks INSTANTLY on click; the fetch only fills in the
+  // readiness checks and the plan/spec/proof artifacts.
+  const live = liveStory(key);
+  drawer.detail = live ? {story: live, readiness: [], evidence: {}, tasks: live.tasks || []} : null;
+  paintDrawer();
+  showPanel($("drawer"), fromEl || null);
+  try {
+    const res = await fetch(`/api/story/${encodeURIComponent(key)}`, {cache: "no-store"});
+    const detail = await res.json();
+    if (detail.error) throw new Error(detail.error);
+    if (drawer.key !== key) return;
+    drawer.detail = detail;
+    drawerSig = JSON.stringify(detail);
+  } catch {
+    if (drawer.key !== key) return;
+    drawer.detail = {story: liveStory(key) || {key}, readiness: [], evidence: {}};
+  }
+  paintDrawer();
 }
 
 /* ═══ library — reference material, consulted rarely ════════════════════ */

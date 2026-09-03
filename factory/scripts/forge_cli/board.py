@@ -388,8 +388,14 @@ def _next_actions_stamp(base: Path) -> tuple:
     """What `forge next` derives from, read cheaply. The git-control dir holds
     the authoritative run/stage/decomposition state; `.factory` and `plans` hold
     the workspace mirrors and the roadmap; HEAD and the index move on checkout,
-    commit and staging. Seven scandir/stat calls stand in for the ~750ms of git
-    subprocesses `cmd_next` costs."""
+    commit and staging. This stands in for the ~750ms of git subprocesses
+    `cmd_next` costs.
+
+    `.factory` is stamped as a TREE, not one level. Almost every transition
+    writes nested -- a task grill lands in `stories/<key>/grills/tasks/`, a
+    review in `stories/<key>/reviews/` -- and touches neither `.factory` nor
+    `.factory/stories`, so a one-level stamp reported "unchanged" across most
+    of the changes this memo has to notice."""
     from factory_lib import git_control_dir
 
     try:
@@ -407,10 +413,12 @@ def _next_actions_stamp(base: Path) -> tuple:
         git_stamps = ("<no-git-control-dir>",)
     return (
         git_stamps,
-        fscache.dir_stamp(base / ".factory"),
-        fscache.dir_stamp(base / ".factory" / "stories"),
+        fscache.tree_stamp(base / ".factory"),
         fscache.dir_stamp(base / "plans" / "active", ".md"),
         fscache.file_stamp(base / "plans" / "roadmap.json"),
+        # `forge next` branches on accepted decisions and confirmed specs too.
+        fscache.dir_stamp(base / "docs" / "decisions", ".md"),
+        fscache.dir_stamp(base / "docs" / "specs", ".md"),
     )
 
 

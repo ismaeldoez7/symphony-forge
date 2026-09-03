@@ -58,6 +58,44 @@ def dir_stamp(directory: Path, suffix: str = "") -> tuple:
     return (len(found), tuple(found))
 
 
+def tree_stamp(directory: Path, *, limit: int = 20000) -> tuple:
+    """Identity of a whole subtree: (files, dirs, total size, newest mtime_ns).
+
+    `dir_stamp` sees only one level, which is the wrong shape for `.factory`:
+    almost every state change writes NESTED — a grill lands in
+    `stories/<key>/grills/tasks/`, a review in `stories/<key>/reviews/` — and
+    touches neither `.factory` nor `.factory/stories`. A one-level stamp
+    therefore reports "unchanged" across most of the transitions the board
+    exists to report, which is how `next_actions` came to serve a memo from
+    before a recorded grill.
+
+    Aggregated rather than per-entry so the stamp stays small on a repo with
+    hundreds of event files. `newest` is what catches a write: mtime always
+    advances on a real write, and count plus total size catch a same-timestamp
+    rename or truncation. `limit` bounds the walk so a pathological tree
+    degrades into a cheap always-miss instead of a slow poll.
+    """
+    files = dirs = total = seen = 0
+    newest = 0
+    try:
+        for parent, subdirs, names in os.walk(directory):
+            dirs += len(subdirs)
+            for name in names:
+                seen += 1
+                if seen > limit:
+                    return ("<over-limit>", seen)
+                try:
+                    info = os.stat(os.path.join(parent, name))
+                except OSError:
+                    continue
+                files += 1
+                total += info.st_size
+                newest = max(newest, info.st_mtime_ns)
+    except OSError:
+        return ("<missing>",)
+    return (files, dirs, total, newest)
+
+
 def cached(namespace: str, stamp: Any, compute: Callable[[], Any]) -> Any:
     """Return the memo for `namespace` when `stamp` is unchanged, else recompute.
 

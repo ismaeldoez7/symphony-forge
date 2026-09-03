@@ -395,13 +395,27 @@ def cmd_review(args: argparse.Namespace) -> None:
               f"non-blocking={len(artifact['non_blocking_findings'])}")
     print(f"Recorded {len(outcome)} review artifact(s) for {args.id} under "
           f".factory/stories/{story}/reviews/.")
+    # These are instructions, not options. A coordinator that turns a review
+    # finding into a menu for the human ("fix now / ship and defer / fix it
+    # myself") is asking them to arbitrate something the harness has already
+    # decided: fixing a finding the review just raised is the work, and it goes
+    # to Codex like every other write.
     if blocking_total:
         print(f"NEXT: {blocking_total} blocking finding(s) — delegate the fixes to "
               f"Codex (`./forge delegate {args.id}`), commit, then rerun "
-              f"`./forge review {args.id}`. Loop until every lens is clean.")
+              f"`./forge review {args.id}`. Loop until every lens is clean. "
+              "Do this WITHOUT asking the human to choose: a blocking finding "
+              "cannot be deferred or shipped past (pr-ready refuses it), so "
+              "there is no decision to put to them. Host-side fixing is the "
+              "single exception, and only when the defect cannot be reproduced "
+              "or fixed inside the Codex sandbox — then open a ledgered "
+              "degraded window and say why.")
     elif caveats_total:
-        print(f"NEXT: {caveats_total} non-blocking finding(s) — resolve them or defer "
-              f"each with a reason (`./forge defer`), then `./forge task pr-ready "
-              f"{args.id}`.")
+        print(f"NEXT: {caveats_total} non-blocking finding(s) — delegate the fixes "
+              f"to Codex (`./forge delegate {args.id}`) and rerun "
+              f"`./forge review {args.id}`; that is the default, and it does not "
+              "need the human's permission. Defer one ONLY when it is genuinely "
+              "outside this task's scope, with a reason and a revisit trigger "
+              f"(`./forge defer`). Then `./forge task pr-ready {args.id}`.")
     else:
         print(f"NEXT: all lenses clean — `./forge task pr-ready {args.id}`.")

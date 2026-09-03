@@ -1605,23 +1605,6 @@ def plan_body_digest(path: Path) -> str:
     return hashlib.sha256(approved_body).hexdigest()
 
 
-def require_plan_mode_marker(root: Path, plan: Path) -> None:
-    """Require plan-mode provenance for the current plan body."""
-    story_directory = evidence_path(root, _active_story_key(root), "plan-mode")
-    root_directory = evidence_path(root, None, "plan-mode")
-    digest = plan_body_digest(plan)
-    for directory in dict.fromkeys((story_directory, root_directory)):
-        markers = sorted(directory.glob("*.json")) if directory.is_dir() else ()
-        for marker_path in markers:
-            marker = load_json(marker_path, default={})
-            if marker.get("sha256_body") == digest:
-                return
-    raise SystemExit(
-        f"plan-mode marker required for {plan.name}: enter plan mode, edit or save "
-        "this exact plan file there, then retry without changing its body."
-    )
-
-
 def approved_plan_digest(
     root: Path, state: dict[str, Any], plan: Path,
 ) -> str | None:

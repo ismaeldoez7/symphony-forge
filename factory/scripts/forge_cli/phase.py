@@ -303,11 +303,13 @@ def cmd_next(args: argparse.Namespace) -> None:
                 "record_grill_from_json.py --gate requirements"
             )
         else:
-            steps.append("[dev] MANDATORY: enter plan mode (shift+tab) and plan per "
-                         "factory/prompts/planner.md, or deliberately open a bounded "
+            steps.append("[dev] MANDATORY: plan per factory/prompts/planner.md, or "
+                         "deliberately open a bounded "
                          "`./forge quickfix start \"<reason>\"` window. Product writes are "
                          "hook-blocked otherwise (Codex planning alternative: planner-high; "
-                         "exploration via /codex:rescue read-only).")
+                         "exploration via /codex:rescue read-only). Authoring is "
+                         "mode-agnostic (0050) — do not switch the session's mode "
+                         "to write a plan.")
             steps.append("[dev] Record new decisions as you go: forge.py decision new <slug>")
             plan_grill = load_json(
                 evidence_path(base, issue, "grills/plan.json"), default={},
@@ -352,8 +354,8 @@ def cmd_next(args: argparse.Namespace) -> None:
                 task_id = task["id"]
                 if frontier == "author-contract":
                     steps.append(
-                        f"[dev] Enter plan mode for {task_id} per "
-                        "factory/prompts/planner.md; author its JIT contract against "
+                        f"[dev] Author the contract for {task_id} per "
+                        "factory/prompts/planner.md against "
                         "completed work, then re-record with "
                         "record_decomposition_from_json.py (decisions 0029/0032)"
                     )
@@ -373,12 +375,16 @@ def cmd_next(args: argparse.Namespace) -> None:
                     )
                 elif frontier == "author-task-plan":
                     steps.append(
-                        f"[dev] Author {task_id} in plan mode — do NOT present the plan "
-                        "in chat. Save it silently: "
+                        f"[dev] Author the {task_id} plan — do NOT present it in "
+                        "chat, and do NOT change the session's mode to write it "
+                        "(authoring is mode-agnostic, 0050). It MUST carry "
+                        "`## Workflow` (the end-to-end flow this task builds — a "
+                        "```mermaid diagram renders on the board) and "
+                        "`## Manual Verification` (the steps a human runs to see it "
+                        "work). Save it silently: "
                         f"`./forge task plan save {task_id} --from <path>` (it stays "
-                        "hidden on the board until its grill is clean), then grill it "
-                        "WITHOUT leaving plan mode (the plan-mode marker comes from "
-                        "editing the plan in plan mode, not from an ExitPlanMode prompt)."
+                        "hidden on the board until its grill is clean), then grill it. "
+                        "The grill is the provenance, not the mode you wrote it in."
                     )
                 elif frontier == "await-approval":
                     steps.append(
@@ -414,10 +420,10 @@ def cmd_next(args: argparse.Namespace) -> None:
                         "run it FROM INSIDE the task worktree (every shell call "
                         "resets the working directory, so cd in each time). "
                         "Stage state and write access are PER WORKTREE: the "
-                        "worktree's stage is still `pending` even if you started "
+                        "worktree's stage is still `pending` even if you opened "
                         "the stage in the main repo, and `delegate --print-only` "
-                        "reports `Write access: NO` until you `stage start` "
-                        "there. The worktree also gets its OWN codex job "
+                        "reports `Write access: NO` until the stage is opened "
+                        "THERE. The worktree also gets its OWN codex job "
                         "directory (hashed from its path), so watch THAT job, "
                         "not the main repo's."
                     )

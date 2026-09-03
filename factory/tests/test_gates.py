@@ -382,7 +382,7 @@ def record_task_grill(repo: Path, task: dict, verdict: str = "pass",
                       *, approve: bool = True) -> tuple[int, str]:
     source = repo / ".factory" / "task-plan-drafts" / f"{task['id']}.md"
     source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_text(f"# Task plan — {task['id']}\n\nImplement the recorded contract.\n", encoding="utf-8")
+    source.write_text(f"# Task plan — {task['id']}\n\nImplement the recorded contract.\n\n## Workflow\n\nRequest -> handler -> store.\n\n## Manual Verification\n\n1. Run it. 2. See the row.\n", encoding="utf-8")
     code, marker_out = post_hook(repo, plan_hook_payload(source))
     if code != 0:
         return code, marker_out
@@ -6100,7 +6100,7 @@ def test_task_grill_requires_saved_task_plan_with_tolerance(repo):
     assert code != 0 and "requires a saved task plan first" in out
 
     source = repo / "plans" / "T1-draft.md"
-    source.write_text("# T1 plan\n")
+    source.write_text("# T1 plan\n\n\n## Workflow\n\nRequest -> handler -> store.\n\n## Manual Verification\n\n1. Run it. 2. See the row.\n")
     code, out = post_hook(repo, plan_hook_payload(source))
     assert code == 0, out
     code, out = run(
@@ -6135,7 +6135,7 @@ def test_frontier_orders_task_plan_before_grill(repo, tmp_path):
         and "do NOT present the plan in chat" in out
 
     source = tmp_path / "T1.md"
-    source.write_text("# T1 plan\n")
+    source.write_text("# T1 plan\n\n\n## Workflow\n\nRequest -> handler -> store.\n\n## Manual Verification\n\n1. Run it. 2. See the row.\n")
     code, out = post_hook(repo, plan_hook_payload(source))
     assert code == 0, out
     code, out = run(
@@ -8672,7 +8672,14 @@ def test_plan_save_refuses_approved_without_a_matching_marker(repo, tmp_path):
     assert code != 0 and "requires an approved, saved plan" in out
 
 
-def test_plan_save_refuses_plan_without_plan_mode_marker(repo, tmp_path):
+def test_plan_save_accepts_a_plan_authored_in_any_mode(repo, tmp_path):
+    """Plan authoring is mode-agnostic (0050).
+
+    The plan-mode marker used to be required, which forced an operator running
+    in auto mode into plan mode purely to get a file written. It proved only
+    that a mode was entered; the grill — digest-bound, with a floor of recorded
+    human rounds — is the provenance that means something.
+    """
     sign_off(repo)
     intake(repo)
     plan = tmp_path / "normal-mode-plan.md"
@@ -8683,9 +8690,9 @@ def test_plan_save_refuses_plan_without_plan_mode_marker(repo, tmp_path):
     code, out = run(repo, "forge.py", "plan", "save", "--from", str(plan),
                     "--story", "ENG-1")
 
-    assert code != 0 and "plan-mode marker required" in out
-    assert "enter plan mode" in out and "this exact plan file" in out
-    assert not list((repo / "plans" / "active").glob("ENG-1-*.md"))
+    assert "plan-mode marker" not in out
+    assert code != 0 and "awaiting-approval" in out, out
+    assert list((repo / "plans" / "active").glob("ENG-1-*.md"))
 
 
 def test_plan_save_and_approve_accept_plan_with_plan_mode_marker(repo, tmp_path):
@@ -8713,37 +8720,76 @@ def test_plan_save_and_approve_accept_plan_with_plan_mode_marker(repo, tmp_path)
     assert code == 0 and run_state(repo)["plan_status"] == "approved", out
 
 
-def test_task_plan_save_and_approve_require_plan_mode_marker(repo, tmp_path):
+def test_task_plan_save_and_approve_are_mode_agnostic(repo, tmp_path):
+    """No plan-mode marker anywhere: save and approve both succeed (0050)."""
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
     record_skeleton_then_frontier(repo, [STAGE_TASK])
     code, out = record_task_grill(repo, STAGE_TASK, approve=False)
     assert code == 0, out
-    source = tmp_path / "T1.md"
-    source.write_text("# T1 plan\n\nImplement the bounded task.\n")
-
-    code, out = run(repo, "forge.py", "task", "plan", "save", "T1",
-                    "--from", str(source))
-    assert code != 0 and "plan-mode marker required" in out
-    code, out = post_hook(repo, plan_hook_payload(source))
-    assert code == 0, out
-    code, out = run(repo, "forge.py", "task", "plan", "save", "T1",
-                    "--from", str(source))
-    assert code == 0, out
-
-    records = story_state(repo) / "plan-mode"
-    for marker in records.glob("*.json"):
+    for marker in (story_state(repo) / "plan-mode").glob("*.json"):
         marker.unlink()
+
     code, out = run(repo, "forge.py", "task", "approve", "T1",
                     "--by", "Test Human")
-    assert code != 0 and "plan-mode marker required" in out
-    saved = story_state(repo) / "task-plans" / "T1.md"
-    code, out = post_hook(repo, plan_hook_payload(saved))
-    assert code == 0, out
-    code, out = run(repo, "forge.py", "task", "approve", "T1",
-                    "--by", "Test Human")
+
+    assert "plan-mode marker" not in out
     assert code == 0 and "Approved task plan" in out, out
+
+
+def test_task_plan_save_requires_workflow_and_manual_verification(repo, tmp_path):
+    """A task plan is read by the human approving it and by whoever confirms
+    the thing works. A file-by-file work order serves neither (0050)."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    record_skeleton_then_frontier(repo, [STAGE_TASK])
+    source = tmp_path / "T1-thin.md"
+    source.write_text("# T1 plan\n\nEdit three files.\n")
+
+    code, out = run(repo, "forge.py", "task", "plan", "save", "T1",
+                    "--from", str(source))
+
+    assert code != 0, out
+    assert "2 required section(s)" in out
+    assert "## Workflow" in out and "## Manual Verification" in out
+    assert "mermaid" in out
+    assert not (story_state(repo) / "task-plans" / "T1.md").exists()
+
+    source.write_text("# T1 plan\n\n### Workflow\n\nA -> B.\n"
+                      "\n### Manual Verification\n\n1. Run it.\n")
+    code, out = run(repo, "forge.py", "task", "plan", "save", "T1",
+                    "--from", str(source))
+    # Heading LEVEL is not the point: a deeper structure still wrote them.
+    assert code == 0, out
+
+
+def test_task_approve_refuses_a_stale_or_failing_grill(repo, tmp_path):
+    """The board withholds a task plan until its grill passed against the
+    current text. Approval used to only CLAIM to check that, so a plan the
+    board refused to show could still be approved."""
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    record_skeleton_then_frontier(repo, [STAGE_TASK])
+
+    code, out = run(repo, "forge.py", "task", "approve", "T1",
+                    "--by", "Test Human")
+    assert code != 0 and "no saved task plan" in out, out
+
+    code, out = record_task_grill(repo, STAGE_TASK, approve=False)
+    assert code == 0, out
+    saved = story_state(repo) / "task-plans" / "T1.md"
+    saved.write_text(saved.read_text(encoding="utf-8") + "\nEdited after the grill.\n",
+                     encoding="utf-8")
+
+    code, out = run(repo, "forge.py", "task", "approve", "T1",
+                    "--by", "Test Human")
+
+    assert code != 0, out
+    assert "recorded against different plan text" in out
+    assert "why the board is not showing it" in out
 
 
 def test_plan_mode_marker_matches_body_not_assumptions(repo, tmp_path):
@@ -9143,7 +9189,11 @@ def test_roadmap_gate_workflow_shape():
     ) == 2
     assert "except" not in workflow
     assert workflow.count("GITHUB_OUTPUT") == 2
-    assert workflow.count("steps.arm.outputs.armed == 'true'") == 2
+    # Three guarded steps across two jobs: pr-contract runs BOTH the ticket
+    # gate and the task-proof gate (0049). Every gated step must carry the
+    # guard -- a new gate that forgot it would fire in the harness itself and
+    # in clients that have not signed off.
+    assert workflow.count("steps.arm.outputs.armed == 'true'") == 3
     assert workflow.count("fetch-depth: 0") == 1
     assert "fetch-depth: 0" in pr_job and "fetch-depth: 0" not in coverage_job
     assert "github.event_name == 'push'" in coverage_job
@@ -9158,7 +9208,12 @@ def test_roadmap_gate_workflow_shape():
         assert job.count("id: arm") == 1
         assert job.count("constitution/VENDORED_FROM") == 1
         assert job.count("plans/roadmap.json") == 1
-        assert job.count("steps.arm.outputs.armed == 'true'") == 1
+    # One armed gate in coverage (project audit), two in pr-contract (ticket
+    # declaration + task proof).
+    assert coverage_job.count("steps.arm.outputs.armed == 'true'") == 1
+    assert pr_job.count("steps.arm.outputs.armed == 'true'") == 2
+    assert "python3 factory/scripts/check_task_proof.py" in pr_job
+    assert "check_task_proof.py" not in coverage_job
     assert "python3 factory/scripts/check_pr_ticket.py" in pr_job
     assert "project audit" not in pr_job
     assert "python3 factory/scripts/forge.py project audit" in coverage_job
@@ -16360,7 +16415,7 @@ def test_forge_next_routes_the_jit_frontier_states(repo, tmp_path):
     )
     assert code == 0, out
     action = next_action()
-    assert "Enter plan mode" in action
+    assert "plan mode" not in action  # 0050: authoring is mode-agnostic
     assert "factory/prompts/planner.md" in action
     assert "record_decomposition_from_json.py" in action
     assert "stage start" not in action and "forge delegate" not in action
@@ -16372,14 +16427,15 @@ def test_forge_next_routes_the_jit_frontier_states(repo, tmp_path):
     )
     assert code == 0, out
     action = next_action()
-    assert "in plan mode" in action
-    assert "do NOT present the plan in chat" in action
+    assert "mode-agnostic" in action  # 0050
+    assert "do NOT present it in chat" in action
+    assert "## Workflow" in action and "## Manual Verification" in action
     assert "task plan save" in action
     assert "stage start" not in action and "forge delegate" not in action
 
     source = tmp_path / "T1.md"
     source.write_text(
-        "# Task plan — T1\n\nImplement the recorded contract.\n",
+        "# Task plan — T1\n\nImplement the recorded contract.\n\n## Workflow\n\nRequest -> handler -> store.\n\n## Manual Verification\n\n1. Run it. 2. See the row.\n",
         encoding="utf-8",
     )
     code, out = post_hook(repo, plan_hook_payload(source))
@@ -16598,7 +16654,7 @@ def test_forge_next_and_board_route_author_task_plan_and_await_approval(
 
     assert_route("author-task-plan", "author-task-plan", "task plan save T1")
     source = tmp_path / "T1.md"
-    source.write_text("# T1 plan\n\nImplement the bounded task.\n")
+    source.write_text("# T1 plan\n\nImplement the bounded task.\n\n## Workflow\n\nRequest -> handler -> store.\n\n## Manual Verification\n\n1. Run it. 2. See the row.\n")
     code, out = post_hook(repo, plan_hook_payload(source))
     assert code == 0, out
     code, out = run(
@@ -17442,11 +17498,16 @@ def test_quality_review_requires_contract_verdicts(repo, tmp_path):
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
         {**DECOMP, "tasks": [tasks[0], skeletons[1]]}))
     assert code == 0, out
+    # BOTH tasks are in scope here: a review only verdicts the contracts of
+    # tasks that have started or shipped (0049), so leaving T2 pending would
+    # take C2 out of scope and make the refusal matrix below meaningless. The
+    # scoping rule itself is pinned by
+    # test_quality_review_ignores_contracts_of_tasks_that_have_not_started.
     write_stages(repo, {
         "issue": "ENG-1",
         "stages": [
             {"id": "T1", "title": tasks[0]["title"], "status": "done"},
-            {"id": "T2", "title": tasks[1]["title"], "status": "pending"},
+            {"id": "T2", "title": tasks[1]["title"], "status": "active"},
         ],
     })
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
@@ -17488,6 +17549,60 @@ def test_quality_review_requires_contract_verdicts(repo, tmp_path):
     code, out = run(repo, "record_review_from_json.py", "--aspect", "performance",
                     stdin=json.dumps(review_payload()))
     assert code == 0, out
+
+
+def test_quality_review_ignores_contracts_of_tasks_that_have_not_started(
+        repo, tmp_path):
+    """A per-task review verdicts the contracts of tasks that have STARTED or
+    shipped -- never those of a task nobody has begun (0049).
+
+    Under the old story-level shape, reviewing the first task demanded verdicts
+    for every later task's contracts, which a reviewer cannot honestly give.
+    """
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    contracts = [
+        {"id": "C1", "statement": "first statement", "source": "plan.md#first"},
+        {"id": "C2", "statement": "second statement", "source": "plan.md#second"},
+    ]
+    tasks = [
+        {**DECOMP["tasks"][0], "id": "T1", "plan_contracts": [contracts[0]]},
+        {**skeletal_stage_task("T2", "second slice"),
+         "dependencies": ["T1"], "plan_contracts": [contracts[1]]},
+    ]
+    skeletons = [task_skeleton(task) for task in tasks]
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
+        {**DECOMP, "tasks": skeletons}))
+    assert code == 0, out
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
+        {**DECOMP, "tasks": [tasks[0], skeletons[1]]}))
+    assert code == 0, out
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [
+            {"id": "T1", "title": tasks[0]["title"], "status": "active"},
+            {"id": "T2", "title": tasks[1]["title"], "status": "pending"},
+        ],
+    })
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
+        {**DECOMP, "tasks": tasks}))
+    assert code == 0, out
+    mint_review_run(repo)
+
+    only_c1 = [{"contract_id": "C1", "verdict": "implemented",
+                "evidence": "src/app.py:12"}]
+    code, out = run(repo, "record_review_from_json.py", "--aspect", "quality",
+                    stdin=json.dumps(review_payload(contract_verdicts=only_c1)))
+
+    assert code == 0, out
+    # And C2 is not merely optional -- it is out of scope, so volunteering it
+    # is an unknown id rather than a bonus.
+    both = only_c1 + [{"contract_id": "C2", "verdict": "implemented",
+                       "evidence": "src/app.py:20"}]
+    code, out = run(repo, "record_review_from_json.py", "--aspect", "quality",
+                    stdin=json.dumps(review_payload(contract_verdicts=both)))
+    assert code != 0 and "unknown contract id" in out
 
 
 def test_lite_quality_review_ignores_shipped_plan_contracts(repo, tmp_path):
