@@ -11230,8 +11230,11 @@ def test_board_renders_plan_tables_and_hides_author_comments(repo):
     assert ".tablewrap { overflow-x: auto" in page
     # comments are stripped BEFORE escaping — the other order makes them
     # visible text, which is the bug this guards
-    strip = page.index("replace(/<!--[\\s\\S]*?-->/g")
-    assert strip < page.index("split(/\\r?\\n/)")
+    # Scoped to md()'s own body: other block renderers split lines too, and a
+    # bare page.index() finds whichever of them appears first in the file.
+    body = page[page.index("function md(src) {"):]
+    strip = body.index("replace(/<!--[\\s\\S]*?-->/g")
+    assert strip < body.index("split(/\\r?\\n/)")
     assert "esc(String(src ?? \"\").replace(/<!--" in page
 
 
