@@ -28,6 +28,7 @@ from .quickfix import ledger_path, load_active
 from .readiness import review_passed, tests_passed, verify_passed
 from .roadmap import load_roadmap, ready_pending
 from .signal import open_signals
+from .codex_status import STALL_MINUTES
 from .specs import spec_records
 
 
@@ -622,6 +623,295 @@ def task_plan_view(base: Path, key: str, task: dict, grill: dict | None) -> dict
     }
 
 
+def _worktree_roots(base: Path) -> list[Path]:
+    """This repo plus every linked worktree.
+
+    `forge task start` puts each task in its OWN sibling worktree, and a
+    worktree has its own git control directory -- so the delegation ledger a
+    running companion writes lives under the WORKTREE, not here. A board
+    reading only its own root is therefore blind to exactly the runs it most
+    needs to report on.
+    """
+    roots = [base]
+    try:
+        from factory_lib import clean_git_env, git_control_dir
+        import subprocess
+        from .fscache import cached, dir_stamp
+        # The worktree set changes only when `task start`/`worktree prune`
+        # touches it, so stamp the control directory rather than shelling out
+        # to git on every poll.
+        control = git_control_dir(base)
+        stamp = dir_stamp(control / "worktrees")
+        return cached("board.worktree_roots", (str(base), stamp),
+                      lambda: _scan_worktrees(base))
+    except (Exception, SystemExit):
+        return roots
+
+
+def _scan_worktrees(base: Path) -> list[Path]:
+    roots = [base]
+    try:
+        from factory_lib import clean_git_env
+        import subprocess
+        proc = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"], cwd=base,
+            capture_output=True, text=True, env=clean_git_env(),
+            encoding="utf-8", errors="replace", timeout=10,
+        )
+        if proc.returncode != 0:
+            return roots
+        for line in proc.stdout.splitlines():
+            if line.startswith("worktree "):
+                path = Path(line[len("worktree "):].strip())
+                if path.is_dir() and path.resolve() != base.resolve():
+                    roots.append(path)
+    except (Exception, SystemExit):
+        return roots
+    return roots
+
+
+def _codex_jobs_by_root(roots: list[Path]) -> dict[Path, dict]:
+    """Newest plugin job per workspace root, for the live phase/heartbeat.
+
+    The companion records its own phase and progress timestamps; nothing on the
+    board read them, so an implementation step was one opaque block that looked
+    identical at minute 1 and minute 90.
+    """
+    jobs: dict[Path, dict] = {}
+    try:
+        from .codex_status import STATE_ROOT, load_jobs
+    except Exception:
+        return jobs
+    for root in roots:
+        try:
+            found = load_jobs(root.resolve(), STATE_ROOT)
+        except (Exception, SystemExit):
+            continue
+        if found:
+            jobs[root.resolve()] = found[-1]  # sorted by createdAt
+    return jobs
+
+
+def task_launches(base: Path) -> dict[str, dict]:
+    """Latest delegation per task, with liveness resolved against the OS and
+    the companion's own live phase attached.
+
+    `launch_status` is a flag on disk, and a companion killed uncatchably (a
+    job-object teardown, TerminateProcess, SIGKILL) runs no handler -- so the
+    ledger keeps saying "running" forever. A watcher polling that flag then
+    waits on a process that no longer exists; that is how a crash five minutes
+    in reads as a job still working hours later. `pid` and `pid_started` are
+    already recorded, so liveness is a fact to check rather than a timeout to
+    guess at.
+
+    Deliberately NOT memoised: liveness and phase change with nothing touching
+    this repo's disk, so a file stamp would pin the answer to the moment of the
+    crash -- exactly the staleness this exists to break.
+    """
+    try:
+        from .codex_status import inactivity_minutes
+        from .delegate import (
+            _pid_alive, _process_start_identity, delegations_path,
+            load_delegations,
+        )
+    except (Exception, SystemExit):
+        return {}
+
+    roots = _worktree_roots(base)
+    jobs = _codex_jobs_by_root(roots)
+    latest: dict[str, tuple[Path, dict]] = {}
+    for root in roots:
+        try:
+            if not delegations_path(root).exists():
+                continue
+            entries = load_delegations(root)
+        except (Exception, SystemExit):
+            # SystemExit is not an Exception: a malformed ledger calls fail(),
+            # and resolving a control directory exits outright outside a git
+            # repo. Neither may take down a read-only view.
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict) or not entry.get("task"):
+                continue
+            task_id = str(entry["task"])
+            previous = latest.get(task_id)
+            # Rows are appended in order per ledger; across ledgers the newest
+            # timestamp wins so a re-run in a worktree beats a stale main-tree
+            # row for the same task.
+            if previous is None or str(entry.get("at") or "") >= str(
+                    previous[1].get("at") or ""):
+                latest[task_id] = (root, entry)
+
+    resolved = {}
+    for task_id, (root, entry) in latest.items():
+        status = str(entry.get("launch_status") or "")
+        pid = entry.get("pid")
+        if status in {"starting", "running"} and isinstance(pid, int):
+            alive = False
+            try:
+                if _pid_alive(pid):
+                    recorded = entry.get("pid_started")
+                    identity = _process_start_identity(pid) if recorded else None
+                    # A recycled pid on an unrelated process would otherwise
+                    # read as alive and keep the crash hidden.
+                    alive = (not recorded or identity is None
+                             or str(identity) == str(recorded))
+            except (Exception, SystemExit):
+                alive = True  # cannot tell: never invent a crash
+            status = "running" if alive else "dead"
+        job = jobs.get(root.resolve(), {})
+        idle = None
+        try:
+            idle = inactivity_minutes(job) if job else None
+        except (Exception, SystemExit):
+            idle = None
+        resolved[task_id] = {
+            "status": status,
+            "pid": pid,
+            "at": entry.get("at"),
+            "log": entry.get("log") or job.get("logFile"),
+            "mode": entry.get("mode"),
+            "write": entry.get("write"),
+            "worktree": str(root) if root.resolve() != base.resolve() else "",
+            # The companion's own account of what it is doing right now.
+            "phase": job.get("phase") or "",
+            "summary": (str(job.get("summary") or job.get("title") or "")
+                        .strip()[:160]),
+            "job_status": job.get("status") or "",
+            "idle_minutes": round(idle, 1) if isinstance(idle, (int, float)) else None,
+        }
+    return resolved
+
+
+def task_progress(task: dict, launch: dict | None, reviews: dict) -> dict:
+    """Where this task actually is, as an ordered pipeline.
+
+    The board could say a task was `active` but not whether anything was still
+    working on it, so "taking a while" and "died an hour ago" looked identical.
+    Each step is done / now / blocked / todo, so the first step that is not
+    done is the answer to "what is happening?".
+    """
+    proof = task.get("proof") or {}
+    state = task.get("state") or task.get("status") or "skeleton"
+    done = state == "done"
+    required = proof.get("required_tests") or []
+    covered = proof.get("covered_tests") or []
+    grill = proof.get("grill") or {}
+    lenses = {aspect: bool(review) for aspect, review in (reviews or {}).items()}
+    clean = [aspect for aspect, review in (reviews or {}).items()
+             if isinstance(review, dict)
+             and not (review.get("blocking_findings") or [])]
+
+    def step(key, label, state_, note=""):
+        return {"key": key, "label": label, "state": state_, "note": note}
+
+    plan_state = task.get("plan_state")
+    if plan_state == "clean":
+        plan_step = step("plan", "Task plan", "done", "grill-clean")
+    elif plan_state == "grilling":
+        plan_step = step("plan", "Task plan", "now", "saved - grilling")
+    else:
+        plan_step = step("plan", "Task plan", "todo", "not authored")
+
+    if state in {"active", "done"}:
+        start_step = step("start", "Started", "done",
+                          str(task.get("started_at") or "")[:10])
+    elif state in {"ready", "grilled"}:
+        start_step = step("start", "Started", "now",
+                          "run `forge task start` then `stage start`")
+    else:
+        start_step = step("start", "Started", "todo")
+
+    if launch and launch.get("status") == "running":
+        # Say what it is DOING, not just that it exists: an implementation step
+        # with no live detail looks identical at minute 1 and minute 90.
+        idle = launch.get("idle_minutes")
+        beat = ("no progress for "
+                f"{int(idle)}m" if isinstance(idle, (int, float)) and idle >= 1
+                else "moving")
+        detail = launch.get("phase") or launch.get("summary") or "working"
+        build = step("build", "Implementation", "now",
+                     f"Codex {detail} - {beat} (pid {launch.get('pid')})")
+        # A companion that has gone quiet is not yet a crash, and must not be
+        # reported as one; it is still the thing worth looking at.
+        if isinstance(idle, (int, float)) and idle >= STALL_MINUTES:
+            build["state"] = "blocked"
+            build["note"] = (
+                f"Codex alive (pid {launch.get('pid')}) but SILENT for "
+                f"{int(idle)}m in phase {detail!r}. Check its log before "
+                "assuming it is still working.")
+    elif launch and launch.get("status") == "dead":
+        build = step("build", "Implementation", "blocked",
+                     f"Codex DEAD - pid {launch.get('pid')} is gone while the "
+                     "ledger still says running. It crashed; nothing is coming.")
+    elif launch and launch.get("status") == "failed":
+        build = step("build", "Implementation", "blocked", "last launch failed")
+    elif launch and launch.get("status") == "succeeded":
+        build = step("build", "Implementation", "done", "companion finished")
+    elif done:
+        build = step("build", "Implementation", "done")
+    else:
+        build = step("build", "Implementation",
+                     "now" if state == "active" else "todo",
+                     "no delegation recorded yet" if state == "active" else "")
+
+    verify = step("verify", "Verify", "done" if proof.get("verify_ok") else
+                  ("now" if state == "active" else "todo"),
+                  str(proof.get("verify_at") or "")[:10])
+    tests = step("tests", "Tests",
+                 "done" if required and len(covered) == len(required) else
+                 ("now" if covered else "todo"),
+                 f"{len(covered)}/{len(required)} proven" if required
+                 else "none required")
+    review = step("review", "Review - 3 lenses",
+                  "done" if len(clean) == 3 else
+                  ("now" if lenses and any(lenses.values()) else "todo"),
+                  " / ".join(
+                      f"{aspect} "
+                      f"{'clean' if aspect in clean else 'open' if lenses.get(aspect) else '-'}"
+                      for aspect in ("quality", "performance", "security")))
+    ship = step("ship", "PR ready", "done" if done else "todo",
+                str(task.get("completed_at") or "")[:10])
+
+    steps = [plan_step, start_step, build, verify, tests, review, ship]
+    if grill.get("verdict") and grill.get("verdict") != "pass":
+        plan_step["state"] = "blocked"
+        plan_step["note"] = f"grill verdict {grill.get('verdict')}"
+    blocked = next((s for s in steps if s["state"] == "blocked"), None)
+    current = blocked or next((s for s in steps if s["state"] == "now"), None)
+    live = None
+    if launch and launch.get("status") in {"running", "dead"}:
+        budget = task.get("budget") or {}
+        used = budget.get("used") or {}
+        limit = budget.get("limit") or {}
+        live = {
+            "status": launch.get("status"),
+            "pid": launch.get("pid"),
+            "phase": launch.get("phase") or "",
+            "summary": launch.get("summary") or "",
+            "idle_minutes": launch.get("idle_minutes"),
+            "since": launch.get("at") or "",
+            "log": launch.get("log") or "",
+            "worktree": launch.get("worktree") or "",
+            "write": launch.get("write"),
+            # Files and lines already written are the one progress signal that
+            # comes from the work itself rather than from the companion's own
+            # self-report.
+            "files": used.get("files"), "files_limit": limit.get("files"),
+            "lines": used.get("lines"), "lines_limit": limit.get("lines"),
+        }
+    return {
+        "steps": steps,
+        "done": sum(1 for s in steps if s["state"] == "done"),
+        "total": len(steps),
+        "current": current["label"] if current else ("Shipped" if done else ""),
+        "headline": (current or {}).get("note", ""),
+        "stalled": bool(blocked),
+        "launch": launch or None,
+        "live": live,
+    }
+
+
 def task_dossiers(base: Path, key: str, detail: dict) -> list[dict]:
     """Everything known about each task, assembled once for the drawer: what it
     was for (decomposition), what the plan said about it, which spec governs it,
@@ -634,6 +924,7 @@ def task_dossiers(base: Path, key: str, detail: dict) -> list[dict]:
     reviews = evidence.get("reviews") or {}
     task_grills = evidence.get("task_grills") or {}
     spec_path = (detail.get("spec") or {}).get("path", "")
+    launches = task_launches(base)
 
     recorded_tests = []
     for entry in tests.values():
@@ -678,6 +969,8 @@ def task_dossiers(base: Path, key: str, detail: dict) -> list[dict]:
         objective = (task.get("objective") or "").strip()
         task["plan_excerpt"] = "" if excerpt.strip() == objective else excerpt
         task.update(task_plan_view(base, key, task, task_grills.get(task["id"])))
+        task["progress"] = task_progress(
+            task, launches.get(task["id"]), reviews)
         dossiers.append(task)
     return dossiers
 
