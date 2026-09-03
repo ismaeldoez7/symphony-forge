@@ -612,6 +612,10 @@ def main() -> None:
     p_aud = sub.add_parser("audit",
                            help="loop-health: audit the improvement loops themselves (advisory)")
     p_aud.add_argument("--repo")
+    p_aud.add_argument(
+        "--state", action="store_true",
+        help="re-derive every recorded claim and report what disagrees with "
+             "the repo (transitions are gated; state never was)")
     p_aud.set_defaults(func=audit_mod.cmd_audit)
 
     p_find = sub.add_parser("findings", help="review-finding pattern detection across tasks")

@@ -1422,6 +1422,50 @@ def _finish_stage(base: Path, args: argparse.Namespace, data: dict,
         print(f"Stage {args.id} done — all {len(data['stages'])} stage(s) complete")
 
 
+def _refuse_incomplete_against_complete_proof(base: Path, task_id: str) -> None:
+    """`--incomplete` is the only escape from a refusing seal, and using it on
+    finished work writes a false record.
+
+    It exists so a worker that genuinely finished only part of the job can say
+    so. But it is also the sole way out when a gate refuses, so it becomes the
+    tempting move for work that IS complete -- and the frontier and the PR gate
+    then read a finished task as unfinished. The evidence already answers the
+    question: if verify passed, tests are recorded, and all three lenses are
+    clean, then "work remains" contradicts the proof on disk.
+
+    Judged on RECORDED PROOF, not on a guess about intent, and it refuses only
+    when every one of those is present -- a genuinely partial task has not got
+    them, so the honest use is untouched.
+    """
+    from factory_lib import evidence_path, load_json
+    from .readiness import review_passed, verify_passed
+
+    key = load_json(run_state_path(base), default={}).get("issue_key", "")
+    if not key:
+        return
+    verify_ok = verify_passed(load_json(
+        evidence_path(base, key, "verify.json"), default={}))
+    tests = load_json(evidence_path(base, key, "tests.json"), default={})
+    aspects = ("quality", "performance", "security")
+    lenses = {
+        aspect: review_passed(load_json(
+            evidence_path(base, key, f"reviews/{aspect}.json"), default={}))
+        for aspect in aspects
+    }
+    if not (verify_ok and tests and all(lenses.values())):
+        return
+    fail(
+        f"--incomplete records that WORK REMAINS on {task_id}, and the recorded "
+        "proof says the opposite: verify passed, tests are recorded, and all "
+        "three review lenses are clean. Writing it anyway makes the frontier "
+        "and the PR gate read a finished task as unfinished.\n"
+        "If a gate is refusing a task this complete, the gate has a cause worth "
+        "naming rather than stepping around: `forge audit --state` re-derives "
+        "every recorded claim and reports which one disagrees with the repo. "
+        "Use --incomplete only when work genuinely remains."
+    )
+
+
 def cmd_amend_scope(args) -> None:
     """Record the paths this task really touched that its scope did not name.
 
@@ -1505,6 +1549,7 @@ def cmd_done(args: argparse.Namespace) -> None:
              "`forge stage start` it first; done attests a stage that actually ran.")
     incomplete = (getattr(args, "incomplete", None) or "").strip()
     if incomplete:
+        _refuse_incomplete_against_complete_proof(base, args.id)
         # A worker that genuinely finished part of the job had no vocabulary for
         # it: every signal kind presumes it wants to continue. This says so and
         # leaves the stage open, so nothing downstream reads it as delivered.

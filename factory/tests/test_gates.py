@@ -12449,6 +12449,78 @@ def test_task_reconcile_refuses_when_work_is_not_on_the_trunk(repo, tmp_path):
     assert not marker.exists()
 
 
+def test_state_audit_reports_a_stage_split_between_working_copies(repo, tmp_path):
+    # The harness gates TRANSITIONS and never re-validates STATE, so a record
+    # that stopped being true is invisible. This is the split that made a
+    # passing grill unverifiable and took hours to trace by hand.
+    lib = load_factory_lib(repo)
+    worktree = tmp_path / "repo-T1"
+    git(repo, "worktree", "add", "-q", "-b", "feat/S-T1", str(worktree))
+
+    def control(root):
+        return Path(git(root, "rev-parse", "--absolute-git-dir")) / "forge"
+
+    for root, status in ((repo, "active"), (worktree, "done")):
+        target = control(root)
+        target.mkdir(parents=True, exist_ok=True)
+        lib.dump_json(target / "stages.json", {"issue": "ENG-1", "stages": [
+            {"id": "T1", "title": "t", "status": status}]})
+
+    code, out = run(repo, "forge.py", "audit", "--state")
+    assert code != 0, out
+    assert "differs between working copies" in out
+    assert "active" in out and "done" in out
+    # It must say which copy wins, not merely that they disagree.
+    assert "authoritative" in out
+
+
+def test_state_audit_is_read_only_and_clean_when_nothing_disagrees(repo):
+    # No decomposition, no stages, nothing recorded: nothing to contradict.
+    before = git(repo, "status", "--porcelain")
+    code, out = run(repo, "forge.py", "audit", "--state")
+    assert code == 0, out
+    assert "re-derives" in out
+    # Reporting must never repair -- a repair is the same unchecked assertion
+    # that makes records untrustworthy in the first place.
+    assert git(repo, "status", "--porcelain") == before
+
+
+def test_incomplete_is_refused_when_the_proof_says_the_work_is_done(
+        repo, tmp_path):
+    # `--incomplete` is the only escape from a refusing seal, so it is the
+    # tempting move for work that IS finished -- and then the frontier and the
+    # PR gate read a completed task as unfinished. The recorded proof already
+    # answers the question.
+    task = task_with_plan_contracts({**DECOMP["tasks"][0], "user_facing": False})
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    record_skeleton_then_frontier(repo, [task])
+    record_task_grill(repo, task)
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code == 0, out
+
+    lib = load_factory_lib(repo)
+    key = "ENG-1"
+    lib.dump_json(lib.evidence_path(repo, key, "verify.json", for_write=True),
+                  {"generated_by": "t", "ok": True})
+    lib.dump_json(lib.evidence_path(repo, key, "tests.json", for_write=True),
+                  {"automated": {"generated_by": "t", "passed": True,
+                                 "tests_added_or_updated": ["t1"]}})
+    for aspect in ("quality", "performance", "security"):
+        lib.dump_json(
+            lib.evidence_path(repo, key, f"reviews/{aspect}.json",
+                              for_write=True),
+            {"generated_by": "t", "aspect": aspect, "verdict": "pass",
+             "blocking_findings": [], "non_blocking_findings": []})
+
+    code, out = run(repo, "forge.py", "stage", "done", "T1",
+                    "--incomplete", "cannot seal, gate refuses")
+    assert code != 0, out
+    assert "WORK REMAINS" in out
+    assert "audit --state" in out  # it names the tool that finds the real cause
+
+
 def test_scope_amendment_breaks_the_seal_deadlock_without_touching_the_contract(
         repo, tmp_path):
     # `stage done` measures the diff, finds an under-declared path, and tells
