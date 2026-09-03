@@ -12578,6 +12578,14 @@ def test_task_grill_names_a_basis_mismatch_instead_of_reporting_stale(
     grill["grounding_basis"] = "working-tree"
     grill_path.write_text(json.dumps(grill), encoding="utf-8")
 
+    # The task's work then lands. That is what moves the product tree, and it
+    # is why the two bases now yield different digests -- on a clean tree they
+    # agree, so there would be nothing to report.
+    (repo / "src").mkdir(exist_ok=True)
+    (repo / "src" / "app.py").write_text("x = 1\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "T1 work")
+
     with pytest.raises(SystemExit) as excinfo:
         lib.require_task_grill(repo, "T1", task, treeish=git(repo, "rev-parse", "HEAD"))
     message = str(excinfo.value)
