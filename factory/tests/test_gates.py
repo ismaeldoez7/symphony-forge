@@ -6131,8 +6131,8 @@ def test_frontier_orders_task_plan_before_grill(repo, tmp_path):
     record_skeleton_then_frontier(repo, [STAGE_TASK])
     assert task_frontier_state(repo)[0] == "author-task-plan"
     code, out = run(repo, "forge.py", "next")
-    assert code == 0 and "in plan mode" in out \
-        and "do NOT present the plan in chat" in out
+    assert code == 0 and "do NOT present it in chat" in out \
+        and "mode-agnostic" in out  # 0050
 
     source = tmp_path / "T1.md"
     source.write_text("# T1 plan\n\n\n## Workflow\n\nRequest -> handler -> store.\n\n## Manual Verification\n\n1. Run it. 2. See the row.\n")
@@ -8638,7 +8638,10 @@ def test_forge_next_routes_requirements_round_first(repo):
     assert code == 0, out
     code, out = run(repo, "forge.py", "next", "--repo", str(repo))
     assert code == 0, out
-    assert "enter plan mode" in out and "FIRST: re-grill" not in out
+    # 0050 removed the "enter plan mode" instruction; the planning step is
+    # still what appears once the requirements round is recorded.
+    assert "MANDATORY: plan per factory/prompts/planner.md" in out
+    assert "FIRST: re-grill" not in out
 
     product = repo / "requirements-routing.txt"
     product.write_text("changed\n")
@@ -8774,9 +8777,12 @@ def test_task_approve_refuses_a_stale_or_failing_grill(repo, tmp_path):
     save_plan(repo, tmp_path)
     record_skeleton_then_frontier(repo, [STAGE_TASK])
 
+    # require_ready_task's grill gate runs first, so this is the refusal an
+    # unprepared task actually gets -- asserted here so the ordering is pinned
+    # rather than assumed.
     code, out = run(repo, "forge.py", "task", "approve", "T1",
                     "--by", "Test Human")
-    assert code != 0 and "no saved task plan" in out, out
+    assert code != 0 and "Task grill required first" in out, out
 
     code, out = record_task_grill(repo, STAGE_TASK, approve=False)
     assert code == 0, out
@@ -17578,10 +17584,13 @@ def test_quality_review_ignores_contracts_of_tasks_that_have_not_started(
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
         {**DECOMP, "tasks": [tasks[0], skeletons[1]]}))
     assert code == 0, out
+    # T1 done, so T2 is the frontier and may carry its contract -- a pending
+    # non-frontier task is refused one outright (JIT execution detail). T2 has
+    # still not STARTED, which is the case under test.
     write_stages(repo, {
         "issue": "ENG-1",
         "stages": [
-            {"id": "T1", "title": tasks[0]["title"], "status": "active"},
+            {"id": "T1", "title": tasks[0]["title"], "status": "done"},
             {"id": "T2", "title": tasks[1]["title"], "status": "pending"},
         ],
     })
