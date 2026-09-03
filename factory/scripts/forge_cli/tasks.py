@@ -392,3 +392,139 @@ def cmd_task_pr_ready(args: argparse.Namespace) -> None:
     print(f"Task {args.id} PR ready: {marker.as_posix()}")
     if proc.stdout.strip():
         print(proc.stdout.strip())
+
+
+def cmd_task_reconcile(args: argparse.Namespace) -> None:
+    """Adopt a task that was merged to the trunk OUT OF BAND — via a story-level
+    PR or a direct PR — without ever running `forge task pr-ready`. It writes the
+    task's completion marker and flips its stage to done so the frontier stops
+    reporting the task 'await-merge' forever and advances to the next one.
+
+    This is the sanctioned reconcile for the run-pointer drift that happens when
+    work ships outside the per-task PR flow. It verifies the work is genuinely on
+    the trunk, opens NO new PR, and records a `stage-reconciled` event so the
+    bypass is on the timeline. The regular `stage done` gates (a non-empty delta,
+    a bound delegate launch, a fresh review stamp) are all unsatisfiable for
+    already-merged work, which is exactly why they cannot close it.
+    """
+    from forge_cli.stages import load_stages, write_stages, task_for
+    from forge_cli.events import append_event
+    from factory_lib import task_digest
+
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    state = load_json(run_state_path(base), default={})
+    key = state.get("issue_key") or state.get("story")
+    if not isinstance(key, str) or not key.strip():
+        from .story import ensure_active_pointer
+        key = ensure_active_pointer(base)
+    if not isinstance(key, str) or not key.strip():
+        fail("reconcile requires an active story. Start a new one with intake, or "
+             "if a decomposed story lost its git-local pointer on this checkout, "
+             "rebuild it with `forge story resume <key>`.")
+
+    data = load_stages(base)
+    stages = data.get("stages") or []
+    idx = next((i for i, s in enumerate(stages) if s.get("id") == args.id), None)
+    if idx is None:
+        fail(f"task {args.id} is not in the current decomposition")
+    stage = stages[idx]
+    status = stage.get("status")
+    if status not in ("active", "done"):
+        fail(f"task {args.id} is '{status}', not active or done — reconcile adopts a "
+             "task whose work already SHIPPED; a task that never started has nothing "
+             "to reconcile.")
+
+    task = task_for(base, args.id)
+    if not task:
+        fail(f"task {args.id} has no contract in the decomposition; cannot reconcile.")
+
+    default_branch = _default_branch(base)
+    marker = task_marker_path(key, args.id)
+
+    fetched = _git(base, "fetch", "origin", default_branch)
+    if fetched.returncode != 0:
+        fail(f"reconcile needs origin/{default_branch} to confirm {args.id} shipped, "
+             "but the fetch failed. Reconcile only a task whose PR has actually "
+             "merged, on a checkout that can reach origin.")
+
+    already = _git(
+        base, "cat-file", "-e", f"origin/{default_branch}:{marker.as_posix()}",
+    ).returncode == 0
+
+    if not already:
+        # Confirm the task's work is genuinely on the trunk before adopting it: at
+        # least one of its write_scope paths must resolve on origin/<trunk>. This
+        # guards against reconciling work that never actually shipped.
+        write_scope = [p.rstrip("/") for p in (task.get("write_scope") or [])
+                       if isinstance(p, str) and p.strip()]
+        on_trunk = any(
+            _git(base, "cat-file", "-e",
+                 f"origin/{default_branch}:{path}").returncode == 0
+            for path in write_scope
+        )
+        if write_scope and not on_trunk:
+            fail(f"none of {args.id}'s write_scope paths are on origin/"
+                 f"{default_branch} — its work does not look shipped. Reconcile "
+                 "only a genuinely merged task (or ship it with `forge task "
+                 "pr-ready`).")
+
+        commit = args.commit or _require_git(
+            base, "resolving trunk head", "rev-parse", "--verify",
+            f"origin/{default_branch}^{{commit}}")
+        if args.commit:
+            anc = _git(base, "merge-base", "--is-ancestor", commit,
+                       f"origin/{default_branch}")
+            if anc.returncode != 0:
+                fail(f"--commit {commit} is not an ancestor of origin/"
+                     f"{default_branch}; pass the merge commit of the task's PR.")
+        recorded_base = stage.get("base_sha")
+        pointer_base = state.get("base_main_sha")
+        base_main_sha = (
+            (recorded_base if isinstance(recorded_base, str) and recorded_base else None)
+            or (pointer_base if isinstance(pointer_base, str) and pointer_base else None)
+            or _require_git(base, "resolving integration base", "merge-base",
+                            f"origin/{default_branch}", commit)
+        )
+        branch = args.branch or f"feat/{key}-{args.id}"
+        payload = {
+            "task_id": args.id,
+            "branch": branch,
+            "base_main_sha": base_main_sha,
+            "commit": commit,
+            "sealed_at": now_iso(),
+        }
+        if any(not isinstance(value, str) or not value.strip()
+               for value in payload.values()):
+            fail("reconcile marker fields must all be non-empty strings")
+        dump_json(base / marker, payload)
+
+    # Flip the stage to done directly (bypassing the unsatisfiable stage-done
+    # gates) and stamp its task digest so the row reads 'done' locally too.
+    if status != "done":
+        stage["status"] = "done"
+        stage["completed_at"] = now_iso()
+    if not stage.get("task_sha256"):
+        stage["task_sha256"] = task_digest(task)
+    write_stages(base, data)
+    append_event(base, "stage-reconciled", actor="orchestrator", story=key,
+                 detail=f"{args.id} adopted as shipped out of band "
+                        f"(marker {'confirmed on trunk' if already else 'written'}, "
+                        "no PR)")
+
+    # Commit the marker + committed stage mirror as an evidence-only commit the
+    # command owns. No push, no PR — the work already shipped; this records it so
+    # the marker can land on the trunk via the reconcile PR.
+    candidates = [marker.as_posix(), ".factory/stages.json",
+                  f".factory/stories/{key}/stages.json"]
+    to_add = [path for path in candidates if (base / path).is_file()]
+    if to_add:
+        _git(base, "add", "--", *to_add)
+    if _git(base, "diff", "--cached", "--quiet").returncode != 0:
+        _require_git(base, "committing the reconcile marker", "commit", "-m",
+                     f"{key} {args.id}: task reconcile marker (adopted as shipped)")
+        print(f"Reconciled {args.id}: marker {marker.as_posix()} written, stage "
+              "done, evidence committed. Push this branch and open a PR so the "
+              f"marker lands on origin/{default_branch}, then rerun `forge next`.")
+    else:
+        print(f"Reconciled {args.id}: stage done and marker present; nothing new "
+              "to commit.")

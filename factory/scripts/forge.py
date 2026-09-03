@@ -203,6 +203,24 @@ def main() -> None:
     p_task_reopen.add_argument("id", help="task id")
     p_task_reopen.add_argument("--repo")
     p_task_reopen.set_defaults(func=tasks_mod.cmd_task_reopen)
+    p_task_reconcile = task_sub.add_parser(
+        "reconcile",
+        help="adopt a task already merged to the trunk out of band (write its "
+             "marker + flip its stage done, no new PR)",
+    )
+    p_task_reconcile.add_argument("id", help="task id")
+    p_task_reconcile.add_argument(
+        "--commit",
+        help="the merge/sealed commit that shipped the task (default: the "
+             "current trunk head); must be an ancestor of origin's trunk",
+    )
+    p_task_reconcile.add_argument(
+        "--branch",
+        help="the task's original branch for the marker (default: "
+             "feat/<story>-<task>)",
+    )
+    p_task_reconcile.add_argument("--repo")
+    p_task_reconcile.set_defaults(func=tasks_mod.cmd_task_reconcile)
     p_task_plan = task_sub.add_parser("plan", help="manage a task plan")
     task_plan_sub = p_task_plan.add_subparsers(
         dest="task_plan_command", required=True,

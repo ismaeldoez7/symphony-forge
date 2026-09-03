@@ -12298,6 +12298,85 @@ def test_task_pr_ready_does_not_flip_roadmap_or_write_outcome(repo, tmp_path):
         assert not path.exists()
 
 
+def test_task_reconcile_adopts_out_of_band_merge_without_a_pr(repo, tmp_path):
+    # A task can ship OUTSIDE the per-task pr-ready flow (a story-level PR, a
+    # direct PR). Then no completion marker is on the trunk and the frontier is
+    # stuck at "await-merge" forever. `forge task reconcile` adopts that
+    # already-merged task: it verifies the work is on the trunk, writes the
+    # marker, flips the stage done, opens NO PR, and the frontier advances.
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    git(repo, "config", "user.email", "test@knacklabs.dev")
+    git(repo, "config", "user.name", "Gate Tests")
+    second = task_skeleton({**STAGE_TASK, "id": "T2", "title": "second slice"})
+    record_skeleton_then_frontier(repo, [STAGE_TASK, second])
+    # T1's work shipped but its stage was never sealed: mark it active, T2 pending.
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [
+            {"id": "T1", "title": "core slice", "status": "active",
+             "base_sha": head(repo)},
+            {"id": "T2", "title": "second slice", "status": "pending"},
+        ],
+    })
+    # The task's work is genuinely on the trunk: src/ is pushed to origin/main.
+    write_in_scope(repo, "src/core.py")
+    git(repo, "add", "src/core.py")
+    git(repo, "commit", "-qm", "ship T1 work via a story PR")
+    configure_origin_main(repo, tmp_path / "reconcile-origin.git")
+
+    marker = story_state(repo) / "tasks" / "T1" / "pr-ready.json"
+    gh_env, argv_path = fake_gh_env(tmp_path)
+    assert not marker.exists()
+
+    code, out = run(repo, "forge.py", "task", "reconcile", "T1", env=gh_env)
+    assert code == 0, out
+    # The five-field marker is written and NO PR was opened.
+    payload = json.loads(marker.read_text())
+    assert set(payload) == {
+        "task_id", "branch", "base_main_sha", "commit", "sealed_at"}
+    assert payload["task_id"] == "T1" and payload["branch"] == "feat/ENG-1-T1"
+    assert not argv_path.exists()
+    # The stage flipped to done, and the marker rides an evidence commit.
+    data = json.loads((delegation_ledger(repo).parent / "stages.json").read_text())
+    assert data["stages"][0]["status"] == "done"
+    assert marker.relative_to(repo).as_posix() in git(
+        repo, "show", "--name-only", "--format=", "HEAD")
+    # Push the reconcile commit so the marker lands on the trunk; the frontier
+    # then advances to T2 and the row reads done.
+    git(repo, "push", "-q", "origin", "HEAD:main")
+    frontier = task_frontier_state(repo)
+    assert frontier and frontier[1]["id"] == "T2"
+    assert task_rows(repo)[0]["state"] == "done"
+
+
+def test_task_reconcile_refuses_when_work_is_not_on_the_trunk(repo, tmp_path):
+    # Reconcile must never fabricate a ship: if the task's write_scope is not on
+    # the trunk, it refuses and writes no marker.
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    git(repo, "config", "user.email", "test@knacklabs.dev")
+    git(repo, "config", "user.name", "Gate Tests")
+    second = task_skeleton({**STAGE_TASK, "id": "T2", "title": "second slice"})
+    record_skeleton_then_frontier(repo, [STAGE_TASK, second])
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [
+            {"id": "T1", "title": "core slice", "status": "active"},
+            {"id": "T2", "title": "second slice", "status": "pending"},
+        ],
+    })
+    # origin/main carries no src/ content — the task's work never shipped.
+    configure_origin_main(repo, tmp_path / "reconcile-origin-empty.git")
+    marker = story_state(repo) / "tasks" / "T1" / "pr-ready.json"
+
+    code, out = run(repo, "forge.py", "task", "reconcile", "T1")
+    assert code != 0 and "does not look shipped" in out
+    assert not marker.exists()
+
+
 def test_require_task_worktree_noops_for_story_level_run(repo, tmp_path):
     # A story-level run pointer carries `branch` (from intake) but no task_id;
     # require_task_worktree must NOT gate it. Regression: it refused a

@@ -392,6 +392,16 @@ trunk before the next task starts, never batching a whole story into one PR.
 running in the story worktree), so the frontier never skips past a done-but-
 unshipped task.
 
+When a task was merged to the trunk OUTSIDE this flow — a whole-story PR, or a
+direct PR that skipped `pr-ready` — no marker is on the trunk and the frontier
+stays stuck at `await-merge` for a task that actually shipped. `forge task
+reconcile <id>` is the sanctioned repair: it confirms the task's work is on the
+trunk, writes the completion marker, flips the stage done, and records a
+`stage-reconciled` event — opening NO new PR (the work already merged). Commit
+its marker to the trunk (via the reconcile PR) and the frontier advances. This
+is a reconcile, not a shortcut: it refuses when the work is not genuinely on the
+trunk, so it can never fabricate a ship.
+
 Per-stage local reviews are pre-commit hygiene and record nothing; the ONE
 branch-wide autoreview at the review phase remains the only review gate and
 sole producer of `.factory/reviews/*` (decision 0001 D6 unchanged — it

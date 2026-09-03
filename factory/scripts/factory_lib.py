@@ -753,49 +753,82 @@ def task_marker_path(key: str, task_id: str) -> Path:
     return Path(".factory") / "stories" / key / "tasks" / task_id / "pr-ready.json"
 
 
+# The trunk branch of a repo does not change during a process, but resolving it
+# shells out to git (symbolic-ref, sometimes a networked `remote show`). The
+# board calls it once per task per render — memoize per repo root so the board's
+# hot path pays that cost once, not N times.
+_TRUNK_BRANCH_CACHE: dict[str, str] = {}
+
+
 def default_trunk_branch(root: Path) -> str:
     """The repo's integration trunk — origin's default branch, not a hardcoded
     'main'. Task markers, the task-start base, and the branch-review diff all
     live on whatever ``origin/HEAD`` points at (main / develop / trunk / …), so
     deriving it keeps the harness correct on every repo instead of only on
     main-trunk ones. Falls back to 'main' when the default cannot be resolved,
-    which preserves prior behaviour for main-trunk repos (zero regression)."""
+    which preserves prior behaviour for main-trunk repos (zero regression).
+
+    Memoized per repo root: the trunk is stable for a process, and the board
+    resolves it once per task per render."""
+    cache_key = str(root)
+    cached = _TRUNK_BRANCH_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
     # Branch/ref names are UTF-8 (unlike arbitrary file paths), so strict UTF-8
     # decoding is correct here and needs no lossless surrogateescape.
+    result = "main"
     ref = subprocess.run(
         ["git", "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
         cwd=root, capture_output=True, text=True, env=clean_git_env(),
         encoding="utf-8",
     )
     if ref.returncode == 0 and ref.stdout.strip():
-        return ref.stdout.strip().rsplit("/", 1)[-1]
-    # origin/HEAD not set locally — ask the remote once, then fall back to main.
-    show = subprocess.run(
-        ["git", "remote", "show", "origin"],
-        cwd=root, capture_output=True, text=True, env=clean_git_env(),
-        encoding="utf-8",
-    )
-    for line in show.stdout.splitlines():
-        if "HEAD branch:" in line:
-            name = line.split("HEAD branch:", 1)[1].strip()
-            if name and name != "(unknown)":
-                return name
-    return "main"
+        result = ref.stdout.strip().rsplit("/", 1)[-1]
+    else:
+        # origin/HEAD not set locally — ask the remote once, then fall back.
+        show = subprocess.run(
+            ["git", "remote", "show", "origin"],
+            cwd=root, capture_output=True, text=True, env=clean_git_env(),
+            encoding="utf-8",
+        )
+        for line in show.stdout.splitlines():
+            if "HEAD branch:" in line:
+                name = line.split("HEAD branch:", 1)[1].strip()
+                if name and name != "(unknown)":
+                    result = name
+                    break
+    _TRUNK_BRANCH_CACHE[cache_key] = result
+    return result
 
 
-def task_marker_on_main(root: Path, key: str, task_id: str) -> bool:
-    """Refresh the trunk and report whether its tree contains the task marker.
-
-    'main' in the name is historical: the branch queried is the resolved trunk
-    (``default_trunk_branch``), so a develop/trunk repo finds its markers too.
-    """
-    marker = task_marker_path(key, task_id)
-    trunk = default_trunk_branch(root)
+def fetch_trunk(root: Path, trunk: str) -> bool:
+    """Fetch ``origin/<trunk>`` and report whether it succeeded. Factored out so
+    the board can fetch the trunk ONCE per render (before checking every task's
+    marker) instead of once per task — the fix for the slow board — while the CLI
+    frontier and ship gates keep fetching live per check."""
     fetch = subprocess.run(
         ["git", "fetch", "origin", trunk], cwd=root, capture_output=True,
         text=True, env=clean_git_env(), encoding="utf-8", errors="surrogateescape",
     )
-    if fetch.returncode != 0:
+    return fetch.returncode == 0
+
+
+def task_marker_on_main(
+    root: Path, key: str, task_id: str, *, refresh: bool = True,
+) -> bool:
+    """Report whether the trunk's tree contains the task's completion marker.
+
+    'main' in the name is historical: the branch queried is the resolved trunk
+    (``default_trunk_branch``), so a develop/trunk repo finds its markers too.
+
+    ``refresh=True`` (default) fetches ``origin/<trunk>`` first — the live check
+    the frontier and per-task ship gates need. ``refresh=False`` checks only the
+    already-fetched origin ref, so the board can fetch the trunk once per render
+    and then check every task's marker without a network call each.
+    """
+    marker = task_marker_path(key, task_id)
+    trunk = default_trunk_branch(root)
+    if refresh and not fetch_trunk(root, trunk):
         # No origin, or an offline/transient fetch: the marker cannot be
         # confirmed on the trunk, so report not-yet-shipped rather than crashing
         # every caller. `forge next` and the board read this on repos that have
@@ -1702,6 +1735,12 @@ def task_rows(root: Path) -> list[dict]:
     # trunk, else "await-merge" — mirroring task_frontier_state so the board and
     # `forge next` agree. Without an origin the row keeps its stage status.
     has_origin = _has_origin(root)
+    # The board renders every task row per poll and per drawer open. Fetch the
+    # trunk ONCE here, then check each done task's marker against that
+    # already-fetched ref (refresh=False) instead of a live network fetch per
+    # task — the fix for the "very very slow" board (N fetches per render -> 1).
+    if has_origin:
+        fetch_trunk(root, default_trunk_branch(root))
     for task in tasks:
         task_id = task.get("id")
         stage = stage_by_id.get(task_id, {})
@@ -1710,7 +1749,11 @@ def task_rows(root: Path) -> list[dict]:
         fresh = _task_grill_fresh(root, task, grill) if grill else False
         status = stage.get("status")
         if status == "done" and has_origin:
-            state = "done" if task_marker_on_main(root, key, task_id) else "await-merge"
+            state = (
+                "done"
+                if task_marker_on_main(root, key, task_id, refresh=False)
+                else "await-merge"
+            )
         elif status == "done":
             state = "done"
         elif status == "active":
