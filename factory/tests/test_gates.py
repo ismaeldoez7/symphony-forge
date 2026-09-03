@@ -12449,6 +12449,57 @@ def test_task_reconcile_refuses_when_work_is_not_on_the_trunk(repo, tmp_path):
     assert not marker.exists()
 
 
+def test_board_renders_a_workflow_diagram_as_structure_not_source(repo):
+    # A ```mermaid block is the part of a plan a reader most needs and, shown
+    # as a code block, least can read. Rendering the structure costs nothing;
+    # a real layout engine would cost a megabyte of vendored JavaScript in
+    # every client repo, for a picture.
+    page = (HARNESS / "factory" / "board" / "index.html").read_text(
+        encoding="utf-8")
+
+    assert "function mermaidOutline(" in page
+    # md() escapes the document before any block renderer sees it, so the
+    # arrows arrive as entities and a naive split finds nothing.
+    assert "function mermaidDecode(" in page
+    assert "&lt;" in page and "&amp;" in page
+    # Diagram fences must be intercepted BEFORE the generic code-fence path.
+    fence = page.index("if (/^```/.test(line)) {")
+    assert "mermaid" in page[fence:fence + 700]
+    # Anything unrecognised must fall through to the code block, never vanish.
+    assert "if (outline) {" in page
+
+
+def test_board_separates_never_grilled_from_grilled_then_edited(repo, tmp_path):
+    # One "grilling" label covered two different problems. Only the second
+    # matters to a human who already reviewed the plan: the text has moved
+    # since they read it.
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    from forge_cli.board import task_plan_view  # noqa: E402
+
+    lib = load_factory_lib(repo)
+    key = "ENG-1"
+    task = {"id": "T1"}
+    plan = lib.evidence_path(repo, key, "task-plans/T1.md", for_write=True)
+    plan.parent.mkdir(parents=True, exist_ok=True)
+
+    # No plan at all.
+    assert task_plan_view(repo, key, task, None)["plan_state"] == "none"
+
+    plan.write_text("# T1\n\nDo the thing.\n", encoding="utf-8")
+    # Saved, never survived a grill.
+    assert task_plan_view(repo, key, task, None)["plan_state"] == "ungrilled"
+    assert task_plan_view(
+        repo, key, task, {"verdict": "fail"})["plan_state"] == "ungrilled"
+
+    digest = lib.plan_digest_without_assumptions(plan)
+    passing = {"verdict": "pass", "task_plan_sha256": digest}
+    assert task_plan_view(repo, key, task, passing)["plan_state"] == "clean"
+
+    # It passed, and then the text changed underneath the record.
+    plan.write_text("# T1\n\nDo the thing, differently.\n", encoding="utf-8")
+    assert task_plan_view(repo, key, task, passing)["plan_state"] == "stale"
+
+
 def test_state_audit_reports_a_stage_split_between_working_copies(repo, tmp_path):
     # The harness gates TRANSITIONS and never re-validates STATE, so a record
     # that stopped being true is invisible. This is the split that made a
