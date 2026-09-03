@@ -109,17 +109,7 @@ def resolve_spec_reference(base: Path, value: str, *, confirmed: bool = False) -
     if not fields.get("slug"):
         fail(f"spec reference has no Forge frontmatter: {value}")
     if confirmed and fields.get("status") != "confirmed":
-        # Name the way out, not just the state: confirming needs a recorded
-        # spec grill first, which is the part callers do not expect.
-        fail(
-            f"spec reference is not confirmed: {value} (status: "
-            f"{fields.get('status', 'unknown')}).\n"
-            f"Confirm it with `forge spec confirm {fields['slug']}` — which "
-            "first needs a recorded spec grill: at least 2 AskUserQuestion "
-            "rounds from THIS top-level Claude session, then `python3 "
-            "factory/scripts/record_grill_from_json.py --gate spec "
-            f"--input-digest {value} --input <grill.json>`."
-        )
+        fail(f"spec reference is not confirmed: {value}")
     return path
 
 

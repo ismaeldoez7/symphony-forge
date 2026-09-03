@@ -1440,29 +1440,10 @@ def require_grill(
     path = evidence_path(root, key, f"grills/{gate}.json")
     data = load_json(path, default={})
     if not data:
-        # The COMPLETE command, not a prefix of it: naming the script without
-        # --input-digest, --input and the round floor meant the caller learned
-        # the remaining requirements one refusal at a time.
-        ledger_gates = {"spec": 2, "requirements": 1, "plan": 2, "task": 1}
-        digest_hint = (
-            " --input-digest <the exact artifact you grilled>"
-            if gate in ledger_gates else ""
-        )
-        floor_hint = (
-            f"\nThis gate is LEDGER-MATCHED: it needs at least {ledger_gates[gate]} "
-            "round(s) that match AskUserQuestion records from THIS top-level "
-            "Claude session (a subagent or Codex pass cannot record it), and the "
-            "final round must carry \"frontier_empty\": true."
-            if gate in ledger_gates else ""
-        )
         raise SystemExit(
             f"Handover grill required first: interrogate the handover for gaps and "
-            f"contradictions per factory/prompts/griller.md, resolve findings, then "
-            f"record the pass with\n"
-            f"  python3 factory/scripts/record_grill_from_json.py --gate {gate}"
-            f"{digest_hint} --input <grill.json>\n"
-            "The payload needs generated_by/gate/verdict/gaps/contradictions/"
-            "resolutions (factory/schemas/grill.json)." + floor_hint
+            f"contradictions per factory/prompts/griller.md, resolve findings, then record "
+            f"`python3 factory/scripts/record_grill_from_json.py --gate {gate}`."
         )
     if data.get("verdict") != "pass":
         raise SystemExit(
