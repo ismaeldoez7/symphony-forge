@@ -279,7 +279,9 @@ def main() -> None:
     p_ml = mode_sub.add_parser(
         "lite",
         help="open a lite workflow window — `lite` IS the verb, there is no "
-             "`lite start` (unlike `degraded start`)")
+             "`lite start` (unlike `degraded start`). USE IT FOR: a small, "
+             "bounded, ledgered change that does not deserve a full story. It "
+             "does NOT relax any grill or approval gate")
     p_ml.add_argument("--by", required=True, help="person opening the lite window")
     p_ml.add_argument("--reason", required=True, help="why lite mode is appropriate")
     p_ml.add_argument("--repo")
@@ -287,7 +289,9 @@ def main() -> None:
     p_mdeg = mode_sub.add_parser(
         "degraded",
         help="manage a degraded write window — open it with `degraded start "
-             "--reason ...`, close it with `mode done`")
+             "--reason ...`, close it with `mode done`. USE IT FOR: a companion "
+             "outage, or a fix only the host can make (max five files). It is a "
+             "WRITE window, not a gate window — it relaxes no grill or approval")
     degraded_sub = p_mdeg.add_subparsers(dest="degraded_command", required=True)
     p_mdegs = degraded_sub.add_parser("start", help="open a five-file degraded window")
     p_mdegs.add_argument("--reason", required=True, help="why degraded mode is required")
