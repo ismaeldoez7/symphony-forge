@@ -1561,10 +1561,10 @@ const prReference = (story) => {
 /* The gate sequence, as the drawer's rail reads it. "Story derived" is not a
    station: every card on this board is already a roadmap item, so the flag was
    always true and its column could never hold a card. */
-const STATIONS = ["Spec", "Plan", "Build", "Checks", "Ship"];
+const STATIONS = ["Spec", "Plan", "Build", "Ship"];
 /* Column headings name what a card IS, not the gate it faces — a card under
    "Plan" reads as planned when it means the opposite. */
-const COLUMNS = ["Needs spec", "Awaiting plan", "Building", "In checks", "Shipped"];
+const COLUMNS = ["Needs spec", "Awaiting plan", "Building", "Shipped"];
 // todo is an empty ring — the badge outline already reads as "pending".
 const FLAG_GLYPH = {done: "✓", partial: "◐", todo: "", gap: "✗"};
 const STATE_GLYPH = {shipped: "✓", building: "◐", ready: "★", blocked: "⊘", waiting: "·"};
@@ -1572,28 +1572,32 @@ const STATE_WORD = {shipped: "shipped", building: "building", ready: "ready to p
                     blocked: "blocked", waiting: "waiting"};
 
 const REVIEW_ASPECTS = ["quality", "performance", "security"];
-/* verify + tests + one review per aspect — the gates pr_ready.py demands. */
-const CHECKS_TOTAL = 2 + REVIEW_ASPECTS.length;
 
-function checksDone(lc) {
-  const reviews = lc.reviews || {};
-  const reviewed = REVIEW_ASPECTS.filter(a => reviews[a]).length;
-  return [lc.verify, lc.tests].filter(Boolean).length + reviewed;
+
+// Proof is per task: a story has no checks stage of its own, so "how far
+// through checks" is how many of its tasks are proven.
+function provenTasks(lc) {
+  const p = lc.proven || {};
+  return {done: p.done || 0, total: p.total || 0};
 }
 
 /** One flag per station: done | partial | todo | gap, plus a short note. */
 function stationFlags(story) {
   const lc = story.lifecycle || {};
   const st = lc.stages;
-  const done = checksDone(lc);
+  const proven = provenTasks(lc);
+  // Build is done when every task is done AND proven: a task that has not
+  // been verified and reviewed is not built, it is only written.
+  const built = st && st.total && st.done === st.total
+    && proven.total && proven.done === proven.total;
+  const partial = st && st.total && (st.done || proven.done);
   return [
     {flag: lc.spec === "confirmed" ? "done" : (lc.spec === "draft" ? "partial" : "gap"),
      note: lc.spec === "confirmed" ? "" : String(lc.spec || "missing")},
     {flag: lc.planned ? "done" : "todo", note: ""},
-    {flag: !st || !st.total ? "todo" : (st.done === st.total ? "done" : (st.done ? "partial" : "todo")),
-     note: st && st.total ? `${st.done}/${st.total}` : ""},
-    {flag: done === CHECKS_TOTAL ? "done" : (done ? "partial" : "todo"),
-     note: done ? `${done}/${CHECKS_TOTAL}` : ""},
+    {flag: built ? "done" : (partial ? "partial" : "todo"),
+     note: st && st.total
+       ? `${st.done}/${st.total} done · ${proven.done}/${proven.total} proven` : ""},
     {flag: lc.shipped ? "done" : "todo", note: ""},
   ];
 }
@@ -1667,7 +1671,9 @@ function cardMark(story, leverage) {
 const signature = (s) => {
   const lc = s.lifecycle || {};
   const st = lc.stages;
-  return [columnOf(s), s.state, st ? `${st.done}/${st.total}` : "-", checksDone(lc)].join("|");
+  const pv = provenTasks(lc);
+  return [columnOf(s), s.state, st ? `${st.done}/${st.total}` : "-",
+          `${pv.done}/${pv.total}`].join("|");
 };
 const changed = new Set();
 let snapshot = null;

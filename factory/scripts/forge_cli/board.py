@@ -122,6 +122,28 @@ def merge_task_detail(
     return tasks
 
 
+def _proven_tasks(base: Path, key: str, tasks: list[dict],
+                  shipped: bool) -> dict:
+    """How many of a story's tasks carry complete, clean proof.
+
+    Skipped for a shipped story — its proof is archived and the answer is
+    already known — so the board does not re-read every artifact of every
+    finished story on each poll.
+    """
+    total = len(tasks or [])
+    if shipped or not total or not key:
+        return {"done": total if shipped else 0, "total": total}
+    from factory_lib import task_proof_problems
+    done = 0
+    for task in tasks:
+        try:
+            if not task_proof_problems(base, key, task):
+                done += 1
+        except (Exception, SystemExit):
+            continue
+    return {"done": done, "total": total}
+
+
 def _plan_evidence(
     base: Path, story_key: str, plan: dict | None,
     derived_rows: list[dict] | None = None,
@@ -351,6 +373,12 @@ def aggregate_state(base: Path) -> dict:
             "verify": evidence["verify"],
             "tests": evidence["tests"],
             "reviews": evidence["reviews"],
+            # Proof is per task now, so a story's progress through checks is a
+            # COUNT of proven tasks rather than one story-wide tick. Computed
+            # with the same predicate the ship gate uses, so the board cannot
+            # say a story is ready while closeout refuses it.
+            "proven": _proven_tasks(base, item.get("key", ""), tasks,
+                                    item.get("status") == "done"),
             "shipped": item.get("status") == "done",
         }
         story["state"] = _story_state(story, bool(story["blocked_by"]))

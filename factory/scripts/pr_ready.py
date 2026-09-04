@@ -103,7 +103,7 @@ if not plan_files and not (run_state.get("phase") == "pr-ready" and archived_pla
     )
 if not decomposition:
     missing.append(".factory/decomposition.json")
-if bool(run_state.get("base_main_sha")) and decomposition:
+if decomposition:
     missing_markers = [
         task_marker_path(issue_key, task["id"]).as_posix()
         for task in decomposition.get("tasks", [])
@@ -116,38 +116,10 @@ if bool(run_state.get("base_main_sha")) and decomposition:
         )
 missing.extend(require_closeout_order(root))
 
-# Automated proof remains a separate readiness requirement; functional proof
-# belongs to the ordered closeout chain above.
-automated = tests.get("automated", {}) if tests else {}
-if not automated:
-    missing.append(".factory/tests.json:automated")
-elif not tests_passed(automated):
-    missing.append("automated testing must have no blockers, no failed status")
-reviews, _review_problems = load_review_artifacts(root)
-
-# Independent of the review recorder: existing artifacts may predate contract
-# enforcement, so readiness reads the quality evidence and checks every id.
-contracts = declared_contracts(decomposition)
-if contracts:
-    verdicts_by_id: dict[str, list[str]] = {}
-    recorded_verdicts = reviews.get("quality", {}).get("contract_verdicts")
-    if not isinstance(recorded_verdicts, list):
-        recorded_verdicts = []
-    for verdict in recorded_verdicts:
-        if not isinstance(verdict, dict):
-            continue
-        contract_id = verdict.get("contract_id")
-        value = verdict.get("verdict")
-        if isinstance(contract_id, str) and isinstance(value, str):
-            verdicts_by_id.setdefault(contract_id, []).append(value)
-    unverified = [contract["id"] for contract in contracts
-                  if verdicts_by_id.get(contract["id"]) != ["implemented"]]
-    if unverified:
-        missing.append(
-            "quality review must verify every plan contract as implemented; "
-            f"unverified: {', '.join(unverified)} — compose the reviewer prompt "
-            "with `./forge review-brief --all`"
-        )
+# Automated tests, the three lenses and the plan-contract verdicts are all
+# proven PER TASK and gated on each task's PR; require_closeout_order reads
+# that proof. Re-proving them here re-reviewed reviewed code, and one late
+# fix in the last task invalidated every earlier task's evidence.
 
 # The refactor ratchet: a refactor-tagged story that GREW product source is
 # not a refactor — it must shrink or hold the line (decision 0005 doctrine).
