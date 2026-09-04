@@ -922,7 +922,8 @@ def _cmd_start_locked(args: argparse.Namespace, base: Path) -> None:
         # a return code, so ask subprocess directly, as the done path does.
         ancestor = subprocess.run(
             ["git", "merge-base", "--is-ancestor", reopen_base, "HEAD"],
-            cwd=base, capture_output=True, text=True, env=clean_git_env(),
+            cwd=base, capture_output=True, text=True, encoding="utf-8",
+            env=clean_git_env(),
         ).returncode == 0
         if ancestor:
             _git(base, "update-ref", stage_ref(args.id), reopen_base)
