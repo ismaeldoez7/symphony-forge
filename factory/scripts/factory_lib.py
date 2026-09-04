@@ -1463,15 +1463,22 @@ def require_closeout_order(root: Path) -> list[str]:
     # cannot be dropped by being in nobody's task.
     declared = [c.get("id") for c in (decomposition.get("plan_contracts") or [])
                 if isinstance(c, dict) and c.get("id")]
-    if declared and task_level and tasks:
+    if declared:
+        # A contract is verified wherever the proof for it actually lives: in a
+        # task-level run that is the owning task's quality review, in a
+        # story-level run the story's. The GUARANTEE is the same either way —
+        # every declared contract is verified implemented — and it must not
+        # depend on which flow shipped the story, or a contract could be
+        # dropped merely by choosing a flow.
+        sources = ([task_evidence_path(root, key, str(t.get("id") or ""),
+                                       "reviews/quality.json")
+                    for t in tasks] if task_level and tasks else [])
+        sources.append(evidence_path(root, key, "reviews/quality.json"))
         verified: set[str] = set()
-        for task in tasks:
-            task_id = str(task.get("id") or "")
-            scoped = task_evidence_path(root, key, task_id, "reviews/quality.json")
-            review = load_json(
-                scoped if scoped.is_file()
-                else evidence_path(root, key, "reviews/quality.json"), default={})
-            for verdict in review.get("contract_verdicts") or []:
+        for source in sources:
+            if not source.is_file():
+                continue
+            for verdict in load_json(source, default={}).get("contract_verdicts") or []:
                 if (isinstance(verdict, dict)
                         and verdict.get("verdict") == "implemented"
                         and isinstance(verdict.get("contract_id"), str)):
@@ -1479,8 +1486,8 @@ def require_closeout_order(root: Path) -> list[str]:
         unverified = [c for c in declared if c not in verified]
         if unverified:
             problems.append(
-                "every plan contract must be verified implemented by the task that "
-                f"owns it; unverified: {', '.join(unverified)}")
+                "quality review must verify every plan contract as implemented; "
+                f"unverified: {', '.join(unverified)}")
 
     outcome = load_outcome(root) or {}
     if not outcome.get("outcome"):
