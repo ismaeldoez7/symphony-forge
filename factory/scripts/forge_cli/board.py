@@ -611,19 +611,25 @@ def task_plan_view(base: Path, key: str, task: dict, grill: dict | None) -> dict
     text (fresh, not stale). A saved-but-not-yet-grill-clean plan is withheld
     entirely (never sent, so it cannot leak through the raw-json view either), so
     a human first sees a task plan on the board only after it survives grilling,
-    at which point it is theirs to approve. plan_state is one of 'none' (no plan
-    saved yet), 'grilling' (saved, not yet grill-clean), or 'clean'."""
+    at which point it is theirs to approve.
+
+    plan_state is 'none' (no plan saved), 'ungrilled' (saved, never survived a
+    grill), 'stale' (it DID pass, and the plan text changed afterwards), or
+    'clean'. The last two used to share one label, which hid the only
+    distinction a reader acts on: 'ungrilled' means the plan was never
+    stress-tested, 'stale' means it was and someone has edited it since -- so a
+    human who already reviewed it is now looking at different text."""
     plan_path = evidence_path(base, key, f"task-plans/{task['id']}.md")
     if not plan_path.is_file():
         return {"plan_state": "none"}
     if not grill or grill.get("verdict") != "pass":
-        return {"plan_state": "grilling"}
+        return {"plan_state": "ungrilled"}
     digest = plan_digest_without_assumptions(plan_path)
     fresh = digest in (
         grill.get("task_plan_sha256"), grill.get("approved_task_plan_sha256"),
     )
     if not fresh:
-        return {"plan_state": "grilling"}
+        return {"plan_state": "stale"}
     return {
         "plan_state": "clean",
         "plan": plan_path.read_text(encoding="utf-8"),
@@ -825,8 +831,11 @@ def task_progress(task: dict, launch: dict | None, reviews: dict) -> dict:
     plan_state = task.get("plan_state")
     if plan_state == "clean":
         plan_step = step("plan", "Task plan", "done", "grill-clean")
-    elif plan_state == "grilling":
-        plan_step = step("plan", "Task plan", "now", "saved - grilling")
+    elif plan_state == "stale":
+        plan_step = step("plan", "Task plan", "now",
+                         "passed a grill, then edited - re-grill")
+    elif plan_state == "ungrilled":
+        plan_step = step("plan", "Task plan", "now", "saved - not yet grilled")
     else:
         plan_step = step("plan", "Task plan", "todo", "not authored")
 

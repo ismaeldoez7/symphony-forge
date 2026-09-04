@@ -890,6 +890,33 @@
   .task-ac ul { list-style: none; display: grid; gap: .15rem; }
   .task-ac li { padding-left: .9rem; position: relative; line-height: 1.45; }
   .task-ac li::before { content: "◦"; position: absolute; left: 0; color: var(--stone); }
+  .flow {
+    border: 1px solid var(--rule); border-radius: var(--radius-sm);
+    background: var(--surface); padding: .7rem .85rem; margin: .8rem 0;
+  }
+  .flow h5 {
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--quiet); margin: 0 0 .5rem;
+  }
+  .flow h6 {
+    font-size: .74rem; margin: .7rem 0 .3rem; color: var(--ink);
+  }
+  .flow h6:first-of-type { margin-top: 0; }
+  /* Numbered on purpose: these are steps, and the order is the meaning. */
+  .flow ol { margin: 0; padding: 0 0 0 1.4rem; display: grid; gap: .22rem; }
+  .flow li {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem;
+    font-size: .76rem; line-height: 1.45;
+  }
+  .flow .arrow { color: var(--quiet); flex: none; }
+  .flow .from { color: var(--quiet); }
+  .flow .to { color: var(--ink); }
+  .flow li em {
+    font-style: normal; font-size: .68rem; color: var(--build);
+    border: 1px solid var(--rule); border-radius: var(--radius-sm);
+    padding: 0 .3rem;
+  }
+  .flow-note { font-size: .68rem; color: var(--quiet); margin-top: .5rem; }
   .task-progress { margin: 0 0 .9rem; }
   .tp-head {
     display: flex; align-items: baseline; gap: .4rem;
@@ -1290,6 +1317,109 @@ function stripFrontmatter(src) {
   return String(src || "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "");
 }
 
+// A ```mermaid block is a workflow the plan author drew. Rendered as a code
+// block it is worse than useless -- it is the one part of the plan a reader
+// most needs and least can read. A real layout engine costs a megabyte of
+// vendored JavaScript carried into every client repo, for a picture; the
+// structure is what carries the meaning, and the structure can be read
+// straight out of the source.
+//
+// Deliberately partial: flowchart nodes, edges and subgraphs. Anything it does
+// not recognise falls through to the source line, so an unsupported diagram
+// degrades to what it renders today rather than vanishing.
+const MERMAID_NODE = /^([A-Za-z0-9_.-]+)\s*(?:\[(.*?)\]|\((.*?)\)|\{(.*?)\}|>(.*?)\])?$/;
+
+function mermaidLabel(raw) {
+  // Node text carries markup of its own: <br/> line breaks and quoted labels.
+  return String(raw || "")
+    .replace(/^["'`]|["'`]$/g, "")
+    .replace(/&lt;br\s*\/?&gt;|<br\s*\/?>/gi, " ")
+    .trim();
+}
+
+function mermaidNode(token) {
+  const match = MERMAID_NODE.exec(String(token || "").trim());
+  if (!match) return {id: String(token || "").trim(), text: ""};
+  const text = match[2] ?? match[3] ?? match[4] ?? match[5] ?? "";
+  return {id: match[1], text: mermaidLabel(text)};
+}
+
+// md() escapes the whole document before any block renderer sees it, so the
+// arrows arrive as `--&gt;` and split on nothing. Decode the entities this
+// grammar is built from; every value is re-escaped on the way out.
+function mermaidDecode(text) {
+  return String(text || "")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");   // last, or it would double-decode
+}
+
+function mermaidOutline(source) {
+  const lines = mermaidDecode(source).split(/\r?\n/);
+  const labels = new Map();          // id -> best known text
+  const groups = [];                 // {title, edges:[…]}
+  let current = {title: "", edges: []};
+  groups.push(current);
+  let unsupported = 0;
+
+  const remember = (node) => {
+    if (node.text) labels.set(node.id, node.text);
+    return node.id;
+  };
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || /^(flowchart|graph|%%)/i.test(line)) continue;
+    if (/^subgraph\s+/i.test(line)) {
+      const rest = line.replace(/^subgraph\s+/i, "");
+      const node = mermaidNode(rest);
+      current = {title: node.text || node.id, edges: []};
+      groups.push(current);
+      continue;
+    }
+    if (/^end$/i.test(line)) {
+      current = {title: "", edges: []};
+      groups.push(current);
+      continue;
+    }
+    // A --> B, A -->|label| B, A --- B, chained across one line.
+    const parts = line.split(/\s*(--+>|--+|==+>|-\.->)\s*/);
+    if (parts.length >= 3) {
+      let previous = remember(mermaidNode(parts[0]));
+      for (let i = 1; i < parts.length - 1; i += 2) {
+        let target = parts[i + 1];
+        let label = "";
+        const labelled = /^\|(.*?)\|\s*(.*)$/.exec(target.trim());
+        if (labelled) { label = mermaidLabel(labelled[1]); target = labelled[2]; }
+        const node = mermaidNode(target);
+        remember(node);
+        current.edges.push({from: previous, to: node.id, label});
+        previous = node.id;
+      }
+      continue;
+    }
+    const solo = mermaidNode(line);
+    if (solo.text) { remember(solo); continue; }
+    unsupported += 1;
+  }
+
+  const shown = groups.filter(group => group.edges.length);
+  if (!shown.length) return "";
+  const name = (id) => esc(labels.get(id) || id);
+  const body = shown.map(group => `
+    ${group.title ? `<h6>${esc(group.title)}</h6>` : ""}
+    <ol>${group.edges.map(edge => `<li>
+        <span class="from">${name(edge.from)}</span>
+        <span class="arrow" aria-label="then">\u2192</span>
+        <span class="to">${name(edge.to)}</span>
+        ${edge.label ? `<em>${esc(edge.label)}</em>` : ""}
+      </li>`).join("")}</ol>`).join("");
+  return `<div class="flow"><h5>Workflow</h5>${body}${
+    unsupported ? `<p class="flow-note">${unsupported} line(s) of this diagram
+      are not rendered here \u2014 open the plan file for the full source.</p>` : ""
+  }</div>`;
+}
+
 function md(src) {
   // Comments are notes the author wrote to themselves — a template hint, a
   // "review before merge" reminder. Stripped BEFORE escaping, or they escape
@@ -1343,6 +1473,23 @@ function md(src) {
       flushPara();
       flushQuote();
       closeList();
+      // A mermaid fence is a diagram, not code: read to its close and render
+      // the structure. If nothing recognisable comes out, fall through to the
+      // code block so the source is never simply lost.
+      if (!fence && /^```\s*mermaid\b/i.test(line)) {
+        const body = [];
+        let cursor = index + 1;
+        while (cursor < lines.length && !/^```/.test(lines[cursor])) {
+          body.push(lines[cursor]);
+          cursor++;
+        }
+        const outline = mermaidOutline(body.join("\n"));
+        if (outline) {
+          out.push(outline);
+          index = cursor;
+          continue;
+        }
+      }
       out.push(fence ? "</code></pre>" : "<pre><code>");
       fence = !fence;
       continue;
@@ -3285,8 +3432,14 @@ function taskDossier(t) {
   // A grill-clean plan is read from the plan tab row above — no per-task button
   // here. A plan still being grilled is withheld entirely (never sent), so the
   // dossier just says so rather than offering nothing.
-  if (t.plan_state === "grilling") {
-    rows.push(`<p class="task-plan-pending">Plan saved — being grilled. It appears in the plan tabs once the grill is clean.</p>`);
+  // "not yet grilled" and "grilled, then edited" are different problems: the
+  // first has never been stress-tested, the second HAS and the text has moved
+  // since — so anyone who already reviewed it read something else.
+  if (t.plan_state === "ungrilled") {
+    rows.push(`<p class="task-plan-pending">Plan saved — not yet grilled. It appears in the plan tabs once a grill passes against this text.</p>`);
+  }
+  if (t.plan_state === "stale") {
+    rows.push(`<p class="task-plan-pending">Plan passed a grill, then changed — the recorded grill no longer describes this text. Re-grill and record it to bring the plan back onto the board.</p>`);
   }
   const proof = t.proof || {};
   const bits = [];

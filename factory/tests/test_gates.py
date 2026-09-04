@@ -11230,8 +11230,11 @@ def test_board_renders_plan_tables_and_hides_author_comments(repo):
     assert ".tablewrap { overflow-x: auto" in page
     # comments are stripped BEFORE escaping — the other order makes them
     # visible text, which is the bug this guards
-    strip = page.index("replace(/<!--[\\s\\S]*?-->/g")
-    assert strip < page.index("split(/\\r?\\n/)")
+    # Scoped to md()'s own body: other block renderers split lines too, and a
+    # bare page.index() finds whichever of them appears first in the file.
+    body = page[page.index("function md(src) {"):]
+    strip = body.index("replace(/<!--[\\s\\S]*?-->/g")
+    assert strip < body.index("split(/\\r?\\n/)")
     assert "esc(String(src ?? \"\").replace(/<!--" in page
 
 
@@ -12447,6 +12450,277 @@ def test_task_reconcile_refuses_when_work_is_not_on_the_trunk(repo, tmp_path):
     code, out = run(repo, "forge.py", "task", "reconcile", "T1")
     assert code != 0 and "does not look shipped" in out
     assert not marker.exists()
+
+
+def test_board_renders_a_workflow_diagram_as_structure_not_source(repo):
+    # A ```mermaid block is the part of a plan a reader most needs and, shown
+    # as a code block, least can read. Rendering the structure costs nothing;
+    # a real layout engine would cost a megabyte of vendored JavaScript in
+    # every client repo, for a picture.
+    page = (HARNESS / "factory" / "board" / "index.html").read_text(
+        encoding="utf-8")
+
+    assert "function mermaidOutline(" in page
+    # md() escapes the document before any block renderer sees it, so the
+    # arrows arrive as entities and a naive split finds nothing.
+    assert "function mermaidDecode(" in page
+    assert "&lt;" in page and "&amp;" in page
+    # Diagram fences must be intercepted BEFORE the generic code-fence path.
+    fence = page.index("if (/^```/.test(line)) {")
+    assert "mermaid" in page[fence:fence + 700]
+    # Anything unrecognised must fall through to the code block, never vanish.
+    assert "if (outline) {" in page
+
+
+def test_board_separates_never_grilled_from_grilled_then_edited(repo, tmp_path):
+    # One "grilling" label covered two different problems. Only the second
+    # matters to a human who already reviewed the plan: the text has moved
+    # since they read it.
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    from forge_cli.board import task_plan_view  # noqa: E402
+
+    lib = load_factory_lib(repo)
+    key = "ENG-1"
+    task = {"id": "T1"}
+    plan = lib.evidence_path(repo, key, "task-plans/T1.md", for_write=True)
+    plan.parent.mkdir(parents=True, exist_ok=True)
+
+    # No plan at all.
+    assert task_plan_view(repo, key, task, None)["plan_state"] == "none"
+
+    plan.write_text("# T1\n\nDo the thing.\n", encoding="utf-8")
+    # Saved, never survived a grill.
+    assert task_plan_view(repo, key, task, None)["plan_state"] == "ungrilled"
+    assert task_plan_view(
+        repo, key, task, {"verdict": "fail"})["plan_state"] == "ungrilled"
+
+    digest = lib.plan_digest_without_assumptions(plan)
+    passing = {"verdict": "pass", "task_plan_sha256": digest}
+    assert task_plan_view(repo, key, task, passing)["plan_state"] == "clean"
+
+    # It passed, and then the text changed underneath the record.
+    plan.write_text("# T1\n\nDo the thing, differently.\n", encoding="utf-8")
+    assert task_plan_view(repo, key, task, passing)["plan_state"] == "stale"
+
+
+def test_state_audit_reports_a_stage_split_between_working_copies(repo, tmp_path):
+    # The harness gates TRANSITIONS and never re-validates STATE, so a record
+    # that stopped being true is invisible. This is the split that made a
+    # passing grill unverifiable and took hours to trace by hand.
+    lib = load_factory_lib(repo)
+    worktree = tmp_path / "repo-T1"
+    git(repo, "worktree", "add", "-q", "-b", "feat/S-T1", str(worktree))
+
+    def control(root):
+        return Path(git(root, "rev-parse", "--absolute-git-dir")) / "forge"
+
+    for root, status in ((repo, "active"), (worktree, "done")):
+        target = control(root)
+        target.mkdir(parents=True, exist_ok=True)
+        lib.dump_json(target / "stages.json", {"issue": "ENG-1", "stages": [
+            {"id": "T1", "title": "t", "status": status}]})
+
+    code, out = run(repo, "forge.py", "audit", "--state")
+    assert code != 0, out
+    assert "differs between working copies" in out
+    assert "active" in out and "done" in out
+    # It must say which copy wins, not merely that they disagree.
+    assert "authoritative" in out
+
+
+def test_state_audit_is_read_only_and_clean_when_nothing_disagrees(repo):
+    # No decomposition, no stages, nothing recorded: nothing to contradict.
+    before = git(repo, "status", "--porcelain")
+    code, out = run(repo, "forge.py", "audit", "--state")
+    assert code == 0, out
+    assert "re-derives" in out
+    # Reporting must never repair -- a repair is the same unchecked assertion
+    # that makes records untrustworthy in the first place.
+    assert git(repo, "status", "--porcelain") == before
+
+
+def test_incomplete_is_refused_when_the_proof_says_the_work_is_done(
+        repo, tmp_path):
+    # `--incomplete` is the only escape from a refusing seal, so it is the
+    # tempting move for work that IS finished -- and then the frontier and the
+    # PR gate read a completed task as unfinished. The recorded proof already
+    # answers the question.
+    task = task_with_plan_contracts({**DECOMP["tasks"][0], "user_facing": False})
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    record_skeleton_then_frontier(repo, [task])
+    record_task_grill(repo, task)
+    code, out = run(repo, "forge.py", "stage", "start", "T1")
+    assert code == 0, out
+
+    lib = load_factory_lib(repo)
+    key = "ENG-1"
+    lib.dump_json(lib.evidence_path(repo, key, "verify.json", for_write=True),
+                  {"generated_by": "t", "ok": True})
+    lib.dump_json(lib.evidence_path(repo, key, "tests.json", for_write=True),
+                  {"automated": {"generated_by": "t", "passed": True,
+                                 "tests_added_or_updated": ["t1"]}})
+    for aspect in ("quality", "performance", "security"):
+        lib.dump_json(
+            lib.evidence_path(repo, key, f"reviews/{aspect}.json",
+                              for_write=True),
+            # review_passed also requires a score >= MIN_SCORE: a lens nobody
+            # rated is not evidence the lens was clean.
+            {"generated_by": "t", "aspect": aspect, "verdict": "pass",
+             "score": 9, "blocking_findings": [], "non_blocking_findings": []})
+
+    code, out = run(repo, "forge.py", "stage", "done", "T1",
+                    "--incomplete", "cannot seal, gate refuses")
+    assert code != 0, out
+    assert "WORK REMAINS" in out
+    assert "audit --state" in out  # it names the tool that finds the real cause
+
+
+def test_scope_amendment_breaks_the_seal_deadlock_without_touching_the_contract(
+        repo, tmp_path):
+    # `stage done` measures the diff, finds an under-declared path, and tells
+    # the operator to re-record the decomposition. Doing that changes the
+    # contract digest -- which invalidates the delegate launch `stage done`
+    # matches on and stales the grill ground on it. The same command then
+    # demands a fresh Codex run for a correction it demanded itself, and any
+    # further correction restarts the loop. There is no flag out of it.
+    lib = load_factory_lib(repo)
+    sys.path.insert(0, str(repo / "factory" / "scripts"))
+    from forge_cli.stages import (  # noqa: E402
+        amended_scope_paths, effective_scope, out_of_scope,
+        scope_amendments_path,
+    )
+
+    task = {
+        "id": "T3",
+        "write_scope": ["src/api"],
+        "required_tests": [{"id": "t1", "path": "t/a.spec.ts", "command": "x"}],
+        "verify_commands": ["pnpm verify"],
+        "acceptance_criteria": ["it works"],
+    }
+    before = lib.task_digest(task)
+    # What the refusal used to instruct: widen the scope in the contract.
+    corrected = {**task, "write_scope": ["src/api", "src/db"]}
+    assert lib.task_digest(corrected) != before, (
+        "expected a contract correction to break the launch binding")
+
+    # The amendment records the same measured truth ALONGSIDE the contract.
+    lib.dump_json(scope_amendments_path(repo), {"tasks": {"T3": {
+        "added_paths": ["src/db"],
+        "amendments": [{"reason": "measured", "added_paths": ["src/db"]}],
+    }}})
+    assert amended_scope_paths(repo, "T3") == ["src/db"]
+    effective = effective_scope(repo, "T3", task["write_scope"])
+    assert effective == ["src/api", "src/db"]
+
+    # The contract is untouched, so both bindings still hold.
+    assert lib.task_digest(task) == before
+
+    # And the boundary still bites: only MEASURED paths were added.
+    assert out_of_scope(repo, ["src/api/x.ts", "src/db/y.ts"], effective) == []
+    assert out_of_scope(repo, ["src/secret/k.ts"], effective) == ["src/secret/k.ts"]
+
+
+def test_amend_scope_refuses_a_reason_that_says_nothing(repo):
+    # The measurement supplies the paths; the reason is the only part a human
+    # has to supply, so an empty one makes the record worthless.
+    code, out = run(repo, "forge.py", "stage", "amend-scope", "T1",
+                    "--reason", "oops")
+    assert code != 0
+    assert "--reason" in out
+
+
+def test_stage_done_scope_refusal_names_amend_scope_not_a_rerecord(repo):
+    # The old refusal instructed the one action that deadlocks the close.
+    source = (HARNESS / "factory" / "scripts" / "forge_cli" / "stages.py"
+              ).read_text(encoding="utf-8")
+    refusal = source[source.index("changed {len(strays)} path(s) outside"):]
+    refusal = refusal[:1200]
+    assert "amend-scope" in refusal
+    assert "Do NOT" in refusal and "re-record the decomposition" in refusal
+
+
+def test_task_stage_resolves_from_the_tasks_own_worktree(repo, tmp_path):
+    # `forge task start` gives a task its own worktree, and a worktree has its
+    # own git control dir -- so stages.json exists once per tree and the copies
+    # drift the moment one closes a stage. A task closed in its worktree still
+    # read `active` in the main repo, so `record_grill` there ground the grill
+    # on the working tree while the seal (run in the worktree, where the stage
+    # reads done) checked the stage baseline. Same task, same code, two
+    # answers, and a passing grill that could never verify.
+    lib = load_factory_lib(repo)
+    worktree = tmp_path / "repo-T1"
+    git(repo, "worktree", "add", "-q", "-b", "feat/S-T1", str(worktree))
+
+    def control(root):
+        return Path(git(root, "rev-parse", "--absolute-git-dir")) / "forge"
+
+    baseline = git(repo, "rev-parse", "HEAD")
+    for root, status, pointer in (
+        (repo, "active", {"issue_key": "ENG-1"}),
+        (worktree, "done", {"issue_key": "ENG-1", "task_id": "T1",
+                            "base_main_sha": baseline}),
+    ):
+        target = control(root)
+        target.mkdir(parents=True, exist_ok=True)
+        lib.dump_json(target / "stages.json", {"issue": "ENG-1", "stages": [
+            {"id": "T1", "title": "t", "status": status,
+             "base_sha": baseline}]})
+        lib.dump_json(target / "run.json", pointer)
+
+    # The split is real: each directory reports its own copy.
+    assert json.loads((control(repo) / "stages.json").read_text()
+                      )["stages"][0]["status"] == "active"
+    assert json.loads((control(worktree) / "stages.json").read_text()
+                      )["stages"][0]["status"] == "done"
+
+    # The task's own worktree is the authority, from EITHER directory.
+    for root in (repo, worktree):
+        assert lib.task_state_root(root, "T1").resolve() == worktree.resolve()
+        assert lib.task_stage_record(root, "T1").get("status") == "done"
+
+    # A task with no worktree falls back to the local copy rather than guessing.
+    assert lib.task_state_root(repo, "T-none").resolve() == repo.resolve()
+
+
+def test_task_grill_names_a_basis_mismatch_instead_of_reporting_stale(
+        repo, tmp_path):
+    # A digest mismatch has two very different causes. Reporting a
+    # different-BASIS grill as "STALE" sent a reader hunting for a content
+    # change that never happened -- and no amount of re-grilling converges,
+    # because the two sides are measuring different trees.
+    task = task_with_plan_contracts({**DECOMP["tasks"][0], "user_facing": False})
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    record_skeleton_then_frontier(repo, [task])
+    record_task_grill(repo, task)
+
+    lib = load_factory_lib(repo)
+    key = "ENG-1"
+    grill_path = lib.evidence_path(repo, key, "grills/tasks/T1.json")
+    grill = json.loads(grill_path.read_text())
+    # Recorded against the working tree (an active task), then checked as a
+    # completed one -- exactly the split the worktree bug produced.
+    grill["grounding_basis"] = "working-tree"
+    grill_path.write_text(json.dumps(grill), encoding="utf-8")
+
+    # The task's work then lands. That is what moves the product tree, and it
+    # is why the two bases now yield different digests -- on a clean tree they
+    # agree, so there would be nothing to report.
+    (repo / "src").mkdir(exist_ok=True)
+    (repo / "src" / "app.py").write_text("x = 1\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "T1 work")
+
+    with pytest.raises(SystemExit) as excinfo:
+        lib.require_task_grill(repo, "T1", task, treeish=git(repo, "rev-parse", "HEAD"))
+    message = str(excinfo.value)
+    assert "working-tree" in message and "stage-baseline" in message
+    assert "STALE" not in message
+    # It must name the fix, and say not to hand-edit the digest.
+    assert "worktree" in message and "by hand" in message
 
 
 def test_require_task_worktree_noops_for_story_level_run(repo, tmp_path):

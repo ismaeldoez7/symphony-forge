@@ -516,6 +516,16 @@ def main() -> None:
                            "and the gap lands in the timeline")
     p_sd.add_argument("--repo")
     p_sd.set_defaults(func=stages_mod.cmd_done)
+    p_sa = st_sub.add_parser(
+        "amend-scope",
+        help="record measured paths this task touched but did not declare")
+    p_sa.add_argument("id")
+    p_sa.add_argument("--reason", required=True,
+                      help="why these paths belong to this task")
+    p_sa.add_argument("--by", default="",
+                      help="who recorded the amendment")
+    p_sa.add_argument("--repo")
+    p_sa.set_defaults(func=stages_mod.cmd_amend_scope)
     p_sm = st_sub.add_parser(
         "migrate", help="adopt inspected legacy workspace state once")
     p_sm.add_argument("--base", required=True, metavar="SHA",
@@ -602,6 +612,10 @@ def main() -> None:
     p_aud = sub.add_parser("audit",
                            help="loop-health: audit the improvement loops themselves (advisory)")
     p_aud.add_argument("--repo")
+    p_aud.add_argument(
+        "--state", action="store_true",
+        help="re-derive every recorded claim and report what disagrees with "
+             "the repo (transitions are gated; state never was)")
     p_aud.set_defaults(func=audit_mod.cmd_audit)
 
     p_find = sub.add_parser("findings", help="review-finding pattern detection across tasks")

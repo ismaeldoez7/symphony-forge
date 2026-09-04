@@ -1550,6 +1550,28 @@ def require_task_grill(
             f"with current tooling using `{record_command}`."
         )
     if data.get("input_sha256") != grounding_digest(root, task, treeish=treeish):
+        # A digest mismatch has two very different causes, and reporting both as
+        # "STALE" sent a reader hunting for a content change that never
+        # happened. When the grill was ground on a DIFFERENT BASIS than the one
+        # being checked, the inputs may be identical -- the two sides simply
+        # measured against different trees, which no amount of re-grilling in
+        # the wrong directory can converge.
+        required_basis = "stage-baseline" if treeish else "working-tree"
+        recorded_basis = data.get("grounding_basis")
+        if recorded_basis and recorded_basis != required_basis:
+            home = task_state_root(root, task_id)
+            where = (f"cd {home} && " if home.resolve() != root.resolve() else "")
+            raise SystemExit(
+                f"the {task_id} task grill was ground on the {recorded_basis}, "
+                f"but this task's stage requires the {required_basis}. The grill "
+                "itself may be perfectly good — the two sides measured against "
+                "different trees, which happens when the grill is recorded "
+                "outside the task's own worktree (stage state lives per "
+                "worktree, and the copies drift). Re-record it from the task's "
+                f"worktree: `{where}{record_command}`. Nothing needs re-deciding "
+                "and no digest should be edited by hand — the recorder computes "
+                "it, and from there it computes the right one."
+            )
         raise SystemExit(
             f"the {task_id} task grill is STALE — its grounding inputs changed. "
             f"Re-grill and record `{record_command}`; --task-digest was removed "
@@ -1868,6 +1890,81 @@ def task_rows(root: Path) -> list[dict]:
     return rows
 
 
+def linked_worktree_roots(root: Path) -> list[Path]:
+    """Every linked worktree of this repo, plus this root.
+
+    Read from git's own bookkeeping -- one `worktrees/<name>/gitdir` file per
+    linked worktree -- rather than shelling out to `git worktree list`. Two
+    small reads, and no lenient decode policy for process output.
+    """
+    roots = [root]
+    try:
+        git_dir = git_control_dir(root).parent
+    except SystemExit:
+        return roots
+    # From inside a linked worktree that git dir is .git/worktrees/<name>;
+    # the shared bookkeeping is its grandparent.
+    common = (git_dir.parent.parent
+              if git_dir.parent.name == "worktrees" else git_dir)
+    registry = common / "worktrees"
+    if not registry.is_dir():
+        return roots
+    for entry in sorted(registry.iterdir()):
+        try:
+            recorded = (entry / "gitdir").read_text(encoding="utf-8").strip()
+        except (OSError, UnicodeDecodeError):
+            continue
+        if not recorded:
+            continue
+        candidate = Path(recorded).parent  # the .git FILE's parent is the tree
+        try:
+            if candidate.is_dir() and candidate.resolve() != root.resolve():
+                roots.append(candidate)
+        except OSError:
+            continue
+    return roots
+
+
+def task_state_root(root: Path, task_id: str) -> Path:
+    """Where THIS task's stage state actually lives.
+
+    `forge task start` gives each task its own worktree, and a worktree has its
+    own git control directory -- so `stages.json` exists once per tree and the
+    copies drift the moment one of them closes a stage. A task-scoped command
+    then answers differently depending on which directory it happened to run
+    in, which is how a legitimately passing grill came to be stamped against
+    the wrong basis: `record_grill` saw the task as still active in the main
+    repo, ground on the working tree, and `pr-ready` -- run in the worktree,
+    where the stage reads done -- verified against the stage baseline instead.
+    Neither side was wrong about its own directory. That is the bug.
+
+    A task's own worktree is the authority. Falls back to `root` when the task
+    has no worktree (story-level stages, or a worktree already removed), so
+    this is only ever more correct than reading the local copy.
+    """
+    if not task_id:
+        return root
+    for candidate in linked_worktree_roots(root):
+        try:
+            pointer = load_json(git_control_dir(candidate) / "run.json",
+                                default={})
+        except (OSError, SystemExit):
+            continue
+        if isinstance(pointer, dict) and pointer.get("task_id") == task_id:
+            return candidate
+    return root
+
+
+def task_stage_record(root: Path, task_id: str) -> dict:
+    """This task's stage as its OWN worktree records it (see task_state_root)."""
+    home = task_state_root(root, task_id)
+    stages = load_json(git_control_dir(home) / "stages.json", default={})
+    for stage in stages.get("stages", []):
+        if isinstance(stage, dict) and stage.get("id") == task_id:
+            return stage
+    return {}
+
+
 def _task_schedule(root: Path) -> tuple[list[dict], dict[str, dict], set[str]]:
     """Tasks in declaration order, their stages, and the ids already done."""
     run_state = load_json(run_state_path(root), default={})
@@ -2094,7 +2191,9 @@ def require_ready_task(
     treeish = ""
     if allow_completed and completed:
         from forge_cli.stages import stage_baseline
-        treeish = stage_baseline(root, stage)
+        # Resolve the baseline where the stage that recorded it lives, so the
+        # seal and the recorder agree no matter which tree either runs in.
+        treeish = stage_baseline(task_state_root(root, task_id), stage)
     key = _active_story_key(root)
     grill = load_json(
         evidence_path(root, key, f"grills/tasks/{task_id}.json"), default={},
