@@ -1393,6 +1393,7 @@ def require_closeout_order(root: Path) -> list[str]:
     can answer.
     """
     from forge_cli.outcome import load_outcome
+    from forge_cli.readiness import tests_passed
 
     problems: list[str] = []
     head = head_sha(root)
