@@ -346,6 +346,16 @@ def cmd_next(args: argparse.Namespace) -> None:
             and tests.get("commit") == head
         )
         outcome = load_outcome(base) or {}
+        # A task-level run proves itself per task; the story-scoped reads above
+        # describe a story-level run and say nothing about it.
+        task_level = bool(state.get("base_main_sha")) and bool(decomp.get("tasks"))
+        task_closeout = []
+        if task_level:
+            from factory_lib import require_closeout_order
+            task_closeout = [
+                problem for problem in require_closeout_order(base)
+                if "stage completion" not in problem
+            ]
         frontier_state = task_frontier_state(base)
         if open_stages or frontier_state:
             phase("implementing")
@@ -459,6 +469,12 @@ def cmd_next(args: argparse.Namespace) -> None:
                         "skills_used); apple-design advisory for gesture/motion — "
                         "harness.yaml required_skills"
                     )
+        elif task_closeout:
+            # Sourced from require_closeout_order so `forge next` and the ship
+            # gate can never disagree: re-deriving the same facts twice is how
+            # a prompt starts asking for work the gate already accepted.
+            phase("closeout")
+            steps.append(f"[dev] {task_closeout[0]}")
         elif not tests.get("automated"):
             phase("testing")
             steps.append("[dev] Record the completed stages' automated proof: "
@@ -469,13 +485,14 @@ def cmd_next(args: argparse.Namespace) -> None:
         elif review_problems:
             phase("reviewing")
             review_detail = ", ".join(reviews_missing) or "stale or incoherent lenses"
-            steps.append("[dev] Run the autoreview DIRECTLY (the orchestrating "
-                         "session — 0011, never a Codex review job), three lenses "
-                         f"(factory/prompts/reviewer.md); repair: {review_detail}. On "
-                         "ANY finding, delegate the fix to Codex (`./forge delegate "
-                         "<id>`), then re-run the autoreview — loop until every lens is "
-                         "clean; record each pass via record_review_from_json.py. Do "
-                         "NOT stop for a human between rounds.")
+            steps.append("[dev] Review is ONE three-lens pass PER TASK, run by "
+                         "Codex: `./forge review <task-id>` records all three "
+                         f"lenses as that task's proof; repair: {review_detail}. "
+                         "On ANY finding, delegate the fix (`./forge delegate "
+                         "<task-id>`), commit, then rerun `./forge review "
+                         "<task-id>` — loop until every lens is clean. Findings "
+                         "are work, not a question for the human; do NOT stop "
+                         "between rounds.")
         elif user_facing and not functional_ready:
             phase("functional-check")
             steps.append("[dev] Task is user-facing: run functional-checker and record: "
