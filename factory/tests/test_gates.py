@@ -12562,6 +12562,87 @@ GATE_REQUIRES = {
 }
 
 
+def test_task_proof_is_stored_per_task_and_tasks_do_not_overwrite_each_other(
+        repo, tmp_path):
+    # Reviews, verify and tests were story-scoped singletons: ONE
+    # reviews/quality.json per story, rewritten by every task in turn. A
+    # story's recorded review therefore described whichever task ran last, and
+    # a task PR's proof check could pass a task on another task's evidence.
+    lib = load_factory_lib(repo)
+    control = Path(git(repo, "rev-parse", "--absolute-git-dir")) / "forge"
+    control.mkdir(parents=True, exist_ok=True)
+
+    for task_id in ("T1", "T2"):
+        lib.dump_json(control / "run.json",
+                      {"issue_key": "ENG-1", "task_id": task_id})
+        assert lib.active_task_id(repo) == task_id
+        path = lib.proof_path(repo, "ENG-1", "reviews/quality.json", for_write=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lib.dump_json(path, {"generated_by": "t", "aspect": "quality",
+                             "verdict": "pass", "score": 9,
+                             "covers": task_id, "blocking_findings": []})
+
+    first = json.loads(lib.task_evidence_path(
+        repo, "ENG-1", "T1", "reviews/quality.json").read_text())
+    second = json.loads(lib.task_evidence_path(
+        repo, "ENG-1", "T2", "reviews/quality.json").read_text())
+    assert first["covers"] == "T1" and second["covers"] == "T2"
+
+    # A story-level run (no task_id) keeps the story-scoped location, so work
+    # already in flight elsewhere is not stranded by the layout change.
+    lib.dump_json(control / "run.json", {"issue_key": "ENG-1"})
+    legacy = lib.proof_path(repo, "ENG-1", "reviews/quality.json", for_write=True)
+    assert "tasks" not in legacy.parts
+
+
+def test_task_proof_overrides_a_clean_story_record_rather_than_joining_it(
+        repo, tmp_path):
+    # The safety property. If task-scoped proof were merged with the legacy
+    # story record instead of overriding it, a task could hide a blocking
+    # finding behind a clean story-level review.
+    lib = load_factory_lib(repo)
+    task = {"id": "T1", "user_facing": False}
+
+    clean = {"generated_by": "t", "verdict": "pass", "score": 9,
+             "blocking_findings": []}
+    for name in ("verify.json", "tests.json"):
+        path = lib.evidence_path(repo, "ENG-1", name, for_write=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
+    lib.dump_json(lib.evidence_path(repo, "ENG-1", "verify.json", for_write=True),
+                  {"generated_by": "t", "ok": True})
+    lib.dump_json(lib.evidence_path(repo, "ENG-1", "tests.json", for_write=True),
+                  {"automated": {"generated_by": "t", "status": "passed"}})
+    for lens in ("quality", "performance", "security"):
+        path = lib.evidence_path(repo, "ENG-1", f"reviews/{lens}.json",
+                                 for_write=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lib.dump_json(path, dict(clean, aspect=lens))
+    assert not lib.task_proof_problems(repo, "ENG-1", task), "fallback should pass"
+
+    # Now the task records its OWN security review, and it is not clean.
+    for name in ("verify.json", "tests.json"):
+        path = lib.task_evidence_path(repo, "ENG-1", "T1", name, for_write=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
+    lib.dump_json(lib.task_evidence_path(repo, "ENG-1", "T1", "verify.json",
+                                         for_write=True),
+                  {"generated_by": "t", "ok": True})
+    lib.dump_json(lib.task_evidence_path(repo, "ENG-1", "T1", "tests.json",
+                                         for_write=True),
+                  {"automated": {"generated_by": "t", "status": "passed"}})
+    for lens in ("quality", "performance", "security"):
+        path = lib.task_evidence_path(repo, "ENG-1", "T1", f"reviews/{lens}.json",
+                                      for_write=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        record = dict(clean, aspect=lens)
+        if lens == "security":
+            record["blocking_findings"] = ["unvalidated input"]
+        lib.dump_json(path, record)
+
+    problems = lib.task_proof_problems(repo, "ENG-1", task)
+    assert problems, "task proof must override the story record, not join it"
+    assert any("security" in p for p in problems)
+
+
 def test_state_audit_reports_a_stage_split_between_working_copies(repo, tmp_path):
     # The harness gates TRANSITIONS and never re-validates STATE, so a record
     # that stopped being true is invisible. This is the split that made a
