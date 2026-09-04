@@ -43,6 +43,7 @@ if __name__ == "__main__" and len(sys.argv) == 3 and sys.argv[1] == "hook":
 
 from forge_cli import adopt as adopt_mod
 from forge_cli import audit as audit_mod
+from forge_cli import grill as grill_mod
 from forge_cli import board as board_mod
 from forge_cli import codex_status
 from forge_cli import assumptions as assumptions_mod
@@ -615,6 +616,19 @@ def main() -> None:
     p_ll.add_argument("--repo")
     p_ll.set_defaults(func=lessons_mod.cmd_list)
 
+    p_grill = sub.add_parser(
+        "grill", help="release the read-only cold reader for a gate")
+    grill_sub = p_grill.add_subparsers(dest="grill_command", required=True)
+    p_gr = grill_sub.add_parser(
+        "run", help="cold-read an artifact through the ledgered launcher")
+    p_gr.add_argument("--gate", required=True,
+                      choices=["spec", "requirements", "plan", "task",
+                               "signoff", "epics"])
+    p_gr.add_argument("--task", default="", help="task id for --gate task")
+    p_gr.add_argument("--print-only", action="store_true",
+                      help="compose and show the brief without releasing Codex")
+    p_gr.add_argument("--repo")
+    p_gr.set_defaults(func=grill_mod.cmd_grill_run)
     p_aud = sub.add_parser("audit",
                            help="loop-health: audit the improvement loops themselves (advisory)")
     p_aud.add_argument("--repo")

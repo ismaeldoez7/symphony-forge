@@ -13,14 +13,18 @@ catch (a plan that promised an API surface can pass its own grill precisely
 because its author never scoped that surface). So if the coordinating session
 authored the plan, the JIT task contract, or the decomposition, it MUST run that
 grill in a SEPARATE agent that did not author the artifact — a read-only Codex
-pass (`gpt-5.6-terra` @ xhigh, via `/codex:rescue`) reading the plan/contract
-cold — rather than certify its own work inline. Codex on `gpt-5.6-terra` @ xhigh
+pass reading the plan/contract cold, released with
+`./forge grill run --gate <gate>` (ledgered, so a killed launcher is still
+visible to `forge codex status`; it pins gpt-5.6-terra @ xhigh from
+harness.yaml) — rather than certify its own work inline. Codex on `gpt-5.6-terra` @ xhigh
 is the required cold reader for planning grills: a fresh model context fully
 independent of the authoring session, and because it is read-only it never
 writes, so the write-lock that gates the write companion does not apply. Do NOT
 use a Claude sub-agent for the grill, and never grill your own work inline.
 Interrogate as an adversary trying to break the handover, never as its author
 defending it.
+
+RELEASE IT THROUGH THE HARNESS. `./forge grill run --gate <gate>` composes the cold-read brief (this contract plus the artifact) and releases Codex through the SAME ledgered launcher a delegation uses: the pid is recorded before the wait, so a grill whose launcher is killed still shows up in `forge codex status` instead of vanishing. It is read-only, so it takes no delegation lock and can never satisfy `stage done`. Recording the gate stays yours — the cold read only returns findings.
 
 The read-only Codex cold-reader LOADS and RUNS the `grill-me` skill (Matt
 Pocock's, installed into `~/.codex/skills/grill-me` by `./forge doctor --fix`)
@@ -47,8 +51,9 @@ top-level Claude session produces those log entries — a subagent or
 read-only Codex pass cannot. So for those grills the top-level session drives
 the rounds through AskUserQuestion itself — but because the coordinating session
 authored the plan, the independent cold-read pass is MANDATORY, not optional: on
-EVERY round release a fresh READ-ONLY Codex pass (`gpt-5.6-terra` @ xhigh, via
-`/codex:rescue`) that reads the plan/contract cold and returns findings — never a
+EVERY round release a fresh READ-ONLY Codex pass with
+`./forge grill run --gate <gate> [--task <id>]` that reads the plan/contract
+cold and returns findings — never a
 Claude sub-agent, never grill your own work inline — then carry ONLY those
 findings into your own AskUserQuestion rounds (the recorder rejects rounds not in
 the ledger, so the top-level session must still ask). Loop Codex grill → your
