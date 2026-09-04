@@ -103,7 +103,9 @@ if not plan_files and not (run_state.get("phase") == "pr-ready" and archived_pla
     )
 if not decomposition:
     missing.append(".factory/decomposition.json")
-if decomposition:
+# Markers exist only in a task-level run; a story-level run reached the
+# trunk as one story and has none to require.
+if bool(run_state.get("base_main_sha")) and decomposition:
     missing_markers = [
         task_marker_path(issue_key, task["id"]).as_posix()
         for task in decomposition.get("tasks", [])

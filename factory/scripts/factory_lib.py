@@ -1406,18 +1406,63 @@ def require_closeout_order(root: Path) -> list[str]:
             "forge stage done; WORKFLOW.md Stage Loop)"
         )
 
+    # WHICH proof closes a story depends on how its work reached the trunk.
+    #
+    # A task-level run ships each task as its own PR, and each of those PRs is
+    # gated on that task's proof — so the story is the sum of its tasks and a
+    # second story-wide pass re-reviews reviewed code. A story-level run has no
+    # per-task PRs and no per-task markers; its work reached the trunk as one
+    # story, so the story-level chain is the only proof there is.
+    #
+    # Selecting on the run mode is what keeps both flows working. Requiring
+    # per-task proof everywhere would strand every story-level run — a
+    # deadlock, since a story-level run cannot produce task markers at all.
+    task_level = bool(load_json(run_state_path(root), default={}).get("base_main_sha"))
     key = _active_story_key(root)
     decomposition = load_json(protected_decomposition_state_path(root), default={})
     tasks = [t for t in decomposition.get("tasks", []) if isinstance(t, dict)]
-    for task in tasks:
-        problems.extend(task_proof_problems(root, key, task))
+
+    if task_level and tasks:
+        for task in tasks:
+            problems.extend(task_proof_problems(root, key, task))
+    else:
+        verify = load_json(verify_state_path(root), default={})
+        if not verify or not verify.get("ok"):
+            problems.append("successful .factory/verify.json")
+        elif verify.get("commit") != head:
+            stamp = verify.get("commit")
+            shown = stamp[:8] if isinstance(stamp, str) and stamp else "missing"
+            problems.append(
+                f"verify must be stamped at HEAD {expected} (got {shown})"
+            )
+
+        reviews, review_problems = load_review_artifacts(root, require_head=True)
+        problems.extend(review_problems)
+        problems.extend(require_coherent_review_run(root, reviews))
+
+        decomposition = load_json(protected_decomposition_state_path(root), default={})
+        if bool(decomposition.get("user_facing", True)):
+            tests = load_json(tests_state_path(root), default={})
+            functional = tests.get("functional", {}) if tests else {}
+            if not functional:
+                problems.append(".factory/tests.json:functional")
+            elif not tests_passed(functional, functional=True):
+                problems.append(
+                    "functional testing must have no blockers, no failed status and score >= 8"
+                )
+            if functional and tests.get("commit") != head:
+                stamp = tests.get("commit")
+                shown = stamp[:8] if isinstance(stamp, str) and stamp else "missing"
+                problems.append(
+                    f"functional testing must be stamped at HEAD {expected} (got {shown})"
+                )
 
     # Plan contracts are verified by the task that owns them; the union across
     # tasks must still account for every declared contract, so a contract
     # cannot be dropped by being in nobody's task.
     declared = [c.get("id") for c in (decomposition.get("plan_contracts") or [])
                 if isinstance(c, dict) and c.get("id")]
-    if declared:
+    if declared and task_level and tasks:
         verified: set[str] = set()
         for task in tasks:
             task_id = str(task.get("id") or "")
