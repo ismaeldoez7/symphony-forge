@@ -70,10 +70,43 @@ def _artifact_text(base: Path, gate: str, task_id: str) -> tuple[str, str]:
     raise AssertionError("unreachable")
 
 
+def _grill_skill_section() -> str:
+    """The grill technique, INLINED rather than named.
+
+    Naming it does not work for a Codex cold reader. What `doctor` installs
+    into ~/.codex/skills/grill-me is a 164-byte STUB whose whole body is "Call
+    the Skill tool with 'grilling'" — and `grilling`, the 2KB skill that holds
+    the actual technique, is installed only on the Claude side. So a Codex
+    reader told to load grill-me finds a pointer to a Skill tool its runtime
+    does not have, and falls back to the harness contract alone.
+
+    `_skill_text` already looks in BOTH runtimes' skill directories, which is
+    what lets the Claude-side text travel to Codex inside the brief. Prefer the
+    real skill, accept grill-me only when it is not merely the stub, and carry
+    a written floor when neither is installed — the same reason delegate
+    inlines ponytail instead of trusting a per-machine install.
+    """
+    from .delegate import _skill_text
+
+    for name in ("grilling", "grill-me"):
+        text = _skill_text(name)
+        # The stub points at a tool the reader may not have; it is not technique.
+        if text and "Call the Skill tool" not in text:
+            return ("## Interrogation technique\n\n"
+                    "Run the interrogation this way. The harness contract above "
+                    "is the floor; this is the technique.\n\n" + text)
+    return ("## Interrogation technique\n\n"
+            "No grill skill is installed (`./forge doctor --fix` installs it). "
+            "Interrogate to the harness contract above: one line of questioning "
+            "at a time, press each answer until it is concrete and checkable, "
+            "and surface every place the artifact leaves the reader to guess.")
+
+
 def _compose_brief(base: Path, gate: str, label: str, artifact: str) -> str:
     contract = base / "factory" / "prompts" / "griller.md"
     contract_text = (contract.read_text(encoding="utf-8")
                      if contract.is_file() else "")
+    skill_section = _grill_skill_section()
     return "\n".join([
         f"# Cold-read grill — gate: {gate} — {label}",
         "",
@@ -81,8 +114,7 @@ def _compose_brief(base: Path, gate: str, label: str, artifact: str) -> str:
         "to break the handover, never as its author defending it. You are "
         "READ-ONLY: return findings, change nothing.",
         "",
-        "Load and run the `grill-me` skill to structure the interrogation; the "
-        "contract below is the floor, the skill is the technique.",
+        skill_section,
         "",
         "## Harness grill contract",
         "",
