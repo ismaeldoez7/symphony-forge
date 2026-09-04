@@ -1479,8 +1479,11 @@ def require_closeout_order(root: Path) -> list[str]:
     # Plan contracts are verified by the task that owns them; the union across
     # tasks must still account for every declared contract, so a contract
     # cannot be dropped by being in nobody's task.
-    declared = [c.get("id") for c in (decomposition.get("plan_contracts") or [])
-                if isinstance(c, dict) and c.get("id")]
+    # Contracts are declared PER TASK (task["plan_contracts"]); there is no
+    # decomposition-level key, so reading one silently found nothing and the
+    # gate passed everything.
+    from forge_cli.review_brief import declared_contracts
+    declared = [c["id"] for c in declared_contracts(decomposition)]
     if declared:
         # A contract is verified wherever the proof for it actually lives: in a
         # task-level run that is the owning task's quality review, in a
@@ -1505,7 +1508,8 @@ def require_closeout_order(root: Path) -> list[str]:
         if unverified:
             problems.append(
                 "quality review must verify every plan contract as implemented; "
-                f"unverified: {', '.join(unverified)}")
+                f"unverified: {', '.join(unverified)} — compose the reviewer "
+                "prompt with `./forge review-brief --all`")
 
     outcome = load_outcome(root) or {}
     if not outcome.get("outcome"):
