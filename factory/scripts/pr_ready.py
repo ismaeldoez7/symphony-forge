@@ -280,6 +280,15 @@ for artifact in (run_state_path(root), decomposition_state_path(root),
         shutil.copy2(artifact, history / artifact.name)
 if review_dir(root).is_dir():
     shutil.copytree(review_dir(root), history / "reviews", dirs_exist_ok=True)
+# Per-task proof is the story's real evidence now: verify, tests and the three
+# lenses live under each task, and archiving only the story-scoped files would
+# leave history holding the shell of a record while the proof it refers to sat
+# outside it. Copied whole, exactly as grills/tasks already is — and because
+# evidence_path falls back to history/<key>/<relative>, an archived task's
+# proof resolves through the same call that read it before the ship.
+story_tasks = story_dir(root, issue_key) / "tasks" if issue_key else None
+if story_tasks is not None and story_tasks.is_dir() and any(story_tasks.iterdir()):
+    shutil.copytree(story_tasks, history / "tasks", dirs_exist_ok=True)
 
 # Archived means REMOVED from the working tree: task-scoped state left behind
 # is exactly what conflicts when parallel story branches merge (decision 0002
