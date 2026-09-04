@@ -240,7 +240,7 @@
 
   /* column header — the ruler the whole board reads against */
   .colhead {
-    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    display: grid; grid-template-columns: repeat(var(--stations, 4), minmax(0, 1fr));
     gap: 0 .5rem; margin-top: .5rem;
   }
   .colhead > div {
@@ -639,7 +639,7 @@
   .lane-rule { flex: 1; }
   .lane-count { flex: none; font-size: .7rem; color: var(--muted); font-variant-numeric: tabular-nums; }
   .lane-grid {
-    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    display: grid; grid-template-columns: repeat(var(--stations, 4), minmax(0, 1fr));
     gap: .55rem .5rem; align-items: start;
     padding-bottom: 1rem; min-height: 1.6rem;
   }
@@ -762,7 +762,7 @@
      badge is a cleared gate, a ring is one still ahead; the joining line fills
      in behind the work you've done. */
   .rail {
-    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0;
+    display: grid; grid-template-columns: repeat(var(--stations, 4), minmax(0, 1fr)); gap: 0;
     padding: .5rem 0 .2rem;
   }
   .rail .st {
@@ -1565,6 +1565,9 @@ const STATIONS = ["Spec", "Plan", "Build", "Ship"];
 /* Column headings name what a card IS, not the gate it faces — a card under
    "Plan" reads as planned when it means the opposite. */
 const COLUMNS = ["Needs spec", "Awaiting plan", "Building", "Shipped"];
+// The CSS grids that lay out the kanban and the gate rail read this, so the
+// column count can only ever come from the column list.
+document.documentElement.style.setProperty("--stations", String(COLUMNS.length));
 // todo is an empty ring — the badge outline already reads as "pending".
 const FLAG_GLYPH = {done: "✓", partial: "◐", todo: "", gap: "✗"};
 const STATE_GLYPH = {shipped: "✓", building: "◐", ready: "★", blocked: "⊘", waiting: "·"};
