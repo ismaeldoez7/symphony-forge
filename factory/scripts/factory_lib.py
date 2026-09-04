@@ -1353,28 +1353,46 @@ def task_proof_problems(root: Path, key: str, task: dict) -> list[str]:
             return load_json(scoped, default={})
         return load_json(evidence_path(root, key, name), default={})
 
+    # Every refusal names the ONE command that answers it. A gate that says
+    # what is wrong but not what to run is where a coordinator stops and asks
+    # a human to decide something the harness already knows.
     if not verify_passed(read("verify.json")):
-        problems.append(f"{task_id}: no passing verify — run verify.py in its worktree")
+        problems.append(
+            f"{task_id}: no passing verify — from its worktree run "
+            "`python3 factory/scripts/verify.py`")
 
     tests = read("tests.json")
     if not tests_passed(tests.get("automated")):
-        problems.append(f"{task_id}: no passing automated tests recorded")
+        problems.append(
+            f"{task_id}: no passing automated tests — run them, then record with "
+            "`python3 factory/scripts/record_test_from_json.py --kind automated "
+            "--input <json>`")
     if bool(task.get("user_facing")):
         functional = tests.get("functional") or {}
         if not functional:
-            problems.append(f"{task_id}: user-facing, so a functional check is required")
+            problems.append(
+                f"{task_id}: user_facing, so a functional check is required — run "
+                "the functional-checker, then record with "
+                "`python3 factory/scripts/record_test_from_json.py --kind functional "
+                "--input <json>`")
         elif not tests_passed(functional, functional=True):
             problems.append(
-                f"{task_id}: functional check must have no blockers and score >= 8")
+                f"{task_id}: functional check must have no blockers and score >= 8 "
+                "— fix what it found and re-record it")
 
     for lens in ("quality", "performance", "security"):
         review = read(f"reviews/{lens}.json")
         if not review:
-            problems.append(f"{task_id}: no {lens} review — `./forge review {task_id}`")
-        elif not review_passed(review):
             problems.append(
-                f"{task_id}: {lens} review is not clean "
-                f"({len(review.get('blocking_findings') or [])} blocking finding(s))")
+                f"{task_id}: no {lens} review — `./forge review {task_id}` runs all "
+                "three lenses in Codex and records them")
+        elif not review_passed(review):
+            blocking = len(review.get("blocking_findings") or [])
+            problems.append(
+                f"{task_id}: {lens} review is not clean ({blocking} blocking "
+                f"finding(s)) — delegate the fixes with `./forge delegate {task_id}`, "
+                f"commit, then rerun `./forge review {task_id}`. Findings are work, "
+                "not a question for the human.")
     return problems
 
 
