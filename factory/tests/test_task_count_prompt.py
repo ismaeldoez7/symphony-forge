@@ -29,13 +29,13 @@ def test_the_recommendation_scales_with_the_plan(repo):
     # number. The plan already knows its size; the question carries it.
     small = _plan(repo, "SMALL-1-tiny.md",
                   "## Acceptance Criteria\n\n1. One thing works.\n")
-    assert "about 1" in _task_count_hint(repo, {"plan_file": small})
+    assert "start at 1" in _task_count_hint(repo, {"plan_file": small})
 
     big = _plan(repo, "BIG-1-large.md", "## Acceptance Criteria\n\n"
                 + "".join(f"{n}. Criterion {n}.\n" for n in range(1, 11))
                 + "\n## Surface Impact\n\napps/api/src/x.ts, apps/web/src/y.tsx\n")
     hint = _task_count_hint(repo, {"plan_file": big})
-    assert "about 4" in hint
+    assert "start at 4" in hint
     assert "10 acceptance criteria" in hint
     assert "backend" in hint and "frontend" in hint
 
@@ -43,7 +43,7 @@ def test_the_recommendation_scales_with_the_plan(repo):
     huge = _plan(repo, "HUGE-1-vast.md", "## Acceptance Criteria\n\n"
                  + "".join(f"{n}. Criterion {n}.\n" for n in range(1, 41))
                  + "\napps/api apps/web drizzle\n")
-    assert "about 4" in _task_count_hint(repo, {"plan_file": huge})
+    assert "start at 4" in _task_count_hint(repo, {"plan_file": huge})
 
 
 def test_the_recommendation_never_fails_the_command(repo):
@@ -63,3 +63,24 @@ def test_forge_next_asks_before_it_decomposes(repo):
     assert step.index("FIRST ask") < step.index("docs-decomposer")
     # And it says WHY, so the number is weighed rather than guessed.
     assert "plan, grill, approval, review and PR" in step
+
+
+def test_the_recommendation_is_a_floor_to_climb_from(repo):
+    # Seams are always findable, so guidance that merely balances "split if big,
+    # merge if small" drifts upward — one story came back as nine tasks, nine of
+    # every ceremony, with no single task wrong on its own. The number offered
+    # is the FLOOR and exceeding it must be forced, not merely justifiable.
+    plan = _plan(repo, "MID-1-mid.md", "## Acceptance Criteria\n\n"
+                 + "".join(f"{n}. Criterion {n}.\n" for n in range(1, 8))
+                 + "\napps/api apps/web\n")
+    hint = _task_count_hint(repo, {"plan_file": plan})
+    assert "go UP only" in hint
+    assert "clean seam" in hint          # the reason that must NOT count
+    assert "costs a human" in hint       # who pays for an extra task
+
+    workflow = (HARNESS / "WORKFLOW.md").read_text(encoding="utf-8")
+    assert "FEWEST tasks" in workflow
+    assert "burden is on SPLITTING" in workflow
+    decomposer = (HARNESS / "factory" / "prompts" / "decomposer.md").read_text(
+        encoding="utf-8")
+    assert "MINIMISE the task count" in decomposer

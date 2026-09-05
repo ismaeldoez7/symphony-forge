@@ -117,16 +117,21 @@ def _task_count_hint(base: Path, state: dict) -> str:
     # criteria count sets how far above that floor to start. Coarse on
     # purpose: this is a defensible opening number for a human to accept or
     # move, not an estimate pretending to be precise.
+    # The MINIMUM is one per side; anything above it has to be forced. Seams are
+    # always findable, so a recommendation that merely balances drifts upward —
+    # the number offered is the floor, and the reason to exceed it is the thing
+    # the human is being asked to weigh.
     floor = max(1, len([s for s in surfaces if s in ("backend", "frontend")]))
     by_criteria = 1 if criteria <= 3 else 2 if criteria <= 6 else 3 if criteria <= 9 else 4
     suggested = min(4, max(floor, by_criteria))
     detail = f"{criteria} acceptance criteria" if criteria else "this plan"
     touching = f" across {', '.join(surfaces)}" if surfaces else ""
-    return (f"{detail}{touching} suggests about {suggested} "
-            "(prefer 4 or fewer; more needs a reason worth stating). The count "
-            "NEVER overrides the bounded-session rule: if a task at this count "
-            "cannot be done in one session it is not bounded, and the grill "
-            "will refuse it — split further and take the extra ceremony.")
+    return (f"{detail}{touching} — start at {suggested} and go UP only where a "
+            "task will not fit one bounded session. Fewest-that-stay-bounded is "
+            "the target, not a balance: every extra task costs a human a plan, "
+            "grill, approval, review and PR, and 'it is a clean seam' is not a "
+            "reason. The grill refuses a task that is not bounded, so the floor "
+            "holds either way.")
 
 
 def cmd_next(args: argparse.Namespace) -> None:
