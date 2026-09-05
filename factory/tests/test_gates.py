@@ -17230,7 +17230,11 @@ def test_docs_state_enforced_order():
     assert "marker the agent cannot mint" not in approval_spec
     for text in (decision, loop_spec, approval_spec):
         unwrapped = " ".join(text.split())
-        assert "GATE_ROUND_FLOORS" in text or "floors spec 2" in unwrapped
+        # The docs must NAME whatever enforces the floors. That used to be
+        # the recorder's own map; it is now the gate table the recorder
+        # derives that map from.
+        assert ("grill_gates.GATES" in text or "GATE_ROUND_FLOORS" in text
+                or "floors spec 2" in unwrapped)
         assert "frontier_empty: true" in text
         assert "ledger-matched" in text or "match a logged record" in unwrapped
     for text in (decision, approval_spec):
