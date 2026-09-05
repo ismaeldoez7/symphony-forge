@@ -206,6 +206,10 @@
     border: 1px solid var(--rule); border-radius: var(--radius-sm); background: var(--surface-2);
   }
   .flag.urgent { background: var(--tint); }
+  .flag-fold { display: block; padding: .35rem .7rem .45rem; }
+  .flag-fold .next-head { padding: .15rem 0; }
+  .flag-fold .ledger { margin-top: .35rem; }
+  .fold-panel { max-height: 22rem; overflow-y: auto; }
   .flag em { font-style: normal; color: var(--accent); }
   .flag b { font-weight: 600; }
   .flag code, .flag .do { font-size: .72rem; color: var(--muted); }
@@ -1784,9 +1788,25 @@ function renderBanner(state) {
   }
   const proposedDecisions = (state.decisions || []).filter(d => d.status === "proposed");
   if (proposedDecisions.length) {
-    rows.push(`<div class="flag"><em>\u00b7</em><span>${
-      plural(proposedDecisions.length, "decision")} proposed and awaiting you —
-      ${proposedDecisions.map(d => esc(d.id)).join(", ")}</span></div>`);
+    // Behind a disclosure, like the Next card. A backlog of forty-five ids
+    // printed in full is not a summary — it buries every other banner row and
+    // pushes the board itself off the screen. The COUNT is the signal; the
+    // list is what you open when you want to act on it.
+    rows.push(`<div class="flag flag-fold">
+      <button class="next-head" type="button" data-fold="proposed-decisions"
+              aria-expanded="false" aria-controls="proposed-decisions">
+        <em>\u00b7</em>
+        <span class="next-verb">${plural(proposedDecisions.length, "decision")}
+          proposed and awaiting you</span>
+        <span class="next-count">${proposedDecisions.length}</span>
+      </button>
+      <div class="fold-panel" id="proposed-decisions" hidden>
+        <div class="ledger">${proposedDecisions.map(d => `<div>
+          <span class="id">${esc(d.id)}</span><span>${esc(d.title || "")}</span>${
+            openFile(d.path)}
+        </div>`).join("")}</div>
+      </div>
+    </div>`);
   }
   const a = (state.summary || {}).attention || {};
   const quiet = [];
@@ -1796,6 +1816,7 @@ function renderBanner(state) {
   if (quiet.length) rows.push(`<div class="flag"><em>·</em><span>${quiet.join(" · ")}</span></div>`);
   $("banner").innerHTML = rows.join("");
   $("banner").hidden = rows.length === 0;
+  restoreFolds();
 }
 
 function renderNext(state) {
@@ -1811,6 +1832,31 @@ $("next-toggle").addEventListener("click", () => {
   const open = $("next-steps").classList.toggle("open");
   $("next-toggle").setAttribute("aria-expanded", String(open));
 });
+
+// Banner rows are rebuilt on every poll, so the fold is delegated and its
+// open state is remembered across renders — a panel that closed itself every
+// few seconds would be worse than no panel.
+const openFolds = new Set();
+$("banner").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-fold]");
+  if (!button) return;
+  const panel = $(button.getAttribute("data-fold"));
+  if (!panel) return;
+  const open = panel.hidden;
+  panel.hidden = !open;
+  button.setAttribute("aria-expanded", String(open));
+  if (open) openFolds.add(panel.id); else openFolds.delete(panel.id);
+});
+
+function restoreFolds() {
+  for (const id of openFolds) {
+    const panel = $(id);
+    if (!panel) continue;
+    panel.hidden = false;
+    const button = document.querySelector(`[data-fold="${id}"]`);
+    if (button) button.setAttribute("aria-expanded", "true");
+  }
+}
 
 let bottleneck = -1;
 const colCells = [];
