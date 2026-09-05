@@ -11,8 +11,7 @@
     "verdict": "str",
     "gaps": "list",
     "contradictions": "list",
-    "resolutions": "list",
-    "rounds": "list"
+    "resolutions": "list"
   },
   "optional": {
     "open_items": "list",
@@ -31,7 +30,8 @@
     "escalation_packet": "dict",
     "approved_task_plan_sha256": "str",
     "approved_by": "str",
-    "approved_at": "str"
+    "approved_at": "str",
+    "rounds": "list"
   },
-  "verdict_note": "verdict: pass | blocked. pass requires zero unresolved blocking gaps/contradictions — every entry in gaps/contradictions must have a matching resolution (a doc edit or decision record) or be explicitly parked in open_items as non-blocking. Every gate floors at one ledger-matched round, so `rounds` is required; the floor is a minimum, not a target — grill until a round comes back clean and the next one stays clean."
+  "verdict_note": "verdict: pass | blocked. pass requires zero unresolved blocking gaps/contradictions — every entry in gaps/contradictions must have a matching resolution (a doc edit or decision record) or be explicitly parked in open_items as non-blocking. Every gate floors at one ledger-matched round, enforced by the recorder; the floor is a minimum, not a target — grill until a round comes back clean and the next one stays clean."
 }

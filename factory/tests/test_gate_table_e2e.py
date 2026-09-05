@@ -185,3 +185,25 @@ def test_a_fabricated_round_is_still_refused_for_the_new_gates(repo):
             "rounds": rounds,
         }))
     assert code != 0 and "does not match an AskUserQuestion ledger record" in out
+
+
+def test_the_schema_does_not_require_rounds(repo):
+    """The floor belongs to the recorder, not the schema.
+
+    Two call sites re-validate a grill READ FROM DISK — `task plan save` when
+    it re-stamps the plan digest, and `task approve`. Requiring `rounds` in the
+    schema enforces nothing new (a payload short of the floor never reaches
+    disk in the first place) but hands both of those a way to refuse a record
+    written before rounds existed. A gate that cannot approve a task because of
+    a field added later is a worse failure than the one being prevented.
+    """
+    schema = json.loads((HARNESS / "factory" / "schemas" / "grill.json"
+                         ).read_text(encoding="utf-8"))
+    assert "rounds" in schema["optional"]
+    assert "rounds" not in schema["required"]
+
+    # The floor is still real — proven where it is actually enforced.
+    lib = load_factory_lib(repo)
+    legacy = {"generated_by": "griller", "gate": "task", "verdict": "pass",
+              "gaps": [], "contradictions": [], "resolutions": []}
+    lib.validate_payload(repo, "grill", legacy)  # must not raise
