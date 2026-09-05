@@ -51,8 +51,12 @@ def test_grill_runs_through_the_ledgered_launcher_read_only(repo, tmp_path):
     # A gate whose artifact is absent refuses, naming the command that makes it.
     code, out = run(repo, "forge.py", "grill", "run", "--gate", "task")
     assert code != 0 and "--task" in out
+    # The plan gate points at the DRAFT, not at a saved plan: plan save refuses
+    # without a passing grill, so a plan on disk is the fallback and an
+    # unsaved draft is the normal case. Demanding the saved copy made the one
+    # gate that worked work at the wrong moment.
     code, out = run(repo, "forge.py", "grill", "run", "--gate", "plan")
-    assert code != 0 and "plan save" in out
+    assert code != 0 and "--file" in out
 
 
 def test_griller_contract_names_the_ledgered_release(repo):

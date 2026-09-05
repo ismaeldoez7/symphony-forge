@@ -32,12 +32,16 @@ to structure its interrogation; this contract is the harness-side floor, the
 skill is the technique. In Claude, the `/grill-me` skill satisfies the same.
 
 WHICH RUNTIME CAN RECORD WHICH GATE — get this wrong and you will chase a
-refusal you cannot satisfy. FOUR gates match the AskUserQuestion ledger and are
-therefore CLAUDE-ONLY: `--gate spec` (floor 2), `--gate requirements` (1),
-`--gate plan` (2) and `--gate task` (1) — every gate in
-`record_grill_from_json.GATE_ROUND_FLOORS`. TWO gates do not match the ledger and
-a read-only Codex grill records them directly: `--gate signoff` and
-`--gate epics`. The ledger files are written ONLY by `post_tool_use.py` on a
+refusal you cannot satisfy. ALL SIX gates match the AskUserQuestion ledger and
+are therefore CLAUDE-ONLY, each with a floor of ONE logged round: `--gate spec`,
+`--gate signoff`, `--gate epics`, `--gate requirements`, `--gate plan` and
+`--gate task` — the floors live in `grill_gates.GATES`, one row per gate.
+`signoff` and `epics` used to sit outside that check and so recorded with ZERO
+rounds behind them; they now answer to it like every other gate.
+
+ONE round is a FLOOR, never a target. Keep going until a round comes back clean
+AND the next one stays clean — a single quiet round after a noisy one is a
+coincidence, not convergence. The ledger files are written ONLY by `post_tool_use.py` on a
 Claude Code AskUserQuestion event; `.codex/hooks.json` registers no PostToolUse
 hook, so Codex cannot produce them and neither can a subagent. Delegating a
 ledger-matched grill to Codex returns a well-formed payload that the recorder
@@ -201,8 +205,9 @@ Method:
    the FINAL round in the payload to carry `"frontier_empty": true` — that flag
    is how it confirms you stopped because the frontier closed, not because you
    ran out of patience; it is set by hand on the last `rounds` entry, never by
-   the ledger. A zero-gap contract still needs at least one such round (floors:
-   spec 2, plan 2, requirements 1, task 1), so ask a genuine closing question
+   the ledger. A zero-gap contract still needs at least one such round (every
+   gate's floor is 1, and a floor is not a target), so ask a genuine closing
+   question
    (e.g. "any remaining gap before we hand off?") and mark it `frontier_empty`.
 3. Every finding lands somewhere real before the verdict: a doc edit, a
    `./forge decision new <slug>` record, or an explicit non-blocking entry
@@ -239,11 +244,10 @@ Method:
    is `{finding, source}`. Every string in `gaps` must be covered by an equal
    `rounds[].question` or `citations[].finding`.
 
-   For every ledger-matched gate (`spec`, `requirements`, `plan`, `task`), extra
-   recorder rules bind (this is what
-   makes an otherwise well-formed payload fail):
+   For every gate — all six are ledger-matched — extra recorder rules bind
+   (this is what makes an otherwise well-formed payload fail):
    - Rounds must match the AskUserQuestion ledger and meet the gate floor
-     (spec 2, requirements 1, plan 2, task 1); the final round carries
+     (1 for every gate, and a floor is not a target); the final round carries
      `"frontier_empty": true`. A
      zero-gap grill still records its floor of real rounds — never zero.
    - `--gate task` only: `criteria_map` is a THREE-WAY equality — its KEYS must
