@@ -100,7 +100,10 @@ def _task_count_hint(base: Path, state: dict) -> str:
         except (OSError, UnicodeDecodeError):
             text = ""   # a plan we cannot read still gets the generic advice
     if not text:
-        return "prefer 4 or fewer; 1-2 for a small story"
+        return ("prefer 4 or fewer, 1-2 for a small story — but never at the "
+                "cost of the bounded-session rule (WORKFLOW.md): a task that "
+                "cannot be done in one session is not bounded because the "
+                "count is convenient")
 
     criteria = len(re.findall(r"^\s*\d+\.\s+\S", text, re.MULTILINE))
     surfaces = sorted({
@@ -120,7 +123,10 @@ def _task_count_hint(base: Path, state: dict) -> str:
     detail = f"{criteria} acceptance criteria" if criteria else "this plan"
     touching = f" across {', '.join(surfaces)}" if surfaces else ""
     return (f"{detail}{touching} suggests about {suggested} "
-            f"(prefer 4 or fewer; more needs a reason worth stating)")
+            "(prefer 4 or fewer; more needs a reason worth stating). The count "
+            "NEVER overrides the bounded-session rule: if a task at this count "
+            "cannot be done in one session it is not bounded, and the grill "
+            "will refuse it — split further and take the extra ceremony.")
 
 
 def cmd_next(args: argparse.Namespace) -> None:
