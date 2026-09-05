@@ -10133,7 +10133,10 @@ def test_roadmap_heal_unions_duplicates_done_wins(repo, tmp_path):
     data["items"] = [dupe_active, data["items"][1], dupe_done]
     p.write_text(json.dumps(data))
     code, out = run(repo, "forge.py", "roadmap", "heal")
-    assert code == 0 and "1 duplicate(s) unioned" in out, out
+    # One story, two statuses in the file: that is ONE disagreement however
+    # many copies carried it. A raw copy count went misleading once heal
+    # started reading the merge sides as well as the working file.
+    assert code == 0 and "1 disagreement(s) reconciled" in out, out
     items = roadmap_items(repo)
     assert items["ENG-1"]["status"] == "done"  # further-along wins
     assert items["ENG-1"]["history"] == ".factory/history/ENG-1/"
