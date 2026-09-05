@@ -35,6 +35,15 @@ def _exec_hook(name: str) -> None:
         print(f"unknown hook: {name}", file=sys.stderr)
         raise SystemExit(2)
     path = Path(__file__).resolve().parent / script
+    if os.name == "nt":
+        # os.execv builds the Windows command line by joining argv WITHOUT
+        # quoting, so an interpreter under "C:\Program Files\..." is split at
+        # the space and the hook dies before it runs. Hooks fail quietly by
+        # design, so the caller sees a hook that ran and simply recorded
+        # nothing — which is indistinguishable from having nothing to record.
+        # Every ledger-matched grill gate is unsatisfiable on such a machine.
+        import subprocess
+        raise SystemExit(subprocess.run([sys.executable, str(path)]).returncode)
     os.execv(sys.executable, [sys.executable, str(path)])
 
 
@@ -621,10 +630,13 @@ def main() -> None:
     grill_sub = p_grill.add_subparsers(dest="grill_command", required=True)
     p_gr = grill_sub.add_parser(
         "run", help="cold-read an artifact through the ledgered launcher")
-    p_gr.add_argument("--gate", required=True,
-                      choices=["spec", "requirements", "plan", "task",
-                               "signoff", "epics"])
+    from grill_gates import gate_names
+    p_gr.add_argument("--gate", required=True, choices=gate_names())
     p_gr.add_argument("--task", default="", help="task id for --gate task")
+    p_gr.add_argument(
+        "--file", default="",
+        help="the artifact to grill for gates that interrogate a CHOSEN one "
+             "(--gate spec/epics, and a --gate plan draft before it is saved)")
     p_gr.add_argument("--print-only", action="store_true",
                       help="compose and show the brief without releasing Codex")
     p_gr.add_argument("--repo")

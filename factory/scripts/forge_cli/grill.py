@@ -21,53 +21,20 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from factory_lib import (
-    evidence_path, load_json, protected_decomposition_state_path, repo_root,
-    run_state_path,
-)
+from factory_lib import load_json, repo_root, run_state_path
+from grill_gates import FLOOR_IS_NOT_A_TARGET, get_gate
 
-from .common import fail
+def _artifact_text(base: Path, gate: str, task_id: str,
+                   file_arg: str = "") -> tuple[str, str]:
+    """Ask the gate table where this gate's artifact lives.
 
-# Which artifact each gate interrogates. The grill reads it COLD, so the brief
-# must carry the text itself — the reader has no memory of the session that
-# wrote it.
-GATE_ARTIFACTS = {
-    "spec": "the capability spec under interrogation",
-    "requirements": "the requirements round under interrogation",
-    "plan": "the approved plan under interrogation",
-    "task": "the per-task implementation plan under interrogation",
-    "signoff": "the client sign-off handover under interrogation",
-    "epics": "the derived epics under interrogation",
-}
-
-
-def _artifact_text(base: Path, gate: str, task_id: str) -> tuple[str, str]:
-    """Return (label, text) for the artifact this gate interrogates."""
-    state = load_json(run_state_path(base), default={})
-    key = state.get("issue_key", "")
-
-    if gate == "task":
-        if not task_id:
-            fail("`--gate task` interrogates ONE task's plan: pass --task <id>")
-        path = evidence_path(base, key, f"task-plans/{task_id}.md")
-        if not path.is_file():
-            fail(f"no saved task plan for {task_id} — save it with "
-                 f"`./forge task plan save {task_id} --from <path>` first")
-        return f"task plan {task_id}", path.read_text(encoding="utf-8")
-
-    if gate == "plan":
-        plan_file = load_json(protected_decomposition_state_path(base),
-                              default={}).get("plan_file") or state.get("plan_file")
-        if not plan_file:
-            fail("no approved plan is recorded — `./forge plan save` first")
-        path = base / plan_file
-        if not path.is_file():
-            fail(f"the recorded plan {plan_file!r} does not exist")
-        return f"plan {plan_file}", path.read_text(encoding="utf-8")
-
-    fail(f"`--gate {gate}` has no artifact resolver yet; grill it through the "
-         "documented path and record it with record_grill_from_json.py")
-    raise AssertionError("unreachable")
+    This used to be a hand-written if-chain that knew two of the six gates;
+    the other four failed with "no artifact resolver yet" and sent the
+    coordinator around the ledgered launcher, which is where the pid that
+    makes a dead grill detectable gets recorded. A missing lookup silently
+    cost liveness detection in an unrelated subsystem.
+    """
+    return get_gate(gate).locate(base, task_id, file_arg)
 
 
 def _grill_skill_section() -> str:
@@ -130,6 +97,8 @@ def _compose_brief(base: Path, gate: str, label: str, artifact: str) -> str:
         "anything a reader would have to guess. Say what would break and why. "
         "Do not record a gate — the coordinating session records it.",
         "",
+        FLOOR_IS_NOT_A_TARGET,
+        "",
     ])
 
 
@@ -139,7 +108,8 @@ def cmd_grill_run(args: argparse.Namespace) -> None:
     base = Path(args.repo).resolve() if args.repo else repo_root()
     gate = args.gate
     task_id = (args.task or "").strip()
-    label, artifact = _artifact_text(base, gate, task_id)
+    label, artifact = _artifact_text(
+        base, gate, task_id, (getattr(args, "file", "") or "").strip())
     text = _compose_brief(base, gate, label, artifact)
 
     # Keyed apart from real task ids so a grill row can never be mistaken for
