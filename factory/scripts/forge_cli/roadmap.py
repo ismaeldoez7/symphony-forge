@@ -823,20 +823,38 @@ def _merge_stage_items(base: Path) -> tuple[list[dict], list[dict], bool]:
     # HEAD^1/HEAD^2 matter once the merge is COMMITTED: MERGE_HEAD is gone by
     # then, but a merge commit still names both sides, so a flip noticed after
     # the merge landed is still recoverable.
-    heads = []
-    for ref in ("HEAD", "MERGE_HEAD", "REBASE_HEAD", "HEAD^1", "HEAD^2"):
+    #
+    # They are read ONLY when HEAD really is a merge. `HEAD^1` resolves on any
+    # non-root commit, so reading it unconditionally unions the roadmap with
+    # its own previous commit — and because heal only ever raises a status,
+    # that would silently resurrect a status a human had deliberately moved
+    # back (a story reopened from done, a done-flip corrected to pending) and
+    # report it as a successful heal. Recovering a lost flip and undoing an
+    # intended one are the same operation from the inside; only the presence
+    # of a second parent separates them.
+    parents = subprocess.run(
+        ["git", "rev-list", "--parents", "-n", "1", "HEAD"], cwd=base,
+        capture_output=True, text=True, encoding="utf-8")
+    refs = ["MERGE_HEAD", "REBASE_HEAD"]
+    if len(parents.stdout.split()) >= 3:      # sha + two parents
+        refs += ["HEAD^1", "HEAD^2"]
+
+    sides = []
+    for ref in refs:
         proc = subprocess.run(
             ["git", "show", f"{ref}:{relative}"],
             cwd=base, capture_output=True, text=True, encoding="utf-8",
         )
         if proc.returncode == 0:
             try:
-                heads.append(json.loads(proc.stdout))
+                sides.append(json.loads(proc.stdout))
             except json.JSONDecodeError:
                 continue
-    if len(heads) >= 2:
-        return ([i for h in heads for i in h.get("items", [])],
-                [e for h in heads for e in h.get("epics", [])], True)
+    # One recovered side is enough: the caller unions it with the working file,
+    # and together they are the two sides of the merge.
+    if sides:
+        return ([i for h in sides for i in h.get("items", [])],
+                [e for h in sides for e in h.get("epics", [])], True)
     return [], [], False
 
 
@@ -918,7 +936,7 @@ def cmd_heal(args: argparse.Namespace) -> None:
                   next((w.get("status", "pending")
                         for w in working.get("items", [])
                         if w.get("key") == i.get("key")), "pending"), 1)]
-    source = "merge stages + working file" if merged else "working file"
+    source = "both merge sides + working file" if merged else "working file"
     print(f"Healed plans/roadmap.json from {source}: {len(healed)} item(s), "
           f"{disagreements} disagreement(s) reconciled (status: further-along "
           f"wins); {done} done.")

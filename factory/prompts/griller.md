@@ -63,8 +63,9 @@ findings into your own AskUserQuestion rounds (the recorder rejects rounds not i
 the ledger, so the top-level session must still ask). Loop Codex grill → your
 AskUserQuestion rounds → answers → Codex grill again, until a round is clean AND
 the plan is stable; only then, approve exactly once. Read cold, as an adversary
-who did not write it. (Only the signoff and epics gates skip the ledger, so only
-those two can be recorded directly by a read-only Codex grill.)
+who did not write it. (EVERY gate is ledger-matched — signoff and epics no
+longer excepted — so no gate can be recorded by a read-only Codex grill alone:
+the top-level session asks the round and records it.)
 
 FRESH CONTEXT, NOT FRESH READING. Every round is a NEW read-only Codex session —
 that independence is the whole point, and it is why the reader has no memory of
@@ -258,10 +259,10 @@ Method:
      strings so there is one coherent key set to satisfy.
 
 ```bash
-python3 factory/scripts/record_grill_from_json.py --gate <spec|signoff|epics|plan|task> --input <json> [--input-digest <artifact>] [--task <id>]
+python3 factory/scripts/record_grill_from_json.py --gate <spec|signoff|epics|requirements|plan|task> --input <json> [--input-digest <artifact>] [--task <id>]
 ```
 
-5. For the spec, signoff, epics, and plan gates, commit the resolution edits
+5. For every gate except task, commit the resolution edits
    BEFORE recording the grill — those gates check freshness against BOTH
    committed history and the working tree: any guarded doc changing after the
    grill (even uncommitted) stales it. (The sign-off / epics-approved decision

@@ -91,6 +91,20 @@ def _grill(repo: Path, *args: str):
     return proc.returncode, proc.stdout + proc.stderr
 
 
+def _grill_launched(repo: Path, *args: str):
+    """For assertions about a SUCCESSFUL release.
+
+    Composing the argv needs the Codex companion installed, which a CI runner
+    has no reason to have. Skipping there keeps the check real where a
+    companion exists; the same ground is covered in-process, with no install,
+    by test_gate_table_e2e.py.
+    """
+    code, out = _grill(repo, *args)
+    if code != 0 and "Codex companion installation" in out:
+        pytest.skip("no Codex companion installed in this environment")
+    return code, out
+
+
 def test_no_gate_dead_ends_on_a_missing_resolver(repo: Path):
     for name in gate_names():
         _code, out = _grill(repo, "--gate", name)
@@ -116,7 +130,8 @@ def test_the_plan_gate_grills_a_draft_that_is_not_saved_yet(repo: Path):
     # made the one gate that worked work at the wrong moment.
     draft = repo / "draft-plan.md"
     draft.write_text("# Draft\n\nUnsaved, ungrilled, in hand.\n", encoding="utf-8")
-    code, out = _grill(repo, "--gate", "plan", "--file", "draft-plan.md")
+    code, out = _grill_launched(
+        repo, "--gate", "plan", "--file", "draft-plan.md")
     assert code == 0, out
     assert "Unsaved, ungrilled, in hand." in (
         repo / ".factory" / "grill-brief-plan.md").read_text(encoding="utf-8")
@@ -129,7 +144,7 @@ def test_every_grill_goes_out_cold_and_read_only(repo: Path):
     draft.write_text("# Draft\n", encoding="utf-8")
     for args in (("--gate", "plan", "--file", "draft-plan.md"),
                  ("--gate", "signoff")):
-        code, out = _grill(repo, *args)
+        code, out = _grill_launched(repo, *args)
         assert code == 0, out
         assert "Write access: NO" in out
         assert "gpt-5.6-terra" in out and "xhigh" in out
@@ -141,7 +156,7 @@ def test_the_brief_carries_the_artifact_itself(repo: Path):
     (repo / "docs" / "product" / "BRIEF.md").write_text(
         "# Brief\n\nA distinctive sentence only this test writes.\n",
         encoding="utf-8")
-    code, out = _grill(repo, "--gate", "signoff")
+    code, out = _grill_launched(repo, "--gate", "signoff")
     assert code == 0, out
     brief = (repo / ".factory" / "grill-brief-signoff.md").read_text(
         encoding="utf-8")
@@ -227,7 +242,8 @@ def test_a_grill_row_can_never_satisfy_a_task_stage(repo: Path):
 def test_concurrent_gates_do_not_collide(repo: Path):
     draft = repo / "draft-plan.md"
     draft.write_text("# Draft\n", encoding="utf-8")
-    assert _grill(repo, "--gate", "plan", "--file", "draft-plan.md")[0] == 0
+    assert _grill_launched(
+        repo, "--gate", "plan", "--file", "draft-plan.md")[0] == 0
     assert _grill(repo, "--gate", "signoff")[0] == 0
     briefs = {p.name for p in (repo / ".factory").glob("grill-brief-*.md")}
     assert {"grill-brief-plan.md", "grill-brief-signoff.md"} <= briefs
@@ -242,8 +258,13 @@ def _roadmap(items: list[dict]) -> str:
 
 
 def _git(repo: Path, *args: str):
-    return subprocess.run(["git", *args], cwd=repo, capture_output=True,
-                          text=True)
+    # The identity goes on EVERY call, not just commit. `git merge` creates a
+    # commit too, and without an identity it aborts and leaves the working
+    # tree pre-merge — which looks exactly like heal declining to union, on a
+    # runner with no global git config and nowhere else.
+    return subprocess.run(
+        ["git", "-c", "user.email=t@t", "-c", "user.name=t", *args],
+        cwd=repo, capture_output=True, text=True)
 
 
 def _heal(repo: Path):
@@ -263,14 +284,14 @@ def _two_branch_conflict(repo: Path) -> None:
         {"key": "B", "title": "B", "status": "pending", "order": 2},
     ]), encoding="utf-8")
     _git(repo, "add", "-A")
-    _git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "base")
+    _git(repo, "commit", "-m", "base")
     _git(repo, "checkout", "-b", "story")
     path.write_text(_roadmap([
         {"key": "A", "title": "A", "status": "pending", "order": 1},
         {"key": "B", "title": "B", "status": "active", "order": 2},
     ]), encoding="utf-8")
     _git(repo, "add", "-A")
-    _git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "B active")
+    _git(repo, "commit", "-m", "B active")
     head = _git(repo, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
     _git(repo, "checkout", "-")
     path.write_text(_roadmap([
@@ -279,7 +300,7 @@ def _two_branch_conflict(repo: Path) -> None:
         {"key": "B", "title": "B", "status": "pending", "order": 2},
     ]), encoding="utf-8")
     _git(repo, "add", "-A")
-    _git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "A done")
+    _git(repo, "commit", "-m", "A done")
     assert head
     _git(repo, "merge", "story")  # conflicts
 
@@ -319,7 +340,7 @@ def test_heal_reports_what_it_raised(repo: Path):
     _two_branch_conflict(repo)
     _heal(repo)
     _git(repo, "add", "-A")
-    _git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "healed")
+    _git(repo, "commit", "-m", "healed")
     path = repo / "plans" / "roadmap.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     for item in data["items"]:
@@ -386,8 +407,7 @@ def test_heal_never_reads_the_enclosing_repos_roadmap(repo: Path):
          "order": 1},
     ]), encoding="utf-8")
     _git(repo, "add", "-A")
-    _git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit",
-         "-m", "fixture")
+    _git(repo, "commit", "-m", "fixture")
 
     proc = subprocess.run(
         [sys.executable, str(repo / "factory" / "scripts" / "forge.py"),
@@ -398,3 +418,42 @@ def test_heal_never_reads_the_enclosing_repos_roadmap(repo: Path):
         encoding="utf-8"))
     keys = {i["key"] for i in data["items"]}
     assert keys == {"FIXTURE-1"}, f"the parent's stories leaked in: {keys}"
+
+
+def test_heal_does_not_resurrect_a_deliberate_revert(repo: Path):
+    # `HEAD^1` resolves on ANY non-root commit, so reading it unconditionally
+    # unioned the roadmap with its own PREVIOUS commit. Heal only ever raises,
+    # so a status a human deliberately moved back — a story reopened from done,
+    # a done-flip corrected to pending — would be silently restored from
+    # history and reported as a successful heal. Recovering a lost flip and
+    # undoing an intended one look identical from the inside; only a second
+    # parent tells them apart.
+    (repo / "plans").mkdir(parents=True, exist_ok=True)
+    roadmap = repo / "plans" / "roadmap.json"
+
+    roadmap.write_text(_roadmap([
+        {"key": "ENG-1", "title": "Shipped early", "status": "done",
+         "order": 1},
+    ]), encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-m", "ENG-1 done")
+
+    # The human reopens it: done -> active, committed as a linear commit.
+    roadmap.write_text(_roadmap([
+        {"key": "ENG-1", "title": "Shipped early", "status": "active",
+         "order": 1},
+    ]), encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-m", "reopen ENG-1")
+
+    proc = subprocess.run(
+        [sys.executable, str(repo / "factory" / "scripts" / "forge.py"),
+         "roadmap", "heal", "--repo", str(repo)],
+        cwd=repo, capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    data = json.loads(roadmap.read_text(encoding="utf-8"))
+    status = next(i["status"] for i in data["items"] if i["key"] == "ENG-1")
+    assert status == "active", (
+        f"heal resurrected the old done-flip from history: {proc.stdout}")
+    # And it must not claim a merge it did not read.
+    assert "working file" in proc.stdout and "merge sides" not in proc.stdout
