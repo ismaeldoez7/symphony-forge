@@ -138,14 +138,35 @@ def review_excluded_prefixes(base: Path) -> tuple[str, ...]:
 
 
 def _product_dirty(base: Path) -> list[str]:
+    """Dirty product paths, from NUL-separated porcelain with no stripping.
+
+    Stripping the status text ate the leading space of a first ` M path`
+    entry, and `line[3:]` then cut the first character of the path itself --
+    `plans/roadmap.json` became `lans/roadmap.json`, outside every excluded
+    prefix, and a review refused on harness bookkeeping. Both sides of a
+    rename count: either path being dirty is a dirty tree.
+    """
     excluded = review_excluded_prefixes(base)
-    status = _require_git(base, "reading working tree status", "status",
-                          "--porcelain", "--untracked-files=all")
-    dirty = []
-    for line in status.splitlines():
-        path = line[3:].strip()
-        if path and not path.startswith(excluded):
-            dirty.append(path)
+    proc = _git(base, "status", "--porcelain", "-z", "--untracked-files=all")
+    if proc.returncode != 0:
+        fail("reading working tree status failed"
+             + (f": {proc.stderr.strip()}" if proc.stderr.strip() else ""))
+    entries = proc.stdout.split("\0")
+    dirty: list[str] = []
+    index = 0
+    while index < len(entries):
+        entry = entries[index]
+        index += 1
+        if len(entry) < 4:
+            continue
+        code, path = entry[:2], entry[3:]
+        paths = [path]
+        if code[:1] in ("R", "C") and index < len(entries) and entries[index]:
+            paths.append(entries[index])  # the rename/copy source follows
+            index += 1
+        for rel in paths:
+            if rel and not rel.startswith(excluded):
+                dirty.append(rel)
     return dirty
 
 

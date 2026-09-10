@@ -368,3 +368,29 @@ def test_the_delegate_brief_carries_the_recorded_findings(repo, tmp_path):
     assert "BLOCKING" in after
     assert "[quality] plan-contract-partial: C1: the slice runs green" in after
 
+
+# --------------------------------------------- the porcelain parse bug
+
+
+def test_product_dirty_does_not_eat_the_first_path_character(repo):
+    """The first porcelain entry for an unstaged edit starts with a space;
+    stripping the output then `line[3:]` cut a character off the path, so a
+    dirty `plans/roadmap.json` read as `lans/roadmap.json` and refused a review
+    on harness bookkeeping. Every path must come back whole."""
+    from forge_cli.review import _product_dirty
+    # Two tracked files: one under an excluded prefix, one product.
+    (repo / "plans").mkdir(exist_ok=True)
+    (repo / "plans" / "roadmap.json").write_text("{}\n", encoding="utf-8")
+    (repo / "src").mkdir(exist_ok=True)
+    (repo / "src" / "core.py").write_text("v = 1\n", encoding="utf-8")
+    git(repo, "add", "plans/roadmap.json", "src/core.py")
+    git(repo, "commit", "-qm", "seed")
+    assert _product_dirty(repo) == []
+    # An UNSTAGED modification to the excluded file is the first entry.
+    (repo / "plans" / "roadmap.json").write_text("{\"x\": 1}\n", encoding="utf-8")
+    assert _product_dirty(repo) == []
+    # A product edit is reported with its full path, whether or not an excluded
+    # entry precedes it.
+    (repo / "src" / "core.py").write_text("v = 2\n", encoding="utf-8")
+    assert _product_dirty(repo) == ["src/core.py"]
+
