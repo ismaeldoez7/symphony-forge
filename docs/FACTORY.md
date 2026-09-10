@@ -67,24 +67,24 @@ when the repo has a repeated bottleneck that justifies another role.
 Use strong reasoning selectively.
 
 - planner / decomposer / architecture reconciler
-  - model: `gpt-5.5`
+  - model: `gpt-5.6-sol`
   - reasoning: `high`
 - code exploration (planning phase)
-  - model: `gpt-5.6-terra`
-  - reasoning: `high`
-  - via `/codex:rescue --model gpt-5.6-terra --effort high` (read-only by default) — Claude Code never explores application code itself; raw `codex exec` is hook-blocked, no exceptions
+  - model: `gpt-5.6-sol`
+  - reasoning: `low`
+  - via `/codex:rescue --model gpt-5.6-sol --effort low` (read-only by default) — Claude Code never explores application code itself; raw `codex exec` is hook-blocked, no exceptions
 - implementation default
   - model: `gpt-5.6-sol`
   - reasoning: `medium`
-- implementation escalation cases
+  - reuse the active implementer for review fixes
+- formal Lite fix
+  - model: `gpt-5.6-luna`
+  - reasoning: `max`
+- review (autoreview run)
   - model: `gpt-5.6-sol`
   - reasoning: `high`
-  - use only for migrations, cross-domain refactors, concurrency, security-sensitive work, or ambiguous failure modes
-- review (autoreview run)
-  - model: `gpt-5.5`
-  - reasoning: `high`
 - functional checker
-  - model: `gpt-5.5`
+  - model: `gpt-5.6-sol`
   - reasoning: `high`
 
 Defaulting all work to `high` is a bad tradeoff for cost, latency, and focus.

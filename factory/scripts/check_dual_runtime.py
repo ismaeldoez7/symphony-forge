@@ -504,6 +504,7 @@ def check_thin_adapter(root: Path) -> None:
                 rel.as_posix() in {"config.toml", "hooks.json"}
                 # Overlay profiles (e.g. explore.config.toml) are config, not substance.
                 or (len(rel.parts) == 1 and rel.name.endswith(".config.toml"))
+                or rel.as_posix() == "agents/AGENTS.md"
                 or (rel.parts[0] == "agents" and f.suffix == ".toml")
                 or (
                     len(rel.parts) == 3
@@ -514,7 +515,8 @@ def check_thin_adapter(root: Path) -> None:
             if not ok:
                 violation(
                     f"{f.relative_to(root)} is not an adapter file. .codex/ may contain only "
-                    "config.toml, hooks.json, agents/*.toml, and skills/<name>/SKILL.md; "
+                    "config.toml, hooks.json, agents/AGENTS.md, agents/*.toml, and "
+                    "skills/<name>/SKILL.md; "
                     "scripts, prompts, and skill bodies live in factory/."
                 )
 

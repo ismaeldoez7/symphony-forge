@@ -5,7 +5,7 @@ import itertools
 import json
 import os
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
 RUNTIMES = ("claude", "codex")
@@ -35,6 +35,7 @@ def coordinator_runtime() -> str:
 
 def native_argv(
         executable: str, base: Path, model: str, effort: str, write: bool,
+        write_scope: list[str] | None = None,
 ) -> list[str]:
     """Build the complete shell-free native invocation used as launch evidence."""
     argv = [
@@ -54,11 +55,36 @@ def native_argv(
         "--sandbox",
         "workspace-write" if write else "read-only",
     ]
+    grants = []
+    root = base.resolve()
+    if write:
+        for entry in write_scope or []:
+            rel = PurePosixPath(entry)
+            path = base.joinpath(*rel.parts)
+            try:
+                exact_file = (
+                    not path.is_dir()
+                    and path.resolve(strict=False) == root.joinpath(*rel.parts)
+                )
+            except (OSError, RuntimeError):
+                exact_file = False
+            if (
+                entry == rel.as_posix()
+                and not entry.endswith("/")
+                and not rel.is_absolute()
+                and len(rel.parts) > 1
+                and rel.parts[0] == ".codex"
+                and ".." not in rel.parts
+                and exact_file
+            ):
+                grants.append(entry)
+    for path in sorted(grants):
+        argv.extend(("--add-dir", path))
     argv.append("-")
     return argv
 
 
-def native_argv_valid(entry: dict, base: Path) -> bool:
+def native_argv_valid(entry: dict, base: Path, write_scope: list[str]) -> bool:
     executable = entry.get("executable_path")
     argv = entry.get("argv")
     if not isinstance(executable, str) or not executable:
@@ -71,15 +97,26 @@ def native_argv_valid(entry: dict, base: Path) -> bool:
         str(entry.get("model") or ""),
         str(entry.get("effort") or ""),
         entry.get("write") is True,
+        write_scope,
     )
+    legacy = native_argv(
+        executable,
+        base,
+        str(entry.get("model") or ""),
+        str(entry.get("effort") or ""),
+        entry.get("write") is True,
+        [],
+    )
+    terminal = entry.get("launch_status") in {"failed", "succeeded"}
     resume_session = entry.get("resume_session")
     if resume_session in (None, ""):
-        return argv == expected
+        return argv == expected or (terminal and argv == legacy)
     if not isinstance(resume_session, str):
         return False
     # Historical completed rows may carry the removed continuation shape. They
     # remain readable, while new launches cannot construct that argv.
-    return (argv[:-3] == expected[:-1]
+    return (terminal
+            and argv[:-3] in (expected[:-1], legacy[:-1])
             and argv[-3:] == ["resume", resume_session, "-"])
 
 

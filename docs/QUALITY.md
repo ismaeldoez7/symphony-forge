@@ -77,7 +77,7 @@ them to arbitrate something already settled.
   records the artifact; autoreview's quality lens checks coverage honestly
 
 ### functional-checker (conditional)
-- model: `gpt-5.5`, reasoning `high`, `workspace-write` when tooling needs
+- model: `gpt-5.6-sol`, reasoning `high`, `workspace-write` when tooling needs
   artifacts, otherwise `read-only`
 - contract: `factory/prompts/tester-functional.md` +
   `factory/schemas/test-functional.json` (`generated_by: functional-checker`)

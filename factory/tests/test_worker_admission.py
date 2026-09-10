@@ -35,13 +35,16 @@ def _control(repo: Path) -> Path:
 
 
 def _hook(repo: Path, payload: dict, env: dict[str, str] | None = None) -> str:
+    child_env = {key: value for key, value in os.environ.items()
+                 if key not in {"FORGE_PROCESS_TOKEN", "FORGE_LAUNCH_ID"}}
+    child_env.update(env or {})
     proc = subprocess.run(
         [sys.executable, str(repo / "factory/scripts/pre_tool_use.py")],
         cwd=repo,
         input=json.dumps(payload),
         capture_output=True,
         text=True,
-        env={**os.environ, **(env or {})},
+        env=child_env,
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
     return proc.stdout
@@ -253,13 +256,19 @@ def test_known_native_launch_reads_delegation_ledger_once(tmp_path, monkeypatch)
         admission, "_stage_contract",
         lambda *_a: ({"kind": "stage", "scope": ["src/"]}, ""),
     )
-    monkeypatch.setattr(codex_runtime, "native_argv_valid", lambda *_a: True)
+    native_validations = []
+    monkeypatch.setattr(
+        codex_runtime,
+        "native_argv_valid",
+        lambda *args: native_validations.append(args) or True,
+    )
 
     grant, reason = admission.live_worker_admission(tmp_path)
 
     assert grant == {"kind": "stage", "scope": ["src/"]}
     assert reason == ""
     assert calls == [tmp_path]
+    assert native_validations == [(rows[-1], tmp_path, ["src/"])]
 
 
 def test_native_worker_patch_add_update_delete_and_move_is_admitted(repo, tmp_path):
@@ -479,14 +488,47 @@ def test_contract_mutation_and_out_of_scope_move_are_denied(repo, tmp_path):
     assert "deny" in output and "contract changed" in output
 
 
-def test_stage_restart_invalidates_running_worker(repo, tmp_path):
+def test_midstage_task_amendment_requires_a_fresh_launch_without_rebaseline(
+        repo, tmp_path):
+    brief, started_digest = _seed_contract(repo)
+    stage_path = _control(repo) / "stages.json"
+    original_stage = stage_path.read_bytes()
+    proc, token, launch_id = _start_worker(
+        repo, tmp_path, launch_id="launch-before-amendment")
+    _record_launch(repo, proc, token, launch_id, brief, started_digest)
+
+    amended = {
+        **TASK,
+        "acceptance_criteria": ["The amended contract remains writable."],
+    }
+    amended_digest = task_digest(amended)
+    (_control(repo) / "decomposition.json").write_text(
+        json.dumps({"tasks": [amended]}), encoding="utf-8",
+    )
+    stale = _invoke_worker(proc, _patch("*** Add File: src/stale.py", "+stale"))
+    assert "deny" in stale and "contract changed" in stale
+
+    proc, token, launch_id = _start_worker(
+        repo, tmp_path, launch_id="launch-after-amendment")
+    _record_launch(repo, proc, token, launch_id, brief, amended_digest)
+    current = _invoke_worker(proc, _patch("*** Add File: src/current.py", "+current"))
+    assert "deny" not in current, current
+    assert stage_path.read_bytes() == original_stage
+
+
+@pytest.mark.parametrize(("status", "started_at"), [
+    ("done", "stage-1"),
+    ("active", "stage-2"),
+])
+def test_stage_closure_or_restart_invalidates_running_worker(
+        repo, tmp_path, status, started_at):
     brief, digest = _seed_contract(repo)
     proc, token, launch_id = _start_worker(repo, tmp_path)
     _record_launch(repo, proc, token, launch_id, brief, digest)
     (_control(repo) / "stages.json").write_text(json.dumps({
         "issue": "STORY-1",
         "stages": [{
-            "id": "T1", "status": "active", "started_at": "stage-2",
+            "id": "T1", "status": status, "started_at": started_at,
             "task_sha256": digest,
         }],
     }), encoding="utf-8")

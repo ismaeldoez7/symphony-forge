@@ -8465,7 +8465,7 @@ def test_forge_fix_refuses_without_lite_window(repo):
     assert code != 0 and "open lite window" in out.lower(), out
 
 
-def test_forge_fix_records_terra_high_write_delegation(repo, tmp_path):
+def test_forge_fix_records_luna_max_write_delegation(repo, tmp_path):
     code, out = run(repo, "forge.py", "mode", "lite",
                     "--by", "Ada", "--reason", "bounded delivery")
     assert code == 0, out
@@ -8497,8 +8497,8 @@ def test_forge_fix_records_terra_high_write_delegation(repo, tmp_path):
     entry = rows[-1]
     assert entry["launch_status"] == "succeeded"
     assert entry["task"] == window["id"]
-    assert entry["model"] == "gpt-5.6-terra"
-    assert entry["effort"] == "high"
+    assert entry["model"] == "gpt-5.6-luna"
+    assert entry["effort"] == "max"
     assert entry["write"] is True
     assert entry["mode"] == "lite"
     active = json.loads((repo / ".factory" / "quickfix.json").read_text())
@@ -8516,7 +8516,7 @@ def test_modes_lite_pins_parse_and_dual_runtime_green(repo):
     sys.path.insert(0, str(repo / "factory" / "scripts"))
     try:
         from forge_cli.delegate import mode_run_config
-        assert mode_run_config(repo, "lite") == ("gpt-5.6-terra", "high", 5)
+        assert mode_run_config(repo, "lite") == ("gpt-5.6-luna", "max", 5)
     finally:
         sys.path.pop(0)
 
@@ -18331,6 +18331,94 @@ def test_review_preflight_refuses_other_task_or_story_proof(repo, tmp_path):
     code, out = run(repo, "forge.py", "review", "T1", "--repo", str(repo))
     assert code != 0 and "verify.json is not recorded for task T1" in out
 
+
+def test_review_codex_helper_policy_refuses_fallback_before_launch(
+        repo, tmp_path, monkeypatch, capsys):
+    import forge_cli.review as review_mod
+
+    safe = tmp_path / "autoreview"
+    safe.write_text("safe helper\n")
+    monkeypatch.delenv("AUTOREVIEW", raising=False)
+    monkeypatch.setattr(review_mod, "DEFAULT_SKILL", safe)
+    review_mod._require_safe_codex_review_helper(review_mod.resolve_skill(None))
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("unsafe helper reached the review ledger or process launch")
+
+    unsafe = tmp_path / "old-autoreview"
+    unsafe.write_text(
+        'DEFAULT_CODEX_ACCESS_FALLBACK_MODEL = "gpt-5.6-terra"\n'
+    )
+    _native_review_fixture(repo, tmp_path)
+    _write_complete_automated(repo)
+    monkeypatch.setattr(review_mod, "_record_codex_run", forbidden)
+    monkeypatch.setattr(review_mod.subprocess, "Popen", forbidden)
+    monkeypatch.setattr(review_mod, "cmd_review_brief", forbidden)
+    monkeypatch.setattr(review_mod, "_product_dirty", lambda _base: [])
+    monkeypatch.setattr(review_mod, "resolve_review_base", lambda *_args: "base")
+    monkeypatch.setattr(review_mod, "review_excluded_prefixes", lambda _base: ())
+    monkeypatch.setattr(review_mod, "_require_git",
+                        lambda _base, _what, *args: "tip" if args[0] == "rev-parse"
+                        else "src/app.py")
+    with pytest.raises(SystemExit) as error:
+        review_mod.cmd_review(argparse.Namespace(
+            id="T1", reject=None, lens=None, repo=str(repo), skill=str(unsafe),
+            engine="codex", max_priority="P1",
+        ))
+    assert error.value.code == 1
+    assert "Update the selected autoreview helper" in capsys.readouterr().out
+
+    selected = review_mod.resolve_skill(str(safe))
+    selected.unlink()
+    with pytest.raises(SystemExit) as error:
+        review_mod._require_safe_codex_review_helper(selected)
+    assert error.value.code == 1
+    assert "could not read" in capsys.readouterr().out
+
+
+def test_review_codex_engine_pins_sol_high(tmp_path, monkeypatch):
+    import forge_cli.review as review_mod
+
+    calls = []
+
+    class Process:
+        pid = 7
+        returncode = 0
+
+        def wait(self):
+            return 0
+
+    def popen(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return Process()
+
+    monkeypatch.setattr(review_mod, "_record_codex_run", lambda *_args: "run")
+    monkeypatch.setattr(review_mod, "_stamp_codex_run", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(review_mod, "_close_codex_run", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(review_mod.subprocess, "Popen", popen)
+    report = tmp_path / "report.json"
+    report.write_text("{}")
+
+    review_mod._run_skill(
+        tmp_path / "helper", tmp_path, "base", "prompt", report,
+        "codex", "P1",
+    )
+    assert calls[-1][0] == [
+        sys.executable, str(tmp_path / "helper"), "--mode", "branch", "--base", "base",
+        "--engine", "codex", "--max-priority", "P1", "--prompt-file", "prompt",
+        "--json-output", str(report), "--model", "gpt-5.6-sol", "--thinking", "high",
+    ]
+
+    review_mod._run_skill(
+        tmp_path / "helper", tmp_path, "base", "prompt", report,
+        "claude", "P1",
+    )
+    assert calls[-1][0] == [
+        sys.executable, str(tmp_path / "helper"), "--mode", "branch", "--base", "base",
+        "--engine", "claude", "--max-priority", "P1", "--prompt-file", "prompt",
+        "--json-output", str(report),
+    ]
+
 def test_native_unshipped_operations_refuse_before_dispatch(
         repo, tmp_path, monkeypatch, capsys):
     import forge as cli
@@ -18616,7 +18704,8 @@ def test_task_proof_ci_seal_and_later_mutation(repo, tmp_path):
     assert check_task_proof.proof_problems(repo, "ENG-1", "T1")
 
 
-def test_task_proof_allows_mixed_product_and_metadata_commits(repo, tmp_path):
+def test_task_proof_allows_mixed_product_and_metadata_commits(
+        repo, tmp_path, monkeypatch):
     marker = prepare_task_pr_ready(repo, tmp_path)
     base = json.loads(
         (delegation_ledger(repo).parent / "run.json").read_text()
@@ -18684,7 +18773,17 @@ def test_task_proof_allows_mixed_product_and_metadata_commits(repo, tmp_path):
         )["tasks"] if item.get("id") == "T1"
     )
     assert not check_task_proof.proof_problems(repo, "ENG-1", "T1")
+    digest_calls = []
+    product_digest = lib.product_tree_digest
+
+    def counted_product_digest(root, treeish="", exclude=(".factory/", "plans/")):
+        digest_calls.append(treeish)
+        return product_digest(root, treeish, exclude)
+
+    monkeypatch.setattr(lib, "product_tree_digest", counted_product_digest)
     assert not lib.task_proof_problems(repo, "ENG-1", task)
+    assert len(digest_calls) == 3
+    assert set(digest_calls) == {seal, product_commit, metadata_commit}
 
     # CI proof stays pinned to the committed marker and HEAD artifacts even
     # when the checkout's branch, run pointer, and review brief are tampered
@@ -19334,6 +19433,45 @@ def _copy_harness_source(tmp_path: Path) -> Path:
         else:
             shutil.copy2(src, dst)
     return source
+
+
+def test_project_agents_init_upgrade_and_preserve_client_additions(
+    tmp_path: Path, monkeypatch,
+):
+    from forge_cli import upgrade
+    from forge_cli.scaffold import INIT_COPY_TREES
+
+    assert ".codex/agents" in INIT_COPY_TREES
+    source = _copy_harness_source(tmp_path)
+    source_agents = {
+        path.name: path.read_bytes()
+        for path in (source / ".codex" / "agents").glob("*.toml")
+    }
+    assert len(source_agents) == 15
+
+    target = tmp_path / "app"
+    initialized = _init(target)
+    assert initialized.returncode == 0, initialized.stdout + initialized.stderr
+    assert {
+        path.name: path.read_bytes()
+        for path in (target / ".codex" / "agents").glob("*.toml")
+    } == source_agents
+
+    shipped = target / ".codex" / "agents" / sorted(source_agents)[0]
+    shipped.write_text("stale harness-owned config\n", encoding="utf-8")
+    custom = target / ".codex" / "agents" / "client-custom.toml"
+    custom.write_text("name = \"client-custom\"\n", encoding="utf-8")
+    git(target, "add", "-A")
+    git(target, "commit", "-q", "-m", "client agent additions and drift")
+
+    monkeypatch.setattr(upgrade, "repo_root", lambda: source)
+    upgrade.cmd_upgrade(argparse.Namespace(target=str(target), force=False))
+
+    assert {
+        name: (target / ".codex" / "agents" / name).read_bytes()
+        for name in source_agents
+    } == source_agents
+    assert custom.read_text(encoding="utf-8") == 'name = "client-custom"\n'
 
 
 def test_init_into_nonempty_noncolliding_target(tmp_path: Path):

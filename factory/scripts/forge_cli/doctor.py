@@ -21,13 +21,16 @@ import threading
 import time
 import urllib.request
 import uuid
+from contextlib import redirect_stdout
 from datetime import datetime, timezone
+from io import StringIO
 from pathlib import Path
 
 from factory_lib import decomposition_state_path, load_json, parse_sections, repo_root
 from record_signoff import REQUIRED_BRIEF_HEADINGS
 
 from .common import run_quiet
+from .delegate import companion_script
 from .specs import missing_required_content, parse_frontmatter
 
 DIRENV_VERSION = "2.37.1"
@@ -472,6 +475,87 @@ def hook_health_checks(base: Path, *, env: dict[str, str] | None = None) -> list
 # where things live, or the session banner and full doctor drift apart.
 def _codex_plugin_dir(home: Path) -> Path:
     return home / ".claude" / "plugins" / "cache" / "openai-codex" / "codex"
+
+
+_CODEX_PLUGIN_MAX_VERSION = "1.0.6"
+_CODEX_PLUGIN_MAX_PATCHES = {
+    "scripts/codex-companion.mjs": (
+        "5afe33b09f7441aaf69a4d6cc31381d5e856582d1b2e6b5f3f7178055d787ed9",
+        "4911d504e2817d3672b97164d4b5884c28f8367e2a695bc3e27f3d20253fa99f",
+        (
+            (b'"high", "xhigh"]);', b'"high", "xhigh", "max"]);'),
+            (b'low|medium|high|xhigh>] [prompt]",',
+             b'low|medium|high|xhigh|max>] [prompt]",'),
+            (b'low, medium, high, xhigh.`',
+             b'low, medium, high, xhigh, max.`'),
+        ),
+    ),
+    "commands/rescue.md": (
+        "089207554cc3d34907916fbbf34b1954b1f5f1f3178e72dcbfb7ebd2d61d4e1e",
+        "6e144e36f9d2c90592925093c19af8123b3d32f616f51e5f0db99ce2df0e2940",
+        ((b'low|medium|high|xhigh>] [what Codex',
+          b'low|medium|high|xhigh|max>] [what Codex'),),
+    ),
+    "skills/codex-cli-runtime/SKILL.md": (
+        "cce11c3bd6d7b5ec6277b3527e65ff38c5bd16084b436bf2870fabb30414359c",
+        "2845f942ab7555ad6028ab0280140068644947b419b64d6c05eb3f9e775ff42a",
+        ((b'`medium`, `high`, `xhigh`.',
+          b'`medium`, `high`, `xhigh`, `max`.'),),
+    ),
+}
+
+
+def _codex_plugin_max_status(home: Path, *, fix: bool) -> tuple[bool, str]:
+    """Verify or repair the exact official plugin source that lacks max."""
+    try:
+        with redirect_stdout(StringIO()):
+            companion = companion_script(home)
+    except SystemExit:
+        return False, "installation metadata is missing, malformed, or ambiguous"
+
+    root = companion.parent.parent
+    expected_root = _codex_plugin_dir(home) / _CODEX_PLUGIN_MAX_VERSION
+    if root != expected_root.resolve():
+        return False, f"unsupported install path: {root}"
+    try:
+        manifest = json.loads(
+            (root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError):
+        return False, "plugin manifest is missing or malformed"
+    if not isinstance(manifest, dict):
+        return False, "plugin manifest is missing or malformed"
+    if manifest.get("version") != _CODEX_PLUGIN_MAX_VERSION:
+        return False, f"unsupported plugin version: {manifest.get('version', 'unknown')}"
+
+    replacements: dict[Path, bytes] = {}
+    for relative, (source_hash, target_hash, edits) in _CODEX_PLUGIN_MAX_PATCHES.items():
+        path = root / relative
+        try:
+            content = path.read_bytes()
+        except OSError:
+            return False, f"required plugin source is missing: {relative}"
+        digest = hashlib.sha256(content).hexdigest()
+        if digest == target_hash:
+            continue
+        if digest != source_hash:
+            return False, f"plugin source has unrecognized local edits: {relative}"
+        updated = content
+        for old, new in edits:
+            if updated.count(old) != 1:
+                return False, f"official plugin source did not match: {relative}"
+            updated = updated.replace(old, new)
+        if hashlib.sha256(updated).hexdigest() != target_hash:
+            return False, f"plugin repair did not produce the expected source: {relative}"
+        replacements[path] = updated
+
+    if not replacements:
+        return True, f"{root} (max reasoning enabled)"
+    if not fix:
+        return False, "official plugin source lacks max reasoning; rerun with --fix"
+    for path, updated in replacements.items():
+        path.write_bytes(updated)
+    return True, f"{root} (enabled max reasoning)"
 
 
 def _gstack_dir(home: Path) -> Path:
@@ -1759,6 +1843,16 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         "`claude plugin marketplace add https://github.com/openai/codex-plugin-cc && "
         "claude plugin install codex@openai-codex` — or rerun with --fix "
         "(leave the review gate disabled)",
+    ))
+
+    plugin_max_ok, plugin_max_detail = _codex_plugin_max_status(
+        home, fix=args.fix,
+    ) if plugin.is_dir() else (False, "not installed")
+    checks.append(_check(
+        "codex-plugin-cc max reasoning",
+        plugin_max_ok,
+        plugin_max_detail,
+        "rerun with --fix; only exact official openai-codex 1.0.6 source is repairable",
     ))
 
     # Required skills

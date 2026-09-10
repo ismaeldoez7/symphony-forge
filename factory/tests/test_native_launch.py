@@ -105,7 +105,7 @@ def test_native_argv_binds_policy_without_resume_dispatch(tmp_path):
         "executable_path": "/bin/codex", "argv": argv,
         "model": "model", "effort": "high", "write": False,
     }
-    assert native_argv_valid(entry, tmp_path)
+    assert native_argv_valid(entry, tmp_path, [])
     assert argv[-1] == "-"
     assert argv[argv.index("--enable") + 1] == "hooks"
     assert argv[argv.index("--sandbox") + 1] == "read-only"
@@ -119,8 +119,65 @@ def test_native_argv_binds_policy_without_resume_dispatch(tmp_path):
         **entry,
         "argv": [*argv[:-1], "resume", "thread-1", "-"],
         "resume_session": "thread-1",
+        "launch_status": "succeeded",
     }
-    assert native_argv_valid(historical, tmp_path)
+    assert native_argv_valid(historical, tmp_path, [])
+    assert not native_argv_valid(
+        {**historical, "launch_status": "running"}, tmp_path, [])
+
+
+def test_native_write_argv_grants_only_exact_codex_scope_files(tmp_path):
+    (tmp_path / ".codex/agents").mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (tmp_path / ".codex/link").symlink_to(outside, target_is_directory=True)
+    scope = [
+        ".codex/hooks.json",
+        ".codex/agents/new.toml",
+        ".codex/",
+        ".codex/agents/",
+        ".codex/../outside.toml",
+        "src/",
+        ".codex/config.toml",
+        ".codex/link/escape.toml",
+    ]
+    argv = native_argv(
+        "/bin/codex", tmp_path, "model", "high", True, scope)
+    entry = {
+        "executable_path": "/bin/codex", "argv": argv,
+        "model": "model", "effort": "high", "write": True,
+    }
+    grants = [
+        argv[index + 1] for index, token in enumerate(argv)
+        if token == "--add-dir"
+    ]
+    assert grants == [
+        ".codex/agents/new.toml",
+        ".codex/config.toml",
+        ".codex/hooks.json",
+    ]
+    assert argv[-1] == "-"
+    assert native_argv_valid(entry, tmp_path, scope)
+    assert not native_argv_valid(entry, tmp_path, [])
+    legacy = native_argv(
+        "/bin/codex", tmp_path, "model", "high", True, [])
+    plain_historical = {
+        **entry, "argv": legacy, "launch_status": "succeeded",
+    }
+    assert native_argv_valid(plain_historical, tmp_path, scope)
+    assert not native_argv_valid(
+        {**plain_historical, "launch_status": "running"}, tmp_path, scope)
+    historical = {
+        **entry,
+        "argv": [*legacy[:-1], "resume", "thread-1", "-"],
+        "resume_session": "thread-1",
+        "launch_status": "succeeded",
+    }
+    assert native_argv_valid(historical, tmp_path, scope)
+    assert not native_argv_valid(
+        {**historical, "launch_status": "running"}, tmp_path, scope)
+    assert "--add-dir" not in native_argv(
+        "/bin/codex", tmp_path, "model", "high", False, scope)
 
 
 def test_native_launch_registers_before_stdin_and_records_terminal_identity(
@@ -287,7 +344,7 @@ def test_native_identity_survives_only_a_truncated_jsonl_tail(tmp_path):
 
 def test_stage_launch_gate_requires_exact_native_terminal_stream(
         native_repo, tmp_path):
-    task = {"id": "T1", "write_scope": ["src/"]}
+    task = {"id": "T1", "write_scope": [".codex/hooks.json"]}
     stage = {"started_at": "2026-01-01T00:00:00Z"}
     launch_id = "launch-stage-fixture"
     brief = native_repo / ".factory" / "briefs" / "T1.md"
@@ -305,7 +362,10 @@ def test_stage_launch_gate_requires_exact_native_terminal_stream(
         '{"type":"turn.completed"}\n'
     )
     stderr.write_text("")
-    argv = native_argv("/bin/codex", native_repo, "model", "medium", True)
+    argv = native_argv(
+        "/bin/codex", native_repo, "model", "medium", True,
+        task["write_scope"],
+    )
     record = {
         "generated_by": "orchestrator", "at": stage["started_at"],
         "launch_id": launch_id, "task": "T1",

@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
+import tomllib
 
 import pytest
 
@@ -138,6 +140,137 @@ def test_codex_hook_readiness_accepts_only_identical_inherited_worktree_hooks(
     assert not ok and "inherited divergent hooks" in detail
 
 
+def test_doctor_repairs_only_exact_plugin_max_source(tmp_path, monkeypatch):
+    from forge_cli import doctor
+
+    root = (tmp_path / ".claude" / "plugins" / "cache" / "openai-codex" /
+            "codex" / "1.0.6")
+    companion = root / "scripts" / "codex-companion.mjs"
+    sources = {
+        "scripts/codex-companion.mjs": b"companion before",
+        "commands/rescue.md": b"rescue before",
+        "skills/codex-cli-runtime/SKILL.md": b"skill before",
+    }
+    targets = {relative: content.replace(b"before", b"after")
+               for relative, content in sources.items()}
+    patches = {
+        relative: (
+            hashlib.sha256(sources[relative]).hexdigest(),
+            hashlib.sha256(targets[relative]).hexdigest(),
+            ((b"before", b"after"),),
+        )
+        for relative in sources
+    }
+    monkeypatch.setattr(doctor, "_CODEX_PLUGIN_MAX_PATCHES", patches)
+    monkeypatch.setattr(doctor, "companion_script", lambda _home: companion)
+
+    def install(values=sources, *, version="1.0.6"):
+        for relative, content in values.items():
+            path = root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+        manifest = root / ".claude-plugin" / "plugin.json"
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(json.dumps({"version": version}), encoding="utf-8")
+
+    def snapshot():
+        return {relative: (root / relative).read_bytes() for relative in sources}
+
+    install()
+    before = snapshot()
+    ok, detail = doctor._codex_plugin_max_status(tmp_path, fix=False)
+    assert not ok and "rerun with --fix" in detail
+    assert snapshot() == before
+
+    assert doctor._codex_plugin_max_status(tmp_path, fix=True)[0]
+    assert snapshot() == targets
+    assert doctor._codex_plugin_max_status(tmp_path, fix=True)[0]
+    assert snapshot() == targets
+
+    mixed = dict(targets)
+    mixed["commands/rescue.md"] = sources["commands/rescue.md"]
+    install(mixed)
+    before = snapshot()
+    assert not doctor._codex_plugin_max_status(tmp_path, fix=False)[0]
+    assert snapshot() == before
+    assert doctor._codex_plugin_max_status(tmp_path, fix=True)[0]
+    assert snapshot() == targets
+
+    for relative in sources:
+        install()
+        (root / relative).write_bytes(b"local edit")
+        before = snapshot()
+        assert not doctor._codex_plugin_max_status(tmp_path, fix=True)[0]
+        assert snapshot() == before
+
+    install()
+    missing = root / "commands" / "rescue.md"
+    missing.unlink()
+    before = {relative: (root / relative).read_bytes()
+              for relative in sources if relative != "commands/rescue.md"}
+    assert not doctor._codex_plugin_max_status(tmp_path, fix=True)[0]
+    assert before == {relative: (root / relative).read_bytes()
+                      for relative in before}
+
+    install(version="1.0.7")
+    before = snapshot()
+    assert not doctor._codex_plugin_max_status(tmp_path, fix=True)[0]
+    assert snapshot() == before
+
+    install()
+    outside = tmp_path / "other" / "1.0.6" / "scripts" / companion.name
+    monkeypatch.setattr(doctor, "companion_script", lambda _home: outside)
+    before = snapshot()
+    assert not doctor._codex_plugin_max_status(tmp_path, fix=True)[0]
+    assert snapshot() == before
+
+
+def test_model_policy_selects_sol_work_and_luna_lite():
+    from forge_cli.delegate import mode_run_config, pinned_run_config
+    from forge_cli.review import CODEX_REVIEW_MODEL, CODEX_REVIEW_THINKING
+
+    config = tomllib.loads(
+        (HARNESS / ".codex" / "config.toml").read_text(encoding="utf-8"))
+    explore = tomllib.loads(
+        (HARNESS / ".codex" / "explore.config.toml").read_text(encoding="utf-8"))
+    roles = {
+        name: tomllib.loads(
+            (HARNESS / ".codex" / row["config_file"]).read_text(encoding="utf-8"))
+        for name, row in config["agents"].items()
+        if isinstance(row, dict) and "config_file" in row
+    }
+    lanes = {
+        lane: {
+            name for name, row in roles.items()
+            if (row["model"], row["model_reasoning_effort"]) == lane
+        }
+        for lane in {
+            (row["model"], row["model_reasoning_effort"])
+            for row in roles.values()
+        }
+    }
+
+    assert lanes == {
+        ("gpt-5.6-sol", "low"): {"explorer"},
+        ("gpt-5.6-sol", "medium"): {
+            "backend", "debugger", "frontend", "refactorer", "tester",
+        },
+        ("gpt-5.6-sol", "high"): {
+            "architect", "docs-decomposer", "functional-checker", "griller",
+            "performance", "planner", "planner-high", "security",
+        },
+        ("gpt-5.6-luna", "max"): {"lite"},
+    }
+    assert pinned_run_config(HARNESS) == ("gpt-5.6-sol", "medium")
+    assert config["plan_mode_reasoning_effort"] == "high"
+    assert (explore["model"], explore["model_reasoning_effort"]) == (
+        "gpt-5.6-sol", "low")
+    assert mode_run_config(HARNESS, "grill")[:2] == ("gpt-5.6-sol", "high")
+    assert mode_run_config(HARNESS, "lite")[:2] == ("gpt-5.6-luna", "max")
+    assert (CODEX_REVIEW_MODEL, CODEX_REVIEW_THINKING) == (
+        "gpt-5.6-sol", "high")
+
+
 SESSION_START_ADAPTERS = (".codex/hooks.json", ".claude/settings.json")
 SESSION_START_SOURCES = ("startup", "resume", "clear", "compact")
 
@@ -182,4 +315,3 @@ def test_dual_runtime_checker_rejects_session_start_omission_in_both_adapters(
 
     assert code != 0
     assert out.count(f"missing: {missing}") == 2
-

@@ -48,6 +48,11 @@ VERDICT_LINE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 DEFAULT_SKILL = Path.home() / ".codex" / "skills" / "autoreview" / "scripts" / "autoreview"
+CODEX_REVIEW_MODEL = "gpt-5.6-sol"
+CODEX_REVIEW_THINKING = "high"
+CODEX_HELPER_FIX = (
+    "Update the selected autoreview helper to a version without Codex Terra fallback"
+)
 
 COMMON_PREAMBLE = """\
 You are one lens of a three-lens code review. You see ONLY the diff bundle for
@@ -121,6 +126,16 @@ def resolve_skill(explicit: str | None) -> Path:
     fail("autoreview skill not found: install it under ~/.codex/skills/autoreview "
          "or set AUTOREVIEW to its scripts/autoreview path")
     raise AssertionError("unreachable")
+
+
+def _require_safe_codex_review_helper(skill: Path) -> None:
+    try:
+        source = skill.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        fail(f"{CODEX_HELPER_FIX}: could not read {skill}")
+    if ("DEFAULT_CODEX_ACCESS_FALLBACK_MODEL" in source
+            or "gpt-5.6-terra" in source):
+        fail(CODEX_HELPER_FIX)
 
 
 def review_excluded_prefixes(base: Path) -> tuple[str, ...]:
@@ -477,6 +492,10 @@ def _run_skill(skill: Path, worktree: Path, base_sha: str, prompt_rel: str,
         "--engine", engine, "--max-priority", max_priority,
         "--prompt-file", prompt_rel, "--json-output", str(json_out),
     ]
+    if engine == "codex":
+        argv.extend([
+            "--model", CODEX_REVIEW_MODEL, "--thinking", CODEX_REVIEW_THINKING,
+        ])
     # Inherit stdio: the skill's heartbeat ("review still running ...") and any
     # streamed engine output are how the coordinator WATCHES this Codex release.
     #
@@ -783,6 +802,11 @@ def cmd_review(args: argparse.Namespace) -> None:
     if not scope:
         fail(f"no product paths changed between {base_sha[:12]} and HEAD — nothing to review")
 
+    skill = resolve_skill(getattr(args, "skill", None))
+    engine = getattr(args, "engine", "codex")
+    if engine == "codex":
+        _require_safe_codex_review_helper(skill)
+
     # Mint the branch review run the recorder binds every artifact to.
     cmd_review_brief(argparse.Namespace(id=None, all=True, repo=str(base)))
 
@@ -793,7 +817,6 @@ def cmd_review(args: argparse.Namespace) -> None:
         schema = json.loads(schema_path(base, "review").read_text(encoding="utf-8"))
         skills_used = list((schema.get("required_skills") or {}).get("user_facing", []))
 
-    skill = resolve_skill(getattr(args, "skill", None))
     lenses = [args.lens] if getattr(args, "lens", None) else list(LENSES)
     prompts: dict[str, tuple[str, bytes]] = {}
     for lens in lenses:
@@ -825,7 +848,7 @@ def cmd_review(args: argparse.Namespace) -> None:
                   "watch the heartbeat below ==", flush=True)
             reports[lens] = _run_skill(
                 skill, worktree, base_sha, prompts[lens][0], tmp / f"{lens}.json",
-                args.engine, args.max_priority,
+                engine, args.max_priority,
             )
     finally:
         _git(base, "worktree", "remove", "--force", str(worktree))

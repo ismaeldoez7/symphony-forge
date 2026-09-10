@@ -153,11 +153,13 @@ def _stage_contract(base: Path, record: dict) -> tuple[dict | None, str]:
     stages = load_stages(base)
     stage = next((item for item in stages.get("stages", [])
                   if isinstance(item, dict) and item.get("id") == task_id), None)
+    # The stage digest is its immutable start baseline and can differ after a
+    # supported mid-stage amendment. The current task check above binds this
+    # launch to the amended contract; started_at still binds its incarnation.
     if (
         stage is None
         or stage.get("status") != "active"
         or stage.get("started_at") != record.get("stage_started_at")
-        or stage.get("task_sha256") != record.get("task_sha256")
     ):
         return _deny("the bound task stage is no longer the active stage")
     run = load_json(run_state_path(base), default={})
@@ -210,14 +212,6 @@ def live_worker_admission(base: Path) -> tuple[dict | None, str]:
         return _deny("the protected launch argv digest is invalid")
     if record.get("transport") == "native" and not os.environ.get("FORGE_LAUNCH_ID"):
         return _deny("native workers require FORGE_LAUNCH_ID")
-    if record.get("transport") == "native":
-        try:
-            from .codex_runtime import native_argv_valid
-            native_shape_valid = native_argv_valid(record, base)
-        except (ImportError, OSError, TypeError, ValueError):
-            native_shape_valid = False
-        if not native_shape_valid:
-            return _deny("the protected native argv is invalid")
     if record.get("process_token") != token or record.get("write") is not True:
         return _deny("the environment does not match a protected write launch")
     pid, identity = record.get("pid"), record.get("pid_started")
@@ -262,6 +256,15 @@ def live_worker_admission(base: Path) -> tuple[dict | None, str]:
             return _deny("the native brief path cannot be resolved")
     contract, reason = (_lite_contract(base, record) if record.get("mode") == LITE
                         else _stage_contract(base, record))
+    if record.get("transport") == "native" and contract:
+        try:
+            from .codex_runtime import native_argv_valid
+            native_shape_valid = native_argv_valid(
+                record, base, contract.get("scope") or [])
+        except (ImportError, OSError, TypeError, ValueError):
+            native_shape_valid = False
+        if not native_shape_valid:
+            return _deny("the protected native argv is invalid")
     if worker_admission_revoked(base, launch_id):
         return _deny("the protected launch authority was revoked")
     return contract, reason

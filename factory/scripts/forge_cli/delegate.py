@@ -1105,6 +1105,7 @@ def argv_digest(argv: list[str]) -> str:
 def launch_companion(
         base: Path, *, task_id: str, text: str, path: Path,
         task_sha256_value: str, model: str, effort: str, write: bool,
+        write_scope: list[str] | None = None,
         story: str = "", background: bool = False, print_only: bool = False,
         stage_started_at: str = "", mode: str = "") -> dict | None:
     """Write a brief and run the selected protected launch lifecycle."""
@@ -1139,7 +1140,7 @@ def launch_companion(
             fail("codex is required for native delegation — run `./forge doctor --fix`")
         executable = str(Path(executable).resolve())
         argv = native_argv(
-            executable, base, model, effort, write,
+            executable, base, model, effort, write, write_scope,
         )
         logs = delegations_path(base).parent / "native-runs"
         logs.mkdir(parents=True, exist_ok=True)
@@ -1470,6 +1471,7 @@ def cmd_delegate(args: argparse.Namespace) -> None:
         model=model,
         effort=effort,
         write=write,
+        write_scope=scope,
         story=story,
         background=args.background,
         print_only=args.print_only,

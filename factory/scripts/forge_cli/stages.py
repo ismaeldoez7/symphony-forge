@@ -1391,7 +1391,7 @@ def _require_successful_launch(base: Path, stage_id: str, stage: dict,
         except ValueError:
             session_id = ""
         argv_valid = (
-            native_argv_valid(entry, base)
+            native_argv_valid(entry, base, task.get("write_scope") or [])
             and entry.get("write") is True
             and not entry.get("resume_session")
             and entry.get("brief_path") == brief.relative_to(base).as_posix()

@@ -1517,12 +1517,14 @@ def _proof_commit_problems(
     """Keep recorder stamps current, or inside one verified historical seal."""
     problems: list[str] = []
     seal_digest = ""
+    product_digests: dict[str, str] = {}
     if base and seal and compare_product:
         from forge_cli.stages import workflow_prefixes
 
         seal_digest = product_tree_digest(
             root, seal, exclude=workflow_prefixes(root),
         )
+        product_digests[seal] = seal_digest
     checked: set[tuple[str, str]] = set()
     for label, record in records:
         if not isinstance(record, dict):
@@ -1558,9 +1560,12 @@ def _proof_commit_problems(
         if compare_product:
             from forge_cli.stages import workflow_prefixes
 
-            if product_tree_digest(
-                root, str(commit), exclude=workflow_prefixes(root),
-            ) != seal_digest:
+            commit_key = str(commit)
+            if commit_key not in product_digests:
+                product_digests[commit_key] = product_tree_digest(
+                    root, commit_key, exclude=workflow_prefixes(root),
+                )
+            if product_digests[commit_key] != seal_digest:
                 problems.append(
                     f"{task_id}: product content changed after {label} proof was recorded"
                 )
