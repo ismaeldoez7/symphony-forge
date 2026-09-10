@@ -17,13 +17,15 @@ work, because new work is by definition not yet on the trunk.
 from __future__ import annotations
 
 import argparse
-import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
-from factory_lib import task_proof_problems
+from factory_lib import (
+    _read_git_bytes,
+    _read_git_json,
+    task_proof_problems,
+)
 
 # Reuse the sibling gate's lossless path reader rather than adding a second
 # surrogateescape site: a changed path may legitimately not be UTF-8, and that
@@ -33,36 +35,9 @@ from check_pr_ticket import git_paths
 TASK_MARKER_PATH = re.compile(
     r"^\.factory/stories/([^/]+)/tasks/([^/]+)/pr-ready\.json$"
 )
-def read_at(root: Path, path: str, treeish: str = "HEAD") -> dict | None:
-    """Read one committed JSON artifact at a specific Git tree.
-
-    Strict decoding: these are the harness's own JSON artifacts, so anything
-    that is not valid UTF-8 is a real defect, not a path to preserve losslessly.
-    """
-    proc = subprocess.run(
-        ["git", "show", f"{treeish}:{path}"], cwd=root, capture_output=True,
-        text=True, encoding="utf-8",
-    )
-    if proc.returncode != 0:
-        return None
-    try:
-        value = json.loads(proc.stdout)
-    except json.JSONDecodeError as exc:
-        raise SystemExit(f"{path} at {treeish} is not valid JSON: {exc}") from exc
-    return value if isinstance(value, dict) else None
-
-
 def read_at_head(root: Path, path: str) -> dict | None:
     """The committed artifact, or None when the PR does not carry it."""
-    return read_at(root, path)
-
-
-def read_bytes_at(root: Path, path: str, treeish: str) -> bytes | None:
-    """Read historical bytes without decoding plan text through the locale."""
-    proc = subprocess.run(
-        ["git", "show", f"{treeish}:{path}"], cwd=root, capture_output=True,
-    )
-    return proc.stdout if proc.returncode == 0 else None
+    return _read_git_json(root, path, "HEAD")
 
 
 def added_markers(root: Path, base: str) -> list[tuple[str, str, dict]]:
@@ -100,29 +75,13 @@ def proof_problems(root: Path, key: str, task_id: str) -> list[str]:
         seal = marker["commit"]
 
         def legacy_reader(path: str, treeish: str = seal) -> dict | None:
-            return read_at(root, path, treeish)
+            return _read_git_json(root, path, treeish)
 
         def legacy_bytes_reader(path: str, treeish: str = seal) -> bytes | None:
-            return read_bytes_at(root, path, treeish)
+            return _read_git_bytes(root, path, treeish)
 
-    decomposition = (
-        reader(f".factory/stories/{key}/decomposition.json")
-        or reader(".factory/decomposition.json")
-    )
-    if not isinstance(decomposition, dict):
-        return [
-            f"{task_id}: protected decomposition is missing; CI cannot determine "
-            "the task contract or user-facing proof requirement"
-        ]
-    task = next(
-        (candidate for candidate in decomposition.get("tasks", [])
-         if isinstance(candidate, dict) and candidate.get("id") == task_id),
-        None,
-    )
-    if task is None:
-        return [f"{task_id}: protected decomposition has no matching task contract"]
     return task_proof_problems(
-        root, key, task, reader=reader, allow_legacy=True,
+        root, key, {"id": task_id}, reader=reader, allow_legacy=True,
         legacy_reader=legacy_reader, legacy_bytes_reader=legacy_bytes_reader,
         legacy_marker=marker,
     )

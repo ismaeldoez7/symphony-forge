@@ -1357,9 +1357,80 @@ def _task_proof_is_modern(
         return any(reader(f".factory/stories/{key}/tasks/{task_id}/{name}") is not None
                    for name in names)
     state = load_json(run_state_path(root), default={})
-    if state.get("task_id") == task_id or state.get("base_main_sha"):
+    if state.get("task_id") == task_id:
         return True
     return any(task_evidence_path(root, key, task_id, name).is_file() for name in names)
+
+
+def _read_git_json(root: Path, path: str, treeish: str) -> dict | None:
+    proc = subprocess.run(
+        ["git", "show", f"{treeish}:{path}"], cwd=root, capture_output=True,
+        text=True, encoding="utf-8", env=clean_git_env(),
+    )
+    if proc.returncode != 0:
+        return None
+    try:
+        value = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(
+            f"{path} at {treeish} is not valid JSON: {exc}"
+        ) from exc
+    return value if isinstance(value, dict) else None
+
+
+def _read_git_bytes(root: Path, path: str, treeish: str) -> bytes | None:
+    proc = subprocess.run(
+        ["git", "show", f"{treeish}:{path}"], cwd=root, capture_output=True,
+        env=clean_git_env(),
+    )
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def _task_contract(
+    root: Path, key: str, task_id: str,
+    reader: Callable[[str], dict | None] | None,
+) -> tuple[dict | None, str | None]:
+    """Resolve the complete task contract instead of trusting a projection."""
+    if not task_id:
+        return None, "task proof requires a non-empty task identity"
+
+    if reader is not None:
+        # A scoped record, when present, is the one authority for this story.
+        # The root and history layouts are only candidates when that record is
+        # absent; never join two decompositions or fall through after a miss.
+        candidates = (
+            f".factory/stories/{key}/decomposition.json",
+            ".factory/decomposition.json",
+            f".factory/history/{key}/decomposition.json",
+        )
+        data = None
+        for path in candidates:
+            data = reader(path)
+            if data is not None:
+                break
+    else:
+        if active_story_key(root) == key:
+            # The protected control-dir copy is authoritative for the active
+            # story, including when it is missing or lacks this task.
+            data = load_json(protected_decomposition_state_path(root), default=None)
+        else:
+            # evidence_path already selects this story's scoped or historical
+            # record. Do not use the active story's root singleton as a fallback.
+            data = load_json(decomposition_state_path(root, key), default=None)
+
+    if isinstance(data, dict):
+        match = next(
+            (item for item in data.get("tasks", [])
+             if isinstance(item, dict) and item.get("id") == task_id),
+            None,
+        )
+        if match is not None:
+            return match, None
+        return None, f"{task_id}: protected decomposition has no matching task contract"
+    return None, (
+        f"{task_id}: protected decomposition is missing; CI cannot determine "
+        "the task contract or user-facing proof requirement"
+    )
 
 
 _COMMIT_ID = re.compile(r"^[0-9a-fA-F]{7,64}$")
@@ -1406,6 +1477,31 @@ def _valid_task_marker(root: Path, marker: object, task_id: str) -> bool:
         and _git_is_ancestor(root, base, seal)
         and _git_is_ancestor(root, seal, head)
     )
+
+
+def _committed_task_marker(
+    root: Path, key: str, task_id: str, marker: object,
+    reader: Callable[[str], dict | None] | None,
+) -> tuple[dict | None, str | None]:
+    """Return a valid marker, refusing an invalid committed identity."""
+    if marker is None:
+        return None, None
+    marker_path = f".factory/stories/{key}/tasks/{task_id}/pr-ready.json"
+    if reader is None:
+        if _read_git_json(root, marker_path, "HEAD") != marker:
+            return None, None
+    if not _valid_task_marker(root, marker, task_id):
+        return None, f"{task_id}: task PR marker is invalid"
+    return marker, None
+
+
+def _marker_publication_commit(root: Path, marker_path: str) -> str:
+    proc = subprocess.run(
+        ["git", "log", "-1", "--format=%H", "--", marker_path],
+        cwd=root, capture_output=True, text=True, env=clean_git_env(),
+        encoding="utf-8",
+    )
+    return proc.stdout.strip() if proc.returncode == 0 else ""
 
 
 def _proof_commit_problems(
@@ -1537,7 +1633,10 @@ def _proof_review_problems(
 
 def _modern_task_proof_problems(
     root: Path, key: str, task: dict,
-    read: Callable[[str], dict],
+    read: Callable[[str], dict], *,
+    expected_head: str | None = None,
+    marker_publication_commit: str = "",
+    expected_branch_diff_digest: str | None = None,
 ) -> list[str]:
     """The fail-closed proof predicate for a task-owned bundle."""
     from forge_cli.readiness import tests_passed, verify_passed
@@ -1583,6 +1682,16 @@ def _modern_task_proof_problems(
         lens: read(f"reviews/{lens}.json")
         for lens in _PROOF_LENSES
     }
+    if marker_publication_commit:
+        for name in _PROOF_NAMES:
+            path = f".factory/stories/{key}/tasks/{task_id}/{name}"
+            changed = _marker_publication_commit(root, path)
+            if changed and not _git_is_ancestor(
+                root, changed, marker_publication_commit
+            ):
+                problems.append(
+                    f"{task_id}: {name} proof changed after task marker"
+                )
     # The recorder stamps the containing tests.json record. Nested reports are
     # payloads within that one artifact and do not carry an independent proof
     # commit in every historical fixture.
@@ -1590,9 +1699,17 @@ def _modern_task_proof_problems(
     records.extend((f"reviews.{lens}", reviews[lens])
                    for lens in _PROOF_LENSES)
     problems.extend(
-        _proof_commit_problems(root, task_id, records, expected_head=head_sha(root))
+        _proof_commit_problems(
+            root, task_id, records,
+            expected_head=expected_head or head_sha(root) or "",
+        )
     )
-    problems.extend(_proof_review_problems(root, task_id, reviews, strict=True))
+    problems.extend(
+        _proof_review_problems(
+            root, task_id, reviews, strict=True,
+            expected_branch_diff_digest=expected_branch_diff_digest,
+        )
+    )
     return problems
 
 
@@ -1734,14 +1851,20 @@ def task_proof_problems(
     legacy_reader: Callable[[str], dict | None] | None = None,
     legacy_bytes_reader: Callable[[str], bytes | None] | None = None,
     legacy_marker: dict | None = None,
+    preseal: bool = False,
 ) -> list[str]:
     """One task's proof, using one task-aware predicate everywhere.
 
-    Modern runs read only the task-owned bundle. CI may opt into the one
-    legitimate legacy exception: a complete, sealed task marker whose
-    historical proof was story-scoped; local/pre-seal callers never use it.
+    Modern runs read only the task-owned bundle. A committed task marker binds
+    post-seal local and CI reads to its sealed product and proof; pre-seal
+    callers always require the current task tree. CI may use the one legitimate
+    legacy exception: a complete marker whose historical proof was story-scoped.
     """
     task_id = str(task.get("id") or "")
+    task, contract_problem = _task_contract(root, key, task_id, reader)
+    if contract_problem:
+        return [contract_problem]
+    assert task is not None
     modern = _task_proof_is_modern(root, key, task_id, reader)
 
     def read_task(name: str) -> dict:
@@ -1750,26 +1873,66 @@ def task_proof_problems(
             return reader(rel) or {}
         return load_json(task_evidence_path(root, key, task_id, name), default={})
 
-    if modern:
-        return _modern_task_proof_problems(root, key, task, read_task)
-    if not allow_legacy:
-        return _modern_task_proof_problems(root, key, task, read_task)
-
     marker_path = f".factory/stories/{key}/tasks/{task_id}/pr-ready.json"
     marker = legacy_marker
     if marker is None:
         marker = reader(marker_path) if reader is not None else load_json(
-            root / marker_path, default={}
+            root / marker_path, default=None
         )
-    if (
-        _valid_task_marker(root, marker, task_id)
-        and legacy_reader is not None
-    ):
+
+    marker_context = None
+    if not preseal:
+        marker_context, marker_problem = _committed_task_marker(
+            root, key, task_id, marker, reader,
+        )
+        if marker_problem:
+            return [marker_problem]
+
+    expected_head = head_sha(root) or ""
+    marker_publication_commit = ""
+    expected_branch_diff_digest = None
+    if marker_context is not None:
+        sealed_commit = str(marker_context["commit"])
+        expected_head = sealed_commit
+        marker_publication_commit = _marker_publication_commit(
+            root, marker_path,
+        )
+        expected_branch_diff_digest = _historical_branch_diff_digest(
+            root, str(marker_context["base_main_sha"]), sealed_commit,
+        )
+        allow_legacy = True
+
+    if modern:
+        return _modern_task_proof_problems(
+            root, key, task, read_task,
+            expected_head=expected_head,
+            marker_publication_commit=marker_publication_commit,
+            expected_branch_diff_digest=expected_branch_diff_digest,
+        )
+    if not allow_legacy:
+        return _modern_task_proof_problems(
+            root, key, task, read_task,
+            expected_head=expected_head,
+            marker_publication_commit=marker_publication_commit,
+            expected_branch_diff_digest=expected_branch_diff_digest,
+        )
+    if marker_context is not None:
+        if legacy_reader is None:
+            legacy_reader = lambda path, treeish=sealed_commit: _read_git_json(
+                root, path, treeish
+            )
+        if legacy_bytes_reader is None:
+            legacy_bytes_reader = lambda path, treeish=sealed_commit: _read_git_bytes(
+                root, path, treeish
+            )
         return _legacy_task_proof_problems(
             root, key, task, legacy_reader, legacy_bytes_reader,
-            base=str(marker["base_main_sha"]), seal=str(marker["commit"]),
+            base=str(marker_context["base_main_sha"]), seal=sealed_commit,
         )
-    return _modern_task_proof_problems(root, key, task, read_task)
+    return _modern_task_proof_problems(
+        root, key, task, read_task,
+        expected_head=expected_head,
+    )
 
 
 def require_closeout_order(root: Path) -> list[str]:
@@ -3251,7 +3414,7 @@ def require_task_sealed(root: Path, task_id: str) -> dict:
     if not stage or stage.get("status") != "done":
         raise SystemExit(f"task {task_id} is not sealed: stage status must be done")
     issue_key = state.get("issue_key") or state.get("story") or ""
-    proof_problems = task_proof_problems(root, issue_key, task)
+    proof_problems = task_proof_problems(root, issue_key, task, preseal=True)
     if proof_problems:
         raise SystemExit("Task proof incomplete:\n- " + "\n- ".join(proof_problems))
     _require_reviewed_commit(root, stage, task)

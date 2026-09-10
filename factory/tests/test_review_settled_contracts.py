@@ -15,7 +15,8 @@ from __future__ import annotations
 import json
 
 from test_gates import (  # noqa: I001 — test_gates puts factory/scripts on sys.path
-    git, head, intake, record_skeleton_then_frontier, repo, run, save_plan,
+    DECOMP, STAGE_TASK, _write_complete_automated, git, head, intake,
+    record_skeleton_then_frontier, record_task_grill, repo, run, save_plan,
     sign_off, skeletal_stage_task, write_stages,
 )
 from factory_lib import (  # noqa: E402
@@ -25,7 +26,7 @@ from forge_cli.findings import _finding_rows  # noqa: E402
 from forge_cli.lessons import load_lessons  # noqa: E402
 from forge_cli.review import LENSES, rejected_findings_report  # noqa: E402
 from forge_cli.review_brief import _plan_section_bodies, _task_section  # noqa: E402
-from forge_cli.stages import load_stages  # noqa: E402
+from forge_cli.stages import load_stages, task_digest  # noqa: E402
 
 __all__ = ["repo"]
 
@@ -43,11 +44,18 @@ def _story(repo, tmp_path, *, t1_status: str = "done") -> None:
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    t1 = {**skeletal_stage_task("T1"),
-          "plan_contracts": [{"id": "T1-AC1", "statement": "a remembered exact Allow answers a destructive ask; the rail hardFloor flag never gates the remembered lookup",
+    t1_statement = "a remembered exact Allow answers a destructive ask; the rail hardFloor flag never gates the remembered lookup"
+    t1 = {**STAGE_TASK, "id": "T1", "title": "first",
+          "acceptance_criteria": [t1_statement],
+          "plan_contracts": [{"id": "T1-AC1", "statement": t1_statement,
                               "source": "plan#ac"}]}
-    t2 = skeletal_stage_task("T2")
-    record_skeleton_then_frontier(repo, [t1, t2])
+    t2 = {**STAGE_TASK, "id": "T2", "title": "second",
+          "dependencies": ["T1"],
+          "acceptance_criteria": ["the next slice runs green"],
+          "plan_contracts": [{"id": "T2-AC1", "statement": "the next slice runs green",
+                              "source": "plan#ac"}]}
+    record_skeleton_then_frontier(repo, [t1, {
+        **skeletal_stage_task("T2"), "dependencies": ["T1"]}])
     base = head(repo)
     (repo / "src").mkdir(exist_ok=True)
     (repo / "src" / "work.py").write_text("task work\n")
@@ -56,14 +64,33 @@ def _story(repo, tmp_path, *, t1_status: str = "done") -> None:
     write_stages(repo, {
         "issue": "ENG-1",
         "stages": [
-            {"id": "T1", "title": "first", "status": t1_status, "task_sha256": "abc",
+            {"id": "T1", "title": "first", "status": "active", "task_sha256": task_digest(t1),
              "base_sha": base, "started_at": "2026-09-09T00:00:00+00:00",
              "dirty_at_start": {}},
-            {"id": "T2", "title": "second", "status": "active", "task_sha256": "def",
+            {"id": "T2", "title": "second", "status": "pending", "task_sha256": "def",
              "base_sha": base, "started_at": "2026-09-09T01:00:00+00:00",
              "dirty_at_start": {}},
         ],
     })
+    code, out = record_task_grill(repo, t1)
+    assert code == 0, out
+    _write_complete_automated(repo, "T1")
+    stages = load_stages(repo)
+    stages["stages"][0]["status"] = t1_status
+    stages["stages"][1]["status"] = "pending"
+    write_stages(repo, stages)
+    recorded_t1 = next(task for task in load_json(
+        protected_decomposition_state_path(repo), default={})["tasks"]
+                       if task["id"] == "T1")
+    code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
+        {**DECOMP, "tasks": [recorded_t1, t2]}))
+    assert code == 0, out
+    stages = load_stages(repo)
+    stages["stages"][1]["status"] = "active"
+    write_stages(repo, stages)
+    code, out = record_task_grill(repo, t2)
+    assert code == 0, out
+    _write_complete_automated(repo, "T2")
 
 
 def test_brief_carries_plan_decisions_and_sealed_contracts(repo, tmp_path):
@@ -72,6 +99,8 @@ def test_brief_carries_plan_decisions_and_sealed_contracts(repo, tmp_path):
     plan.write_text(plan.read_text() + "\n## Decisions\n0154 (amended): old rows are not listed.\n")
     task = next(t for t in load_json(
         protected_decomposition_state_path(repo), default={})["tasks"] if t["id"] == "T2")
+    code, out = record_task_grill(repo, task)
+    assert code == 0, out
     brief = "\n".join(_task_section(task, repo))
     assert "Settled — do not relitigate" in brief
     assert "0154 (amended): old rows are not listed." in brief
@@ -95,7 +124,9 @@ def _record_lens(repo, lens: str, blocking: list[dict], task_id: str = "T2") -> 
     }
     if lens == "quality":
         payload["contract_verdicts"] = [
-            {"contract_id": "T1-AC1", "verdict": "implemented", "evidence": "src/work.py:1"},
+            {"contract_id": contract_id, "verdict": "implemented",
+             "evidence": "src/work.py:1"}
+            for contract_id in ("T1-AC1", "T2-AC1")
         ]
     code, out = run(repo, "record_review_from_json.py", "--aspect", lens, "--task", task_id,
                     stdin=json.dumps(payload))

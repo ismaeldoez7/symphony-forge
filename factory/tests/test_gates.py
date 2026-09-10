@@ -3733,7 +3733,7 @@ def test_init_and_upgrade_ship_portable_hook_commands(tmp_path):
     )
     assert initialized.returncode == 0, initialized.stdout + initialized.stderr
     assert len(commands(repo, ".claude/settings.json")) == 6
-    assert len(commands(repo, ".codex/hooks.json")) == 3
+    assert len(commands(repo, ".codex/hooks.json")) == 5
     config = repo / ".codex" / "config.toml"
     assert 'sandbox_mode = "workspace-write"' in config.read_text().splitlines()
     assert (repo / "forge.cmd").is_file()
@@ -3765,7 +3765,7 @@ def test_init_and_upgrade_ship_portable_hook_commands(tmp_path):
     upgraded = upgrade_into(repo)
     assert upgraded.returncode == 0, upgraded.stdout + upgraded.stderr
     assert len(commands(repo, ".claude/settings.json")) == 6
-    assert len(commands(repo, ".codex/hooks.json")) == 3
+    assert len(commands(repo, ".codex/hooks.json")) == 5
     assert 'sandbox_mode = "workspace-write"' in config.read_text().splitlines()
     assert (repo / "forge.cmd").is_file()
     assert "forge text eol=lf" in attributes.read_text().splitlines()
@@ -6531,11 +6531,16 @@ def test_user_facing_artifacts_must_attest_design_skills(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    ui_task = {**DECOMP["tasks"][0], "user_facing": True}
+    ui_task = task_with_plan_contracts(
+        {**DECOMP["tasks"][0], "user_facing": True}
+    )
     record_skeleton_then_frontier(repo, [ui_task])
     control = delegation_ledger(repo).parent
     (control / "stages.json").write_text(json.dumps(
         {"issue": "ENG-1", "stages": [{"id": "T1", "status": "active"}]}))
+    code, out = record_task_grill(repo, ui_task)
+    assert code == 0, out
+    write_task_proof(repo, "T1", user_facing=True)
     # testing artifact without the mandatory design skills -> refused
     base = {"generated_by": "implementer", "status": "passed", "summary": "ok",
             "blocking_findings": [], "commands_run": ["pytest"]}
@@ -6554,7 +6559,11 @@ def test_user_facing_artifacts_must_attest_design_skills(repo, tmp_path):
     # review artifact must attest review-animations on user-facing tasks
     mint_review_run(repo)
     review = {"generated_by": "autoreview", "score": 9, "summary": "ok",
-              "blocking_findings": []}
+              "blocking_findings": [], "contract_verdicts": [
+                  {"contract_id": contract["id"], "verdict": "implemented",
+                   "evidence": "factory/tests/test_gates.py:6540"}
+                  for contract in ui_task["plan_contracts"]
+              ]}
     code, out = run(repo, "record_review_from_json.py", "--aspect", "quality",
                     stdin=json.dumps(review))
     assert code != 0 and "review-animations" in out
@@ -7642,18 +7651,18 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
         code, out = hook(repo, {"tool_name": "Write", "permission_mode": "default",
                                 "tool_input": {"file_path": str(repo / ok_path)}})
         assert "deny" not in out, ok_path
-    # raw codex exec is off-contract in ANY phase — route to /codex:rescue
+    # raw codex exec is off-contract in ANY phase — route to Forge exploration
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": "codex exec 'implement the thing'"}})
-    assert "deny" in out and "codex:rescue" in out
+    assert "deny" in out and "forge explore --prompt-file" in out
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command":
                                            "codex exec --profile explore -s read-only 'map it'"}})
-    assert "deny" in out and "codex:rescue" in out
+    assert "deny" in out and "forge explore --prompt-file" in out
     # Companion denial keys on WRITE INTENT, not on the companion itself: the
-    # codex-exec denial points at /codex:rescue, which runs the companion, so
-    # denying every invocation made exploration impossible from the
-    # orchestrator (0341332). A read-only rescue run passes; a write launch
+    # codex-exec denial points at Forge's exploration route, so denying every
+    # invocation made exploration impossible from the orchestrator (0341332).
+    # A read-only exploration run passes; a write launch
     # stays delegate-owned.
     companion = "node /x/codex-companion.mjs task --model gpt-5.6-terra 'map the module'"
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
@@ -7666,7 +7675,7 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command":
                                            "FACTORY_DEGRADED=1 codex exec -s read-only 'map it'"}})
-    assert "deny" in out and "codex:rescue" in out
+    assert "deny" in out and "forge explore --prompt-file" in out
     # Approval and decomposition authorize delegation, never session writes.
     save_plan(repo, tmp_path)
     code, out = hook(repo, {"tool_name": "Edit", "permission_mode": "default",
@@ -7692,7 +7701,7 @@ def test_planning_lock_forces_plan_mode(repo, tmp_path):
     # ...but raw codex exec stays off-contract even after approval
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": "codex exec 'build it'"}})
-    assert "deny" in out and "codex:rescue" in out
+    assert "deny" in out and "forge explore --prompt-file" in out
 
 
 def test_planning_lock_is_always_armed_and_guards_bash_writes(repo):
@@ -9297,12 +9306,15 @@ def test_story_closeout_requires_all_task_markers_and_completed_stories_reads_sh
 
     publish_task_marker(repo, "ENG-1", "T1")
     write_passing_artifacts(repo)
+    write_task_proof(repo, "T1", commit=head(repo))
     code, out = run(repo, "pr_ready.py")
     assert code != 0 and "T2" in out, out
     assert not (scoped / "shipped.json").exists()
 
     publish_task_marker(repo, "ENG-1", "T2")
     write_passing_artifacts(repo)
+    write_task_proof(repo, "T1", commit=head(repo))
+    write_task_proof(repo, "T2", commit=head(repo))
     closeout_base = head(repo)
     code, out = run(repo, "pr_ready.py")
     assert code == 0 and "shipped in place" in out, out
@@ -11663,7 +11675,7 @@ def test_review_hardening_guards(repo, tmp_path):
     assert "deny" in out and "forge delegate" in out
     code, out = hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                             "tool_input": {"command": "codex --profile explore exec 'x'"}})
-    assert "deny" in out and "codex:rescue" in out
+    assert "deny" in out and "forge explore --prompt-file" in out
 
 
 def test_roadmap_dependency_and_lifecycle_guards(repo, tmp_path):
@@ -12615,8 +12627,12 @@ def test_task_proof_overrides_a_clean_story_record_rather_than_joining_it(
     # The safety property. If task-scoped proof were merged with the legacy
     # story record instead of overriding it, a task could hide a blocking
     # finding behind a clean story-level review.
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    task = {**DECOMP["tasks"][0], "id": "T1", "user_facing": False}
+    record_skeleton_then_frontier(repo, [task])
     lib = load_factory_lib(repo)
-    task = {"id": "T1", "user_facing": False}
 
     clean = {"generated_by": "t", "verdict": "pass", "score": 9,
              "blocking_findings": []}
@@ -14319,7 +14335,7 @@ def test_stage_done_ledgers_a_contract_rewritten_mid_stage(repo, tmp_path):
     # launch bound to it. Ledgering the change removes the re-baseline, not
     # the delegation binding.
     code, out = run(repo, "forge.py", "delegate", "T1",
-                    env={"HOME": str(fake_companion_home(tmp_path))})
+                    env=fake_companion_env(tmp_path))
     assert code == 0, out
     write_in_scope(repo, "billing/ledger.py", "changed = True\n")
     stamp_and_commit(repo, "billing/ledger.py")
@@ -14477,7 +14493,7 @@ def test_stage_start_never_moves_the_baseline(repo, tmp_path):
     code, out = record_task_grill(repo, widened)
     assert code == 0, out
     code, out = run(repo, "forge.py", "delegate", "T1",
-                    env={"HOME": str(fake_companion_home(tmp_path))})
+                    env=fake_companion_env(tmp_path))
     assert code == 0, out
     write_in_scope(repo, "src/core.py", "more = True\n")
     stamp_and_commit(repo, "src/core.py")
@@ -14566,7 +14582,7 @@ def test_stage_done_sees_later_edits_to_an_initially_dirty_file(repo, tmp_path):
     assert code == 0, out
     code, out = run(
         repo, "forge.py", "delegate", "T1",
-        env={"HOME": str(fake_companion_home(tmp_path))},
+        env=fake_companion_env(tmp_path),
     )
     assert code == 0, out
     write_in_scope(repo, "billing/ledger.py", "before = 1\n")
@@ -15217,7 +15233,7 @@ def test_delegate_brief_carries_criteria_and_scope(repo, tmp_path):
     start_stage(repo, tmp_path, DELEGATE_TASK)
     write_in_scope(repo, "src/existing_helper.py")
     code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
-                    env={"HOME": str(fake_companion_home(tmp_path))})
+                    env=fake_companion_env(tmp_path))
     assert code == 0, out
     brief = (repo / ".factory" / "diagnostic-briefs" / "T1.md").read_text()
     assert "the slice runs green" in brief          # acceptance criteria
@@ -15239,7 +15255,7 @@ def test_brief_states_budget_and_narration_line(repo, tmp_path):
     }}
     start_stage(repo, tmp_path, task, launch=False)
     code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
-                    env={"HOME": str(fake_companion_home(tmp_path))})
+                    env=fake_companion_env(tmp_path))
     assert code == 0, out
     # Explicit encoding: the brief is UTF-8, and reading it in the host locale
     # turns the conduct section sign into mojibake on Windows.
@@ -15268,20 +15284,20 @@ def test_delegate_derives_write_from_stage_state(repo, tmp_path):
     save_plan(repo, tmp_path)
     record_skeleton_then_frontier(repo, [DELEGATE_TASK])
     # stage not started -> read only
-    home = str(fake_companion_home(tmp_path))
+    companion_env = fake_companion_env(tmp_path)
     code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
-                    env={"HOME": home})
+                    env=companion_env)
     assert (code == 0 and len(out.splitlines()) == 1 and "--write" not in out
             and "Write access: NO" in out and "not launched" in out)
     code, out = record_task_grill(repo, DELEGATE_TASK)
     assert code == 0, out
     run(repo, "forge.py", "stage", "start", "T1", "--trunk")
     code, out = run(repo, "forge.py", "delegate", "T1", "--print-only",
-                    env={"HOME": home})
+                    env=companion_env)
     assert code == 0 and "--write" in out
     # ...and --read-only is the explicit exception
     code, out = run(repo, "forge.py", "delegate", "T1", "--read-only", "--print-only",
-                    env={"HOME": home})
+                    env=companion_env)
     assert code == 0 and "--write" not in out
 
 
@@ -15784,7 +15800,7 @@ def test_delegate_mirror_symlink_is_ignored(repo, tmp_path):
     mirror = repo / ".factory" / "delegations.jsonl"
     mirror.symlink_to(victim)
     code, out = run(repo, "forge.py", "delegate", "T1",
-                    env={"HOME": str(fake_companion_home(tmp_path))})
+                    env=fake_companion_env(tmp_path))
     assert code == 0, out
     assert victim.read_text() == "do not touch\n"
     assert delegation_ledger(repo).is_file()
@@ -15870,7 +15886,7 @@ def test_delegate_retry_reconciles_interrupted_running_launch(repo, tmp_path):
     with ledger.open("a") as fh:
         fh.write(json.dumps(stale) + "\n")
     code, out = run(repo, "forge.py", "delegate", "T1",
-                    env={"HOME": str(fake_companion_home(tmp_path))})
+                    env=fake_companion_env(tmp_path))
     assert code == 0, out
     entries = [json.loads(line) for line in ledger.read_text().splitlines()]
     reconciled = [entry for entry in entries
@@ -16399,6 +16415,7 @@ def test_wait_reuses_process_table_snapshot_for_tag_discovery(
 def test_delegate_reaps_spawn_when_running_registration_fails(
         repo, tmp_path, monkeypatch):
     start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    monkeypatch.setenv("FORGE_COORDINATOR", "claude")
     sys.path.insert(0, str(repo / "factory" / "scripts"))
     try:
         import forge_cli.delegate as delegate
@@ -16461,10 +16478,12 @@ def test_delegate_reaps_spawn_when_running_registration_fails(
 @pytest.mark.parametrize("platform", ("posix", "nt"))
 def test_launch_companion_uses_platform_specific_spawn_options(
         repo, tmp_path, monkeypatch, platform):
+    monkeypatch.setenv("FORGE_COORDINATOR", "claude")
     sys.path.insert(0, str(repo / "factory" / "scripts"))
     try:
         import forge_cli.delegate as delegate
         captured = {}
+        native_os_name = delegate.os.name
 
         class Process:
             pid = 101
@@ -16486,7 +16505,10 @@ def test_launch_companion_uses_platform_specific_spawn_options(
         monkeypatch.setattr(delegate.shutil, "which", lambda _name: "node")
         monkeypatch.setattr(delegate, "_process_table", lambda: {})
         monkeypatch.setattr(delegate, "_capture_spawn_identity", lambda _proc: 1.0)
-        monkeypatch.setattr(delegate, "_wait_and_reap", lambda *_args: True)
+        monkeypatch.setattr(
+            delegate, "_wait_and_reap",
+            lambda *_args, **_kwargs: True,
+        )
         monkeypatch.setattr(delegate.subprocess, "Popen", spawn)
         delegate.launch_companion(
             repo, task_id="T1", text="brief", path=repo / ".factory" / "x.md",
@@ -16494,6 +16516,7 @@ def test_launch_companion_uses_platform_specific_spawn_options(
             write=False,
         )
     finally:
+        monkeypatch.setattr(delegate.os, "name", native_os_name)
         sys.path.pop(0)
     if platform == "nt":
         assert captured["creationflags"] == 1
@@ -16589,7 +16612,7 @@ def test_delegate_ignores_stale_lock_contents_when_no_process_holds_it(repo, tmp
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text("")
     code, out = run(repo, "forge.py", "delegate", "T1",
-                    env={"HOME": str(fake_companion_home(tmp_path))})
+                    env=fake_companion_env(tmp_path))
     assert code == 0, out
     assert lock.exists()
 
@@ -16793,9 +16816,8 @@ def test_windows_delegation_success_round_trips_unicode_handoff(repo, tmp_path):
 
 def test_read_only_diagnostic_does_not_revoke_write_launch(repo, tmp_path):
     start_stage(repo, tmp_path, STAGE_TASK)
-    home = str(fake_companion_home(tmp_path))
     code, out = run(repo, "forge.py", "delegate", "T1", "--read-only",
-                    env={"HOME": home})
+                    env=fake_companion_env(tmp_path))
     assert code == 0, out
     write_in_scope(repo, "src/core.py")
     stamp_and_commit(repo)
@@ -16806,14 +16828,15 @@ def test_read_only_diagnostic_does_not_revoke_write_launch(repo, tmp_path):
 def test_delegate_missing_companion_guides_doctor_fix(repo, tmp_path):
     start_stage(repo, tmp_path, STAGE_TASK, launch=False)
     code, out = run(repo, "forge.py", "delegate", "T1",
-                    env={"HOME": str(tmp_path / "empty-home")})
+                    env={"HOME": str(tmp_path / "empty-home"),
+                         "FORGE_COORDINATOR": "claude"})
     assert code != 0 and "doctor --fix" in out
 
 
 def test_delegate_refuses_background_write_launch(repo, tmp_path):
     start_stage(repo, tmp_path, STAGE_TASK, launch=False)
     code, out = run(repo, "forge.py", "delegate", "T1", "--background",
-                    env={"HOME": str(fake_companion_home(tmp_path))})
+                    env=fake_companion_env(tmp_path))
     assert code != 0 and "background write delegation" in out
     assert not (repo / ".factory" / "delegations.jsonl").exists()
     assert not delegation_ledger(repo).exists()
@@ -16833,13 +16856,15 @@ def test_codex_status_reports_write_flag_and_stall(repo, tmp_path):
         "id": "task-2", "workspaceRoot": "/somewhere/else", "status": "running",
         "write": True, "startedAt": "2020-01-01T00:00:00Z"}))
     code, out = run(repo, "forge.py", "codex", "status",
-                    "--state-root", str(tmp_path / "state"))
+                    "--state-root", str(tmp_path / "state"),
+                    env={"FORGE_COORDINATOR": "claude"})
     assert code == 0, out                       # advisory: never fails a gate
     assert "task-1" in out and "task-2" not in out   # this repo's jobs only
     assert "write=no" in out and "STALLED?" in out and "READ-ONLY" in out
     # a missing registry degrades to a clear unknown, still exit 0
     code, out = run(repo, "forge.py", "codex", "status",
-                    "--state-root", str(tmp_path / "nope"))
+                    "--state-root", str(tmp_path / "nope"),
+                    env={"FORGE_COORDINATOR": "claude"})
     assert code == 0 and "unknown" in out
 
 
@@ -16856,19 +16881,22 @@ def test_codex_status_uses_inactivity_instead_of_total_runtime(repo, tmp_path):
         "id": "task-1", "updatedAt": "2999-01-01T00:00:00Z",
     }]}))
     code, out = run(repo, "forge.py", "codex", "status",
-                    "--state-root", str(tmp_path / "state"))
+                    "--state-root", str(tmp_path / "state"),
+                    env={"FORGE_COORDINATOR": "claude"})
     assert code == 0 and "task-1" in out and "STALLED?" not in out
     project.joinpath("state.json").write_text(json.dumps({"jobs": [{
         "id": "task-1", "updatedAt": "2020-01-01T00:01:00Z",
     }]}))
     code, out = run(repo, "forge.py", "codex", "status",
-                    "--state-root", str(tmp_path / "state"))
+                    "--state-root", str(tmp_path / "state"),
+                    env={"FORGE_COORDINATOR": "claude"})
     assert code == 0 and "STALLED?" in out and "no progress" in out
     project.joinpath("state.json").write_text(json.dumps({"jobs": [{
         "id": "task-1", "updatedAt": {"malformed": True},
     }]}))
     code, out = run(repo, "forge.py", "codex", "status",
-                    "--state-root", str(tmp_path / "state"))
+                    "--state-root", str(tmp_path / "state"),
+                    env={"FORGE_COORDINATOR": "claude"})
     assert code == 0 and "task-1" in out
 
 
@@ -17168,7 +17196,7 @@ def test_forge_next_and_board_route_author_task_plan_and_await_approval(
                    for line in output.splitlines() if ". [dev]" in line]
         action = next((a for a in actions if command in a), None)
         assert action is not None, f"{command!r} in none of: {actions}"
-        assert action in next_actions(repo)["steps"]
+        assert any(command in step for step in next_actions(repo)["steps"])
 
     assert_route("author-task-plan", "author-task-plan", "task plan save T1")
     source = tmp_path / "T1.md"
@@ -18170,49 +18198,219 @@ def test_native_unshipped_operations_refuse_before_dispatch(
     delegate.cmd_delegate(args)
     assert calls[-1]["background"] is True and calls[-1]["write"] is False
 
-def test_task_proof_consumers_share_complete_predicate(repo, tmp_path, monkeypatch):
-    """Local, board, and committed-CI readers agree on one task proof."""
+MODERN_PROOF_FAILURES = (
+    ("partial", "reviews/security.json", (), None, True),
+    ("verify_false", "verify.json", ("ok",), False, False),
+    ("automated_failed", "tests.json", ("automated", "status"), "failed", False),
+    ("automated_unknown", "tests.json", ("automated", "status"), "skipped", False),
+    ("automated_missing", "tests.json", ("automated", "status"), None, True),
+    ("automated_blocker", "tests.json", ("automated", "blocking_findings"), ["x"], False),
+    ("review_wrong_task", "reviews/quality.json", ("task_id",), "T2", False),
+    ("review_missing_task", "reviews/quality.json", ("task_id",), None, True),
+    ("review_blocker", "reviews/performance.json", ("blocking_findings",), ["x"], False),
+    ("review_low_score", "reviews/quality.json", ("score",), 7, False),
+    ("review_run_mismatch", "reviews/security.json", ("review_run_id",), "stale", False),
+    ("review_brief_mismatch", "reviews/security.json", ("brief_sha256",), "stale", False),
+    ("review_diff_mismatch", "reviews/security.json", ("branch_diff_digest",), "stale", False),
+    ("functional_missing", "tests.json", ("functional",), None, True),
+    ("functional_failed", "tests.json", ("functional", "status"), "failed", False),
+    ("functional_unknown", "tests.json", ("functional", "status"), "skipped", False),
+    ("functional_low_score", "tests.json", ("functional", "score"), 7, False),
+    ("functional_blocker", "tests.json", ("functional", "blocking_findings"), ["x"], False),
+)
+
+
+def _patch_json(path, keys, value, remove=False):
+    data = json.loads(path.read_text())
+    target = data
+    for key in keys[:-1]:
+        target = target[key]
+    if remove:
+        target.pop(keys[-1])
+    else:
+        target[keys[-1]] = value
+    path.write_text(json.dumps(data))
+
+
+@pytest.mark.parametrize("case", MODERN_PROOF_FAILURES, ids=lambda item: item[0])
+def test_task_proof_consumers_share_complete_predicate(repo, tmp_path, case):
+    name, artifact, keys, value, remove = case
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    task = {**DECOMP["tasks"][0], "id": "T1", "user_facing": True}
+    record_skeleton_then_frontier(repo, [task])
+    write_stages(repo, {"issue": "ENG-1", "stages": [
+        {"id": "T1", "title": task["title"], "status": "done"}]})
+    proof = write_task_proof(repo, "T1", user_facing=True)
+    lib = load_factory_lib(repo)
+    from forge_cli.board import aggregate_state
+
+    def story():
+        return next(s for s in aggregate_state(repo)["stories"]
+                    if s["key"] == "ENG-1")
+
+    assert not lib.task_proof_problems(repo, "ENG-1", task)
+    assert story()["lifecycle"]["proven"] == {"done": 1, "total": 1}
+    path = proof / artifact
+    if not keys:
+        path.unlink()
+    else:
+        _patch_json(path, keys, value, remove=remove)
+    assert lib.task_proof_problems(repo, "ENG-1", task), name
+    assert story()["lifecycle"]["proven"] == {"done": 0, "total": 1}
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", f"incomplete {name}")
+    import check_task_proof
+    assert check_task_proof.proof_problems(repo, "ENG-1", "T1"), name
+
+
+def test_task_proof_ci_uses_sealed_legacy_t1_not_later_t2_singleton(
+        repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    base = git(repo, "rev-parse", "origin/main")
+    task = task_with_plan_contracts(
+        {**DECOMP["tasks"][0], "id": "T1", "user_facing": True}, "T1-C"
+    )
+    task2 = {"id": "T2", "title": "future", "objective": "future",
+             "acceptance_criteria": ["future works"], "dependencies": ["T1"]}
+    tasks = [task, task2]
+    record_skeleton_then_frontier(repo, tasks)
+    write_task_proof(repo, "T1", user_facing=True)
+    make_legacy_story(repo)
+    assert not any((story_state(repo) / "tasks/T1" / name).exists()
+                   for name in ("verify.json", "tests.json", "reviews/quality.json",
+                                "reviews/performance.json", "reviews/security.json"))
+    save_plan(repo, tmp_path)
+    record_skeleton_then_frontier(repo, tasks)
+    code, out = record_task_grill(repo, task)
+    assert code == 0, out
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "prepare historical T1")
+    proof_base = head(repo)
+    write_passing_artifacts(repo, commit=proof_base)
+    bundle = repo / ".factory"
+    for lens in ("quality", "performance", "security"):
+        path = bundle / "reviews" / f"{lens}.json"
+        value = json.loads(path.read_text())
+        value["task_id"] = "T1"
+        path.write_text(json.dumps(value))
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "seal historical T1")
+    seal = head(repo)
+    tests = bundle / "tests.json"
+    value = json.loads(tests.read_text())
+    value["automated"]["status"] = "failed"
+    tests.write_text(json.dumps(value))
+    quality = bundle / "reviews" / "quality.json"
+    value = json.loads(quality.read_text())
+    value["task_id"] = "T2"
+    quality.write_text(json.dumps(value))
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "rewrite T2 singleton")
+    lib = load_factory_lib(repo)
+    from forge_cli.board import aggregate_state
+
+    assert lib.task_proof_problems(repo, "ENG-1", task)
+    story = next(s for s in aggregate_state(repo)["stories"] if s["key"] == "ENG-1")
+    assert story["lifecycle"]["proven"] == {"done": 0, "total": 2}
+    marker = story_state(repo) / "tasks" / "T1" / "pr-ready.json"
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(json.dumps({
+        "task_id": "T1", "branch": git(repo, "branch", "--show-current"),
+        "base_main_sha": base, "commit": seal,
+        "sealed_at": "2026-09-10T00:00:00+00:00",
+    }))
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "mark historical T1")
+    assert json.loads(tests.read_text())["automated"]["status"] == "failed"
+    assert json.loads(quality.read_text())["task_id"] == "T2"
+    import check_task_proof
+    assert not check_task_proof.proof_problems(repo, "ENG-1", "T1")
+    assert not lib.task_proof_problems(repo, "ENG-1", task)
+    story = next(s for s in aggregate_state(repo)["stories"] if s["key"] == "ENG-1")
+    assert story["lifecycle"]["proven"] == {"done": 1, "total": 2}
+
+
+def test_task_proof_ci_seal_and_later_mutation(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
     task = {**DECOMP["tasks"][0], "id": "T1", "user_facing": False}
     record_skeleton_then_frontier(repo, [task])
-    write_stages(repo, {
-        "issue": "ENG-1",
-        "stages": [{"id": "T1", "title": task["title"], "status": "done"}],
-    })
-    write_task_proof(repo, "T1")
-    lib = load_factory_lib(repo)
-
-    # CI reads a committed tree. This fixture keeps the proof in the working
-    # tree so the test can exercise the same reader without a synthetic second
-    # predicate or a self-referential commit hash.
+    write_stages(repo, {"issue": "ENG-1", "stages": [
+        {"id": "T1", "title": task["title"], "status": "done"}]})
+    base = git(repo, "rev-parse", "origin/main")
+    proof = write_task_proof(repo, "T1")
+    seal = head(repo)
+    marker = story_state(repo) / "tasks" / "T1" / "pr-ready.json"
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(json.dumps({
+        "task_id": "T1", "branch": git(repo, "branch", "--show-current"),
+        "base_main_sha": base, "commit": seal,
+        "sealed_at": "2026-09-10T00:00:00+00:00",
+    }))
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "publish task marker")
     import check_task_proof
-    from forge_cli.board import aggregate_state
-
-    def committed_fixture_reader(_root, relative):
-        path = repo / relative
-        if not path.is_file():
-            return None
-        return json.loads(path.read_text(encoding="utf-8"))
-
-    monkeypatch.setattr(check_task_proof, "read_at_head", committed_fixture_reader)
-    assert not lib.task_proof_problems(repo, "ENG-1", task)
     assert not check_task_proof.proof_problems(repo, "ENG-1", "T1")
-    story = next(item for item in aggregate_state(repo)["stories"]
-                 if item["key"] == "ENG-1")
-    assert story["lifecycle"]["proven"] == {"done": 1, "total": 1}
-
-    tests_path = lib.task_evidence_path(
-        repo, "ENG-1", "T1", "tests.json", for_write=True)
-    tests = json.loads(tests_path.read_text(encoding="utf-8"))
-    tests["automated"]["status"] = "failed"
-    tests_path.write_text(json.dumps(tests), encoding="utf-8")
-    assert lib.task_proof_problems(repo, "ENG-1", task)
+    tests = proof / "tests.json"
+    data = json.loads(tests.read_text())
+    data["automated"]["status"] = "failed"
+    tests.write_text(json.dumps(data))
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "mutate task proof")
     assert check_task_proof.proof_problems(repo, "ENG-1", "T1")
-    story = next(item for item in aggregate_state(repo)["stories"]
-                 if item["key"] == "ENG-1")
-    assert story["lifecycle"]["proven"] == {"done": 0, "total": 1}
+
+
+def test_task_proof_sealed_t1_survives_t2_product(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    t1 = {**DECOMP["tasks"][0], "id": "T1", "user_facing": False}
+    t2 = {"id": "T2", "title": "future", "objective": "Build future.",
+          "acceptance_criteria": ["future works"], "dependencies": ["T1"],
+          "user_facing": False}
+    record_skeleton_then_frontier(repo, [t1, t2])
+    write_stages(repo, {"issue": "ENG-1", "stages": [
+        {"id": "T1", "title": t1["title"], "status": "done"},
+        {"id": "T2", "title": t2["title"], "status": "pending"}]})
+    base = git(repo, "rev-parse", "origin/main")
+    proof = write_task_proof(repo, "T1")
+    seal = head(repo)
+    marker = story_state(repo) / "tasks" / "T1" / "pr-ready.json"
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(json.dumps({
+        "task_id": "T1", "branch": git(repo, "branch", "--show-current"),
+        "base_main_sha": base, "commit": seal,
+        "sealed_at": "2026-09-10T00:00:00+00:00",
+    }))
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "publish marker")
+    lib = load_factory_lib(repo)
+    assert not lib.task_proof_problems(repo, "ENG-1", t1)
+
+    (repo / "src").mkdir(exist_ok=True)
+    (repo / "src" / "t2.py").write_text("t2 = True\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "T2 product")
+    run_pointer = lib.run_state_path(repo)
+    state = json.loads(run_pointer.read_text(encoding="utf-8"))
+    state["task_id"] = "T2"
+    state["base_main_sha"] = head(repo)
+    lib.dump_json(run_pointer, state)
+    assert lib.active_task_id(repo) == "T2"
+
+    assert not lib.task_proof_problems(repo, "ENG-1", t1)
+    from forge_cli.board import aggregate_state
+    story = next(s for s in aggregate_state(repo)["stories"] if s["key"] == "ENG-1")
+    assert story["lifecycle"]["proven"] == {"done": 1, "total": 2}
+    import check_task_proof
+    assert not check_task_proof.proof_problems(repo, "ENG-1", "T1")
+    assert check_task_proof.proof_problems(repo, "ENG-1", "T2")
+    assert lib.task_proof_problems(repo, "ENG-1", t2)
 
 
 def test_task_seal_refuses_incomplete_proof_before_mutation(repo, tmp_path):

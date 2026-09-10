@@ -16,8 +16,8 @@ import json
 import pytest
 
 from test_gates import (  # noqa: I001 — test_gates puts factory/scripts on sys.path
-    DECOMP, git, head, intake, repo, run, save_plan, sign_off, skeletal_stage_task,
-    task_skeleton,
+    DECOMP, _write_complete_automated, git, head, intake, record_task_grill, repo,
+    run, save_plan, sign_off, skeletal_stage_task, task_skeleton,
 )
 from forge_cli.review import resolve_review_base  # noqa: E402
 
@@ -97,6 +97,7 @@ def test_review_brief_carries_the_lessons_in_force_for_the_task_paths(repo, tmp_
     intake(repo)
     save_plan(repo, tmp_path)
     first = {**DECOMP["tasks"][0], "id": "T1", "reviewer_focus": "focus one",
+             "acceptance_criteria": ["first statement"],
              "write_scope": ["src/permission/gate.py", "test/gate_test.py"],
              "plan_contracts": [{"id": "C1", "statement": "first statement",
                                   "source": "plan.md#first"}]}
@@ -108,6 +109,9 @@ def test_review_brief_carries_the_lessons_in_force_for_the_task_paths(repo, tmp_
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
         {**DECOMP, "tasks": [first, skeletons[1]]}))
     assert code == 0, out
+    code, out = record_task_grill(repo, first)
+    assert code == 0, out
+    _write_complete_automated(repo)
 
     for topic, applies_to in (
         ("soft rail asks keep classifier eligibility", "src/permission/**"),
@@ -154,12 +158,11 @@ def test_review_tip_puts_harness_bookkeeping_back_at_the_task_base(repo, tmp_pat
 
 
 def test_review_brief_carries_the_recorded_verification_evidence(repo, tmp_path):
-    from test_gates import write_passing_artifacts
-
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
     first = {**DECOMP["tasks"][0], "id": "T1", "reviewer_focus": "focus one",
+             "acceptance_criteria": ["unit suites pass; tsc green"],
              "write_scope": ["src/gate.py"],
              "plan_contracts": [{"id": "C1", "statement": "unit suites pass; tsc green",
                                   "source": "plan.md#first"}]}
@@ -169,14 +172,17 @@ def test_review_brief_carries_the_recorded_verification_evidence(repo, tmp_path)
     code, out = run(repo, "record_decomposition_from_json.py", stdin=json.dumps(
         {**DECOMP, "tasks": [first]}))
     assert code == 0, out
-    write_passing_artifacts(repo)
+    code, out = record_task_grill(repo, first)
+    assert code == 0, out
+    _write_complete_automated(repo)
 
     code, out = run(repo, "forge.py", "review-brief", "T1", "--repo", str(repo))
     assert code == 0, out
     brief = (repo / out.strip()).read_text()
-    assert "### Recorded evidence" in brief
-    assert "verify.py: ok" in brief
-    assert "automated tests: passed" in brief
+    assert "### Approved task inputs" in brief
+    assert "#### Full task-owned automated report" in brief
+    assert '"status": "passed"' in brief
+    assert '"commands_run"' in brief
 
 
 def test_contract_verdicts_read_every_preserved_pass_report_and_keep_the_worst():
