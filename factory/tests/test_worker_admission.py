@@ -1,0 +1,511 @@
+"""Native edit-hook coverage and protected worker admission."""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import psutil
+import pytest
+
+from test_gates import HARNESS, git, repo  # noqa: F401
+
+sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
+from factory_lib import task_digest  # noqa: E402
+from forge_cli.codex_runtime import native_argv  # noqa: E402
+
+
+TASK = {
+    "id": "T1",
+    "title": "hook admission",
+    "write_scope": ["src/"],
+    "required_tests": [],
+    "verify_commands": [],
+    "acceptance_criteria": ["A registered native worker can edit its scope."],
+}
+
+
+def _control(repo: Path) -> Path:
+    path = Path(git(repo, "rev-parse", "--absolute-git-dir")) / "forge"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _hook(repo: Path, payload: dict, env: dict[str, str] | None = None) -> str:
+    proc = subprocess.run(
+        [sys.executable, str(repo / "factory/scripts/pre_tool_use.py")],
+        cwd=repo,
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        env={**os.environ, **(env or {})},
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    return proc.stdout
+
+
+def _patch(*controls: str) -> dict:
+    return {
+        "tool_name": "apply_patch",
+        "permission_mode": "default",
+        "tool_input": {
+            "command": "\n".join(("*** Begin Patch", *controls, "*** End Patch")),
+        },
+    }
+
+
+def _seed_contract(repo: Path) -> tuple[Path, str]:
+    (repo / ".factory/harness-source.json").write_text("{}\n", encoding="utf-8")
+    brief = repo / ".factory/briefs/T1.md"
+    brief.parent.mkdir(parents=True, exist_ok=True)
+    brief.write_text("# T1 protected brief\n", encoding="utf-8")
+    control = _control(repo)
+    digest = task_digest(TASK)
+    (control / "run.json").write_text(
+        json.dumps({"issue_key": "STORY-1", "story": "STORY-1"}),
+        encoding="utf-8",
+    )
+    (control / "decomposition.json").write_text(
+        json.dumps({"tasks": [TASK]}), encoding="utf-8",
+    )
+    (control / "stages.json").write_text(json.dumps({
+        "issue": "STORY-1",
+        "stages": [{
+            "id": "T1", "status": "active", "started_at": "stage-1",
+            "task_sha256": digest,
+        }],
+    }), encoding="utf-8")
+    return brief, digest
+
+
+def _worker_script(tmp_path: Path) -> Path:
+    script = tmp_path / "hook_worker.py"
+    script.write_text(
+        "import json, os, subprocess, sys\n"
+        "lock, hook, repo = sys.argv[1:4]\n"
+        "sys.path.insert(0, os.path.join(repo, 'factory', 'scripts'))\n"
+        "from forge_cli.delegate import _lock_file\n"
+        "with open(lock, 'a+', encoding='utf-8') as handle:\n"
+        " handle.seek(0); handle.truncate()\n"
+        " json.dump({'kind':'delegation','launch_id':os.environ['FORGE_LAUNCH_ID'],"
+        "'owner_pid':os.getpid()}, handle); handle.flush()\n"
+        " _lock_file(handle)\n"
+        " print('READY', flush=True)\n"
+        " payload = sys.stdin.readline()\n"
+        " env = dict(os.environ)\n"
+        " if len(sys.argv) > 4: env.pop('FORGE_LAUNCH_ID', None)\n"
+        " result = subprocess.run([sys.executable, hook], cwd=repo, input=payload,"
+        " capture_output=True, text=True, env=env)\n"
+        " print(result.stdout, end='', flush=True)\n",
+        encoding="utf-8",
+    )
+    return script
+
+
+def _start_worker(repo: Path, tmp_path: Path, *, launch_id: str = "launch-test",
+                  task_id: str = "T1", legacy_env: bool = False):
+    control = _control(repo)
+    lock = control / f"locks/task/{task_id}.lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    token = f"delegation-{launch_id}"
+    env = {
+        **os.environ,
+        "FORGE_PROCESS_TOKEN": token,
+        "FORGE_LAUNCH_ID": launch_id,
+    }
+    argv = [sys.executable, str(_worker_script(tmp_path)), str(lock),
+            str(repo / "factory/scripts/pre_tool_use.py"), str(repo)]
+    if legacy_env:
+        argv.append("legacy")
+    proc = subprocess.Popen(
+        argv,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
+    assert proc.stdout is not None and proc.stdout.readline().strip() == "READY"
+    return proc, token, launch_id
+
+
+def _record_launch(repo: Path, proc: subprocess.Popen[str], token: str,
+                   launch_id: str, brief: Path, digest: str, *, running=True,
+                   task_id: str = "T1", mode: str = "",
+                   transport: str = "native") -> None:
+    executable = str(Path(sys.executable).resolve())
+    argv = (native_argv(executable, repo, "gpt-test", "medium", True)
+            if transport == "native"
+            else ["node", "/x/codex-companion.mjs", "task", "--write"])
+    base = {
+        "generated_by": "orchestrator",
+        "at": "2026-09-07T00:00:00Z",
+        "launch_id": launch_id,
+        "task": task_id,
+        "brief_sha256": hashlib.sha256(brief.read_bytes()).hexdigest(),
+        "task_sha256": digest,
+        "write": True,
+        "model": "gpt-test",
+        "effort": "medium",
+        "companion_path": executable,
+        "argv": argv,
+        "argv_sha256": hashlib.sha256(
+            json.dumps(argv, separators=(",", ":")).encode()
+        ).hexdigest(),
+        "launch_status": "starting",
+        "process_token": token,
+    }
+    if transport == "native":
+        base.update({
+            "transport": "native",
+            "executable_path": executable,
+            "brief_path": brief.relative_to(repo).as_posix(),
+        })
+    if mode:
+        base["mode"] = mode
+    else:
+        base.update({"story": "STORY-1", "stage_started_at": "stage-1"})
+    rows = [base]
+    if running:
+        rows.append({
+            **base,
+            "launch_status": "running",
+            "pid": proc.pid,
+            "pgid": proc.pid,
+            "pid_started": str(psutil.Process(proc.pid).create_time()),
+        })
+    (_control(repo) / "delegations.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8",
+    )
+
+
+def _invoke_worker(proc: subprocess.Popen[str], payload: dict) -> str:
+    assert proc.stdin is not None and proc.stdout is not None
+    proc.stdin.write(json.dumps(payload) + "\n")
+    proc.stdin.flush()
+    proc.stdin.close()
+    output = proc.stdout.read()
+    proc.wait(timeout=10)
+    assert proc.returncode == 0, (proc.stderr.read() if proc.stderr else "")
+    return output
+
+
+def test_native_worker_patch_add_update_delete_and_move_is_admitted(repo, tmp_path):
+    brief, digest = _seed_contract(repo)
+    proc, token, launch_id = _start_worker(repo, tmp_path)
+    _record_launch(repo, proc, token, launch_id, brief, digest)
+    output = _invoke_worker(proc, _patch(
+        "*** Add File: src/new.py", "+new",
+        "*** Update File: src/old.py", "*** Move to: src/moved.py", "@@", "-old", "+new",
+        "*** End of File",
+        "*** Delete File: src/gone.py",
+    ))
+    assert "deny" not in output, output
+
+
+def test_native_worker_reads_state_without_protected_write_authority(repo, tmp_path):
+    brief, digest = _seed_contract(repo)
+    proc, token, launch_id = _start_worker(repo, tmp_path, launch_id="launch-read")
+    _record_launch(repo, proc, token, launch_id, brief, digest)
+    read_output = _invoke_worker(proc, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": "./forge next"},
+    })
+    # This asserts hook permission only; live C8 proof records command execution.
+    assert json.loads(read_output) == {}
+
+    protected_before = brief.read_bytes()
+    proc, token, launch_id = _start_worker(repo, tmp_path, launch_id="launch-write")
+    _record_launch(repo, proc, token, launch_id, brief, digest)
+    write_output = _invoke_worker(proc, _patch(
+        "*** Update File: .factory/briefs/T1.md",
+        "@@", "-# T1 protected brief", "+# changed protected brief",
+        "*** End of File",
+    ))
+    assert "deny" in write_output and "never hand-written" in write_output
+    assert brief.read_bytes() == protected_before
+
+
+@pytest.mark.parametrize("cleanup_succeeds", [True, False])
+def test_foreground_cleanup_revokes_admission_before_signals(
+        repo, tmp_path, monkeypatch, cleanup_succeeds):
+    import forge_cli.delegate as delegate
+    import forge_cli.worker_admission as admission
+    import forge_cli.doctor as doctor
+    from forge_cli.delegate import load_delegations
+
+    class FakeStdin:
+        def write(self, _value):
+            return None
+
+        def close(self):
+            return None
+
+    class FakeProcess:
+        pid = 4242
+        returncode = None
+        stdin = FakeStdin()
+
+    process = FakeProcess()
+    events = []
+    monkeypatch.setenv("FORGE_COORDINATOR", "codex")
+    monkeypatch.setattr(delegate.shutil, "which", lambda _name: "/usr/bin/codex")
+    monkeypatch.setattr(doctor, "codex_hook_readiness", lambda _base: (True, ""))
+    monkeypatch.setattr(delegate, "_process_table", lambda: {})
+    monkeypatch.setattr(delegate, "_capture_spawn_identity", lambda _proc: "4242.0")
+    real_popen = delegate.subprocess.Popen
+
+    def spawn(argv, *args, **kwargs):
+        if argv and argv[0] == "/usr/bin/codex":
+            return process
+        return real_popen(argv, *args, **kwargs)
+
+    monkeypatch.setattr(delegate.subprocess, "Popen", spawn)
+
+    def fail_wait(*_args, **_kwargs):
+        raise RuntimeError("cleanup unavailable")
+
+    monkeypatch.setattr(delegate, "_wait_and_reap", fail_wait)
+    monkeypatch.setattr(delegate, "_process_group_alive", lambda _pid: False)
+
+    def cleanup(*_args):
+        launch_id = load_delegations(repo)[-1]["launch_id"]
+        events.append(admission.worker_admission_revoked(repo, launch_id))
+        return cleanup_succeeds
+
+    monkeypatch.setattr(delegate, "_terminate_observed_process_tree", cleanup)
+    with pytest.raises(RuntimeError, match="cleanup unavailable"):
+        delegate.launch_companion(
+            repo,
+            task_id="T1",
+            text="fixture prompt",
+            path=repo / ".factory" / "briefs" / "T1.md",
+            task_sha256_value="task-digest",
+            model="model-pin",
+            effort="medium",
+            write=True,
+        )
+
+    assert events == [True]
+    rows = load_delegations(repo)
+    terminal = [
+        row for row in rows
+        if row["launch_status"] in {"failed", "succeeded"}
+    ]
+    assert [row["launch_status"] for row in terminal] == (
+        ["failed"] if cleanup_succeeds else []
+    )
+
+
+def test_stage_worker_may_change_repo_marker_only_when_scope_names_it(repo, tmp_path):
+    brief, _ = _seed_contract(repo)
+    marker_task = {**TASK, "write_scope": [".factory/harness-source.json"]}
+    digest = task_digest(marker_task)
+    control = _control(repo)
+    (control / "decomposition.json").write_text(
+        json.dumps({"tasks": [marker_task]}), encoding="utf-8",
+    )
+    (control / "stages.json").write_text(json.dumps({
+        "issue": "STORY-1",
+        "stages": [{
+            "id": "T1", "status": "active", "started_at": "stage-1",
+            "task_sha256": digest,
+        }],
+    }), encoding="utf-8")
+    proc, token, launch_id = _start_worker(repo, tmp_path)
+    _record_launch(repo, proc, token, launch_id, brief, digest)
+    output = _invoke_worker(
+        proc, _patch("*** Delete File: .factory/harness-source.json"),
+    )
+    assert "deny" not in output, output
+
+
+def test_legacy_companion_token_still_resolves_protected_worker(repo, tmp_path):
+    brief, digest = _seed_contract(repo)
+    proc, token, launch_id = _start_worker(repo, tmp_path, legacy_env=True)
+    _record_launch(
+        repo, proc, token, launch_id, brief, digest, transport="companion",
+    )
+    output = _invoke_worker(proc, _patch("*** Add File: src/new.py", "+new"))
+    assert "deny" not in output, output
+
+
+def test_client_coordinator_apply_patch_still_locks_product(repo):
+    output = _hook(repo, _patch(
+        "*** Update File: src/old.py", "@@", "-old", "+new", "*** End of File",
+    ))
+    assert "deny" in output and "forge delegate" in output
+
+
+@pytest.mark.parametrize("status", ["coordinator", "starting", "forged"])
+def test_unregistered_callers_cannot_write_product(repo, tmp_path, status):
+    brief, digest = _seed_contract(repo)
+    if status == "coordinator":
+        output = _hook(repo, _patch("*** Add File: src/new.py", "+new"))
+    elif status == "forged":
+        output = _hook(
+            repo, _patch("*** Add File: src/new.py", "+new"),
+            {"FORGE_PROCESS_TOKEN": "forged", "FORGE_LAUNCH_ID": "launch-forged"},
+        )
+    else:
+        proc, token, launch_id = _start_worker(repo, tmp_path)
+        _record_launch(repo, proc, token, launch_id, brief, digest, running=False)
+        output = _invoke_worker(proc, _patch("*** Add File: src/new.py", "+new"))
+    assert "deny" in output
+
+
+def test_terminated_worker_and_reused_environment_are_denied(repo, tmp_path):
+    brief, digest = _seed_contract(repo)
+    proc, token, launch_id = _start_worker(repo, tmp_path)
+    _record_launch(repo, proc, token, launch_id, brief, digest)
+    proc.terminate()
+    proc.wait(timeout=10)
+    output = _hook(
+        repo, _patch("*** Add File: src/new.py", "+new"),
+        {"FORGE_PROCESS_TOKEN": token, "FORGE_LAUNCH_ID": launch_id},
+    )
+    assert "deny" in output and "no longer live" in output
+
+
+@pytest.mark.parametrize("marker_kind", ["malformed", "directory"])
+def test_any_protected_revocation_marker_denies_admission(
+        repo, tmp_path, monkeypatch, marker_kind):
+    import forge_cli.worker_admission as admission
+
+    brief, digest = _seed_contract(repo)
+    proc, token, launch_id = _start_worker(repo, tmp_path)
+    _record_launch(repo, proc, token, launch_id, brief, digest)
+    monkeypatch.setenv("FORGE_PROCESS_TOKEN", token)
+    monkeypatch.setenv("FORGE_LAUNCH_ID", launch_id)
+    monkeypatch.setattr(admission, "_current_process_descends_from", lambda *_a: True)
+    marker = admission._revocation_path(repo, launch_id)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    if marker_kind == "directory":
+        marker.mkdir()
+    else:
+        marker.write_text("not JSON", encoding="utf-8")
+    try:
+        grant, reason = admission.live_worker_admission(repo)
+        assert grant is None and "revoked" in reason
+    finally:
+        proc.terminate()
+        proc.wait(timeout=10)
+
+
+def test_contract_mutation_and_out_of_scope_move_are_denied(repo, tmp_path):
+    brief, digest = _seed_contract(repo)
+    proc, token, launch_id = _start_worker(repo, tmp_path)
+    _record_launch(repo, proc, token, launch_id, brief, digest)
+    changed = {**TASK, "write_scope": ["other/"]}
+    (_control(repo) / "decomposition.json").write_text(
+        json.dumps({"tasks": [changed]}), encoding="utf-8",
+    )
+    output = _invoke_worker(proc, _patch(
+        "*** Update File: src/old.py", "*** Move to: outside.py", "@@", "-old", "+new",
+    ))
+    assert "deny" in output and "contract changed" in output
+
+
+def test_stage_restart_invalidates_running_worker(repo, tmp_path):
+    brief, digest = _seed_contract(repo)
+    proc, token, launch_id = _start_worker(repo, tmp_path)
+    _record_launch(repo, proc, token, launch_id, brief, digest)
+    (_control(repo) / "stages.json").write_text(json.dumps({
+        "issue": "STORY-1",
+        "stages": [{
+            "id": "T1", "status": "active", "started_at": "stage-2",
+            "task_sha256": digest,
+        }],
+    }), encoding="utf-8")
+    output = _invoke_worker(proc, _patch("*** Add File: src/new.py", "+new"))
+    assert "deny" in output and "no longer the active stage" in output
+
+
+def test_worker_move_target_must_remain_in_scope(repo, tmp_path):
+    brief, digest = _seed_contract(repo)
+    proc, token, launch_id = _start_worker(repo, tmp_path)
+    _record_launch(repo, proc, token, launch_id, brief, digest)
+    output = _invoke_worker(proc, _patch(
+        "*** Update File: src/old.py", "*** Move to: outside.py", "@@", "-old", "+new",
+    ))
+    assert "deny" in output and "outside the protected task scope" in output
+
+
+@pytest.mark.parametrize("terminal", ["failed", "succeeded"])
+def test_terminal_launch_never_retains_write_admission(repo, tmp_path, terminal):
+    brief, digest = _seed_contract(repo)
+    proc, token, launch_id = _start_worker(repo, tmp_path)
+    _record_launch(repo, proc, token, launch_id, brief, digest)
+    ledger = _control(repo) / "delegations.jsonl"
+    running = json.loads(ledger.read_text(encoding="utf-8").splitlines()[-1])
+    with ledger.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({
+            **running, "launch_status": terminal,
+            "exit_code": 0 if terminal == "succeeded" else 1,
+        }) + "\n")
+    output = _invoke_worker(proc, _patch("*** Add File: src/new.py", "+new"))
+    assert "deny" in output and "not exclusively running" in output
+
+
+def test_live_lite_worker_uses_current_window_and_file_budget(repo, tmp_path):
+    (repo / ".factory/harness-source.json").write_text("{}\n", encoding="utf-8")
+    window_id = "Q-0001-test"
+    (repo / ".factory/quickfix.json").write_text(json.dumps({
+        "id": window_id,
+        "profile": "lite",
+        "reason": "bounded native fix",
+        "started_at": "2026-09-07T00:00:00Z",
+        "max_files": 5,
+        "files": [],
+        "harness_source": True,
+        "base_sha": git(repo, "rev-parse", "HEAD"),
+    }), encoding="utf-8")
+    description = "repair one bounded file"
+    brief = repo / f".factory/briefs/{window_id}.md"
+    brief.parent.mkdir(parents=True, exist_ok=True)
+    brief.write_text(
+        f"# Lite fix — {window_id}\n\nFix: {description}\n\nWork only here.\n",
+        encoding="utf-8",
+    )
+    digest = task_digest({
+        "acceptance_criteria": [description],
+        "required_tests": [],
+        "verify_commands": [],
+        "write_scope": [],
+    })
+    proc, token, launch_id = _start_worker(repo, tmp_path, task_id=window_id)
+    _record_launch(
+        repo, proc, token, launch_id, brief, digest,
+        task_id=window_id, mode="lite",
+    )
+    output = _invoke_worker(proc, _patch("*** Add File: src/lite.py", "+new"))
+    assert "deny" not in output, output
+    claimed = json.loads((repo / ".factory/quickfix.json").read_text())["files"]
+    assert claimed == ["src/lite.py"]
+
+
+def test_worker_cannot_patch_recorded_factory_state(repo, tmp_path):
+    brief, digest = _seed_contract(repo)
+    proc, token, launch_id = _start_worker(repo, tmp_path)
+    _record_launch(repo, proc, token, launch_id, brief, digest)
+    output = _invoke_worker(proc, _patch(
+        "*** Update File: .factory/run.json", "@@", "-{}", "+{}",
+    ))
+    assert "deny" in output and "never hand-written" in output
+
+
+@pytest.mark.parametrize("header", [
+    "*** Mystery File: src/x.py",
+    "*** Add File: ../outside.py",
+])
+def test_malformed_or_outside_apply_patch_fails_closed(repo, header):
+    _seed_contract(repo)
+    output = _hook(repo, {
+        "tool_name": "apply_patch",
+        "tool_input": {"command": f"*** Begin Patch\n{header}\n*** End Patch"},
+    })
+    assert "deny" in output and "malformed" in output

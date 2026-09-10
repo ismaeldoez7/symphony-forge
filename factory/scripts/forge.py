@@ -18,7 +18,45 @@ sys.dont_write_bytecode = True
 
 import argparse
 import os
+import re
 from pathlib import Path
+
+
+def _native_dead_grill_status(args: argparse.Namespace) -> None:
+    """Render only already-dead native grill rows; never general job status."""
+    from factory_lib import repo_root
+    from forge_cli.codex_runtime import coordinator_runtime
+    from grill_gates import gate_names
+
+    if coordinator_runtime() != "codex":
+        codex_status.cmd_status(args)
+        return
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    labels = re.compile(
+        rf"grill-(?:{'|'.join(gate_names())})(?:-[A-Za-z0-9._-]+)?"
+    )
+    dead = [
+        row for row in codex_status.dead_launches(base)
+        if row.get("transport") == "native"
+        and row.get("launch_status") in {"starting", "running"}
+        and isinstance(row.get("task"), str)
+        and labels.fullmatch(row["task"])
+    ]
+    if not dead:
+        raise SystemExit(
+            "native Codex status is foreground-only; no eligible dead native grill "
+            "launch exists (live workers, implementation rows, cancel/resume and "
+            "plugin jobs are not supported in this release)"
+        )
+    for row in dead:
+        print(f"[DEAD GRILL] {row['task']} launch={row.get('launch_id')} "
+              f"pid={row.get('pid')} status={row.get('launch_status')}")
+        if row.get("output_path"):
+            print(f"             output: {row['output_path']}")
+        if row.get("stderr_path"):
+            print(f"             stderr: {row['stderr_path']}")
+        print("             rerun the corresponding `./forge grill run` command.")
+
 
 HOOK_SCRIPTS = {
     "post_tool_use": "post_tool_use.py",
@@ -574,7 +612,7 @@ def main() -> None:
                        help="flag a running job older than this (default: 20)")
     p_cxs.add_argument("--state-root", help="plugin job registry (testing)")
     p_cxs.add_argument("--repo")
-    p_cxs.set_defaults(func=codex_status.cmd_status)
+    p_cxs.set_defaults(func=_native_dead_grill_status)
 
     p_del = sub.add_parser("delegate", help="compose the brief and launch one task")
     p_del.add_argument("id", help="task id from the recorded decomposition")

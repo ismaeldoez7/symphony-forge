@@ -13,7 +13,8 @@ from pathlib import Path
 from factory_lib import (
     clean_git_env, default_trunk_branch, dump_json, evidence_path,
     git_control_dir, load_json, now_iso,
-    plan_digest_without_assumptions, repo_root, require_ready_task,
+    plan_digest_without_assumptions, repo_root, require_approved_plan_digest,
+    require_ready_task, task_digest,
     require_task_sealed,
     protected_decomposition_state_path, run_state_path,
     task_marker_on_main, task_marker_path, validate_payload,
@@ -238,8 +239,19 @@ def cmd_task_start(args: argparse.Namespace) -> None:
              "if a decomposed story lost its git-local pointer on this checkout "
              "(e.g. a fresh trunk clone between tasks), rebuild it with "
              "`forge story resume <key>`.")
+    bound_task = state.get("task_id")
+    if bound_task not in (None, "", args.id):
+        fail(f"task start refused: this checkout is owned by task {bound_task!r}, "
+             f"not {args.id!r}")
+    approved_plan_sha256 = require_approved_plan_digest(base)
     decomposition_path = protected_decomposition_state_path(base)
     decomposition = load_json(decomposition_path, default={})
+    if decomposition.get("story") not in (None, key):
+        fail(f"task start refused: protected decomposition belongs to "
+             f"{decomposition.get('story')!r}, not {key!r}")
+    if decomposition.get("plan_sha256") != approved_plan_sha256:
+        fail("task start refused: protected decomposition is not bound to the "
+             "approved story plan; re-record the decomposition")
     tasks = decomposition.get("tasks") or []
     index = next(
         (position for position, task in enumerate(tasks)
@@ -248,6 +260,10 @@ def cmd_task_start(args: argparse.Namespace) -> None:
     )
     if index is None:
         fail(f"{args.id!r} is not a task in the protected decomposition")
+    task = tasks[index]
+    if task.get("id") != args.id:
+        fail("task start refused: task identity does not match the protected "
+             "decomposition")
     task_marker_path(key, args.id)  # validates both branch/path components
 
     trunk = default_trunk_branch(base)
@@ -267,6 +283,12 @@ def cmd_task_start(args: argparse.Namespace) -> None:
             f"task {args.id} cannot start: dependency {', '.join(waiting)} marker "
             f"is absent from fetched origin/{trunk} ({markers})"
         )
+    scope = task.get("write_scope")
+    if (not isinstance(scope, list) or not scope
+            or any(not isinstance(path, str) or not path.strip()
+                   or Path(path).is_absolute()
+                   or ".." in Path(path).parts for path in scope)):
+        fail(f"task start refused: {args.id} has no protected in-repository write_scope")
     base_main_sha = _require_git(
         base, f"resolving fetched origin/{trunk}", "rev-parse", "--verify",
         f"origin/{trunk}^{{commit}}",
@@ -296,17 +318,18 @@ def cmd_task_start(args: argparse.Namespace) -> None:
     sources = {
         plan_relative: plan_source,
         Path(".factory") / "stories" / key / "decomposition.json": decomposition_path,
+    }
+    # A subsequent task starts with a fresh JIT contract. Existing target plan
+    # and grill records are useful hydration when present, but their absence is
+    # intentional: creation must not certify or require target approval.
+    optional_sources = {
         Path(".factory") / "stories" / key / "grills" / "tasks" / f"{args.id}.json":
             evidence_path(base, key, f"grills/tasks/{args.id}.json"),
         Path(".factory") / "stories" / key / "task-plans" / f"{args.id}.md":
             evidence_path(base, key, f"task-plans/{args.id}.md"),
     }
-    missing = [path for path in sources.values() if not path.is_file()]
-    if missing:
-        fail("task start hydration inputs are missing: " + ", ".join(
-            path.relative_to(base).as_posix() if path.is_relative_to(base) else str(path)
-            for path in missing
-        ))
+    sources.update({relative: source for relative, source in optional_sources.items()
+                    if source.is_file()})
     payloads = {relative: source.read_bytes() for relative, source in sources.items()}
     decomposition_bytes = decomposition_path.read_bytes()
     stages_bytes = (json.dumps({
@@ -336,9 +359,13 @@ def cmd_task_start(args: argparse.Namespace) -> None:
     dump_json(control / "run.json", {
         **state,
         "issue_key": key,
+        "story": key,
         "task_id": args.id,
         "branch": branch,
         "base_main_sha": base_main_sha,
+        "approved_plan_sha256": approved_plan_sha256,
+        "decomposition_plan_sha256": decomposition.get("plan_sha256"),
+        "task_sha256": task_digest(task),
     })
     print(f"Started task {args.id}: {branch} at {worktree} ({base_main_sha})")
 

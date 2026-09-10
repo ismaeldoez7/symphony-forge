@@ -20,6 +20,7 @@ def deny(reason: str) -> None:
 
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+PATCH_TOOL = "apply_patch"
 
 
 def _raw_payload() -> dict:
@@ -191,6 +192,9 @@ def denylist_fallback(payload: dict, reason: str) -> None:
     tool = payload.get("tool_name", "")
     target = ((payload.get("tool_input") or {}).get("file_path") or
               (payload.get("tool_input") or {}).get("notebook_path") or "")
+    if tool == PATCH_TOOL:
+        deny("Forge emergency deny-list engaged; apply_patch writes cannot be "
+             "classified while the full policy is unavailable.")
     if (tool in EDIT_TOOLS and _static_locked(target, root)) or (
         tool == "Bash" and not _fallback_readonly(command)
     ):
@@ -207,6 +211,7 @@ try:
     from forge_cli.context import context_files, context_paths, scan_inbox
     from forge_cli.quickfix import DEGRADED, claim_files, load_active, profile_of
     from forge_cli.repo_kind import is_harness_source_repo, locked_repo_path
+    from forge_cli.worker_admission import live_worker_admission, path_in_scope
 except (ImportError, SyntaxError) as exc:
     denylist_fallback(payload, type(exc).__name__)
 
@@ -219,7 +224,11 @@ permission_mode = payload.get("permission_mode", "")
 # ---------------------------------------------------------------- ask gate --
 # One of the two ways to interrupt the human. The rule itself lives in
 # factory_lib.may_interrupt so this and the Stop hook cannot drift apart.
-if tool_name == "AskUserQuestion":
+if tool_name in {"AskUserQuestion", "request_user_input", "request_user_input_async"}:
+    from forge_cli.codex_runtime import coordinator_runtime
+    if coordinator_runtime() == "codex":
+        deny("native Codex question delivery is not supported in this foreground-only "
+             "release; use the main-chat approval path")
     try:
         from factory_lib import may_interrupt
         allowed, reason = may_interrupt(Path.cwd(), spend=True)
@@ -249,8 +258,8 @@ FACTORY_STATE_MSG = (
 # Files under .factory/ the evidence guard lets through — but that is the ONLY
 # guard they skip. The scratchpad is also exempt in the shared locked-path
 # classifier. The repo-kind marker is deliberately NOT there: it is a product path,
-# so the session lock governs it. Disarming the source-repo lock therefore runs
-# through a delegated worker, never a silent session edit or `rm`.
+# so the session lock governs it. Changing source-repo classification therefore
+# requires a protected delegated worker whose scope names the marker.
 FACTORY_STATE_WRITABLE = {
     ".factory/scratchpad.md",
     ".factory/harness-source.json",
@@ -499,6 +508,65 @@ def bash_write_paths(value: str, root: Path) -> list[str]:
     return found
 
 
+PATCH_HEADER = re.compile(r"^\*\*\* (Add|Update|Delete) File: (.+)$")
+
+
+def apply_patch_paths(value: str) -> list[str] | None:
+    """Extract every write path from one native apply_patch payload.
+
+    None is a malformed patch. The parser understands only the native patch
+    envelope and its Add/Update/Delete/Move controls, so an unknown control
+    fails closed instead of silently dropping a write target.
+    """
+    lines = value.splitlines()
+    if len(lines) < 3 or lines[0] != "*** Begin Patch" or lines[-1] != "*** End Patch":
+        return None
+    paths: list[str] = []
+    operation = ""
+    moved = False
+    for line in lines[1:-1]:
+        match = PATCH_HEADER.fullmatch(line)
+        if match:
+            operation = match.group(1)
+            moved = False
+            path = match.group(2).strip()
+            if not path:
+                return None
+            paths.append(path)
+            continue
+        if line.startswith("*** Move to: "):
+            path = line.removeprefix("*** Move to: ").strip()
+            if operation != "Update" or moved or not path:
+                return None
+            paths.append(path)
+            moved = True
+            continue
+        if line == "*** End of File":
+            if operation != "Update":
+                return None
+            continue
+        if line.startswith("*** "):
+            return None
+    return paths if paths else None
+
+
+def normalized_patch_paths(paths: list[str], root: Path) -> list[str] | None:
+    normalized: list[str] = []
+    for raw in paths:
+        if "$" in raw or "`" in raw:
+            return None
+        candidate = Path(raw).expanduser()
+        try:
+            rel = (candidate if candidate.is_absolute() else root / candidate) \
+                .resolve().relative_to(root.resolve()).as_posix()
+        except (OSError, RuntimeError, ValueError):
+            return None
+        if not rel or rel == ".":
+            return None
+        normalized.append(rel)
+    return normalized
+
+
 def _contains_marker(rel: str) -> bool:
     """True when rel IS the repo-kind marker or a directory that contains it.
 
@@ -599,7 +667,7 @@ def guard_product_writes(targets: list[str], root: Path, command: str = "") -> N
         # A session window must never be able to touch the marker:
         # deleting it — directly, or by removing an ANCESTOR like `.factory` via
         # `rm -rf .factory` — would disable classification and the budget with it.
-        # Only the hook-bypassing delegated worker may change it.
+        # Only a protected delegated worker whose scope names it may change it.
         deny(MARKER_PLAN_ONLY_MSG)
     if not degraded:
         deny(PLAN_MODE_MSG)
@@ -619,26 +687,14 @@ for pattern in blocked:
     if re.search(pattern, command):
         deny(f"Blocked by factory policy: {command}")
 
-# Raw `codex exec` bypasses the sanctioned runtime (/codex:rescue -> the
-# plugin companion): no session threading, no background management, no
-# repo-pinned invocation shape. There is NO escape hatch — doctor installs
-# codex-plugin-cc as a required tool; if it breaks, repair it or work in a
-# Codex session directly (docs/degraded-mode.md).
-# Match INVOCATIONS (command position, env prefixes, pipeline segments,
-# command substitution) — not prose in heredocs/echo that mentions the phrase.
-# `codex [global flags] exec` counts too — flags between must not bypass.
+# Raw `codex exec` bypasses Forge's protected runtime launch: no bound brief,
+# live worker registration, or lifecycle proof. Keep the existing invocation
+# matcher, including substitutions and global flags; exempt only exact help argv
+# and safe display commands whose quoted text happens to contain the phrase.
 CODEX_EXEC_INVOCATION = re.compile(
-    r"(?:^|[;&|]\s*|\$\(\s*)(?:\w+=\S+\s+)*codex(?:\s+-{1,2}[\w-]+(?:[= ]\S+)?)*\s+exec\b",
+    r"(?:^|[;&|]\s*|\$\(\s*|`\s*)(?:\w+=\S+\s+)*codex(?:\s+-{1,2}[\w-]+(?:[= ]\S+)?)*\s+exec\b",
     re.MULTILINE,
 )
-if CODEX_EXEC_INVOCATION.search(command):
-    deny(
-        "Direct `codex exec` is off-contract — invoke Codex through the plugin: "
-        "/codex:rescue [--background] [--write] [--model <m>] [--effort <e>] \"<task>\" "
-        "(read-only unless --write). Plugin missing or broken? `./forge doctor --fix` "
-        "reinstalls it; meanwhile work in a Codex session directly "
-        "(docs/degraded-mode.md) — same prompts, same artifacts, same gates."
-    )
 
 check_bypass = ["pnpm test", "pnpm lint", "pnpm typecheck", "pnpm check:all"]
 if any(token in command for token in check_bypass) and "factory/scripts/verify.py" not in command:
@@ -712,6 +768,15 @@ edit_target = (tool_input.get("file_path") or tool_input.get("notebook_path") or
 write_targets = [edit_target] if tool_name in EDIT_TOOLS and edit_target else []
 if tool_name == "Bash":
     write_targets = bash_write_paths(command, root)
+elif tool_name == PATCH_TOOL:
+    parsed_patch_paths = apply_patch_paths(command)
+    normalized_paths = (
+        normalized_patch_paths(parsed_patch_paths, root)
+        if parsed_patch_paths is not None else None
+    )
+    if normalized_paths is None:
+        deny("apply_patch payload is malformed; Forge cannot prove its write paths.")
+    write_targets = normalized_paths
 
 # Recorded state is never hand-written, in any mode and at any plan status.
 for candidate in write_targets:
@@ -720,8 +785,38 @@ for candidate in write_targets:
 
 # The session lock covers every permission mode. Planning changes authorization
 # for the plan UI, never for product or canon writes.
-guard_product_writes(write_targets, root,
-                     command=command if tool_name == "Bash" else "")
+window = load_active(root)
+is_harness = (
+    bool(window["harness_source"])
+    if window is not None and "harness_source" in window
+    else is_harness_source_repo(root)
+)
+locked_targets = list(dict.fromkeys(
+    rel for raw in write_targets
+    if (rel := product_path(raw, root, is_harness)) is not None
+))
+worker, worker_error = live_worker_admission(root)
+if locked_targets and worker_error:
+    deny(worker_error)
+if locked_targets and worker:
+    marker_targeted = any(_contains_marker(rel) for rel in locked_targets)
+    if marker_targeted and worker["kind"] != "stage":
+        deny(MARKER_PLAN_ONLY_MSG)
+    if worker["kind"] == "stage":
+        outside = [rel for rel in locked_targets
+                   if not path_in_scope(rel, worker["scope"])]
+        if outside:
+            deny("Registered worker write is outside the protected task scope: "
+                 + ", ".join(outside))
+    elif worker["kind"] == "lite":
+        claimed, _ = claim_files(root, locked_targets)
+        if not claimed:
+            deny(QUICKFIX_LIMIT_MSG)
+    else:
+        deny("Forge worker write admission returned an unknown grant kind.")
+else:
+    guard_product_writes(write_targets, root,
+                         command=command if tool_name == "Bash" else "")
 # A heredoc whose ONLY consumer is a data sink (cat/tee/printf/echo writing
 # to a file) is data, never argv: its body is dropped before the companion
 # classification so a note that mentions the companion, or holds a quote or
@@ -835,9 +930,27 @@ def _has_active_shell_syntax(value: str) -> bool:
                 return True
         elif char in "'\"":
             quote = char
-        elif char in ";&|<>$`(){}\n*?~=[]":
+        elif char in ";&|<>$`(){}\n*?~[]":
             return True
     return False
+
+
+codex_match = CODEX_EXEC_INVOCATION.search(command)
+codex_help = (
+    shell_tokens in (["codex", "exec", "--help"], ["codex", "exec", "-h"])
+    and not _has_active_shell_syntax(command)
+)
+quoted_display = (
+    bool(shell_tokens) and Path(shell_tokens[0]).name in DISPLAY_SAFE_ARGV0
+    and _display_safe(shell_tokens) and not _has_active_shell_syntax(command)
+)
+if codex_match and not codex_help and not quoted_display:
+    deny(
+        "Direct `codex exec` is off-contract. Use `./forge delegate <task-id>` "
+        "for protected implementation or `./forge explore --prompt-file <brief> "
+        "[--purpose validate]` for read-only exploration; Forge selects and "
+        "records the configured runtime."
+    )
 
 
 def _companion_readonly_launch_ok():
@@ -862,8 +975,8 @@ def _companion_readonly_launch_ok():
         # cancel, task-worker) mutate state without any write flag. Options
         # are default-deny too: --cwd can retarget other repos, and future
         # flags should not be trusted implicitly. The equals-sign form of
-        # --prompt-file stays explicitly unsupported because active shell
-        # syntax above refuses '='.
+        # --prompt-file stays explicitly unsupported because it is not the
+        # exact allowlisted flag and therefore fails the argv check below.
         if not rest or rest[0] not in READONLY_COMPANION_VERBS:
             return False
         args = rest[1:]

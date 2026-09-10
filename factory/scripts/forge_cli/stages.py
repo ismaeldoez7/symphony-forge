@@ -1365,7 +1365,10 @@ def _require_successful_launch(base: Path, stage_id: str, stage: dict,
                                task: dict) -> str:
     """Refuse without a successful Codex write launch or a covering host-fix
     window. Returns the window id when a window satisfied it, else ""."""
-    from .delegate import argv_digest, brief_path, current_delegation
+    from .codex_runtime import native_argv_valid, parse_native_result
+    from .delegate import (
+        argv_digest, brief_path, current_delegation, delegations_path,
+    )
 
     digest = task_digest(task)
     brief = brief_path(base, stage_id)
@@ -1377,28 +1380,51 @@ def _require_successful_launch(base: Path, stage_id: str, stage: dict,
         ignore_lock=True,
     )
     argv = entry.get("argv") if entry else None
-    argv_valid = (
-        isinstance(argv, list)
-        and bool(argv)
-        and all(isinstance(token, str) for token in argv)
-        and Path(argv[0]).stem.lower() == "node"
-        and argv == [
-            argv[0],
-            entry.get("companion_path"),
-            "task",
-            "--json",
-            "--cwd",
-            str(base),
-            "--model",
-            entry.get("model"),
-            "--effort",
-            entry.get("effort"),
-            "--prompt-file",
-            brief.relative_to(base).as_posix(),
-            "--write",
-        ]
-        and entry.get("argv_sha256") == argv_digest(argv)
-    )
+    transport = entry.get("transport") if entry else None
+    if transport == "native":
+        expected_output = (delegations_path(base).parent / "native-runs" /
+                           f"{entry.get('launch_id')}.jsonl")
+        expected_stderr = (delegations_path(base).parent / "native-runs" /
+                           f"{entry.get('launch_id')}.stderr.log")
+        try:
+            session_id = parse_native_result(expected_output)
+        except ValueError:
+            session_id = ""
+        argv_valid = (
+            native_argv_valid(entry, base)
+            and entry.get("write") is True
+            and not entry.get("resume_session")
+            and entry.get("brief_path") == brief.relative_to(base).as_posix()
+            and entry.get("output_path") == str(expected_output)
+            and entry.get("stderr_path") == str(expected_stderr)
+            and entry.get("session_id") == session_id
+            and entry.get("argv_sha256") == argv_digest(argv)
+        )
+    elif transport is None:
+        argv_valid = (
+            isinstance(argv, list)
+            and bool(argv)
+            and all(isinstance(token, str) for token in argv)
+            and Path(argv[0]).stem.lower() == "node"
+            and argv == [
+                argv[0],
+                entry.get("companion_path"),
+                "task",
+                "--json",
+                "--cwd",
+                str(base),
+                "--model",
+                entry.get("model"),
+                "--effort",
+                entry.get("effort"),
+                "--prompt-file",
+                brief.relative_to(base).as_posix(),
+                "--write",
+            ]
+            and entry.get("argv_sha256") == argv_digest(argv)
+        )
+    else:
+        argv_valid = False
     valid = (
         entry
         and entry.get("launch_status") == "succeeded"

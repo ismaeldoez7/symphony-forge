@@ -148,8 +148,31 @@ def load_delegations(base: Path) -> list[dict]:
     return entries
 
 
-def append_delegation(base: Path, record: dict) -> None:
+def append_delegation(base: Path, record: dict) -> bool:
     validate_payload(base, "delegation", record)
+    terminal = record.get("launch_status") in {"succeeded", "failed"}
+    if record.get("transport") == "native" and terminal:
+        launch_id = record["launch_id"]
+        lock = _acquire_delegation_lock(
+            base, f"terminal-{launch_id}", launch_id,
+            wait=True, namespace="state",
+        )
+        try:
+            if any(
+                row.get("launch_id") == launch_id
+                and row.get("launch_status") in {"succeeded", "failed"}
+                for row in load_delegations(base)
+            ):
+                return False
+            _append_delegation_line(base, record)
+        finally:
+            _release_delegation_lock(lock, launch_id)
+        return True
+    _append_delegation_line(base, record)
+    return True
+
+
+def _append_delegation_line(base: Path, record: dict) -> None:
     line = (json.dumps(record) + "\n").encode()
     # The worker can write the workspace mirror, so it is diagnostic only.
     # Stage close reads the Git-control copy, which workspace-write sandboxes
@@ -671,21 +694,31 @@ def _reap_observed_process_tree(
     return foreground_stopped and children_stopped
 
 
+def _revoke_native_write_admission(base: Path, record: dict) -> None:
+    """Revoke native write authority before any failure cleanup signal."""
+    if record.get("transport") == "native" and record.get("write") is True:
+        from .worker_admission import revoke_worker_admission
+        revoke_worker_admission(base, record)
+
+
 def _terminate_observed_process_tree(
         proc: subprocess.Popen[str], token: str,
         baseline: dict[int, tuple[int, float]] | None = None,
         foreground_identity: float | str = "") -> bool:
     """Cancel a spawned command immediately, then reap every observed child."""
-    # The foreground process group is the one resource we already own and can
-    # identify without walking the process table. Signal it before fallible
-    # descendant discovery so an unavailable `ps` cannot leave the command
-    # running after Forge exits.
-    if foreground_identity and proc.poll() is None:
-        _signal_verified_process_group(proc.pid, foreground_identity)
+    # Preserve child identities before signalling the leader. A detached child
+    # can ignore SIGTERM while the leader exits immediately; after reparenting,
+    # walking from the dead leader can no longer rediscover it for escalation.
     try:
         descendants = _descendants(proc.pid)
     except ProcessDiscoveryError:
         descendants = {}
+    if foreground_identity and proc.poll() is None:
+        _signal_verified_process_group(proc.pid, foreground_identity)
+    try:
+        descendants.update(_descendants(proc.pid))
+    except ProcessDiscoveryError:
+        pass
     try:
         if token:
             descendants.update(_tagged_processes(token, baseline))
@@ -701,7 +734,8 @@ def _terminate_observed_process_tree(
 def _wait_and_reap(
         proc: subprocess.Popen[str], token: str = "",
         baseline: dict[int, tuple[int, float]] | None = None,
-        foreground_identity: float | str = "") -> bool:
+        foreground_identity: float | str = "",
+        before_cleanup=None) -> bool:
     """Wait for trusted work and reap its observed process tree.
 
     A child can create a new session and leave the leader's process group. PID
@@ -726,6 +760,8 @@ def _wait_and_reap(
         if token:
             descendants.update(_tagged_processes(token, baseline, current))
     except BaseException:
+        if before_cleanup is not None:
+            before_cleanup()
         _reap_observed_process_tree(
             proc, token, descendants, baseline,
             foreground_identity=foreground_identity)
@@ -770,7 +806,8 @@ def current_delegation(base: Path, task_id: str, *,
     bindings = (
         "task", "brief_sha256", "task_sha256", "write", "model", "effort",
         "companion_path", "argv", "argv_sha256", "stage_started_at",
-        "process_token",
+        "process_token", "transport", "executable_path", "brief_path",
+        "output_path", "stderr_path", "resume_session", "background",
     )
     completed: list[tuple[int, dict]] = []
     for started, rows in launches.values():
@@ -1069,11 +1106,17 @@ def launch_companion(
         base: Path, *, task_id: str, text: str, path: Path,
         task_sha256_value: str, model: str, effort: str, write: bool,
         story: str = "", background: bool = False, print_only: bool = False,
-        stage_started_at: str = "", mode: str = "") -> dict | None:
-    """Write a brief and run the protected companion launch lifecycle."""
+        stage_started_at: str = "", mode: str = "", resume_session: str = "") -> dict | None:
+    """Write a brief and run the selected protected launch lifecycle."""
+    from .codex_runtime import coordinator_runtime
+
     # Prefixed, not bare hex: a bare 32-character hex string reads as a
     # credential to secret scanners.
     launch_id = f"launch-{uuid.uuid4().hex}"
+    runtime = coordinator_runtime()
+    if runtime == "codex" and background:
+        fail("native Codex delegation is foreground-only in this release; "
+             "background/read-only background is owned by NATIVE-LIFECYCLE")
     lock = (_acquire_delegation_lock(base, task_id, launch_id)
             if write and not print_only else None)
     if write and not print_only:
@@ -1083,19 +1126,39 @@ def launch_companion(
         fail(f"cannot safely write .factory/{rel}; remove any symlinked brief "
              "path and retry")
     brief_digest = sha256_of(path)
-    node = shutil.which("node")
-    if not node:
-        fail("node is required to launch the Codex companion — run `./forge doctor --fix`")
-    companion = companion_script()
     rel = path.relative_to(base).as_posix()
-    argv = [
-        node, str(companion), "task", "--json", "--cwd", str(base),
-        "--model", model, "--effort", effort, "--prompt-file", rel,
-    ]
-    if write:
-        argv.append("--write")
-    if background:
-        argv.append("--background")
+    companion: Path | None = None
+    executable = ""
+    output_path: Path | None = None
+    stderr_path: Path | None = None
+    if runtime == "codex":
+        from .codex_runtime import native_argv
+
+        executable = shutil.which("codex") or ""
+        if not executable:
+            fail("codex is required for native delegation — run `./forge doctor --fix`")
+        executable = str(Path(executable).resolve())
+        argv = native_argv(
+            executable, base, model, effort, write,
+            resume_session=resume_session,
+        )
+        logs = delegations_path(base).parent / "native-runs"
+        logs.mkdir(parents=True, exist_ok=True)
+        output_path = logs / f"{launch_id}.jsonl"
+        stderr_path = logs / f"{launch_id}.stderr.log"
+    else:
+        node = shutil.which("node")
+        if not node:
+            fail("node is required to launch the Codex companion — run `./forge doctor --fix`")
+        companion = companion_script()
+        argv = [
+            node, str(companion), "task", "--json", "--cwd", str(base),
+            "--model", model, "--effort", effort, "--prompt-file", rel,
+        ]
+        if write:
+            argv.append("--write")
+        if background:
+            argv.append("--background")
     write_detail = ("YES (lite window is open)" if mode else
                     "YES (stage is active with a write scope)")
     launch_detail = " | not launched" if print_only else ""
@@ -1104,6 +1167,12 @@ def launch_companion(
           f"{shlex.join(argv)}{launch_detail}")
     if print_only:
         return None
+    if runtime == "codex" and write:
+        from .doctor import codex_hook_readiness
+
+        ready, detail = codex_hook_readiness(base)
+        if not ready:
+            fail(f"native Codex write launch refused: {detail}")
 
     process_token = f"delegation-{launch_id}"
     record = {
@@ -1116,12 +1185,23 @@ def launch_companion(
         "write": write,
         "model": model,
         "effort": effort,
-        "companion_path": str(companion),
         "argv": argv,
         "argv_sha256": argv_digest(argv),
         "launch_status": "starting",
         "process_token": process_token,
     }
+    if runtime == "codex":
+        record.update({
+            "transport": "native",
+            "executable_path": executable,
+            "brief_path": rel,
+            "output_path": str(output_path),
+            "stderr_path": str(stderr_path),
+        })
+        if resume_session:
+            record["resume_session"] = resume_session
+    else:
+        record["companion_path"] = str(companion)
     if story:
         record["story"] = story
     if background:
@@ -1136,12 +1216,20 @@ def launch_companion(
     process_identity: float | str = ""
     stdout = ""
     stderr = ""
-    stdout_log = tempfile.TemporaryFile(
-        mode="w+t", encoding="utf-8", errors="replace"
-    )
-    stderr_log = tempfile.TemporaryFile(
-        mode="w+t", encoding="utf-8", errors="replace"
-    )
+    if output_path:
+        # Native stdout is a JSONL protocol: invalid UTF-8 must fail the run,
+        # not be rewritten into evidence that the runtime did not emit.
+        stdout_log = open(output_path, "w+t", encoding="utf-8")
+        stderr_log = open(stderr_path, "w+t", encoding="utf-8")
+    else:
+        # Companion output is display-only and has historically been tolerant
+        # of malformed worker bytes; preserve that audited behavior unchanged.
+        stdout_log = tempfile.TemporaryFile(
+            mode="w+t", encoding="utf-8", errors="replace"
+        )
+        stderr_log = tempfile.TemporaryFile(
+            mode="w+t", encoding="utf-8", errors="replace"
+        )
     handled_signals = list(TERMINATION_SIGNALS)
     previous_handlers = {
         candidate: signal.getsignal(candidate) for candidate in handled_signals
@@ -1157,6 +1245,8 @@ def launch_companion(
         try:
             process_env = os.environ.copy()
             process_env["FORGE_PROCESS_TOKEN"] = process_token
+            if runtime == "codex":
+                process_env["FORGE_LAUNCH_ID"] = launch_id
             process_env["PYTHONUTF8"] = "1"
             with blocked_termination_signals():
                 process_baseline = _process_table()
@@ -1168,6 +1258,7 @@ def launch_companion(
                 )
                 proc = subprocess.Popen(
                     argv, cwd=base, stdout=stdout_log, stderr=stderr_log,
+                    stdin=subprocess.PIPE if runtime == "codex" else None,
                     text=True, env=process_env, **spawn_options,
                 )
                 process_identity = _capture_spawn_identity(proc)
@@ -1185,19 +1276,26 @@ def launch_companion(
                         lock, record["launch_id"], proc.pid,
                         owner_pgid=proc.pid)
                 append_delegation(base, record)
+                if runtime == "codex":
+                    assert proc.stdin is not None
+                    proc.stdin.write(text)
+                    proc.stdin.close()
         except OSError as exc:
             if proc is None:
                 append_delegation(base, {
                     **record, "at": now_iso(), "launch_status": "failed",
                 })
                 terminal_recorded = True
-                fail(f"Codex companion could not start: {exc}")
+                label = "worker" if runtime == "codex" else "companion"
+                fail(f"Codex {label} could not start: {exc}")
             # Popen succeeded; the outer handler must reap that process tree
             # before any terminal launch row is recorded.
-            fail(f"Codex companion launch could not be registered: {exc}")
+            label = "worker" if runtime == "codex" else "companion"
+            fail(f"Codex {label} launch could not be registered: {exc}")
         try:
             if not _wait_and_reap(
-                    proc, process_token, process_baseline, process_identity):
+                    proc, process_token, process_baseline, process_identity,
+                    before_cleanup=lambda: _revoke_native_write_admission(base, record)):
                 raise RuntimeError("companion process tree survived termination")
         except BaseException:
             # The outer handler retries cleanup and records a terminal failure
@@ -1207,17 +1305,31 @@ def launch_companion(
         stderr_log.seek(0)
         stdout = stdout_log.read()
         stderr = stderr_log.read()
-        if stdout:
+        if stdout and runtime != "codex":
             print(stdout.rstrip())
         if proc.returncode != 0:
-            append_delegation(base, {
+            _revoke_native_write_admission(base, record)
+            failed = {
                 **record, "at": now_iso(), "launch_status": "failed",
                 "exit_code": proc.returncode,
-            })
+            }
+            if runtime == "codex":
+                from .codex_runtime import native_session_identity
+
+                session_id = native_session_identity(output_path)
+                if session_id:
+                    failed["session_id"] = session_id
+            append_delegation(base, failed)
             terminal_recorded = True
+            if runtime == "codex":
+                detail = stderr.strip()
+                fail(f"Codex worker launch failed (exit {proc.returncode})"
+                     + (f": {detail}" if detail
+                        else f"; see {output_path}"))
             fail("Codex companion launch failed "
                  f"(exit {proc.returncode}): {(stderr or stdout).strip()}")
         if sha256_of(path) != brief_digest:
+            _revoke_native_write_admission(base, record)
             append_delegation(base, {
                 **record, "at": now_iso(), "launch_status": "failed",
                 "exit_code": proc.returncode,
@@ -1230,19 +1342,60 @@ def launch_companion(
             **record, "at": now_iso(), "launch_status": "succeeded",
             "exit_code": proc.returncode,
         }
-        append_delegation(base, terminal)
+        if runtime == "codex":
+            from .codex_runtime import native_completed_message, parse_native_result
+
+            try:
+                terminal["session_id"] = parse_native_result(output_path)
+            except ValueError as exc:
+                _revoke_native_write_admission(base, record)
+                failed = {
+                    **record, "at": now_iso(), "launch_status": "failed",
+                    "exit_code": proc.returncode,
+                }
+                from .codex_runtime import native_session_identity
+                session_id = native_session_identity(output_path)
+                if session_id:
+                    failed["session_id"] = session_id
+                append_delegation(base, failed)
+                terminal_recorded = True
+                fail(str(exc))
+        published = append_delegation(base, terminal)
         terminal_recorded = True
+        if runtime == "codex" and not published:
+            existing = next(
+                row for row in reversed(load_delegations(base))
+                if row.get("launch_id") == launch_id
+                and row.get("launch_status") in {"succeeded", "failed"}
+            )
+            if existing.get("launch_status") != "succeeded":
+                fail(f"native Codex {launch_id} was already recorded failed")
+        if runtime == "codex":
+            message = native_completed_message(output_path)
+            if message:
+                print(message)
+            print(f"Native Codex {terminal['session_id']}: succeeded")
         return terminal
     except BaseException:
         if proc is not None and not terminal_recorded:
+            _revoke_native_write_admission(base, record)
             with blocked_termination_signals():
                 terminated = _terminate_observed_process_tree(
                     proc, process_token, process_baseline, process_identity)
             if terminated:
-                append_delegation(base, {
+                failed = {
                     **record, "at": now_iso(), "launch_status": "failed",
                     "exit_code": proc.returncode if proc.returncode is not None else 130,
-                })
+                }
+                if runtime == "codex" and output_path:
+                    from .codex_runtime import native_session_identity
+                    try:
+                        session_id = native_session_identity(output_path)
+                    except ValueError:
+                        session_id = ""
+                    if session_id:
+                        failed["session_id"] = session_id
+                append_delegation(base, failed)
         raise
     finally:
         stdout_log.close()
@@ -1283,6 +1436,10 @@ def cmd_delegate(args: argparse.Namespace) -> None:
         scope = task.get("write_scope") or []
     write = bool(active and scope) and not args.read_only
     task_sha256_value = task_digest(task)
+    from .codex_runtime import coordinator_runtime
+    if coordinator_runtime() == "codex" and args.background:
+        fail("native Codex delegation is foreground-only in this release; "
+             "background/read-only background is owned by NATIVE-LIFECYCLE")
     if write and args.background:
         fail("background write delegation cannot satisfy a measured stage: the "
              "worker could keep writing after stage close. Run it in the foreground, "

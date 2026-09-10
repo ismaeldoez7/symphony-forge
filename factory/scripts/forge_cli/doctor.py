@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os
 import platform
+import queue
 import re
 import shlex
 import shutil
@@ -16,6 +17,8 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import urllib.request
 import uuid
 from datetime import datetime, timezone
@@ -253,6 +256,15 @@ def _display_mark(check: dict) -> str:
 
 
 HOOK_CONFIGS = (Path(".claude/settings.json"), Path(".codex/hooks.json"))
+CODEX_HOOK_CONTRACT = {
+    "sessionStart": " hook session_start ",
+    "preToolUse": " hook pre_tool_use ",
+    "postToolUse": " hook post_tool_use ",
+    "preCompact": " hook pre_compact ",
+    "stop": " hook stop_continue ",
+}
+CODEX_HOOK_EVENTS = set(CODEX_HOOK_CONTRACT)
+CODEX_SESSION_START_SOURCES = ("startup", "resume", "clear", "compact")
 HOOK_HEALTH_FIX = (
     "restore missing `forge`/factory scripts, or run `./forge doctor --fix` "
     "to install Python 3.10+, then rerun doctor"
@@ -769,6 +781,213 @@ def _install_psutil() -> tuple[bool, str]:
     if not ok:
         return False, f"pip exited successfully but psutil {detail}"
     return True, detail
+
+
+def _codex_hooks_inventory(binary: str, base: Path) -> tuple[list[dict] | None, str]:
+    """Ask the PATH-selected Codex CLI which hooks it actually loaded."""
+    try:
+        run_env = dict(os.environ)
+        run_env.pop("CODEX_THREAD_ID", None)
+        run_env.pop("CODEX_SHELL", None)
+        process = subprocess.Popen(
+            [binary, "app-server", "--listen", "stdio://"], cwd=base,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            text=True, encoding="utf-8", env=run_env,
+        )
+    except OSError as exc:
+        return None, f"Codex hook inspection failed: {exc}"
+    messages: queue.Queue[dict] = queue.Queue()
+
+    def read_messages() -> None:
+        assert process.stdout is not None
+        for line in process.stdout:
+            try:
+                message = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(message, dict):
+                messages.put(message)
+
+    threading.Thread(target=read_messages, daemon=True).start()
+
+    def send(message: dict) -> None:
+        assert process.stdin is not None
+        process.stdin.write(json.dumps(message) + "\n")
+        process.stdin.flush()
+
+    deadline = time.monotonic() + 10
+    try:
+        send({
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {
+                "clientInfo": {"name": "forge-doctor", "version": "1"},
+                "capabilities": {"experimentalApi": True},
+            },
+        })
+        while True:
+            message = messages.get(timeout=max(0.01, deadline - time.monotonic()))
+            if message.get("id") == 1:
+                if "error" in message:
+                    return None, f"Codex app-server initialize failed: {message['error']}"
+                break
+        send({"jsonrpc": "2.0", "method": "initialized", "params": {}})
+        send({
+            "jsonrpc": "2.0", "id": 2, "method": "hooks/list",
+            "params": {"cwds": [str(base.resolve())]},
+        })
+        while True:
+            message = messages.get(timeout=max(0.01, deadline - time.monotonic()))
+            if message.get("id") != 2:
+                continue
+            if "error" in message:
+                return None, f"Codex hooks/list failed: {message['error']}"
+            result = message.get("result")
+            entries = result.get("data") if isinstance(result, dict) else None
+            if not isinstance(entries, list) or len(entries) != 1:
+                return None, "Codex hooks/list returned no unique checkout result"
+            entry = entries[0]
+            if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
+                return None, "Codex hooks/list returned an invalid checkout result"
+            errors = entry.get("errors") or []
+            if errors:
+                return None, f"Codex could not load hooks: {errors}"
+            return entry["hooks"], ""
+    except (OSError, BrokenPipeError, queue.Empty) as exc:
+        return None, f"Codex hook inspection failed: {exc}"
+    finally:
+        try:
+            process.terminate()
+        except OSError:
+            pass
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+
+
+def _git_worktree_roots(base: Path) -> tuple[set[Path] | None, str]:
+    try:
+        result = subprocess.run(
+            ["git", "worktree", "list", "--porcelain", "-z"], cwd=base,
+            capture_output=True, timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, f"cannot resolve Git worktree family: {exc}"
+    if result.returncode != 0:
+        try:
+            detail = result.stderr.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            return None, "cannot resolve Git worktree family: git returned non-UTF-8 stderr"
+        return None, f"cannot resolve Git worktree family: {detail or 'git failed'}"
+    try:
+        roots = {
+            Path(field.removeprefix(b"worktree ").decode("utf-8")).resolve()
+            for field in result.stdout.split(b"\0")
+            if field.startswith(b"worktree ")
+        }
+    except UnicodeDecodeError:
+        return None, "cannot resolve Git worktree family: git returned a non-UTF-8 path"
+    return (roots, "") if roots else (None, "git returned no worktree roots")
+
+
+def codex_hook_readiness(base: Path) -> tuple[bool, str]:
+    """Verify the Codex CLI loads enabled, trusted hooks from this checkout.
+
+    This PATH-based probe does not inspect Codex Desktop. Live CLI event emission
+    and Desktop readiness require their own runtime evidence.
+    """
+    binary = shutil.which("codex")
+    if not binary:
+        return False, "codex CLI is not on PATH"
+    expected = (base / ".codex" / "hooks.json").resolve()
+    if not expected.is_file():
+        return False, f"{expected} is missing"
+    hooks, error = _codex_hooks_inventory(binary, base)
+    if hooks is None:
+        return False, error
+    roots, error = _git_worktree_roots(base)
+    if roots is None:
+        return False, error
+    family_sources = {root / ".codex" / "hooks.json" for root in roots}
+    loaded_family = [hook for hook in hooks
+                     if Path(str(hook.get("sourcePath", ""))).resolve()
+                     in family_sources]
+    if not loaded_family:
+        return False, f"Codex did not load hooks from {expected} or its Git worktree family"
+    try:
+        expected_bytes = expected.read_bytes()
+        divergent = {
+            Path(str(hook.get("sourcePath", ""))).resolve()
+            for hook in loaded_family
+            if Path(str(hook.get("sourcePath", ""))).resolve().read_bytes()
+            != expected_bytes
+        }
+    except OSError as exc:
+        return False, f"cannot compare inherited Codex hook source: {exc}"
+    if divergent:
+        return False, (
+            "Codex inherited divergent hooks from its Git worktree family: "
+            + ", ".join(str(path) for path in sorted(divergent))
+        )
+    exact = loaded_family
+    disabled = [str(hook.get("eventName")) for hook in exact
+                if hook.get("enabled") is not True]
+    if disabled:
+        return False, "Codex hooks are disabled: " + ", ".join(sorted(disabled))
+    untrusted = [str(hook.get("eventName")) for hook in exact
+                 if hook.get("trustStatus") not in {"trusted", "managed"}]
+    if untrusted:
+        return False, "Codex hooks are not trusted: " + ", ".join(sorted(untrusted))
+    events = {str(hook.get("eventName")) for hook in exact}
+    missing = CODEX_HOOK_EVENTS - events
+    if missing:
+        return False, "Codex did not load required hooks: " + ", ".join(sorted(missing))
+    wrong = [str(hook.get("eventName")) for hook in exact
+             if hook.get("eventName") in CODEX_HOOK_CONTRACT
+             and (CODEX_HOOK_CONTRACT[str(hook["eventName"])]
+                  not in str(hook.get("command", ""))
+                  or not str(hook.get("currentHash", "")).startswith("sha256:"))]
+    if wrong:
+        return False, "Codex loaded the wrong hook command: " + ", ".join(sorted(wrong))
+
+    for hook in exact:
+        matcher = hook.get("matcher") or ".*"
+        if matcher == "*":
+            continue
+        try:
+            re.compile(str(matcher))
+        except re.error:
+            return False, f"Codex hook matcher is invalid: {hook.get('eventName')}"
+
+    def matcher_covers(event: str, aliases: tuple[str, ...]) -> bool:
+        matchers = [hook.get("matcher") for hook in exact
+                    if hook.get("eventName") == event]
+        return any(
+            matcher in {None, "", "*"}
+            or (isinstance(matcher, str)
+                and any(re.search(matcher, alias) for alias in aliases))
+            for matcher in matchers
+        )
+
+    pre_tools = (("Bash",), ("apply_patch", "Edit", "Write"),
+                 ("request_user_input",), ("request_user_input_async",))
+    missing_matchers = [aliases[0] for aliases in pre_tools
+                        if not matcher_covers("preToolUse", aliases)]
+    if missing_matchers:
+        return False, "Codex PreToolUse matcher does not cover: " + ", ".join(missing_matchers)
+    if not matcher_covers("postToolUse", ("request_user_input",)):
+        return False, "Codex PostToolUse matcher does not cover request_user_input"
+    missing_starts = [source for source in CODEX_SESSION_START_SOURCES
+                      if not matcher_covers("sessionStart", (source,))]
+    if missing_starts:
+        return False, "Codex SessionStart matcher does not cover: " + ", ".join(missing_starts)
+    return True, (
+        f"{len(exact)} enabled and trusted hook(s) loaded from {expected}; "
+        "CLI live event emission is verified separately; this PATH-based CLI "
+        "probe does not certify Codex Desktop"
+    )
+
 
 
 def _psutil_check(*, fix: bool = False) -> dict:

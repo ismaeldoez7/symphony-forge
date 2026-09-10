@@ -91,6 +91,10 @@ Proof belongs to the TASK that made it — under
 `reviews/{quality,performance,security}.json`. Plan, `run.json` and
 `decomposition.json` stay story-scoped.
 
+When changing review inputs, task sealing or proof readers, follow the
+task identity and complete-evidence contract in
+`docs/specs/dual-coordinator-parity.md`; keep local, CI and board predicates aligned.
+
 A STORY ships when every task marker is on the trunk with clean proof;
 closeout re-verifies nothing. Its only story-scoped proof is `outcome.json`
 (`./forge outcome set`) — the one question no task can answer.

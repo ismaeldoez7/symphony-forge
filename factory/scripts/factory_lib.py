@@ -12,7 +12,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 # Windows/default-console UTF-8 safety. Python points stdout/stderr at the
 # platform's ANSI code page (cp1252 on Windows), so the em-dashes, arrows and
@@ -1278,7 +1278,12 @@ def branch_diff_digest(root: Path) -> str:
     return hashlib.sha256(diff.stdout).hexdigest()
 
 
-def require_coherent_review_run(root: Path, reviews: dict[str, dict]) -> list[str]:
+def require_coherent_review_run(
+    root: Path,
+    reviews: dict[str, dict],
+    *,
+    expected_branch_diff_digest: str | None = None,
+) -> list[str]:
     """Return close-gate problems for a split or stale three-lens review run."""
     aspects = ("quality", "performance", "security")
     if any(aspect not in reviews for aspect in aspects):
@@ -1306,7 +1311,11 @@ def require_coherent_review_run(root: Path, reviews: dict[str, dict]) -> list[st
         return [
             "review_run_id must equal sha256(brief_sha256 + branch_diff_digest)"
         ]
-    current_digest = branch_diff_digest(root)
+    current_digest = (
+        expected_branch_diff_digest
+        if expected_branch_diff_digest is not None
+        else branch_diff_digest(root)
+    )
     if recorded_digest != current_digest:
         return [
             "branch review is stale: branch_diff_digest does not match the "
@@ -1335,65 +1344,432 @@ def require_all_stages_done(root: Path) -> list[str]:
     ]
 
 
-def task_proof_problems(root: Path, key: str, task: dict) -> list[str]:
-    """One task's proof, read from the task's own directory.
+def _task_proof_is_modern(
+    root: Path, key: str, task_id: str,
+    reader: Callable[[str], dict | None] | None = None,
+) -> bool:
+    """Whether this task must use the task-owned proof bundle."""
+    names = (
+        "verify.json", "tests.json",
+        "reviews/quality.json", "reviews/performance.json", "reviews/security.json",
+    )
+    if reader is not None:
+        return any(reader(f".factory/stories/{key}/tasks/{task_id}/{name}") is not None
+                   for name in names)
+    state = load_json(run_state_path(root), default={})
+    if state.get("task_id") == task_id or state.get("base_main_sha"):
+        return True
+    return any(task_evidence_path(root, key, task_id, name).is_file() for name in names)
 
-    Falls back to the story-scoped singleton for work recorded before proof
-    was task-scoped, so a story already in flight can still close on the
-    evidence it legitimately has.
-    """
-    from forge_cli.readiness import review_passed, tests_passed, verify_passed
+
+_COMMIT_ID = re.compile(r"^[0-9a-fA-F]{7,64}$")
+_PROOF_LENSES = ("quality", "performance", "security")
+_PROOF_NAMES = (
+    "verify.json", "tests.json",
+    "reviews/quality.json", "reviews/performance.json", "reviews/security.json",
+)
+
+
+def _git_commit_exists(root: Path, value: object) -> bool:
+    if not isinstance(value, str) or not _COMMIT_ID.fullmatch(value):
+        return False
+    proc = subprocess.run(
+        ["git", "cat-file", "-e", f"{value}^{{commit}}"],
+        cwd=root, capture_output=True, env=clean_git_env(),
+    )
+    return proc.returncode == 0
+
+
+def _git_is_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
+    proc = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+        cwd=root, capture_output=True, env=clean_git_env(),
+    )
+    return proc.returncode == 0
+
+
+def _valid_task_marker(root: Path, marker: object, task_id: str) -> bool:
+    if not isinstance(marker, dict) or marker.get("task_id") != task_id:
+        return False
+    if any(
+        not isinstance(marker.get(field), str) or not marker[field].strip()
+        for field in ("branch", "base_main_sha", "commit", "sealed_at")
+    ):
+        return False
+    base = marker["base_main_sha"]
+    seal = marker["commit"]
+    if not _git_commit_exists(root, base) or not _git_commit_exists(root, seal):
+        return False
+    head = head_sha(root)
+    return bool(
+        head
+        and _git_is_ancestor(root, base, seal)
+        and _git_is_ancestor(root, seal, head)
+    )
+
+
+def _proof_commit_problems(
+    root: Path,
+    task_id: str,
+    records: list[tuple[str, dict]],
+    *,
+    expected_head: str = "",
+    base: str = "",
+    seal: str = "",
+    compare_product: bool = True,
+) -> list[str]:
+    """Keep recorder stamps current, or inside one verified historical seal."""
+    problems: list[str] = []
+    seal_digest = ""
+    if base and seal and compare_product:
+        from forge_cli.stages import workflow_prefixes
+
+        seal_digest = product_tree_digest(
+            root, seal, exclude=workflow_prefixes(root),
+        )
+    checked: set[tuple[str, str]] = set()
+    for label, record in records:
+        if not isinstance(record, dict):
+            continue
+        stamped_task = record.get("task_id")
+        if stamped_task is not None and stamped_task != task_id:
+            problems.append(
+                f"{task_id}: {label} proof is owned by task {stamped_task!r}"
+            )
+        commit = record.get("commit")
+        if expected_head:
+            if commit != expected_head:
+                problems.append(
+                    f"{task_id}: {label} proof is stamped at {commit!r}, not HEAD"
+                )
+            continue
+        if not base or not seal:
+            continue
+        if not _git_commit_exists(root, commit):
+            problems.append(f"{task_id}: {label} proof has no valid commit stamp")
+            continue
+        if not _git_is_ancestor(root, base, commit) or not _git_is_ancestor(
+            root, commit, seal
+        ):
+            problems.append(
+                f"{task_id}: {label} proof commit is outside the task base-to-seal range"
+            )
+            continue
+        identity = (label, str(commit))
+        if identity in checked:
+            continue
+        checked.add(identity)
+        if compare_product:
+            from forge_cli.stages import workflow_prefixes
+
+            if product_tree_digest(
+                root, str(commit), exclude=workflow_prefixes(root),
+            ) != seal_digest:
+                problems.append(
+                    f"{task_id}: product content changed after {label} proof was recorded"
+                )
+    return problems
+
+
+def _historical_branch_diff_digest(root: Path, base: str, seal: str) -> str:
+    """Hash the product diff that the historical review actually covered."""
+    from forge_cli.stages import WORKFLOW_PATHS, committed_paths
+
+    paths = sorted(
+        path for path in committed_paths(root, base, seal)
+        if not path.startswith(WORKFLOW_PATHS)
+    )
+    if not paths:
+        return hashlib.sha256(b"").hexdigest()
+    diff = subprocess.run(
+        ["git", "diff", "--binary", "--no-ext-diff", base, seal, "--", *paths],
+        cwd=root, capture_output=True, env=clean_git_env(),
+    )
+    if diff.returncode != 0:
+        return ""
+    return hashlib.sha256(diff.stdout).hexdigest()
+
+
+def _proof_review_problems(
+    root: Path,
+    task_id: str,
+    reviews: dict[str, dict],
+    *,
+    strict: bool,
+    expected_branch_diff_digest: str | None = None,
+) -> list[str]:
+    """Validate all three review artifacts, including task binding when modern."""
+    from forge_cli.readiness import review_passed
+
+    problems: list[str] = []
+    for lens in _PROOF_LENSES:
+        review = reviews.get(lens)
+        if not review:
+            problems.append(
+                f"{task_id}: no {lens} review — `./forge review {task_id}` runs all "
+                "three lenses in Codex and records them")
+            continue
+        if strict and review.get("task_id") != task_id:
+            problems.append(f"{task_id}: {lens} review is not owned by task {task_id!r}")
+        try:
+            passed = review_passed(review)
+        except (TypeError, ValueError):
+            passed = False
+        if not passed:
+            blockers = review.get("blocking_findings")
+            blocking = (len(blockers) if isinstance(blockers, (list, tuple, dict, set))
+                        else int(bool(blockers)))
+            problems.append(
+                f"{task_id}: {lens} review is not clean ({blocking} blocking "
+                f"finding(s), score {review.get('score')!r}) — delegate the fixes "
+                f"with `./forge delegate {task_id}`, commit, then rerun "
+                f"`./forge review {task_id}`")
+
+    if strict and all(lens in reviews for lens in _PROOF_LENSES):
+        problems.extend(
+            require_coherent_review_run(
+                root, reviews,
+                expected_branch_diff_digest=expected_branch_diff_digest,
+            )
+        )
+    return problems
+
+
+def _modern_task_proof_problems(
+    root: Path, key: str, task: dict,
+    read: Callable[[str], dict],
+) -> list[str]:
+    """The fail-closed proof predicate for a task-owned bundle."""
+    from forge_cli.readiness import tests_passed, verify_passed
 
     task_id = str(task.get("id") or "")
+    if not task_id:
+        return ["task proof requires a non-empty task identity"]
     problems: list[str] = []
-
-    def read(name: str) -> dict:
-        scoped = task_evidence_path(root, key, task_id, name)
-        if scoped.is_file():
-            return load_json(scoped, default={})
-        return load_json(evidence_path(root, key, name), default={})
-
-    # Every refusal names the ONE command that answers it. A gate that says
-    # what is wrong but not what to run is where a coordinator stops and asks
-    # a human to decide something the harness already knows.
-    if not verify_passed(read("verify.json")):
+    verify = read("verify.json")
+    if not verify_passed(verify):
         problems.append(
             f"{task_id}: no passing verify — from its worktree run "
             "`python3 factory/scripts/verify.py`")
 
     tests = read("tests.json")
-    if not tests_passed(tests.get("automated")):
+    automated = tests.get("automated") if isinstance(tests, dict) else None
+    if (not isinstance(automated, dict)
+            or automated.get("status") != "passed"
+            or automated.get("blocking_findings")):
         problems.append(
             f"{task_id}: no passing automated tests — run them, then record with "
             "`python3 factory/scripts/record_test_from_json.py --kind automated "
             "--input <json>`")
     if bool(task.get("user_facing")):
-        functional = tests.get("functional") or {}
+        functional = tests.get("functional") if isinstance(tests, dict) else None
         if not functional:
             problems.append(
                 f"{task_id}: user_facing, so a functional check is required — run "
                 "the functional-checker, then record with "
                 "`python3 factory/scripts/record_test_from_json.py --kind functional "
                 "--input <json>`")
-        elif not tests_passed(functional, functional=True):
-            problems.append(
-                f"{task_id}: functional check must have no blockers and score >= 8 "
-                "— fix what it found and re-record it")
+        else:
+            try:
+                functional_passed = tests_passed(functional, functional=True)
+            except (TypeError, ValueError):
+                functional_passed = False
+            if functional.get("status") != "passed" or not functional_passed:
+                problems.append(
+                    f"{task_id}: functional check must be passed, have no blockers, "
+                    "and score >= 8 — fix what it found and re-record it")
 
-    for lens in ("quality", "performance", "security"):
-        review = read(f"reviews/{lens}.json")
-        if not review:
-            problems.append(
-                f"{task_id}: no {lens} review — `./forge review {task_id}` runs all "
-                "three lenses in Codex and records them")
-        elif not review_passed(review):
-            blocking = len(review.get("blocking_findings") or [])
-            problems.append(
-                f"{task_id}: {lens} review is not clean ({blocking} blocking "
-                f"finding(s)) — delegate the fixes with `./forge delegate {task_id}`, "
-                f"commit, then rerun `./forge review {task_id}`. Findings are work, "
-                "not a question for the human.")
+    reviews = {
+        lens: read(f"reviews/{lens}.json")
+        for lens in _PROOF_LENSES
+    }
+    # The recorder stamps the containing tests.json record. Nested reports are
+    # payloads within that one artifact and do not carry an independent proof
+    # commit in every historical fixture.
+    records = [("verify", verify), ("tests", tests)]
+    records.extend((f"reviews.{lens}", reviews[lens])
+                   for lens in _PROOF_LENSES)
+    problems.extend(
+        _proof_commit_problems(root, task_id, records, expected_head=head_sha(root))
+    )
+    problems.extend(_proof_review_problems(root, task_id, reviews, strict=True))
     return problems
+
+
+def _legacy_bundle_path(scope: str, name: str) -> str:
+    return f"{scope}/{name}" if scope else name
+
+
+def _legacy_task_proof_problems(
+    root: Path,
+    key: str,
+    task: dict,
+    read: Callable[[str], dict | None],
+    read_bytes: Callable[[str], bytes | None] | None,
+    *,
+    base: str,
+    seal: str,
+) -> list[str]:
+    """Validate one complete historical story/root proof bundle."""
+    from forge_cli.readiness import tests_passed, verify_passed
+
+    task_id = str(task.get("id") or "")
+    problems: list[str] = []
+    modern_names = [
+        f".factory/stories/{key}/tasks/{task_id}/{name}"
+        for name in _PROOF_NAMES
+    ]
+    if any(read(path) is not None for path in modern_names):
+        return [
+            f"{task_id}: legacy fallback refused because marker history contains "
+            "a partial task-owned proof bundle"
+        ]
+
+    scopes = (f".factory/stories/{key}", ".factory")
+    selected: tuple[str, dict[str, dict]] | None = None
+    for scope in scopes:
+        records = {
+            name: read(_legacy_bundle_path(scope, name))
+            for name in _PROOF_NAMES
+        }
+        mandatory = all(isinstance(records[name], dict) for name in _PROOF_NAMES)
+        functional_ok = (
+            not bool(task.get("user_facing"))
+            or isinstance(records["tests.json"].get("functional"), dict)
+        ) if isinstance(records["tests.json"], dict) else False
+        if mandatory and functional_ok:
+            selected = (scope, records)  # one source; never mix layouts
+            break
+    if selected is None:
+        return [
+            f"{task_id}: legacy proof is incomplete; verify, tests and all three "
+            "reviews must exist together at the marker commit"
+        ]
+
+    scope, records = selected
+    if read_bytes is None:
+        return [f"{task_id}: legacy proof cannot verify its historical task plan"]
+    plan_name = _legacy_bundle_path(scope, f"task-plans/{task_id}.md")
+    grill_name = _legacy_bundle_path(scope, f"grills/tasks/{task_id}.json")
+    plan_bytes = read_bytes(plan_name)
+    grill = read(grill_name)
+    if not plan_bytes or not isinstance(grill, dict):
+        return [
+            f"{task_id}: legacy proof needs the matching task plan, grill and "
+            "human approval at the marker commit"
+        ]
+    digest = _plan_body_digest_bytes(plan_bytes)
+    if (
+        grill.get("task_id") != task_id
+        or grill.get("verdict") != "pass"
+        or grill.get("task_plan_sha256") != digest
+        or grill.get("approved_task_plan_sha256") != digest
+        or not isinstance(grill.get("approved_by"), str)
+        or not grill["approved_by"].strip()
+        or not isinstance(grill.get("approved_at"), str)
+        or not grill["approved_at"].strip()
+    ):
+        problems.append(
+            f"{task_id}: legacy task plan/grill/approval is missing or stale"
+        )
+
+    verify = records["verify.json"]
+    tests = records["tests.json"]
+    automated = tests.get("automated") if isinstance(tests, dict) else None
+    if not verify_passed(verify):
+        problems.append(f"{task_id}: historical verify is not passing")
+    if not isinstance(automated, dict) or automated.get("status") != "passed" \
+            or automated.get("blocking_findings"):
+        problems.append(f"{task_id}: historical automated tests are not passing")
+    if bool(task.get("user_facing")):
+        functional = tests.get("functional") if isinstance(tests, dict) else None
+        try:
+            functional_passed = (
+                isinstance(functional, dict)
+                and tests_passed(functional, functional=True)
+            )
+        except (TypeError, ValueError):
+            functional_passed = False
+        if (not isinstance(functional, dict)
+                or functional.get("status") != "passed"
+                or not functional_passed):
+            problems.append(f"{task_id}: historical functional proof is not passing")
+
+    reviews = {lens: records[f"reviews/{lens}.json"] for lens in _PROOF_LENSES}
+    for lens, review in reviews.items():
+        if review.get("task_id") != task_id:
+            problems.append(f"{task_id}: historical {lens} review is not task-owned")
+    expected_digest = _historical_branch_diff_digest(root, base, seal)
+    if not expected_digest:
+        problems.append(f"{task_id}: cannot derive the historical product diff")
+    historical_records = [
+        ("verify", verify), ("tests", tests),
+        *[(f"reviews.{lens}", reviews[lens]) for lens in _PROOF_LENSES],
+    ]
+    problems.extend(
+        _proof_commit_problems(
+            root, task_id, historical_records,
+            base=base, seal=seal,
+        )
+    )
+    problems.extend(
+        _proof_commit_problems(
+            root, task_id, [("grill", grill)],
+            base=base, seal=seal, compare_product=False,
+        )
+    )
+    problems.extend(
+        _proof_review_problems(
+            root, task_id, reviews, strict=True,
+            expected_branch_diff_digest=expected_digest,
+        )
+    )
+    return problems
+
+
+def task_proof_problems(
+    root: Path, key: str, task: dict, *,
+    reader: Callable[[str], dict | None] | None = None,
+    allow_legacy: bool = False,
+    legacy_reader: Callable[[str], dict | None] | None = None,
+    legacy_bytes_reader: Callable[[str], bytes | None] | None = None,
+    legacy_marker: dict | None = None,
+) -> list[str]:
+    """One task's proof, using one task-aware predicate everywhere.
+
+    Modern runs read only the task-owned bundle. CI may opt into the one
+    legitimate legacy exception: a complete, sealed task marker whose
+    historical proof was story-scoped; local/pre-seal callers never use it.
+    """
+    task_id = str(task.get("id") or "")
+    modern = _task_proof_is_modern(root, key, task_id, reader)
+
+    def read_task(name: str) -> dict:
+        rel = f".factory/stories/{key}/tasks/{task_id}/{name}"
+        if reader is not None:
+            return reader(rel) or {}
+        return load_json(task_evidence_path(root, key, task_id, name), default={})
+
+    if modern:
+        return _modern_task_proof_problems(root, key, task, read_task)
+    if not allow_legacy:
+        return _modern_task_proof_problems(root, key, task, read_task)
+
+    marker_path = f".factory/stories/{key}/tasks/{task_id}/pr-ready.json"
+    marker = legacy_marker
+    if marker is None:
+        marker = reader(marker_path) if reader is not None else load_json(
+            root / marker_path, default={}
+        )
+    if (
+        _valid_task_marker(root, marker, task_id)
+        and legacy_reader is not None
+    ):
+        return _legacy_task_proof_problems(
+            root, key, task, legacy_reader, legacy_bytes_reader,
+            base=str(marker["base_main_sha"]), seal=str(marker["commit"]),
+        )
+    return _modern_task_proof_problems(root, key, task, read_task)
 
 
 def require_closeout_order(root: Path) -> list[str]:
@@ -1848,7 +2224,11 @@ def plan_body_digest(path: Path) -> str:
     ``task approve`` would demand a spurious re-grill. Both callers run through
     this function, so normalising here keeps create and check symmetric on every OS.
     """
-    raw = path.read_bytes()
+    return _plan_body_digest_bytes(path.read_bytes())
+
+
+def _plan_body_digest_bytes(raw: bytes) -> str:
+    """Hash plan bytes using the same body-only rules as live plan reads."""
     normalised = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
     frontmatter = re.match(br"\A---\n(.*?)\n---\n", normalised, re.DOTALL)
     body = normalised[frontmatter.end():] if frontmatter else normalised
@@ -2870,8 +3250,11 @@ def require_task_sealed(root: Path, task_id: str) -> dict:
     )
     if not stage or stage.get("status") != "done":
         raise SystemExit(f"task {task_id} is not sealed: stage status must be done")
-    _require_reviewed_commit(root, stage, task)
     issue_key = state.get("issue_key") or state.get("story") or ""
+    proof_problems = task_proof_problems(root, issue_key, task)
+    if proof_problems:
+        raise SystemExit("Task proof incomplete:\n- " + "\n- ".join(proof_problems))
+    _require_reviewed_commit(root, stage, task)
     problems = task_seal_shared_problems(root, issue_key)
     if problems:
         raise SystemExit("Task not PR ready:\n- " + "\n- ".join(problems))

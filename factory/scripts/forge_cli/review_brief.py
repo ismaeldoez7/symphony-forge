@@ -4,11 +4,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 from factory_lib import (
-    branch_diff_digest, load_json, now_iso, protected_decomposition_state_path,
-    repo_root, run_state_path, safe_factory_write_bytes,
+    branch_diff_digest, load_json, now_iso,
+    plan_digest_without_assumptions, proof_path,
+    protected_decomposition_state_path, repo_root, require_task_grill,
+    run_state_path, safe_factory_write_bytes, story_dir,
 )
 
 
@@ -76,49 +79,122 @@ def _lessons_section(base: Path, task: dict) -> list[str]:
     return lines
 
 
-def _evidence_section(base: Path) -> list[str]:
-    """The story's recorded verification evidence, summarised for the reviewer.
-
-    The review bundle is the product delta only (bookkeeping paths sit at the
-    task base), so the reviewer no longer sees `verify.json` / `tests.json`
-    in the diff — and a contract like "suites pass; tsc and architecture
-    green" was recorded `partial` for lack of execution evidence (issue #171).
-    The brief carries the summary instead: what verify ran and whether it was
-    green, and what the automated-test record says."""
-    from factory_lib import evidence_path
+def _approved_task_inputs(base: Path, task: dict) -> dict:
+    """Load and validate the exact inputs every task review must receive."""
     state = load_json(run_state_path(base), default={})
     story = state.get("issue_key") or state.get("story")
-    if not isinstance(story, str) or not story:
-        return []
-    lines: list[str] = []
-    verify = load_json(evidence_path(base, story, "verify.json"), default={})
-    if verify:
-        ok = "ok" if verify.get("ok") is True else "FAILED"
-        commit = str(verify.get("commit", ""))[:12]
-        lines.append(f"- verify.py: {ok}" + (f" at {commit}" if commit else ""))
-        for result in verify.get("results") or []:
-            if isinstance(result, dict) and result.get("command"):
-                code = result.get("exit_code")
-                lines.append(f"  - `{result['command']}` -> exit {code}")
-    tests = load_json(evidence_path(base, story, "tests.json"), default={})
-    automated = (tests or {}).get("automated")
-    if isinstance(automated, dict):
-        lines.append(f"- automated tests: {automated.get('status', 'unknown')}")
-        summary = str(automated.get("summary", "")).strip()
-        if summary:
-            lines.append(f"  - {summary}")
-        commands = automated.get("commands_run") or []
-        if commands:
-            lines.append(f"  - {len(commands)} command(s) recorded, e.g. `{commands[0]}`")
-    if not lines:
-        return []
-    return ["### Recorded evidence", "",
-            "Recorded by the harness for this story (not in the diff). Use it to "
-            "verdict verification contracts; do not mark them partial for lack "
-            "of execution evidence in the bundle.", "", *lines, ""]
+    task_id = task.get("id")
+    if not isinstance(story, str) or not story or not isinstance(task_id, str) or not task_id:
+        raise SystemExit("Review brief refused: active story and task identity are required.")
+
+    task_root = story_dir(base, story)
+    plan = task_root / "task-plans" / f"{task_id}.md"
+    if not plan.is_file():
+        raise SystemExit(
+            f"Review brief refused: approved task plan is missing for {task_id}; "
+            "save and approve the target plan before reviewing."
+        )
+    try:
+        plan_text = plan.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise SystemExit(
+            f"Review brief refused: task plan for {task_id} is not UTF-8."
+        ) from exc
+    if not plan_text.strip():
+        raise SystemExit(f"Review brief refused: task plan for {task_id} is empty.")
+
+    grill = load_json(task_root / "grills" / "tasks" / f"{task_id}.json", default={})
+    if not isinstance(grill, dict):
+        raise SystemExit(f"Review brief refused: grill for {task_id} is missing or malformed.")
+    digest = plan_digest_without_assumptions(plan)
+    if (grill.get("gate") != "task" or grill.get("task_id") != task_id
+            or grill.get("verdict") != "pass"):
+        raise SystemExit(
+            f"Review brief refused: grill for {task_id} is not a passing grill for this task."
+        )
+    if (grill.get("task_plan_sha256") != digest
+            or grill.get("approved_task_plan_sha256") != digest):
+        raise SystemExit(
+            f"Review brief refused: grill/approval for {task_id} is stale or does not "
+            "match the approved task plan."
+        )
+    if (not isinstance(grill.get("approved_by"), str)
+            or not grill["approved_by"].strip()
+            or not isinstance(grill.get("approved_at"), str)
+            or not grill["approved_at"].strip()):
+        raise SystemExit(
+            f"Review brief refused: approved_by and approved_at are required for {task_id}."
+        )
+    try:
+        require_task_grill(base, task_id, task)
+    except SystemExit as exc:
+        raise SystemExit(
+            f"Review brief refused: task grill for {task_id} is stale or ungrounded: {exc}"
+        ) from exc
+
+    tests_path = proof_path(base, story, "tests.json", task_id=task_id)
+    tests = load_json(tests_path, default={})
+    automated = tests.get("automated") if isinstance(tests, dict) else None
+    required = ("generated_by", "status", "summary", "blocking_findings",
+                "commands_run", "reviewed_scope", "remaining_gaps",
+                "recorded_at", "commit")
+    if (not isinstance(automated, dict)
+            or any(field not in automated for field in required)
+            or not all(isinstance(automated.get(field), str) and automated[field].strip()
+                       for field in ("generated_by", "status", "summary",
+                                     "recorded_at", "commit"))
+            or not isinstance(automated.get("blocking_findings"), list)
+            or not isinstance(automated.get("commands_run"), list)
+            or not automated.get("commands_run")
+            or not isinstance(automated.get("reviewed_scope"), list)
+            or not automated.get("reviewed_scope")
+            or not isinstance(automated.get("remaining_gaps"), list)
+            or not isinstance(tests.get("commit"), str)
+            or tests.get("commit") != automated.get("commit")):
+        raise SystemExit(
+            f"Review brief refused: tests.json.automated for {task_id} must be the "
+            "complete task-owned report (commands, scope, gaps, commit and time)."
+        )
+
+    branch = state.get("branch")
+    if not isinstance(branch, str) or not branch.strip():
+        proc = subprocess.run(
+            ["git", "branch", "--show-current"], cwd=base,
+            capture_output=True, text=True, encoding="utf-8",
+        )
+        branch = proc.stdout.strip() if proc.returncode == 0 else ""
+    if not branch:
+        raise SystemExit(f"Review brief refused: no branch identity for {task_id}.")
+    return {
+        "story": story,
+        "task_id": task_id,
+        "branch": branch,
+        "plan_text": plan_text,
+        "plan_sha256": digest,
+        "grill": grill,
+        "automated": automated,
+    }
 
 
-def _task_section(task: dict, base: Path | None = None) -> list[str]:
+def _approved_inputs_section(base: Path, task: dict) -> list[str]:
+    inputs = _approved_task_inputs(base, task)
+    return [
+        "### Approved task inputs", "",
+        f"- Story: `{inputs['story']}`",
+        f"- Task: `{inputs['task_id']}`",
+        f"- Branch: `{inputs['branch']}`",
+        f"- Approved plan digest: `{inputs['plan_sha256']}`", "",
+        "#### Full approved task plan", "", "```markdown",
+        inputs["plan_text"].rstrip(), "```", "",
+        "#### Full grill and approval record", "", "```json",
+        json.dumps(inputs["grill"], indent=2, sort_keys=True), "```", "",
+        "#### Full task-owned automated report", "", "```json",
+        json.dumps(inputs["automated"], indent=2, sort_keys=True), "```", "",
+    ]
+
+def _task_section(
+        task: dict, base: Path | None = None, *, full_inputs: bool = True,
+) -> list[str]:
     task_id = task.get("id", "")
     lines = [f"## Task {task_id}", "", "### Plan contracts", ""]
     contracts = task.get("plan_contracts", [])
@@ -144,7 +220,8 @@ def _task_section(task: dict, base: Path | None = None) -> list[str]:
     if base is not None:
         lines.extend(_settled_section(base, task))
         lines.extend(_lessons_section(base, task))
-        lines.extend(_evidence_section(base))
+        if full_inputs:
+            lines.extend(_approved_inputs_section(base, task))
     return lines
 
 
@@ -235,8 +312,16 @@ def cmd_review_brief(args: argparse.Namespace) -> None:
         title = f"# Plan-contract review brief — {args.id}"
 
     lines = [title, "", VERDICT_INSTRUCTION, ""]
+    from .stages import load_stages
+    started = {
+        row.get("id") for row in load_stages(base).get("stages", [])
+        if isinstance(row, dict) and row.get("status") in {"active", "done"}
+    }
     for task in selected:
-        lines.extend(_task_section(task, base))
+        # Future tasks are context only in a branch-wide brief. The active task
+        # and already-started tasks receive their complete approved inputs.
+        full_inputs = not args.all or task.get("id") in started
+        lines.extend(_task_section(task, base, full_inputs=full_inputs))
     relative = f"review-briefs/{filename}"
     body = ("\n".join(lines).rstrip() + "\n").encode()
     if not safe_factory_write_bytes(base, relative, body):
