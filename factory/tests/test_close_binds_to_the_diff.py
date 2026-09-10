@@ -215,6 +215,17 @@ def _ship_ready(repo: Path, tmp_path: Path) -> dict:
     start_stage(repo, tmp_path, STAGE_TASK)
     write_in_scope(repo, "src/core.py")
     stamp_and_commit(repo)
+    # The seal pushes the run pointer's branch; the intake fixture names a
+    # story branch it never creates. Point it at the branch we are on, as
+    # `forge task start` would have (and as prepare_task_pr_ready does).
+    control = delegation_ledger(repo).parent
+    pointer = json.loads((control / "run.json").read_text(encoding="utf-8"))
+    pointer.update({
+        "task_id": "T1",
+        "branch": git(repo, "symbolic-ref", "--short", "HEAD"),
+        "base_main_sha": git(repo, "rev-parse", "origin/main"),
+    })
+    (control / "run.json").write_text(json.dumps(pointer), encoding="utf-8")
     env, _ = fake_gh_env(tmp_path)
     return env
 

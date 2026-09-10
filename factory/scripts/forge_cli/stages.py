@@ -1754,22 +1754,18 @@ def _finish_stage(base: Path, args: argparse.Namespace, data: dict,
     # Verify commands are executable shell and may mutate files; only the
     # post-command measurement is allowed to authorize completion.
     #
-    # Proof BEFORE the review check: a failing required test is found before
-    # the stamp is demanded, so a proof-driven fix never costs a review that
-    # ran too early. `task close` passes a proof it already ran.
+    # `task close` runs the proof BEFORE spending a review and hands it in
+    # here, so a proof-driven fix never costs a review that ran too early;
+    # a standalone `stage done` keeps its own refusal order.
     _measure(base, args.id, stage, task)
+    _require_reviewed_commit(base, stage, task)
     _require_successful_launch(base, args.id, stage, task)
-    if not isinstance(stage.get("local_review_stamp"), dict):
-        # No stamp at all is a forgotten step, not a moved diff: say so before
-        # spending minutes on the proof. Freshness is judged after the proof.
-        _require_reviewed_commit(base, stage, task)
     if proof is None:
         proof = run_stage_proof(base, args.id, task)
     proof_tree, authority_tree, test_id_misses = proof
     if product_tree_snapshot(base) != proof_tree:
         fail(f"{args.id}'s product tree changed after its required proof; "
              "rerun stage completion against the final snapshot")
-    _require_reviewed_commit(base, stage, task)
     _measure(base, args.id, stage, task)
     final_task = task_for(base, args.id)
     _measure(base, args.id, stage, final_task)
