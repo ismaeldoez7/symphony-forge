@@ -1631,12 +1631,166 @@ def _proof_review_problems(
     return problems
 
 
+def _current_task_review_inputs(
+    root: Path,
+    key: str,
+    task_id: str,
+    task: dict,
+    *,
+    reader: Callable[[str], dict | None] | None = None,
+    branch: str = "",
+) -> tuple[dict | None, list[str]]:
+    """Read the current task inputs in the same shape review-brief uses.
+
+    A sealed task's brief is historical, but its task-owned plan, grill and
+    report must still be the current records.  Reading those paths from HEAD
+    (or the local worktree before sealing) catches a report edit after review
+    without letting a later task's global ``all.md`` replace the sealed brief.
+    """
+    from forge_cli.review_brief import _approved_task_inputs
+
+    if reader is None and not branch:
+        try:
+            return _approved_task_inputs(
+                root, task,
+            ), []
+        except SystemExit as exc:
+            return None, [str(exc)]
+
+    prefix = f".factory/stories/{key}"
+    plan_path = f"{prefix}/task-plans/{task_id}.md"
+    grill_path = f"{prefix}/grills/tasks/{task_id}.json"
+    tests_path = f"{prefix}/tasks/{task_id}/tests.json"
+
+    def read_json(path: str) -> dict | None:
+        if reader is not None:
+            return reader(path)
+        return load_json(root / path, default=None)
+
+    def read_bytes(path: str) -> bytes | None:
+        if reader is not None:
+            return _read_git_bytes(root, path, "HEAD")
+        try:
+            return (root / path).read_bytes()
+        except OSError:
+            return None
+
+    raw_plan = read_bytes(plan_path)
+    if raw_plan is None:
+        return None, [f"{task_id}: current approved task plan is missing"]
+    try:
+        plan_text = raw_plan.decode("utf-8")
+    except UnicodeDecodeError:
+        return None, [f"{task_id}: current approved task plan is not UTF-8"]
+    grill = read_json(grill_path)
+    tests = read_json(tests_path)
+    automated = tests.get("automated") if isinstance(tests, dict) else None
+    if not isinstance(grill, dict) or not isinstance(automated, dict):
+        return None, [
+            f"{task_id}: current task grill and automated report are required"
+        ]
+    if not branch.strip() and reader is None:
+        state = load_json(run_state_path(root), default={})
+        branch = str(state.get("branch") or "").strip()
+    if not branch.strip() and reader is None:
+        proc = subprocess.run(
+            ["git", "branch", "--show-current"], cwd=root,
+            capture_output=True, text=True, encoding="utf-8", env=clean_git_env(),
+        )
+        branch = proc.stdout.strip() if proc.returncode == 0 else ""
+    return {
+        "story": key,
+        "task_id": task_id,
+        "branch": branch,
+        "plan_text": plan_text,
+        "plan_sha256": _plan_body_digest_bytes(raw_plan),
+        "grill": grill,
+        "automated": automated,
+    }, []
+
+
+def _review_input_problems(
+    root: Path,
+    key: str,
+    task_id: str,
+    task: dict,
+    reviews: dict[str, dict],
+    *,
+    reader: Callable[[str], dict | None] | None = None,
+    brief_treeish: str = "",
+    brief_fallback_treeish: str = "",
+    branch: str = "",
+) -> list[str]:
+    """Bind clean review artifacts to the exact complete approved inputs.
+
+    The review run already binds one ``brief_sha256`` across its lenses.  This
+    predicate additionally verifies that the saved brief bytes are that hash
+    and that its complete approved-input section is exactly the current,
+    task-owned section rendered by review-brief's shared pure producer.
+    """
+    brief_path = ".factory/review-briefs/all.md"
+    if brief_treeish:
+        brief_bytes = _read_git_bytes(root, brief_path, brief_treeish)
+        if brief_bytes is None and brief_fallback_treeish:
+            brief_bytes = _read_git_bytes(root, brief_path, brief_fallback_treeish)
+    elif reader is not None:
+        brief_bytes = _read_git_bytes(root, brief_path, "HEAD")
+    else:
+        try:
+            brief_bytes = (root / brief_path).read_bytes()
+        except OSError:
+            brief_bytes = None
+    if brief_bytes is None:
+        return [
+            f"{task_id}: review brief is not published at the task's proof tip"
+        ]
+
+    problems: list[str] = []
+    expected_hash = hashlib.sha256(brief_bytes).hexdigest()
+    for lens in _PROOF_LENSES:
+        review = reviews.get(lens)
+        if isinstance(review, dict) and review.get("brief_sha256") != expected_hash:
+            problems.append(
+                f"{task_id}: {lens} review brief hash does not match the saved all.md"
+            )
+    try:
+        body = brief_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        return problems + [f"{task_id}: saved review brief is not UTF-8"]
+
+    inputs, input_problems = _current_task_review_inputs(
+        root, key, task_id, task, reader=reader, branch=branch,
+    )
+    if input_problems:
+        return problems + input_problems
+    assert inputs is not None
+    try:
+        from forge_cli.review_brief import render_approved_inputs_section
+        section = "\n".join(render_approved_inputs_section(inputs))
+    except (AttributeError, TypeError, ValueError, SystemExit) as exc:
+        return problems + [
+            f"{task_id}: cannot render the complete approved-input section: {exc}"
+        ]
+    if body.count(section) != 1:
+        problems.append(
+            f"{task_id}: saved review brief does not contain exactly one current "
+            "complete approved-input section"
+        )
+    return problems
+
+
 def _modern_task_proof_problems(
     root: Path, key: str, task: dict,
     read: Callable[[str], dict], *,
     expected_head: str | None = None,
     marker_publication_commit: str = "",
     expected_branch_diff_digest: str | None = None,
+    reader: Callable[[str], dict | None] | None = None,
+    brief_treeish: str = "",
+    brief_fallback_treeish: str = "",
+    review_branch: str = "",
+    proof_base: str = "",
+    proof_seal: str = "",
 ) -> list[str]:
     """The fail-closed proof predicate for a task-owned bundle."""
     from forge_cli.readiness import tests_passed, verify_passed
@@ -1698,16 +1852,32 @@ def _modern_task_proof_problems(
     records = [("verify", verify), ("tests", tests)]
     records.extend((f"reviews.{lens}", reviews[lens])
                    for lens in _PROOF_LENSES)
-    problems.extend(
-        _proof_commit_problems(
-            root, task_id, records,
-            expected_head=expected_head or head_sha(root) or "",
+    if proof_base and proof_seal:
+        problems.extend(
+            _proof_commit_problems(
+                root, task_id, records, base=proof_base, seal=proof_seal,
+            )
         )
-    )
+    else:
+        problems.extend(
+            _proof_commit_problems(
+                root, task_id, records,
+                expected_head=expected_head or head_sha(root) or "",
+            )
+        )
     problems.extend(
         _proof_review_problems(
             root, task_id, reviews, strict=True,
             expected_branch_diff_digest=expected_branch_diff_digest,
+        )
+    )
+    problems.extend(
+        _review_input_problems(
+            root, key, task_id, task, reviews,
+            reader=reader,
+            brief_treeish=brief_treeish,
+            brief_fallback_treeish=brief_fallback_treeish,
+            branch=review_branch,
         )
     )
     return problems
@@ -1889,11 +2059,15 @@ def task_proof_problems(
             return [marker_problem]
 
     expected_head = head_sha(root) or ""
+    proof_base = ""
+    proof_seal = ""
     marker_publication_commit = ""
     expected_branch_diff_digest = None
     if marker_context is not None:
         sealed_commit = str(marker_context["commit"])
         expected_head = sealed_commit
+        proof_base = str(marker_context["base_main_sha"])
+        proof_seal = sealed_commit
         marker_publication_commit = _marker_publication_commit(
             root, marker_path,
         )
@@ -1902,19 +2076,28 @@ def task_proof_problems(
         )
         allow_legacy = True
 
-    if modern:
+    if not proof_base and reader is None:
+        state = load_json(run_state_path(root), default={})
+        proof_base = str(state.get("base_main_sha") or "")
+    if not proof_base and reader is None:
+        proof_base = _stage_baseline_for(root, task_id)
+    if proof_base and expected_head and _git_commit_exists(root, proof_base):
+        proof_seal = expected_head
+
+    if modern or not allow_legacy:
         return _modern_task_proof_problems(
             root, key, task, read_task,
             expected_head=expected_head,
             marker_publication_commit=marker_publication_commit,
             expected_branch_diff_digest=expected_branch_diff_digest,
-        )
-    if not allow_legacy:
-        return _modern_task_proof_problems(
-            root, key, task, read_task,
-            expected_head=expected_head,
-            marker_publication_commit=marker_publication_commit,
-            expected_branch_diff_digest=expected_branch_diff_digest,
+            reader=reader,
+            brief_treeish=(str(marker_context["commit"])
+                           if marker_context is not None else ""),
+            brief_fallback_treeish=marker_publication_commit,
+            review_branch=(str(marker_context.get("branch") or "")
+                           if marker_context is not None else ""),
+            proof_base=proof_base,
+            proof_seal=proof_seal,
         )
     if marker_context is not None:
         if legacy_reader is None:
@@ -1932,6 +2115,9 @@ def task_proof_problems(
     return _modern_task_proof_problems(
         root, key, task, read_task,
         expected_head=expected_head,
+        reader=reader,
+        proof_base=proof_base,
+        proof_seal=proof_seal,
     )
 
 

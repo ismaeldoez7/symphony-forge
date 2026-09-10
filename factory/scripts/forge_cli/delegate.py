@@ -1106,7 +1106,7 @@ def launch_companion(
         base: Path, *, task_id: str, text: str, path: Path,
         task_sha256_value: str, model: str, effort: str, write: bool,
         story: str = "", background: bool = False, print_only: bool = False,
-        stage_started_at: str = "", mode: str = "", resume_session: str = "") -> dict | None:
+        stage_started_at: str = "", mode: str = "") -> dict | None:
     """Write a brief and run the selected protected launch lifecycle."""
     from .codex_runtime import coordinator_runtime
 
@@ -1140,7 +1140,6 @@ def launch_companion(
         executable = str(Path(executable).resolve())
         argv = native_argv(
             executable, base, model, effort, write,
-            resume_session=resume_session,
         )
         logs = delegations_path(base).parent / "native-runs"
         logs.mkdir(parents=True, exist_ok=True)
@@ -1198,8 +1197,6 @@ def launch_companion(
             "output_path": str(output_path),
             "stderr_path": str(stderr_path),
         })
-        if resume_session:
-            record["resume_session"] = resume_session
     else:
         record["companion_path"] = str(companion)
     if story:
@@ -1214,6 +1211,7 @@ def launch_companion(
     proc: subprocess.Popen[str] | None = None
     process_baseline: dict[int, tuple[int, float]] | None = None
     process_identity: float | str = ""
+    native_result = None
     stdout = ""
     stderr = ""
     if output_path:
@@ -1301,12 +1299,13 @@ def launch_companion(
             # The outer handler retries cleanup and records a terminal failure
             # only after the full observed process tree is verified dead.
             raise
-        stdout_log.seek(0)
         stderr_log.seek(0)
-        stdout = stdout_log.read()
         stderr = stderr_log.read()
-        if stdout and runtime != "codex":
-            print(stdout.rstrip())
+        if runtime != "codex":
+            stdout_log.seek(0)
+            stdout = stdout_log.read()
+            if stdout:
+                print(stdout.rstrip())
         if proc.returncode != 0:
             _revoke_native_write_admission(base, record)
             failed = {
@@ -1314,9 +1313,10 @@ def launch_companion(
                 "exit_code": proc.returncode,
             }
             if runtime == "codex":
-                from .codex_runtime import native_session_identity
+                from .codex_runtime import scan_native_result
 
-                session_id = native_session_identity(output_path)
+                native_result = scan_native_result(output_path)
+                session_id = native_result.session_id
                 if session_id:
                     failed["session_id"] = session_id
             append_delegation(base, failed)
@@ -1343,23 +1343,22 @@ def launch_companion(
             "exit_code": proc.returncode,
         }
         if runtime == "codex":
-            from .codex_runtime import native_completed_message, parse_native_result
+            from .codex_runtime import scan_native_result
 
-            try:
-                terminal["session_id"] = parse_native_result(output_path)
-            except ValueError as exc:
+            native_result = scan_native_result(output_path)
+            if native_result.error:
                 _revoke_native_write_admission(base, record)
                 failed = {
                     **record, "at": now_iso(), "launch_status": "failed",
                     "exit_code": proc.returncode,
                 }
-                from .codex_runtime import native_session_identity
-                session_id = native_session_identity(output_path)
+                session_id = native_result.session_id
                 if session_id:
                     failed["session_id"] = session_id
                 append_delegation(base, failed)
                 terminal_recorded = True
-                fail(str(exc))
+                fail(native_result.error)
+            terminal["session_id"] = native_result.session_id
         published = append_delegation(base, terminal)
         terminal_recorded = True
         if runtime == "codex" and not published:
@@ -1371,7 +1370,7 @@ def launch_companion(
             if existing.get("launch_status") != "succeeded":
                 fail(f"native Codex {launch_id} was already recorded failed")
         if runtime == "codex":
-            message = native_completed_message(output_path)
+            message = native_result.message
             if message:
                 print(message)
             print(f"Native Codex {terminal['session_id']}: succeeded")
@@ -1388,11 +1387,10 @@ def launch_companion(
                     "exit_code": proc.returncode if proc.returncode is not None else 130,
                 }
                 if runtime == "codex" and output_path:
-                    from .codex_runtime import native_session_identity
-                    try:
-                        session_id = native_session_identity(output_path)
-                    except ValueError:
-                        session_id = ""
+                    if native_result is None:
+                        from .codex_runtime import scan_native_result
+                        native_result = scan_native_result(output_path)
+                    session_id = native_result.session_id
                     if session_id:
                         failed["session_id"] = session_id
                 append_delegation(base, failed)

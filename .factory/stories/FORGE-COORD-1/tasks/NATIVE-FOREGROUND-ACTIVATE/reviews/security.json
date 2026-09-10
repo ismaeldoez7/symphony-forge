@@ -1,0 +1,55 @@
+{
+  "generated_by": "autoreview",
+  "task_id": "NATIVE-FOREGROUND-ACTIVATE",
+  "score": 4,
+  "summary": "security lens over NATIVE-FOREGROUND-ACTIVATE (25 product path(s), 7a462bc..c21b80b, Codex via the autoreview skill at --max-priority P2): 2 blocking, 0 non-blocking. The native process-admission changes shown are generally fail-closed, but the new review-input path crosses an untrusted implementer-to-reviewer boundary without prompt-safe encoding and does not bind the resulting reviews to the exact automated report later used for sealing. Those defects allow the independent security-review gate to be influenced or detached from its evidence.",
+  "blocking_findings": [
+    {
+      "category": "security",
+      "area": "factory/scripts/forge_cli",
+      "summary": "[P1] Treat the implementer-authored automated report as untrusted prompt data (factory/scripts/forge_cli/review_brief.py:190): The automated report is authored by the implementation worker, but it is inserted verbatim into the review prompt inside a Markdown code fence."
+    },
+    {
+      "category": "security",
+      "area": "factory/scripts/forge_cli",
+      "summary": "[P1] Bind reviews to the current automated report (factory/scripts/forge_cli/review_brief.py:149): This validation only checks that the outer and nested commit strings agree; it never verifies that the report is current for the reviewed HEAD."
+    }
+  ],
+  "non_blocking_findings": [],
+  "recommendation": "request-changes",
+  "reviewed_scope": [
+    ".claude/settings.json",
+    ".codex/hooks.json",
+    "AGENTS.md",
+    "factory/schemas/delegation.json",
+    "factory/scripts/check_dual_runtime.py",
+    "factory/scripts/check_task_proof.py",
+    "factory/scripts/factory_lib.py",
+    "factory/scripts/forge.py",
+    "factory/scripts/forge_cli/codex_runtime.py",
+    "factory/scripts/forge_cli/delegate.py",
+    "factory/scripts/forge_cli/doctor.py",
+    "factory/scripts/forge_cli/review.py",
+    "factory/scripts/forge_cli/review_brief.py",
+    "factory/scripts/forge_cli/stages.py",
+    "factory/scripts/forge_cli/tasks.py",
+    "factory/scripts/forge_cli/worker_admission.py",
+    "factory/scripts/pre_tool_use.py",
+    "factory/scripts/session_start.py",
+    "factory/tests/test_gates.py",
+    "factory/tests/test_native_launch.py",
+    "factory/tests/test_native_setup.py",
+    "factory/tests/test_review_settled_contracts.py",
+    "factory/tests/test_review_task_delta.py",
+    "factory/tests/test_worker_admission.py",
+    "harness.yaml"
+  ],
+  "skills_used": [],
+  "aspect": "security",
+  "review_run_id": "f7640b533df8e890ec528a3002a289b92936672fb9d5828249b6af775de129b0",
+  "brief_sha256": "7034fb92d0d24121e6cfc40137006f4b65da2a3828862c9ccc847050ac3c4003",
+  "branch_diff_digest": "4e9dde4be30918d997ed73df247b3429fb46b72947874c78a2afd9d693caee3d",
+  "residual_risks": [],
+  "recorded_at": "2026-09-10T16:50:33+00:00",
+  "commit": "c21b80b8cb44f2bbab686ec40e4ac5ba555bc3f1"
+}

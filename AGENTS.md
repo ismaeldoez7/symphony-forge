@@ -86,18 +86,14 @@ python3 factory/scripts/pr_ready.py
 
 ## Hard Gates
 
-Proof belongs to the TASK that made it — under
-`.factory/stories/<key>/tasks/<id>/`: `verify.json`, `tests.json`,
+Task proof lives in `.factory/stories/<key>/tasks/<id>/`:
+`verify.json`, `tests.json`,
 `reviews/{quality,performance,security}.json`. Plan, `run.json` and
-`decomposition.json` stay story-scoped.
+`decomposition.json` stay story-scoped. Review inputs and local/CI/board proof checks follow `docs/specs/dual-coordinator-parity.md`.
 
-When changing review inputs, task sealing or proof readers, follow the
-task identity and complete-evidence contract in
-`docs/specs/dual-coordinator-parity.md`; keep local, CI and board predicates aligned.
-
-A STORY ships when every task marker is on the trunk with clean proof;
-closeout re-verifies nothing. Its only story-scoped proof is `outcome.json`
-(`./forge outcome set`) — the one question no task can answer.
+A story ships with every task marker and clean proof on trunk.
+Closeout never re-verifies. Story proof is only `outcome.json`
+(`./forge outcome set`).
 
 ## Non-Negotiables
 

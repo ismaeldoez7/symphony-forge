@@ -1,0 +1,55 @@
+{
+  "generated_by": "autoreview",
+  "task_id": "NATIVE-FOREGROUND-ACTIVATE",
+  "score": 9,
+  "summary": "performance lens over NATIVE-FOREGROUND-ACTIVATE (25 product path(s), 7a462bc..c21b80b, Codex via the autoreview skill at --max-priority P2): 0 blocking, 2 non-blocking. The change introduces two concrete performance regressions on operational hot paths: every native write reparses an ever-growing ledger twice, and native completion repeatedly reads and deserializes the full runtime transcript. Both costs scale with durable history or run length and are already exercised with multi-megabyte evidence.",
+  "blocking_findings": [],
+  "non_blocking_findings": [
+    {
+      "category": "bug",
+      "area": "factory/scripts/forge_cli",
+      "summary": "[P2] Avoid reparsing the append-only delegation ledger for every native write (factory/scripts/forge_cli/worker_admission.py:185): On every locked native Edit/Write/apply_patch hook, `live_worker_admission` parses the entire protected delegation ledger here even though `all_rows` is only needed when `FORGE_LAUNCH_ID` is absent."
+    },
+    {
+      "category": "bug",
+      "area": "factory/scripts/forge_cli",
+      "summary": "[P2] Do not materialize and repeatedly parse the complete native JSONL log (factory/scripts/forge_cli/delegate.py:1306): The native completion path reads the entire stdout JSONL into `stdout` here but never uses that string for the Codex route."
+    }
+  ],
+  "recommendation": "approve-with-caveats",
+  "reviewed_scope": [
+    ".claude/settings.json",
+    ".codex/hooks.json",
+    "AGENTS.md",
+    "factory/schemas/delegation.json",
+    "factory/scripts/check_dual_runtime.py",
+    "factory/scripts/check_task_proof.py",
+    "factory/scripts/factory_lib.py",
+    "factory/scripts/forge.py",
+    "factory/scripts/forge_cli/codex_runtime.py",
+    "factory/scripts/forge_cli/delegate.py",
+    "factory/scripts/forge_cli/doctor.py",
+    "factory/scripts/forge_cli/review.py",
+    "factory/scripts/forge_cli/review_brief.py",
+    "factory/scripts/forge_cli/stages.py",
+    "factory/scripts/forge_cli/tasks.py",
+    "factory/scripts/forge_cli/worker_admission.py",
+    "factory/scripts/pre_tool_use.py",
+    "factory/scripts/session_start.py",
+    "factory/tests/test_gates.py",
+    "factory/tests/test_native_launch.py",
+    "factory/tests/test_native_setup.py",
+    "factory/tests/test_review_settled_contracts.py",
+    "factory/tests/test_review_task_delta.py",
+    "factory/tests/test_worker_admission.py",
+    "harness.yaml"
+  ],
+  "skills_used": [],
+  "aspect": "performance",
+  "review_run_id": "f7640b533df8e890ec528a3002a289b92936672fb9d5828249b6af775de129b0",
+  "brief_sha256": "7034fb92d0d24121e6cfc40137006f4b65da2a3828862c9ccc847050ac3c4003",
+  "branch_diff_digest": "4e9dde4be30918d997ed73df247b3429fb46b72947874c78a2afd9d693caee3d",
+  "residual_risks": [],
+  "recorded_at": "2026-09-10T16:50:32+00:00",
+  "commit": "c21b80b8cb44f2bbab686ec40e4ac5ba555bc3f1"
+}

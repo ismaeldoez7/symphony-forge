@@ -1,7 +1,20 @@
-# Branch-wide plan-contract review brief
+# Review brief — NATIVE-FOREGROUND-ACTIVATE — performance lens
 
-For each contract, emit a verdict — implemented | partial | missing — with file:line evidence, recorded as contract_verdicts in the quality artifact. Then review the diff normally; the contract check does not replace the quality/performance/security lenses.
+You are one lens of a three-lens code review. You see ONLY the diff bundle for
+this task (no repository access), so judge what the diff shows and say so when
+something cannot be verified from it. Report every finding with its
+file_path and line. Use ONLY these categories: bug, security, regression,
+test_gap, maintainability. Priorities: P0/P1 block the task; P2/P3 must be
+resolved or explicitly deferred with a reason before it ships.
 
+LENS: PERFORMANCE. Hot paths, algorithmic complexity, query fanout (N+1),
+I/O amplification, memory churn, concurrency bottlenecks, missing pagination or
+bounds, work repeated per request that could be done once. Distinguish measured
+evidence from inference and say which each finding is. Use category `bug` for a
+performance defect that will bite in production and `maintainability` for a cost
+worth reducing.
+
+LEFTOVERS (blocking): the diff must carry no code kept only for compatibility — no wrapper or shim over its replacement, no re-export or alias kept 'for callers', no renamed-but-retained symbol, no dead branch behind a removed feature, no 'legacy'/'deprecated'/'backward' naming or comment. Report each as a BLOCKING finding with file:line and verdict the contract it belongs to as partial; a clean diff says so in one line.
 ## Task NATIVE-FOREGROUND-ACTIVATE
 
 ### Plan contracts
@@ -439,129 +452,3 @@ Mandatory independent review follows that exact receipt through the protected te
   ]
 }
 ```
-
-## Task LEAN-WORKFLOW
-
-### Plan contracts
-
-- None declared.
-
-### Reviewer focus
-
-No task-specific reviewer focus declared.
-
-### Settled — do not relitigate
-
-The following are accepted: the story plan's decisions and rulings, and the contracts of tasks already sealed in this story. A finding that contradicts one is a proposal to change a decision, which belongs in a decision record, not in this review; do not raise it as a defect. Rejected findings from earlier rounds are ledgered as lessons below.
-
-#### Story plan — Decisions
-
-Frontmatter attests all 56 active decisions. Accepted 0064 controls the narrower ceremony, standing-authorization, review and retention changes; accepted0065 changes only Linux/Windows platform evidence to CI with disclosed live limitations. Accepted 0011 keeps review with the orchestrator; proposed 0049 is historical context only. Preserve actual authority, admission, measurements and tests under 0018/0029, durable history under 0022/0025/0045, preparation and signal/model/workspace ownership under 0058/0060/0062/0063, except the obsolete cap clause expressly amended by 0064. First and Lean's implementation use real incumbent gates until Lean ships. No fabricated record skips an existing prerequisite.
-
-## Task NATIVE-LIFECYCLE
-
-### Plan contracts
-
-- None declared.
-
-### Reviewer focus
-
-No task-specific reviewer focus declared.
-
-### Settled — do not relitigate
-
-The following are accepted: the story plan's decisions and rulings, and the contracts of tasks already sealed in this story. A finding that contradicts one is a proposal to change a decision, which belongs in a decision record, not in this review; do not raise it as a defect. Rejected findings from earlier rounds are ledgered as lessons below.
-
-#### Story plan — Decisions
-
-Frontmatter attests all 56 active decisions. Accepted 0064 controls the narrower ceremony, standing-authorization, review and retention changes; accepted0065 changes only Linux/Windows platform evidence to CI with disclosed live limitations. Accepted 0011 keeps review with the orchestrator; proposed 0049 is historical context only. Preserve actual authority, admission, measurements and tests under 0018/0029, durable history under 0022/0025/0045, preparation and signal/model/workspace ownership under 0058/0060/0062/0063, except the obsolete cap clause expressly amended by 0064. First and Lean's implementation use real incumbent gates until Lean ships. No fabricated record skips an existing prerequisite.
-
-## Task SHARED-COORDINATOR-JOURNEY
-
-### Plan contracts
-
-- None declared.
-
-### Reviewer focus
-
-No task-specific reviewer focus declared.
-
-### Settled — do not relitigate
-
-The following are accepted: the story plan's decisions and rulings, and the contracts of tasks already sealed in this story. A finding that contradicts one is a proposal to change a decision, which belongs in a decision record, not in this review; do not raise it as a defect. Rejected findings from earlier rounds are ledgered as lessons below.
-
-#### Story plan — Decisions
-
-Frontmatter attests all 56 active decisions. Accepted 0064 controls the narrower ceremony, standing-authorization, review and retention changes; accepted0065 changes only Linux/Windows platform evidence to CI with disclosed live limitations. Accepted 0011 keeps review with the orchestrator; proposed 0049 is historical context only. Preserve actual authority, admission, measurements and tests under 0018/0029, durable history under 0022/0025/0045, preparation and signal/model/workspace ownership under 0058/0060/0062/0063, except the obsolete cap clause expressly amended by 0064. First and Lean's implementation use real incumbent gates until Lean ships. No fabricated record skips an existing prerequisite.
-
-## Task PORTABLE-DELIVERY-MIGRATION
-
-### Plan contracts
-
-- None declared.
-
-### Reviewer focus
-
-No task-specific reviewer focus declared.
-
-### Settled — do not relitigate
-
-The following are accepted: the story plan's decisions and rulings, and the contracts of tasks already sealed in this story. A finding that contradicts one is a proposal to change a decision, which belongs in a decision record, not in this review; do not raise it as a defect. Rejected findings from earlier rounds are ledgered as lessons below.
-
-#### Story plan — Decisions
-
-Frontmatter attests all 56 active decisions. Accepted 0064 controls the narrower ceremony, standing-authorization, review and retention changes; accepted0065 changes only Linux/Windows platform evidence to CI with disclosed live limitations. Accepted 0011 keeps review with the orchestrator; proposed 0049 is historical context only. Preserve actual authority, admission, measurements and tests under 0018/0029, durable history under 0022/0025/0045, preparation and signal/model/workspace ownership under 0058/0060/0062/0063, except the obsolete cap clause expressly amended by 0064. First and Lean's implementation use real incumbent gates until Lean ships. No fabricated record skips an existing prerequisite.
-
-## Task FORMAT-SOURCES
-
-### Plan contracts
-
-- None declared.
-
-### Reviewer focus
-
-No task-specific reviewer focus declared.
-
-### Settled — do not relitigate
-
-The following are accepted: the story plan's decisions and rulings, and the contracts of tasks already sealed in this story. A finding that contradicts one is a proposal to change a decision, which belongs in a decision record, not in this review; do not raise it as a defect. Rejected findings from earlier rounds are ledgered as lessons below.
-
-#### Story plan — Decisions
-
-Frontmatter attests all 56 active decisions. Accepted 0064 controls the narrower ceremony, standing-authorization, review and retention changes; accepted0065 changes only Linux/Windows platform evidence to CI with disclosed live limitations. Accepted 0011 keeps review with the orchestrator; proposed 0049 is historical context only. Preserve actual authority, admission, measurements and tests under 0018/0029, durable history under 0022/0025/0045, preparation and signal/model/workspace ownership under 0058/0060/0062/0063, except the obsolete cap clause expressly amended by 0064. First and Lean's implementation use real incumbent gates until Lean ships. No fabricated record skips an existing prerequisite.
-
-## Task QUALITY-BASELINE
-
-### Plan contracts
-
-- None declared.
-
-### Reviewer focus
-
-No task-specific reviewer focus declared.
-
-### Settled — do not relitigate
-
-The following are accepted: the story plan's decisions and rulings, and the contracts of tasks already sealed in this story. A finding that contradicts one is a proposal to change a decision, which belongs in a decision record, not in this review; do not raise it as a defect. Rejected findings from earlier rounds are ledgered as lessons below.
-
-#### Story plan — Decisions
-
-Frontmatter attests all 56 active decisions. Accepted 0064 controls the narrower ceremony, standing-authorization, review and retention changes; accepted0065 changes only Linux/Windows platform evidence to CI with disclosed live limitations. Accepted 0011 keeps review with the orchestrator; proposed 0049 is historical context only. Preserve actual authority, admission, measurements and tests under 0018/0029, durable history under 0022/0025/0045, preparation and signal/model/workspace ownership under 0058/0060/0062/0063, except the obsolete cap clause expressly amended by 0064. First and Lean's implementation use real incumbent gates until Lean ships. No fabricated record skips an existing prerequisite.
-
-## Task FORGE-COORD-1.1
-
-### Plan contracts
-
-- None declared.
-
-### Reviewer focus
-
-No task-specific reviewer focus declared.
-
-### Settled — do not relitigate
-
-The following are accepted: the story plan's decisions and rulings, and the contracts of tasks already sealed in this story. A finding that contradicts one is a proposal to change a decision, which belongs in a decision record, not in this review; do not raise it as a defect. Rejected findings from earlier rounds are ledgered as lessons below.
-
-#### Story plan — Decisions
-
-Frontmatter attests all 56 active decisions. Accepted 0064 controls the narrower ceremony, standing-authorization, review and retention changes; accepted0065 changes only Linux/Windows platform evidence to CI with disclosed live limitations. Accepted 0011 keeps review with the orchestrator; proposed 0049 is historical context only. Preserve actual authority, admission, measurements and tests under 0018/0029, durable history under 0022/0025/0045, preparation and signal/model/workspace ownership under 0058/0060/0062/0063, except the obsolete cap clause expressly amended by 0064. First and Lean's implementation use real incumbent gates until Lean ships. No fabricated record skips an existing prerequisite.

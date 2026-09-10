@@ -91,9 +91,11 @@ def _current_process_descends_from(pid: int, identity: str) -> bool:
     return False
 
 
-def _bound_rows(base: Path, launch_id: str) -> tuple[list[dict], str]:
+def _bound_rows(base: Path, launch_id: str,
+                all_rows: list[dict] | None = None) -> tuple[list[dict], str]:
     try:
-        rows = [row for row in load_delegations(base)
+        rows = [row for row in (all_rows if all_rows is not None
+                                else load_delegations(base))
                 if row.get("launch_id") == launch_id]
     except (OSError, SystemExit, ValueError) as exc:
         return [], str(exc)
@@ -182,14 +184,15 @@ def live_worker_admission(base: Path) -> tuple[dict | None, str]:
         return None, ""
     if not token:
         return _deny("FORGE_PROCESS_TOKEN is missing")
-    try:
-        all_rows = load_delegations(base)
-    except (OSError, SystemExit, ValueError) as exc:
-        return _deny(str(exc))
+    all_rows = None
     if not launch_id:
         # Older companion launches predate FORGE_LAUNCH_ID. Their protected
         # process token still resolves one exact launch; native launches require
         # both markers.
+        try:
+            all_rows = load_delegations(base)
+        except (OSError, SystemExit, ValueError) as exc:
+            return _deny(str(exc))
         candidates = {
             row.get("launch_id") for row in all_rows
             if row.get("process_token") == token and not row.get("transport")
@@ -199,7 +202,7 @@ def live_worker_admission(base: Path) -> tuple[dict | None, str]:
         launch_id = candidates.pop()
     if worker_admission_revoked(base, launch_id):
         return _deny("the protected launch authority was revoked")
-    rows, error = _bound_rows(base, launch_id)
+    rows, error = _bound_rows(base, launch_id, all_rows)
     if error:
         return _deny(error)
     record = rows[-1]

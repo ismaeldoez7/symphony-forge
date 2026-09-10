@@ -193,6 +193,75 @@ def _invoke_worker(proc: subprocess.Popen[str], payload: dict) -> str:
     return output
 
 
+def test_known_native_launch_reads_delegation_ledger_once(tmp_path, monkeypatch):
+    import forge_cli.codex_runtime as codex_runtime
+    import forge_cli.worker_admission as admission
+
+    launch_id = "launch-native"
+    token = f"delegation-{launch_id}"
+    argv = ["/usr/bin/codex", "exec", "-"]
+    common = {
+        "launch_id": launch_id,
+        "task": "T1",
+        "brief_sha256": "brief-digest",
+        "task_sha256": "task-digest",
+        "write": True,
+        "model": "model",
+        "effort": "medium",
+        "argv": argv,
+        "argv_sha256": "argv-digest",
+        "process_token": token,
+        "transport": "native",
+        "executable_path": "/usr/bin/codex",
+        "brief_path": ".factory/briefs/T1.md",
+        "output_path": "/tmp/native.jsonl",
+        "stderr_path": "/tmp/native.stderr.log",
+        "stage_started_at": "stage-1",
+    }
+    rows = [
+        {**common, "launch_status": "starting"},
+        {
+            **common,
+            "launch_status": "running",
+            "pid": 123,
+            "pid_started": "identity",
+        },
+    ]
+    calls = []
+    monkeypatch.setenv("FORGE_PROCESS_TOKEN", token)
+    monkeypatch.setenv("FORGE_LAUNCH_ID", launch_id)
+    monkeypatch.setattr(
+        admission, "load_delegations",
+        lambda base: calls.append(base) or rows,
+    )
+    monkeypatch.setattr(admission, "worker_admission_revoked", lambda *_a: False)
+    monkeypatch.setattr(admission, "argv_digest", lambda _argv: "argv-digest")
+    monkeypatch.setattr(admission, "_process_start_identity", lambda _pid: "identity")
+    monkeypatch.setattr(admission, "_current_process_descends_from", lambda *_a: True)
+    lock = tmp_path / "lock"
+    lock.write_text(json.dumps({
+        "kind": "delegation", "launch_id": launch_id, "owner_pid": 123,
+    }), encoding="utf-8")
+    monkeypatch.setattr(admission, "delegation_lock_path", lambda *_a, **_k: lock)
+    monkeypatch.setattr(admission, "_lock_is_held", lambda _path: True)
+    brief = tmp_path / ".factory" / "briefs" / "T1.md"
+    brief.parent.mkdir(parents=True)
+    brief.write_text("brief", encoding="utf-8")
+    monkeypatch.setattr(admission, "brief_path", lambda *_a: brief)
+    monkeypatch.setattr(admission, "sha256_of", lambda _path: "brief-digest")
+    monkeypatch.setattr(
+        admission, "_stage_contract",
+        lambda *_a: ({"kind": "stage", "scope": ["src/"]}, ""),
+    )
+    monkeypatch.setattr(codex_runtime, "native_argv_valid", lambda *_a: True)
+
+    grant, reason = admission.live_worker_admission(tmp_path)
+
+    assert grant == {"kind": "stage", "scope": ["src/"]}
+    assert reason == ""
+    assert calls == [tmp_path]
+
+
 def test_native_worker_patch_add_update_delete_and_move_is_admitted(repo, tmp_path):
     brief, digest = _seed_contract(repo)
     proc, token, launch_id = _start_worker(repo, tmp_path)

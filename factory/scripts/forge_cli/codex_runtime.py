@@ -1,8 +1,10 @@
 """Native Codex coordinator selection and exact exec contracts."""
 from __future__ import annotations
 
+import itertools
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -33,7 +35,7 @@ def coordinator_runtime() -> str:
 
 def native_argv(
         executable: str, base: Path, model: str, effort: str, write: bool,
-        *, resume_session: str = "") -> list[str]:
+) -> list[str]:
     """Build the complete shell-free native invocation used as launch evidence."""
     argv = [
         executable,
@@ -52,8 +54,6 @@ def native_argv(
         "--sandbox",
         "workspace-write" if write else "read-only",
     ]
-    if resume_session:
-        argv.extend(("resume", resume_session))
     argv.append("-")
     return argv
 
@@ -65,79 +65,111 @@ def native_argv_valid(entry: dict, base: Path) -> bool:
         return False
     if not isinstance(argv, list) or not all(isinstance(v, str) for v in argv):
         return False
-    return argv == native_argv(
+    expected = native_argv(
         executable,
         base,
         str(entry.get("model") or ""),
         str(entry.get("effort") or ""),
         entry.get("write") is True,
-        resume_session=str(entry.get("resume_session") or ""),
     )
+    resume_session = entry.get("resume_session")
+    if resume_session in (None, ""):
+        return argv == expected
+    if not isinstance(resume_session, str):
+        return False
+    # Historical completed rows may carry the removed continuation shape. They
+    # remain readable, while new launches cannot construct that argv.
+    return (argv[:-3] == expected[:-1]
+            and argv[-3:] == ["resume", resume_session, "-"])
 
 
-def _native_events(path: Path, *, allow_truncated_tail: bool = False) -> list[dict]:
+@dataclass(frozen=True)
+class NativeResult:
+    session_id: str = ""
+    message: str = ""
+    error: str = ""
+
+
+def scan_native_result(path: Path) -> NativeResult:
+    """Scan native JSONL once, retaining identity, terminal status, and message."""
+    starts: list[dict] = []
+    message = ""
+    last_type = ""
+    failed = False
+    syntax_error = ""
+    preserve_session = True
     try:
-        raw = path.read_bytes()
+        with path.open("rb") as stream:
+            raw_lines = itertools.chain.from_iterable(
+                block.splitlines(keepends=True) for block in stream)
+            for number, raw_line in enumerate(raw_lines, start=1):
+                terminated = raw_line.endswith((b"\n", b"\r"))
+                if terminated:
+                    raw_line = (raw_line[:-2]
+                                if raw_line.endswith(b"\r\n")
+                                else raw_line[:-1])
+                if not raw_line.strip():
+                    continue
+                try:
+                    line = raw_line.decode("utf-8")
+                except UnicodeDecodeError:
+                    syntax_error = "native Codex output is not UTF-8"
+                    if terminated:
+                        preserve_session = False
+                    break
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    syntax_error = (
+                        f"native Codex output line {number} is not JSON")
+                    if terminated:
+                        preserve_session = False
+                    break
+                if (not isinstance(event, dict)
+                        or not isinstance(event.get("type"), str)):
+                    syntax_error = (
+                        f"native Codex output line {number} is not an event")
+                    preserve_session = False
+                    break
+                event_type = event["type"]
+                last_type = event_type
+                if event_type == "thread.started":
+                    starts.append(event)
+                if event_type in {"error", "turn.failed"}:
+                    failed = True
+                item = event.get("item")
+                if (event_type == "item.completed"
+                        and isinstance(item, dict)
+                        and item.get("type") == "agent_message"
+                        and isinstance(item.get("text"), str)):
+                    message = item["text"].strip()
     except OSError as exc:
-        raise ValueError(f"native Codex output is unavailable: {exc}") from exc
-    try:
-        text = raw.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        boundary = max(raw.rfind(b"\n"), raw.rfind(b"\r"))
-        if (not allow_truncated_tail or raw.endswith((b"\n", b"\r"))
-                or exc.start <= boundary):
-            raise ValueError("native Codex output is not UTF-8") from exc
-        text = raw[:boundary + 1].decode("utf-8")
-    lines = text.splitlines()
-    events = []
-    for number, line in enumerate(lines, start=1):
-        if not line.strip():
-            continue
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError as exc:
-            if (allow_truncated_tail and number == len(lines)
-                    and not text.endswith(("\n", "\r"))):
-                break
-            raise ValueError(f"native Codex output line {number} is not JSON") from exc
-        if not isinstance(event, dict) or not isinstance(event.get("type"), str):
-            raise ValueError(f"native Codex output line {number} is not an event")
-        events.append(event)
-    return events
+        return NativeResult(
+            error=f"native Codex output is unavailable: {exc}")
+
+    session_id = ""
+    if preserve_session and len(starts) == 1:
+        thread_id = starts[0].get("thread_id")
+        if isinstance(thread_id, str):
+            session_id = thread_id.strip()
+    if syntax_error:
+        return NativeResult(session_id, message, syntax_error)
+    if not session_id:
+        error = (
+            "native Codex output has no unique thread.started identity")
+    elif failed:
+        error = "native Codex output reports a failed run"
+    elif last_type != "turn.completed":
+        error = (
+            "native Codex output has no terminal turn.completed event")
+    else:
+        error = ""
+    return NativeResult(session_id, message, error)
 
 
 def parse_native_result(path: Path) -> str:
     """Return the persisted Codex session id only for a terminal success stream."""
-    events = _native_events(path)
-    session_id = native_session_identity(path)
-    if not session_id:
-        raise ValueError("native Codex output has no unique thread.started identity")
-    if any(event.get("type") in {"error", "turn.failed"} for event in events):
-        raise ValueError("native Codex output reports a failed run")
-    if not events or events[-1].get("type") != "turn.completed":
-        raise ValueError("native Codex output has no terminal turn.completed event")
-    return session_id
-
-
-def native_session_identity(path: Path) -> str:
-    """Return only an unambiguous runtime identity, regardless of outcome."""
-    try:
-        starts = [event for event in _native_events(path, allow_truncated_tail=True)
-                  if event.get("type") == "thread.started"]
-    except ValueError:
-        return ""
-    if len(starts) != 1 or not isinstance(starts[0].get("thread_id"), str):
-        return ""
-    return starts[0]["thread_id"].strip()
-
-
-def native_completed_message(path: Path) -> str:
-    messages = [
-        event.get("item", {}).get("text")
-        for event in _native_events(path)
-        if event.get("type") == "item.completed"
-        and isinstance(event.get("item"), dict)
-        and event["item"].get("type") == "agent_message"
-        and isinstance(event["item"].get("text"), str)
-    ]
-    return messages[-1].strip() if messages else ""
+    result = scan_native_result(path)
+    if result.error:
+        raise ValueError(result.error)
+    return result.session_id

@@ -17,8 +17,8 @@ HARNESS = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
 
 from forge_cli.codex_runtime import (  # noqa: E402
-    native_argv, native_argv_valid, native_session_identity,
-    parse_native_result, selected_coordinator,
+    native_argv, native_argv_valid, parse_native_result,
+    scan_native_result, selected_coordinator,
 )
 from forge_cli.delegate import (  # noqa: E402
     append_delegation, argv_digest, launch_companion, load_delegations,
@@ -99,7 +99,7 @@ def test_runtime_selection_is_explicit_then_native_then_legacy(monkeypatch):
         selected_coordinator("other")
 
 
-def test_native_argv_binds_policy_and_resume(tmp_path):
+def test_native_argv_binds_policy_without_resume_dispatch(tmp_path):
     argv = native_argv("/bin/codex", tmp_path, "model", "high", False)
     entry = {
         "executable_path": "/bin/codex", "argv": argv,
@@ -110,17 +110,33 @@ def test_native_argv_binds_policy_and_resume(tmp_path):
     assert argv[argv.index("--enable") + 1] == "hooks"
     assert argv[argv.index("--sandbox") + 1] == "read-only"
     assert 'approval_policy="never"' in argv
-    resumed = native_argv(
-        "/bin/codex", tmp_path, "model", "high", False,
-        resume_session="thread-1",
-    )
-    assert resumed[-3:] == ["resume", "thread-1", "-"]
+    with pytest.raises(TypeError):
+        native_argv(
+            "/bin/codex", tmp_path, "model", "high", False,
+            resume_session="thread-1",
+        )
+    historical = {
+        **entry,
+        "argv": [*argv[:-1], "resume", "thread-1", "-"],
+        "resume_session": "thread-1",
+    }
+    assert native_argv_valid(historical, tmp_path)
 
 
 def test_native_launch_registers_before_stdin_and_records_terminal_identity(
         native_repo, tmp_path, monkeypatch):
+    import forge_cli.codex_runtime as codex_runtime
+
     executable = fake_codex(tmp_path)
     capture_path = native_env(monkeypatch, tmp_path, executable)
+    scan_calls = []
+    real_scan = codex_runtime.scan_native_result
+
+    def scan(path):
+        scan_calls.append(path)
+        return real_scan(path)
+
+    monkeypatch.setattr(codex_runtime, "scan_native_result", scan)
     brief = native_repo / ".factory" / "briefs" / "T1.md"
     terminal = launch_companion(
         native_repo,
@@ -146,6 +162,7 @@ def test_native_launch_registers_before_stdin_and_records_terminal_identity(
     assert capture["token"] == terminal["process_token"]
     assert capture["launch_id"] == terminal["launch_id"]
     assert capture["argv"][-1] == "-"
+    assert scan_calls == [Path(terminal["output_path"])]
 
 
 def test_native_zero_exit_without_completed_turn_is_failed(
@@ -246,26 +263,26 @@ def test_native_identity_survives_only_a_truncated_jsonl_tail(tmp_path):
         '{"type":"thread.started","thread_id":"thread-prefix"}\n'
         '{"type":"item.completed"'
     )
-    assert native_session_identity(output) == "thread-prefix"
+    assert scan_native_result(output).session_id == "thread-prefix"
     with pytest.raises(ValueError):
         parse_native_result(output)
     output.write_text(
         '{"type":"thread.started","thread_id":"thread-prefix"}\n'
         'malformed complete line\n'
     )
-    assert native_session_identity(output) == ""
+    assert scan_native_result(output).session_id == ""
     output.write_bytes(
         b'{"type":"thread.started","thread_id":"thread-prefix"}\n'
         + "snowman: \u2603".encode("utf-8")[:-1]
     )
-    assert native_session_identity(output) == "thread-prefix"
+    assert scan_native_result(output).session_id == "thread-prefix"
     with pytest.raises(ValueError):
         parse_native_result(output)
     output.write_bytes(
         b'{"type":"thread.started","thread_id":"thread-prefix"}\n'
         b'broken: \xe2\n'
     )
-    assert native_session_identity(output) == ""
+    assert scan_native_result(output).session_id == ""
 
 
 def test_stage_launch_gate_requires_exact_native_terminal_stream(
