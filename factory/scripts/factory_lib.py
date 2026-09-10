@@ -2044,20 +2044,16 @@ def product_delta_digest(root: Path, base_sha: str, head: str = "") -> str:
     first-parent) plus what is staged, so a trunk merge received mid-stage
     is not attributed to the stage.
     """
-    from forge_cli.stages import committed_paths
+    from forge_cli.stages import _git, committed_paths
     head = head or head_sha(root) or ""
     empty = hashlib.sha256(b"").hexdigest()
     if not base_sha or not head:
         return empty
     excluded = product_excluded_prefixes(root)
-    staged = subprocess.run(
-        ["git", "diff", "--cached", "--name-only", "-z", base_sha],
-        cwd=root, capture_output=True, text=True, env=clean_git_env(),
-        encoding="utf-8", errors="surrogateescape",
-    )
-    if staged.returncode != 0:
-        raise SystemExit("cannot derive the product delta digest: git diff failed")
-    paths = {path for path in staged.stdout.split("\0") if path}
+    # The lossless git helper the stage measure uses (encoding-hygiene
+    # allowlisted); a bare call here failed the hygiene gate.
+    staged_raw = _git(root, "diff", "--cached", "--name-only", "-z", base_sha)
+    paths = {path for path in staged_raw.split("\0") if path}
     if base_sha != head:
         paths |= committed_paths(root, base_sha, head)
     ordered = sorted(path for path in paths if not path.startswith(excluded))
