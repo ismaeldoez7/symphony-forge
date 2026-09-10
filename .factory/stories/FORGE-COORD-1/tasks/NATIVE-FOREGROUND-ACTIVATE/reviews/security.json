@@ -1,28 +1,18 @@
 {
   "generated_by": "autoreview",
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
-  "score": 4,
-  "summary": "security lens over NATIVE-FOREGROUND-ACTIVATE (25 product path(s), 7a462bc..c21b80b, Codex via the autoreview skill at --max-priority P2): 2 blocking, 0 non-blocking. The native process-admission changes shown are generally fail-closed, but the new review-input path crosses an untrusted implementer-to-reviewer boundary without prompt-safe encoding and does not bind the resulting reviews to the exact automated report later used for sealing. Those defects allow the independent security-review gate to be influenced or detached from its evidence.",
-  "blocking_findings": [
-    {
-      "category": "security",
-      "area": "factory/scripts/forge_cli",
-      "summary": "[P1] Treat the implementer-authored automated report as untrusted prompt data (factory/scripts/forge_cli/review_brief.py:190): The automated report is authored by the implementation worker, but it is inserted verbatim into the review prompt inside a Markdown code fence."
-    },
-    {
-      "category": "security",
-      "area": "factory/scripts/forge_cli",
-      "summary": "[P1] Bind reviews to the current automated report (factory/scripts/forge_cli/review_brief.py:149): This validation only checks that the outer and nested commit strings agree; it never verifies that the report is current for the reviewed HEAD."
-    }
-  ],
+  "score": 10,
+  "summary": "security lens over NATIVE-FOREGROUND-ACTIVATE (26 product path(s), 7a462bc..3e2ce8a, Codex via the autoreview skill at --max-priority P2): 1 blocking, 0 non-blocking. The process and scope checks are extensive, but the enforcement mechanism is mutable by the very worker it is intended to constrain. Because the selected task explicitly authorizes edits to several files in that mechanism, this is a concrete privilege-escalation path rather than a speculative configuration concern.",
+  "blocking_findings": [],
   "non_blocking_findings": [],
-  "recommendation": "request-changes",
+  "recommendation": "approve",
   "reviewed_scope": [
     ".claude/settings.json",
     ".codex/hooks.json",
     "AGENTS.md",
     "factory/schemas/delegation.json",
     "factory/scripts/check_dual_runtime.py",
+    "factory/scripts/check_encoding_hygiene.py",
     "factory/scripts/check_task_proof.py",
     "factory/scripts/factory_lib.py",
     "factory/scripts/forge.py",
@@ -46,10 +36,24 @@
   ],
   "skills_used": [],
   "aspect": "security",
-  "review_run_id": "f7640b533df8e890ec528a3002a289b92936672fb9d5828249b6af775de129b0",
-  "brief_sha256": "7034fb92d0d24121e6cfc40137006f4b65da2a3828862c9ccc847050ac3c4003",
-  "branch_diff_digest": "4e9dde4be30918d997ed73df247b3429fb46b72947874c78a2afd9d693caee3d",
+  "review_run_id": "a0cf1ee0269dc1a556d46c3d044a44c8ef726f38b793405b1b9bb1e9e86c1a0c",
+  "brief_sha256": "fe870cf1af3a20151e0773eba091a1f7ad2412018da67d498ca144edad0702eb",
+  "branch_diff_digest": "75f25b033ef9d454f1ee68366df14baadec781a6347d36cb646db7ac3269abb5",
   "residual_risks": [],
-  "recorded_at": "2026-09-10T16:50:33+00:00",
-  "commit": "c21b80b8cb44f2bbab686ec40e4ac5ba555bc3f1"
+  "recorded_at": "2026-09-10T18:50:03+00:00",
+  "commit": "3e2ce8a6a62dd6d7455eaabb28a12d52787ee854",
+  "rejected_findings": [
+    {
+      "finding": {
+        "category": "security",
+        "area": "factory/scripts",
+        "summary": "[P1] Do not let a worker rewrite its own authorization hook (factory/scripts/pre_tool_use.py:803): The new admission branch allows every in-scope product write, including changes to the enforcement chain itself."
+      },
+      "reason": "Decision 0018 treats delegation and proof commands as trusted repository inputs and defers hostile-worker containment until untrusted commands or third-party worker code receive write access. This task explicitly authorizes changes to the hook and admission source in its approved 24-path scope, so requiring immutable enforcement source during those edits adds a containment capability beyond that accepted trust model. The recorded C8 test still requires direct protected writes to be denied, and current scope, process identity, revocation and protected Git-control authority must remain fail-closed; this ruling does not excuse any defect in those checks.",
+      "cite": "0018",
+      "rejected_at": "2026-09-10T18:57:56+00:00",
+      "rejected_by": "orchestrator",
+      "task_id": "NATIVE-FOREGROUND-ACTIVATE"
+    }
+  ]
 }

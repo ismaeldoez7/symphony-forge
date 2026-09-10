@@ -1,0 +1,95 @@
+{
+  "generated_by": "griller",
+  "gate": "requirements",
+  "verdict": "pass",
+  "gaps": [
+    "The revised requirements and old approved downstream authority chain have different bindings.",
+    "Old agent retirement and Lean ownership contradict First's complete Decision0066 overlay.",
+    "The closure crosswalk omits C1-C10 while also making them mandatory.",
+    "The spec allows independent work while0057 says pause all work.",
+    "Structured-question identity lacks gate/task and per-question multi-call semantics.",
+    "The old plan weakens design-review triggers and the exact quality coverage set.",
+    "Six platform rows have no deterministic representation inside the existing automated report.",
+    "Standing-authorized corrections cannot honestly inherit the old approval digest.",
+    "Event compaction leaves bundle shape, immutability and destructive retry behavior undefined.",
+    "The context-file input does not exist and has no assigned safe contract."
+  ],
+  "contradictions": [],
+  "resolutions": [
+    "The normal requirements gate necessarily precedes replacing the old plan. The confirmed spec, corrected versioned graph and complete replacement story/task/decomposition now agree. Normal plan save/approval, decomposition recording and task save/grill/approval must replace all old bindings before any further worker starts; the old passes are history, not current authority.",
+    "Committed accepted0066 explicitly narrows0057 agent retirement and0065/the prior scope lesson for the later user model/team request. The corrected graph and replacement decomposition assign the complete64-path/15-agent overlay to First and preserve all original prepared hunk owners, task IDs and dependencies.",
+    "The replacement story explicitly maps AC1-AC12, C1-C10 and all three unchanged roadmap criteria to existing owners and proof; the bound graph retains all ten client-failure rows. The scope-creep rule applies only outside that complete bound crosswalk.",
+    "Accepted0064 narrows0057's older wording. The addressed and all causally affected work pause for a required answer; separately owned, dependency-ready work with unaffected contracts can continue. The spec and0066 now explicitly preserve that narrowing.",
+    "After Shared ships, capture binds the full runtime/session/event/tool-call/question/story/gate/task tuple and exact question/options/answer. Each unique question in a completed multi-question call is independently eligible and single-use, with exactly one nonblank answer. Legacy identity is never synthesized or rebound.",
+    "The replacement story repeats every mechanical design_review trigger and fails closed for missing/unknown/blank or false routine classification. One pinned Ruff0.16.6/Pyright1.1.411 runner supplies the identical exact tracked Python set below factory/scripts and factory/tests, including fixtures, locally and in CI.",
+    "Integration owns an exact JSON-encoded six-row array in existing pass_fail_summary, with fixed labels/order/fields/states and validation against real revision/log/client evidence. It derives aggregate status and independent review checks it; generic C10 consumes the review-bound aggregate without a new schema property, report or registry.",
+    "Lean uses the existing brief/save/amendment/approval family, records correction reason/classification and actual standing-authority source, removes the old tuple and freshly binds the actual revision. No new human answer or reread is claimed. Material changes still require explicit authority; First's present model scope is authorized by the user's actual later instructions and must pass normal current gates.",
+    "Portable uses exact format/story/events with forge-event-bundle/v1 and ID-sorted unchanged members. Existing bundles stay immutable; late unseen IDs refuse untouched. Apply requires the preview inventory/proof/bundle digest, first publication cannot overwrite, exact durable read-back precedes deletion, and historical eligibility respects the original scoped or legacy delivery contract.",
+    "Lean explicitly owns adding optional --context-file to the existing CLI/composer. It reads one caller-selected regular UTF-8 snapshot, permits authorized outside paths and labels contents untrusted without altering primary artifact identity, decisions, scope, evidence or read-only authority. Missing/unreadable/non-regular/undecodable input refuses; no truncation or new evidence family is added."
+  ],
+  "open_items": [],
+  "rounds": [],
+  "frontier_empty": true,
+  "questions_asked": 0,
+  "summary": "Resolution of every visible finding from the genuine Sol/high requirements cold read launch-c110b1635070497fbd5f1fd5e61f9580, session 01a08cf0-64f7-77c0-bf8b-ab4d63146307. Main and bounded native specialists resolved repository facts and implementation details using actual standing and later explicit user authority. No new user answer, additional cold read, inherited approval or implementation pass is claimed. Record only against the final confirmed spec/corrected graph and frozen replacement plan; subsequent normal approval and task proof remain required.",
+  "inspected_refs": [
+    "docs/specs/dual-coordinator-parity.md",
+    "docs/decisions/0057-coordinator-operation-simplification.md",
+    "docs/decisions/0064-lean-delivery-and-durable-history.md",
+    "docs/decisions/0065-ci-platform-evidence.md",
+    "docs/decisions/0066-sol-specialized-workflow-models.md",
+    "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
+    "/Users/dev/.codex/plans/symphony-forge+coord-1-model-policy-story-amendment+20260911.md",
+    "/Users/dev/.codex/plans/symphony-forge+native-foreground-model-policy-decomposition+20260911.json",
+    "/Users/dev/.codex/plans/symphony-forge+native-foreground-model-policy-amendment+20260911.md",
+    "factory/scripts/forge_cli/plans.py",
+    "factory/scripts/forge_cli/tasks.py",
+    "factory/scripts/factory_lib.py"
+  ],
+  "citations": [
+    {
+      "finding": "The revised requirements and old approved downstream authority chain have different bindings.",
+      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
+    },
+    {
+      "finding": "Old agent retirement and Lean ownership contradict First's complete Decision0066 overlay.",
+      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
+    },
+    {
+      "finding": "The closure crosswalk omits C1-C10 while also making them mandatory.",
+      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
+    },
+    {
+      "finding": "The spec allows independent work while0057 says pause all work.",
+      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
+    },
+    {
+      "finding": "Structured-question identity lacks gate/task and per-question multi-call semantics.",
+      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
+    },
+    {
+      "finding": "The old plan weakens design-review triggers and the exact quality coverage set.",
+      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
+    },
+    {
+      "finding": "Six platform rows have no deterministic representation inside the existing automated report.",
+      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
+    },
+    {
+      "finding": "Standing-authorized corrections cannot honestly inherit the old approval digest.",
+      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
+    },
+    {
+      "finding": "Event compaction leaves bundle shape, immutability and destructive retry behavior undefined.",
+      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
+    },
+    {
+      "finding": "The context-file input does not exist and has no assigned safe contract.",
+      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
+    }
+  ],
+  "issue": "FORGE-COORD-1",
+  "input_sha256": "8c717ce01886a2415b7ddabc8a86cbef80323f78eff0d2895d3562e66a06ef41",
+  "recorded_at": "2026-09-10T20:51:51+00:00",
+  "commit": "d482f16fa323c5377dca6c1fe7788fbb71211bd2"
+}

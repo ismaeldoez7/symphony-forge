@@ -1,59 +1,18 @@
 {
   "generated_by": "autoreview",
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
-  "score": 0,
-  "summary": "quality lens over NATIVE-FOREGROUND-ACTIVATE (25 product path(s), 7a462bc..c21b80b, Codex via the autoreview skill at --max-priority P2): 4 blocking, 1 non-blocking. VERDICT NATIVE-FOREGROUND-ACTIVATE-C1: implemented \u2014 factory/scripts/check_dual_runtime.py:388 enforces equivalent hook events and independent session-start coverage.\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C2: implemented \u2014 factory/scripts/forge_cli/delegate.py:1276 records the running identity before native stdin is written and the surrounding cleanup revokes admission.\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C3: partial \u2014 factory/scripts/forge_cli/review_brief.py:153 accepts mutually consistent automated-report commit fields without proving they match the current review target.\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C4: implemented \u2014 factory/scripts/factory_lib.py:3416 invokes the shared task-aware proof predicate before seal mutation.\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C5: partial \u2014 factory/scripts/forge_cli/tasks.py:331 makes task-plan and grill hydration optional even for the first bootstrap.\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C6: partial \u2014 factory/scripts/forge_cli/delegate.py:1117 blocks only native background launch while foreground exploration and lower-level resume machinery remain.\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C7: implemented \u2014 factory/scripts/forge_cli/review.py:770 resolves both preflight artifacts with the active task ID.\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C8: implemented \u2014 factory/scripts/pre_tool_use.py:786 applies protected worker admission and scope checks before product writes.",
-  "blocking_findings": [
-    {
-      "category": "regression",
-      "area": "factory/scripts/forge_cli",
-      "summary": "[P1] Keep plan and grill mandatory for the first task bootstrap (factory/scripts/forge_cli/tasks.py:331): The new hydration path treats the task plan and grill as optional for every task start."
-    },
-    {
-      "category": "bug",
-      "area": "factory/scripts/forge_cli",
-      "summary": "[P1] Refuse valid native foreground exploration before launch (factory/scripts/forge_cli/delegate.py:1117): The native launch boundary rejects only `background=True`; a foreground read-only launch remains allowed."
-    },
-    {
-      "category": "maintainability",
-      "area": "factory/scripts/forge_cli",
-      "summary": "[P1] Remove the premature native resume path (factory/scripts/forge_cli/codex_runtime.py:55): This branch explicitly implements a `resume_session` argv path even though C6 assigns native resume to a successor and requires it to refuse before dispatch."
-    },
-    {
-      "category": "maintainability",
-      "area": "factory/tests",
-      "summary": "[P1] Bring the change back within the approved delivery bounds (factory/tests/test_review_settled_contracts.py:15): The selected diff contains 25 files and 4,303 changed lines, exceeding the approved maximum of 24 files and 4,000 lines."
-    },
-    {
-      "category": "plan-contract-partial",
-      "area": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_review_consumers_include_complete_approved_inputs",
-      "summary": "NATIVE-FOREGROUND-ACTIVATE-C3: C9 review inputs are complete and task-specific: task, branch, and all three review lenses receive the full approved target task plan, approval/grill fields, digest identity, and resolved automated report; missing, unapproved, stale, summarized, truncated, or future-row-substituted inputs refuse."
-    },
-    {
-      "category": "plan-contract-partial",
-      "area": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_task_start_creates_before_jit_with_approved_identity",
-      "summary": "NATIVE-FOREGROUND-ACTIVATE-C5: Workspace-before-JIT honors incumbent0063 first bootstrap and successor starts: source save/grill/approval and existing task-start refusals precede first preparation import; later `cmd_task_start` checks approved story/plan/decomposition, digest/task identity, fetched trunk, dependencies, protected path/owner, and then requires fresh target grounding/JIT/grill/approval, stage, and registered admission before writes."
-    },
-    {
-      "category": "plan-contract-partial",
-      "area": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_native_unshipped_operations_refuse_before_dispatch",
-      "summary": "NATIVE-FOREGROUND-ACTIVATE-C6: Unsupported native operations refuse before side effects: native background/read-only background, general status, live/dead worker status, cancel/resume/jobs, explore, and native question delivery do not compose briefs, spend question eligibility, append ledgers, signal processes, or dispatch children until their successor owners ship. The only native status exception renders already-dead registered native grill rows through existing dead_launches, restricted to strict grill gate/task labels and starting/running rows proven dead; it does not call the general status handler. Preserve unchanged Claude dispatch."
-    }
-  ],
-  "non_blocking_findings": [
-    {
-      "category": "bug",
-      "area": "factory/scripts/forge_cli",
-      "summary": "[P2] Reject automated reports recorded against an older commit (factory/scripts/forge_cli/review_brief.py:153): The review-input validator checks only that `tests.json.commit` equals the nested automated report's commit."
-    }
-  ],
-  "recommendation": "request-changes",
+  "score": 10,
+  "summary": "quality lens over NATIVE-FOREGROUND-ACTIVATE (26 product path(s), 7a462bc..3e2ce8a, Codex via the autoreview skill at --max-priority P2): 0 blocking, 0 non-blocking. VERDICT NATIVE-FOREGROUND-ACTIVATE-C1: implemented \u2014 .claude/settings.json:5; .codex/hooks.json:5; harness.yaml:106\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C2: implemented \u2014 factory/scripts/forge_cli/delegate.py:1274; factory/scripts/forge_cli/worker_admission.py:177\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C3: implemented \u2014 factory/scripts/forge_cli/review_brief.py:82\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C4: implemented \u2014 factory/scripts/factory_lib.py:1344; factory/scripts/factory_lib.py:3602\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C5: implemented \u2014 factory/scripts/forge_cli/tasks.py:239\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C6: implemented \u2014 factory/scripts/forge.py:24; factory/scripts/forge_cli/delegate.py:1113\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C7: implemented \u2014 factory/scripts/forge_cli/review.py:767\nVERDICT NATIVE-FOREGROUND-ACTIVATE-C8: implemented \u2014 factory/tests/test_worker_admission.py:266; supplied C8 evidence correlates launch-b6635b8789c747abb9e95e0a3ba1478e, session 01a08b1c-2e7d-75f1-b823-006fce3503da, and call_IuUWirC8cZqjogtSeZbaB87D with the explicit PreToolUse denial, successful terminal row, matching durable-log hashes, and unchanged protected-plan hash.\nLEFTOVERS: clean \u2014 retained historical native-resume validation and companion admission are expressly required by the settled launch-history and unchanged-Claude contracts, rather than unused replacement shims.\nThe diff implements and reaches all eight deliverables. The supplied complete test report records 983 passing cases, all 15 required selectors, and three disclosed platform-specific skips. No actionable P0\u2013P2 defect is demonstrated by the available bundle.",
+  "blocking_findings": [],
+  "non_blocking_findings": [],
+  "recommendation": "approve",
   "reviewed_scope": [
     ".claude/settings.json",
     ".codex/hooks.json",
     "AGENTS.md",
     "factory/schemas/delegation.json",
     "factory/scripts/check_dual_runtime.py",
+    "factory/scripts/check_encoding_hygiene.py",
     "factory/scripts/check_task_proof.py",
     "factory/scripts/factory_lib.py",
     "factory/scripts/forge.py",
@@ -80,49 +39,49 @@
     {
       "contract_id": "NATIVE-FOREGROUND-ACTIVATE-C1",
       "verdict": "implemented",
-      "evidence": "factory/scripts/check_dual_runtime.py:388 enforces equivalent hook events and independent session-start coverage."
+      "evidence": ".claude/settings.json:5; .codex/hooks.json:5; harness.yaml:106"
     },
     {
       "contract_id": "NATIVE-FOREGROUND-ACTIVATE-C2",
       "verdict": "implemented",
-      "evidence": "factory/scripts/forge_cli/delegate.py:1276 records the running identity before native stdin is written and the surrounding cleanup revokes admission."
+      "evidence": "factory/scripts/forge_cli/delegate.py:1274; factory/scripts/forge_cli/worker_admission.py:177"
     },
     {
       "contract_id": "NATIVE-FOREGROUND-ACTIVATE-C3",
-      "verdict": "partial",
-      "evidence": "factory/scripts/forge_cli/review_brief.py:153 accepts mutually consistent automated-report commit fields without proving they match the current review target."
+      "verdict": "implemented",
+      "evidence": "factory/scripts/forge_cli/review_brief.py:82"
     },
     {
       "contract_id": "NATIVE-FOREGROUND-ACTIVATE-C4",
       "verdict": "implemented",
-      "evidence": "factory/scripts/factory_lib.py:3416 invokes the shared task-aware proof predicate before seal mutation."
+      "evidence": "factory/scripts/factory_lib.py:1344; factory/scripts/factory_lib.py:3602"
     },
     {
       "contract_id": "NATIVE-FOREGROUND-ACTIVATE-C5",
-      "verdict": "partial",
-      "evidence": "factory/scripts/forge_cli/tasks.py:331 makes task-plan and grill hydration optional even for the first bootstrap."
+      "verdict": "implemented",
+      "evidence": "factory/scripts/forge_cli/tasks.py:239"
     },
     {
       "contract_id": "NATIVE-FOREGROUND-ACTIVATE-C6",
-      "verdict": "partial",
-      "evidence": "factory/scripts/forge_cli/delegate.py:1117 blocks only native background launch while foreground exploration and lower-level resume machinery remain."
+      "verdict": "implemented",
+      "evidence": "factory/scripts/forge.py:24; factory/scripts/forge_cli/delegate.py:1113"
     },
     {
       "contract_id": "NATIVE-FOREGROUND-ACTIVATE-C7",
       "verdict": "implemented",
-      "evidence": "factory/scripts/forge_cli/review.py:770 resolves both preflight artifacts with the active task ID."
+      "evidence": "factory/scripts/forge_cli/review.py:767"
     },
     {
       "contract_id": "NATIVE-FOREGROUND-ACTIVATE-C8",
       "verdict": "implemented",
-      "evidence": "factory/scripts/pre_tool_use.py:786 applies protected worker admission and scope checks before product writes."
+      "evidence": "factory/tests/test_worker_admission.py:266; supplied C8 evidence correlates launch-b6635b8789c747abb9e95e0a3ba1478e, session 01a08b1c-2e7d-75f1-b823-006fce3503da, and call_IuUWirC8cZqjogtSeZbaB87D with the explicit PreToolUse denial, successful terminal row, matching durable-log hashes, and unchanged protected-plan hash."
     }
   ],
   "aspect": "quality",
-  "review_run_id": "f7640b533df8e890ec528a3002a289b92936672fb9d5828249b6af775de129b0",
-  "brief_sha256": "7034fb92d0d24121e6cfc40137006f4b65da2a3828862c9ccc847050ac3c4003",
-  "branch_diff_digest": "4e9dde4be30918d997ed73df247b3429fb46b72947874c78a2afd9d693caee3d",
+  "review_run_id": "a0cf1ee0269dc1a556d46c3d044a44c8ef726f38b793405b1b9bb1e9e86c1a0c",
+  "brief_sha256": "fe870cf1af3a20151e0773eba091a1f7ad2412018da67d498ca144edad0702eb",
+  "branch_diff_digest": "75f25b033ef9d454f1ee68366df14baadec781a6347d36cb646db7ac3269abb5",
   "residual_risks": [],
-  "recorded_at": "2026-09-10T16:50:32+00:00",
-  "commit": "c21b80b8cb44f2bbab686ec40e4ac5ba555bc3f1"
+  "recorded_at": "2026-09-10T18:50:01+00:00",
+  "commit": "3e2ce8a6a62dd6d7455eaabb28a12d52787ee854"
 }

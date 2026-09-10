@@ -2,18 +2,18 @@
   "generated_by": "autoreview",
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
   "score": 9,
-  "summary": "performance lens over NATIVE-FOREGROUND-ACTIVATE (25 product path(s), 7a462bc..c21b80b, Codex via the autoreview skill at --max-priority P2): 0 blocking, 2 non-blocking. The change introduces two concrete performance regressions on operational hot paths: every native write reparses an ever-growing ledger twice, and native completion repeatedly reads and deserializes the full runtime transcript. Both costs scale with durable history or run length and are already exercised with multi-megabyte evidence.",
+  "summary": "performance lens over NATIVE-FOREGROUND-ACTIVATE (26 product path(s), 7a462bc..3e2ce8a, Codex via the autoreview skill at --max-priority P2): 0 blocking, 2 non-blocking. The supplied diff introduces two concrete, unbounded I/O-amplification paths: repeated whole-product hashing during each task-proof evaluation and complete append-only ledger parsing during every admitted write hook. Both will progressively slow routine board/CI checks and native worker edits as repository and launch history grow. No unrequired compatibility leftover was identified; the historical proof and launch readers shown are explicitly required by the supplied contracts.",
   "blocking_findings": [],
   "non_blocking_findings": [
     {
       "category": "bug",
-      "area": "factory/scripts/forge_cli",
-      "summary": "[P2] Avoid reparsing the append-only delegation ledger for every native write (factory/scripts/forge_cli/worker_admission.py:185): On every locked native Edit/Write/apply_patch hook, `live_worker_admission` parses the entire protected delegation ledger here even though `all_rows` is only needed when `FORGE_LAUNCH_ID` is absent."
+      "area": "factory/scripts",
+      "summary": "Task proof rehashes the complete product tree once per artifact (factory/scripts/factory_lib.py:1553): In `_proof_commit_problems`, the deduplication key includes `label`, so verify, tests, and all three review records stamped at the same commit are treated as distinct and each invokes `product_tree_digest`."
     },
     {
       "category": "bug",
       "area": "factory/scripts/forge_cli",
-      "summary": "[P2] Do not materialize and repeatedly parse the complete native JSONL log (factory/scripts/forge_cli/delegate.py:1306): The native completion path reads the entire stdout JSONL into `stdout` here but never uses that string for the Codex route."
+      "summary": "Every admitted write reparses the entire append-only delegation ledger (factory/scripts/forge_cli/worker_admission.py:96): `live_worker_admission` reaches `_bound_rows` for every protected Edit/Write/apply_patch hook, and this expression loads and parses all delegation lifecycle rows before filtering for the current launch."
     }
   ],
   "recommendation": "approve-with-caveats",
@@ -23,6 +23,7 @@
     "AGENTS.md",
     "factory/schemas/delegation.json",
     "factory/scripts/check_dual_runtime.py",
+    "factory/scripts/check_encoding_hygiene.py",
     "factory/scripts/check_task_proof.py",
     "factory/scripts/factory_lib.py",
     "factory/scripts/forge.py",
@@ -46,10 +47,10 @@
   ],
   "skills_used": [],
   "aspect": "performance",
-  "review_run_id": "f7640b533df8e890ec528a3002a289b92936672fb9d5828249b6af775de129b0",
-  "brief_sha256": "7034fb92d0d24121e6cfc40137006f4b65da2a3828862c9ccc847050ac3c4003",
-  "branch_diff_digest": "4e9dde4be30918d997ed73df247b3429fb46b72947874c78a2afd9d693caee3d",
+  "review_run_id": "a0cf1ee0269dc1a556d46c3d044a44c8ef726f38b793405b1b9bb1e9e86c1a0c",
+  "brief_sha256": "fe870cf1af3a20151e0773eba091a1f7ad2412018da67d498ca144edad0702eb",
+  "branch_diff_digest": "75f25b033ef9d454f1ee68366df14baadec781a6347d36cb646db7ac3269abb5",
   "residual_risks": [],
-  "recorded_at": "2026-09-10T16:50:32+00:00",
-  "commit": "c21b80b8cb44f2bbab686ec40e4ac5ba555bc3f1"
+  "recorded_at": "2026-09-10T18:50:02+00:00",
+  "commit": "3e2ce8a6a62dd6d7455eaabb28a12d52787ee854"
 }

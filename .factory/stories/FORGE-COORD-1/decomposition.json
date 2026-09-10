@@ -5,12 +5,12 @@
     {
       "id": "NATIVE-FOREGROUND-ACTIVATE",
       "title": "Native foreground and complete first-task proof",
-      "objective": "Native foreground and complete first-task proof: Existing complete foreground hooks/checker/readiness and process-bound admission; C9 full approved plan and automated report in review inputs; C10 shared complete local/committed/task-board/readiness proof through task_proof_problems and seal before mutation.",
+      "objective": "You are already the registered implementation worker; do not delegate yourself or run coordinator/lifecycle commands. Read the approved `.factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md` section \u201cRuntime corrections and two-pass recovery\u201d before using the Forge skill or `./forge next` routing. If all six exact bootstrap preimages match the bound receipt, apply only `native-policy-path-grants.patch` SHA256 `0e63351a75e2aa29e0d6c28080595f1e513f8766480b79d08330b3dfaae31da6`, run the exact two-file tests and `git diff --check`, then return incomplete progress to Main. If all six exact bootstrap postimages are already present, this is the fresh second pass: do not reapply the bootstrap; execute the four-frozen-patch full approved recovery, missing selector, complete checks, and genuine current-plan C8. If the six files are mixed or match neither complete set, refuse and report to Main. Native foreground and complete first-task proof plus the additional Decision0066 current model-policy overlay: preserve the original prepared allocation while making every executable project selector/guidance surface, 15 team agents, distribution proof and same-plugin Luna/max compatibility current before First ships.",
       "dependencies": [],
       "user_facing": false,
       "acceptance_criteria": [
-        "NATIVE-FOREGROUND-ACTIVATE preserves the full target hook configuration and Claude parity: native hook JSON stays scoped, `.claude/settings.json` gains clear registration, `check_dual_runtime.py` verifies independent and both-adapter omissions, official hook readiness remains trusted, and Accepted0062 plus the actual harness/launch keep Luna at max as the worker-selection authority.",
-        "Process-bound admission remains truthful: foreground launch registers before stdin with terminal identity, zero-exit without completed turn is failed, native write admission covers add/update/delete/move only after registration, admission is revoked before interruption/failure cleanup signals, and failed cleanup never invents success.",
+        "NATIVE-FOREGROUND-ACTIVATE preserves the full target hook configuration and Claude parity: native hook JSON stays scoped, `.claude/settings.json` gains clear registration, `check_dual_runtime.py` verifies independent and both-adapter omissions, and official hook readiness remains trusted. As an explicitly additional user-requested overlay, First owns every current model-policy hunk without moving any of the original 40 prepared path/hunk allocations: its owning harness/launcher, active project profiles and guidance, all 15 committed team agent definitions, exact init/upgrade distribution proof, and same-plugin Luna/max doctor compatibility. Exploration uses Sol/low; planning, decomposition, architecture, plan validation and every grill use Sol/high; all implementation, technical test verification and autoreview fixes use Sol/medium, with formal Lite as the Luna/max exception; formal autoreview and functional checking use Sol/high; no new actor may run on Terra. Decision 0066 supersedes Decision 0062's model policy and amends only Decision 0031's model clause while preserving its Lite lifecycle. The original C8 Luna/max launch, receipt and transcript remain unchanged historical proof against the original approved task plan, not current selector authority. Review execution pins Codex to Sol/high and refuses an unreadable or known Terra-fallback helper before review-brief publication or process launch, with update-helper guidance and no doctor mutation.",
+        "Process-bound admission remains truthful: foreground launch registers before stdin with terminal identity, zero-exit without completed turn is failed, and native write admission covers add/update/delete/move only after registration. Cancellation writes the existing durable revocation marker before cleanup signals; terminal success/failure plus dead process and released matching lock revoke completion; non-active stage incarnation revokes stage closure. Admission requires an exact starting/running row, live matching process ancestry, held matching lock, active matching stage and no explicit revocation; failed cleanup never invents success and no new completion tombstone is introduced.",
         "C9 review inputs are complete and task-specific: task, branch, and all three review lenses receive the full approved target task plan, approval/grill fields, digest identity, and resolved automated report; missing, unapproved, stale, summarized, truncated, or future-row-substituted inputs refuse.",
         "C10 proof uses one task-aware predicate for local worktree, committed CI, task-board/readiness through `task_proof_problems`, and pre-seal gating: verify ok, automated passed with no blockers, review scores/bindings clean, conditional functional proof clean, whole-bundle legacy fallback only with genuine task marker/history, and zero marker/Git/PR mutation on refusal; story singleton summary remains successor-owned.",
         "Workspace-before-JIT honors incumbent0063 first bootstrap and successor starts: source save/grill/approval and existing task-start refusals precede first preparation import; later `cmd_task_start` checks approved story/plan/decomposition, digest/task identity, fetched trunk, dependencies, protected path/owner, and then requires fresh target grounding/JIT/grill/approval, stage, and registered admission before writes.",
@@ -42,17 +42,57 @@
         "factory/scripts/check_task_proof.py",
         "factory/scripts/forge_cli/tasks.py",
         "AGENTS.md",
-        "factory/scripts/forge_cli/review.py"
+        "factory/scripts/forge_cli/review.py",
+        "factory/scripts/check_encoding_hygiene.py",
+        "factory/tests/test_review_settled_contracts.py",
+        "factory/tests/test_review_task_delta.py",
+        "factory/tests/test_gate_table.py",
+        "factory/tests/test_grill_release.py",
+        "docs/decisions/0062-luna-max-exploration-and-implementation.md",
+        "docs/decisions/0066-sol-specialized-workflow-models.md",
+        "docs/specs/dual-coordinator-parity.md",
+        "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
+        ".claude/CLAUDE.md",
+        ".codex/config.toml",
+        ".codex/explore.config.toml",
+        ".codex/agents/architect.toml",
+        ".codex/agents/AGENTS.md",
+        ".codex/agents/backend.toml",
+        ".codex/agents/debugger.toml",
+        ".codex/agents/explorer.toml",
+        ".codex/agents/frontend.toml",
+        ".codex/agents/griller.toml",
+        ".codex/agents/lite.toml",
+        ".codex/agents/performance.toml",
+        ".codex/agents/planner.toml",
+        ".codex/agents/refactorer.toml",
+        ".codex/agents/security.toml",
+        ".codex/agents/tester.toml",
+        ".codex/agents/planner-high.toml",
+        ".codex/agents/docs-decomposer.toml",
+        ".codex/agents/functional-checker.toml",
+        "README.md",
+        "WORKFLOW.md",
+        "docs/FACTORY.md",
+        "docs/QUALITY.md",
+        "docs/ROLES.md",
+        "docs/getting-started.md",
+        "factory/skills/forge.md",
+        "factory/prompts/griller.md",
+        "factory/prompts/implementer.md",
+        "factory/prompts/planner.md",
+        "factory/prompts/reviewer.md",
+        "factory/scripts/forge_cli/upgrade.py"
       ],
       "plan_contracts": [
         {
           "id": "NATIVE-FOREGROUND-ACTIVATE-C1",
-          "statement": "NATIVE-FOREGROUND-ACTIVATE preserves the full target hook configuration and Claude parity: native hook JSON stays scoped, `.claude/settings.json` gains clear registration, `check_dual_runtime.py` verifies independent and both-adapter omissions, official hook readiness remains trusted, and Accepted0062 plus the actual harness/launch keep Luna at max as the worker-selection authority.",
-          "source": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_dual_runtime_checker_requires_each_session_start_source, test_codex_hook_readiness_requires_exact_enabled_trusted_source"
+          "statement": "NATIVE-FOREGROUND-ACTIVATE preserves the full target hook configuration and Claude parity: native hook JSON stays scoped, `.claude/settings.json` gains clear registration, `check_dual_runtime.py` verifies independent and both-adapter omissions, and official hook readiness remains trusted. As an explicitly additional user-requested overlay, First owns every current model-policy hunk without moving any of the original 40 prepared path/hunk allocations: its owning harness/launcher, active project profiles and guidance, all 15 committed team agent definitions, exact init/upgrade distribution proof, and same-plugin Luna/max doctor compatibility. Exploration uses Sol/low; planning, decomposition, architecture, plan validation and every grill use Sol/high; all implementation, technical test verification and autoreview fixes use Sol/medium, with formal Lite as the Luna/max exception; formal autoreview and functional checking use Sol/high; no new actor may run on Terra. Decision 0066 supersedes Decision 0062's model policy and amends only Decision 0031's model clause while preserving its Lite lifecycle. The original C8 Luna/max launch, receipt and transcript remain unchanged historical proof against the original approved task plan, not current selector authority. Review execution pins Codex to Sol/high and refuses an unreadable or known Terra-fallback helper before review-brief publication or process launch, with update-helper guidance and no doctor mutation.",
+          "source": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; docs/decisions/0066-sol-specialized-workflow-models.md; amended story plan and model-policy ownership graph; /Users/dev/.codex/plans/symphony-forge+native-foreground-model-policy-amendment+20260911.md; focused policy/distribution/plugin selectors"
         },
         {
           "id": "NATIVE-FOREGROUND-ACTIVATE-C2",
-          "statement": "Process-bound admission remains truthful: foreground launch registers before stdin with terminal identity, zero-exit without completed turn is failed, native write admission covers add/update/delete/move only after registration, admission is revoked before interruption/failure cleanup signals, and failed cleanup never invents success.",
+          "statement": "Process-bound admission remains truthful: foreground launch registers before stdin with terminal identity, zero-exit without completed turn is failed, and native write admission covers add/update/delete/move only after registration. Cancellation writes the existing durable revocation marker before cleanup signals; terminal success/failure plus dead process and released matching lock revoke completion; non-active stage incarnation revokes stage closure. Admission requires an exact starting/running row, live matching process ancestry, held matching lock, active matching stage and no explicit revocation; failed cleanup never invents success and no new completion tombstone is introduced.",
           "source": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_native_launch_registers_before_stdin_and_records_terminal_identity, test_native_zero_exit_without_completed_turn_is_failed, test_native_worker_patch_add_update_delete_and_move_is_admitted, test_foreground_cleanup_revokes_admission_before_signals"
         },
         {
@@ -161,27 +201,59 @@
           "id": "test_codex_hook_readiness_requires_exact_enabled_trusted_source",
           "path": "factory/tests/test_native_setup.py",
           "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_model_policy_selects_sol_work_and_luna_lite",
+          "path": "factory/tests/test_native_setup.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_active_model_policy_has_no_forbidden_execution_surface",
+          "path": "factory/tests/test_gate_table.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_project_agents_init_upgrade_and_preserve_client_additions",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_doctor_repairs_only_exact_plugin_max_source",
+          "path": "factory/tests/test_native_setup.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_codex_helper_policy_refuses_fallback_before_launch",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_codex_engine_pins_sol_high",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
         }
       ],
       "verify_commands": [
+        "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/check_encoding_hygiene.py",
         "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_native_launch.py factory/tests/test_native_setup.py factory/tests/test_worker_admission.py -q",
         "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py"
       ],
       "review_budget": {
-        "max_changed_files": 24,
-        "max_changed_lines": 4000,
-        "reason": "Exact 24-path first scope: the 16-path original preparation measured 2159 changed lines and the eight named proof/workspace/guard surfaces add bounded headroom. These limits do not authorize unrelated files, incomplete review, or any byte-fit claim; stop on measured overrun or scope expansion."
+        "max_changed_files": 70,
+        "max_changed_lines": 7500,
+        "reason": "Exact 64-path amended First scope plus bounded headroom. The last pre-freeze observation was 27 tracked paths/5,103 lines plus Decision0066 before selector/profile/agent work; remeasure after plan freeze and stop for a real overrun rather than treating the stale count as current."
       },
       "reviewer_focus": [
-        "C1 hooks/Claude/modelpins: verify the full target hook config, Claude clear registration, independent/both-adapter omission checks, trusted native hook readiness, and Accepted0062 Luna/max worker selection. Selector map: test_dual_runtime_checker_requires_each_session_start_source; test_codex_hook_readiness_requires_exact_enabled_trusted_source.",
+        "C1 complete additional model-policy overlay: owning harness/launcher, every executable project profile and active guidance surface, 15 committed team agents, exact init/upgrade distribution preserving client additions, and exact-known same-plugin Luna/max doctor compatibility follow Decision0066. No new actor uses Terra. All original 40 prepared path/hunk owners remain unchanged. Preserve original Luna C8 and verify a distinct current-plan Sol/medium receipt copied by root after process exit.",
         "C2 process admission/truthful terminal/revocation: verify registered-before-stdin terminal identity, zero-exit failure, admitted native write boundary, revocation before cleanup signals, and no invented success. Selector map: test_native_launch_registers_before_stdin_and_records_terminal_identity; test_native_zero_exit_without_completed_turn_is_failed; test_native_worker_patch_add_update_delete_and_move_is_admitted; test_foreground_cleanup_revokes_admission_before_signals.",
         "C3 C9 inputs: read the full approved .factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md and .factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json, then verify task, branch, and all three review lenses receive the complete approved plan, approval/grill fields, digest identity, and full automated report. Selector map: test_review_consumers_include_complete_approved_inputs.",
         "C4 C10 proof/readiness: verify success/status/blocker/functional/review binding checks, whole historical bundle fallback, pre-seal zero mutation, and task-board/readiness through task_proof_problems only. The story singleton summary in board.py is outside first scope and remains SHARED-COORDINATOR-JOURNEY-owned. Selector map: test_task_proof_consumers_share_complete_predicate; test_task_seal_refuses_incomplete_proof_before_mutation.",
-        "C5 workspace-before-JIT: verify incumbent0063 first bootstrap plus successor task-start checks, including source save/grill/approval before first preparation import and fresh target grounding/JIT/grill/approval/stage/admission before writes. Selector map: test_task_start_creates_before_jit_with_approved_identity.",
+        "C5 workspace-before-JIT: verify incumbent0063 first bootstrap plus successor task-start checks, including source save/grill/approval before first preparation import and fresh target grounding/JIT/grill/approval/stage/admission before writes. Selector map: test_task_start_creates_before_jit_with_approved_identity. Bind the historical half to `/Users/dev/.codex/reviews/forge-lean-20260910/first-incumbent-bootstrap-probe/first-incumbent-bootstrap-probe.json` (SHA256 `a2bf5ddf80eebd1057bd86fdf36718f20e00a9d34acce86bb99a5b818e57d2c9`) and its four sibling logs: `missing-task-plan.stdout.log` SHA256 `ad301339e36cda002e7f2c332eb1516c0213a70bc6bf217594017557b14decd0`, `missing-task-grill.stdout.log` SHA256 `5a4d9c41fd942b667a7e9d89b16b089b8ac485c5cc1c0cc00a599fec94f6acdb`, and both empty stderr logs SHA256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`. `/Users/dev/.codex/reviews/forge-lean-20260910/first-target-preparation.json` (SHA256 `9a423c081df43b648129d05ed0e897ea9749249ff9c78b15120de4575f3a2f06`) records preparation at `2026-09-10T08:51:05.210867+00:00` on immutable `7a462bc2bd770a4df0ba47f40d515916438b8ac7`; `/Users/dev/.codex/reviews/forge-lean-20260910/first-target-approval-provenance.json` (SHA256 `10db7d222fab67a1078bf82560fe377a90ec193db36e8e5c6207876fa5c3dc3e`) binds the target plan, grill, and decomposition hashes at that head. The ordering boundary is source grill recorded and approved at `2026-09-10T08:47:29+00:00`, then first target preparation, then target grill recorded at `2026-09-10T09:14:38+00:00` and approved at `2026-09-10T09:14:45+00:00`. The probe was created later at `2026-09-10T17:10:19.990025+00:00` against the immutable source commit; it is retrospective proof, not a fabricated pre-creation action. `assemble-first-automated-report.py` embeds the complete probe JSON and durable logs in the final automated report; no new probe is required.",
         "C6 unsupported native operations: under test_native_unshipped_operations_refuse_before_dispatch, verify native status only renders already-dead registered native grill rows via existing dead_launches, with strict grill gate/task labels and starting/running rows proven dead; never call the general status handler. Native live/dead worker status, cancel/resume/background/jobs/explore/question paths still refuse before side effects. Claude dispatch remains unchanged.",
         "C7 own-task review preflight: validate review.py uses task_id-aware proof_path for active task proof and refuses story or other-task proof without helper fallback. Selector map: test_review_preflight_uses_active_task_proof; test_review_preflight_refuses_other_task_or_story_proof.",
         "C8 live native protected-state read and hook denial: retain the harmless absent-context patch, but require an actual correlated PreToolUse deny event linking the existing report receipt to the protected registered terminal row and durable tool log for the same native launch/session/tool call. The existing implemented plan-contract review verdict checks this correlation; no new schema or CI/C10 parser. Absent patch context, context/patch failure, synthetic events or unchanged bytes alone cannot pass. Selector map: test_native_worker_reads_state_without_protected_write_authority; test_any_protected_revocation_marker_denies_admission.",
-        "Measure the complete result against 24 files / 4000 changed lines and the installed review helper\u2019s actual safeguards with complete lossless coverage under0064; no cap override, preparation credited as worker proof, test/proof/approval/admission claim from this external candidate, or forged target proof."
+        "Measure the frozen complete result against 70 files / 7500 lines; report the actual measurement once, not the stale 27-path/5103-line observation. Run check_encoding_hygiene.py explicitly. No old C8 rewrite, audit write by implementer, Q-0130 success claim, forbidden model actor, original hunk-owner reassignment, or incomplete review. Read `constitution/README.md` and `constitution/09-agent-conduct.md` \u00a7\u00a72\u20135 before acting; implementation and review must enforce their simplicity, surgical-change, goal-driven verification, and compatibility rules against every changed line.",
+        " Confirm the four frozen preparation patches cover 38 unique in-scope paths in exact sequence; the fourth review-policy patch pins Sol/high and rejects a known fallback before any brief/process side effect. Preparation results are not actual review. Confirm Main assembles the complete existing automated report only after worker exit by adding actual terminal correlation and Main-run normal verify; the worker initial report cannot claim either."
       ]
     },
     {
@@ -193,86 +265,87 @@
       ],
       "user_facing": false,
       "acceptance_criteria": [
-        "LEAN-WORKFLOW preserves worker policy and complete gates, carries continuation/context rulings into fresh workers, preserves developer journey proof inputs, and replaces repeated certification with one authoritative brief plus one complete independent review while retaining existing proof/refusal authority.",
+        "LEAN-WORKFLOW consumes the First-owned Decision0066 worker policy and complete gates, carries continuation/context rulings into fresh workers, preserves developer journey proof inputs, and replaces repeated certification with one authoritative brief plus one complete independent review while retaining existing proof/refusal authority.",
         "LEAN-WORKFLOW owns the roadmap acceptance that both coordinators preserve existing worker policy and every Forge gate, including complete review packaging and one combined review with genuine quality, performance and security assessments."
       ]
     },
     {
       "id": "NATIVE-LIFECYCLE",
       "title": "Native background lifecycle and read-only helpers",
-      "objective": "Native background lifecycle and read-only helpers: Detached native supervisor/request/launch, jobs/status/cancel/resume/explore; Process identity, recovery, locking and truthful cleanup; Preserve native_jobs/cmd_cancel and both original cancellation tests.",
+      "objective": "Native background lifecycle and read-only helpers: Detached native supervisor/request/launch, jobs/status/cancel/resume/explore; Process identity, recovery, locking and truthful cleanup; Preserve native_jobs/cmd_cancel and both original cancellation tests. It owns constitution-compliant structured lifecycle logging, bounded existing retries, redaction, cancel ordering and truthful surfaced terminal errors.",
       "dependencies": [
         "LEAN-WORKFLOW"
       ],
       "user_facing": false,
       "acceptance_criteria": [
         "NATIVE-LIFECYCLE delivers native independence and protected-write lifecycle behavior through detached supervisor/request/launch, jobs/status/cancel/resume/explore, process identity, recovery, locking and truthful cleanup while preserving worker policy and handoff truth.",
-        "NATIVE-LIFECYCLE keeps background/status/cancel/resume/explore unsupported until this owner lands, then replaces only the first task refusals with proved native lifecycle behavior and both original cancellation regressions."
+        "NATIVE-LIFECYCLE keeps background/status/cancel/resume/explore unsupported until this owner lands, then replaces only the first task refusals with proved native lifecycle behavior and both original cancellation regressions. When those transitions occur, structured correlated/redacted logs and focused retry/cancel/terminal error tests are mandatory."
       ]
     },
     {
       "id": "SHARED-COORDINATOR-JOURNEY",
       "title": "Coordinator questions, task ownership and reliable continuation",
-      "objective": "Coordinator questions, task ownership and reliable continuation: Complete optional native question identity/normalization/schema/recorder/eligibility/single use; Main-only host-permitted decisions and exact current artifact display; Remaining0062 max/model/fallback/settings and shared adapter policy.",
+      "objective": "Coordinator questions, task ownership and reliable continuation: Complete optional native question identity/normalization/schema/recorder/eligibility/single use; main-only host-permitted decisions and exact current artifact display; interaction and shared adapter policy under Decision0066, with model selection First-owned; protected run.json owner/location identity and metadata-safe draft PR recovery. Full question identity includes gate/task and independent per-question consumption; GitHub draft PR body is the sole preliminary checkpoint authority.",
       "dependencies": [
         "NATIVE-LIFECYCLE"
       ],
       "user_facing": true,
       "acceptance_criteria": [
         "SHARED-COORDINATOR-JOURNEY proves real human answers, worker policy, lifecycle/question hooks, continuation/context, handoff and developer journey behavior through exact optional-question identity, main-only decisions/display, model/settings policy, task attachment, board/queue ownership and safe resume/reconciliation.",
-        "SHARED-COORDINATOR-JOURNEY owns actual board journey behavior and functional proof while preserving stable task identity, same-PR retry/handoff, quiet continuation and exact current artifact display for both coordinators."
+        "SHARED-COORDINATOR-JOURNEY owns actual board journey behavior and functional proof while preserving stable task identity, same-PR retry/handoff, quiet continuation and exact current artifact display for both coordinators. New questions bind runtime/session/event/tool-call/question/story/gate/task and exact content at issuance, with one independent answer per question; draft lookup/reuse/promotion validates the exact PR-body checkpoint, ancestry and unchanged product before post-platform formal review."
       ]
     },
     {
       "id": "PORTABLE-DELIVERY-MIGRATION",
       "title": "Portable setup, durable history and existing-client migration",
-      "objective": "Portable setup, durable history and existing-client migration: Native selection/refusal/repair propagation and init/adopt/upgrade ownership; Retired original agents removed only if unchanged; modified/custom/unknown files preserved; Decision JSON generated from existing parser, no new authority.",
+      "objective": "Portable setup, durable history and existing-client migration: Client rollout exercises the First-owned Decision0066 team registry through existing init full-tree copy and upgrade same-name refresh behavior while preserving distinct client-added agents; Decision JSON comes from the existing parser and creates no new authority.",
       "dependencies": [
         "SHARED-COORDINATOR-JOURNEY"
       ],
       "user_facing": false,
       "acceptance_criteria": [
-        "PORTABLE-DELIVERY-MIGRATION preserves native independence, lifecycle hook delivery, setup/client preservation and mandatory quality preconditions through native setup/init/adopt/upgrade, retired-agent handling, derived active decisions and safe shipped-event retention.",
-        "PORTABLE-DELIVERY-MIGRATION keeps legacy JSONL untouched with no heuristic deduplication, stores stable IDs only in one immutable events.bundle.json, and migrates existing clients while preserving owned and dirty files."
+        "PORTABLE-DELIVERY-MIGRATION preserves native independence, lifecycle hook delivery, setup/client preservation and mandatory quality preconditions through native setup/init/adopt/upgrade, Decision0066 registry preservation and refresh, derived active decisions and safe shipped-event retention.",
+        "PORTABLE-DELIVERY-MIGRATION preserves legacy JSONL/history bytes and compacts only validated live attributed per-file sources into one immutable events.bundle.json whose exact members pair source filename-stem IDs with unchanged validated payloads; canonical comparison, collision refusal, shared preview/apply eligibility and post-readback deletion preserve owned and dirty client files. Event bundles are immutable; preview digest binds apply, first publish is no-overwrite, retry deletes only exact represented loose pairs, and scoped/legacy shipped eligibility never invents retroactive markers."
       ]
     },
     {
       "id": "FORMAT-SOURCES",
       "title": "Complete pure mechanical Python formatting",
-      "objective": "Complete pure mechanical Python formatting: Full pinned formatter output over all authored Python; No semantic fixes or scope omissions; preserve tests and comments/directives; One coherent reviewable formatting task using complete lossless review inputs.",
+      "objective": "Complete pure mechanical Python formatting: Ruff 0.16.6 formatting over exactly every tracked *.py below factory/scripts/ and factory/tests/; no semantic fixes or scope omissions; preserve tests and comments/directives; one coherent reviewable formatting task using complete lossless review inputs.",
       "dependencies": [
         "PORTABLE-DELIVERY-MIGRATION"
       ],
       "user_facing": false,
       "acceptance_criteria": [
-        "FORMAT-SOURCES owns mandatory full quality for pure mechanical Python formatting across all authored Python, with exact reproduction, AST equivalence, comment/directive preservation, complete tests and independent review of every exception.",
+        "FORMAT-SOURCES owns mandatory full quality for pure mechanical Ruff 0.16.6 formatting over exactly every tracked `*.py` below `factory/scripts/` and `factory/tests/`, including tracked fixtures, with exact reproduction, AST equivalence, comment/directive preservation, complete tests and independent review of every exception.",
         "FORMAT-SOURCES replaces the former QF-01 through QF-19 buckets without semantic changes or omitted source ranges."
       ]
     },
     {
       "id": "QUALITY-BASELINE",
       "title": "Semantic fixes and mandatory full quality baseline",
-      "objective": "Semantic fixes and mandatory full quality baseline: Fix every remaining Ruff/Pyright diagnostic against actual post-format tree; Pin exact tools/config and Python3.11; same full authored source/test scope locally and CI; Enforce missing configuration/tool and deliberate violations; meaningful client-language validation.",
+      "objective": "Semantic fixes and mandatory full quality baseline: Fix every remaining Ruff 0.16.6/Pyright 1.1.411 diagnostic against the actual post-format tree; cover exactly every tracked *.py below factory/scripts/ and factory/tests/ locally and in CI; enforce missing coverage/configuration/tool and deliberate violations; meaningful client-language validation.",
       "dependencies": [
         "FORMAT-SOURCES"
       ],
       "user_facing": false,
       "acceptance_criteria": [
-        "QUALITY-BASELINE owns mandatory full quality by resolving all remaining Ruff/Pyright diagnostics with actual semantic fixes and enforcing identical pinned source/test checks locally and in CI.",
+        "QUALITY-BASELINE owns mandatory full quality by resolving all remaining Ruff 0.16.6/Pyright 1.1.411 diagnostics with actual semantic fixes and enforcing the identical exact set of every tracked `*.py` below `factory/scripts/` and `factory/tests/` locally and in CI.",
         "QUALITY-BASELINE replaces QS-01 through QS-12 and QA-01, including missing-tool/configuration and planted-violation failures plus meaningful client-language validation."
       ]
     },
     {
       "id": "FORGE-COORD-1.1",
       "title": "Complete native parity and installed-client dogfood",
-      "objective": "Complete native parity and installed-client dogfood: Full integrated AC1-12 and roadmap acceptance; Required local Mac and Linux/Windows CI proof, complete logs and explicit unavailable live-platform limitations; Separate /tmp Task tracker installed client, own private origin/CI and complete native task lifecycle.",
+      "objective": "Complete native parity and installed-client dogfood: Full integrated AC1-12 and roadmap acceptance; required local Mac and Linux/Windows CI proof, complete logs and explicit unavailable live-platform limitations; the one authorized /tmp Task tracker client, private origin/CI, clean install, declared lint/type/build/test checks, and recorded create/list/complete persistence. The separate client starts only after QUALITY-BASELINE reaches trunk and remains on its own lifecycle; Integration requires its exact task marker, reviewed PR, functional proof and green CI.",
       "dependencies": [
         "QUALITY-BASELINE"
       ],
       "user_facing": false,
       "acceptance_criteria": [
         "FORGE-COORD-1.1 closes AC1 through AC12 and the current roadmap acceptance for both coordinators, including preservation of existing worker policy and Forge gates, real native Codex without Claude/plugin state, complete approved native support, quality predecessors and final parity integration.",
-        "FORGE-COORD-1.1 proves required local Mac runtime observations and meaningful Ubuntu24.04 x64/native Windows CI, with unavailable authenticated CLI/Desktop observations explicitly stated as accepted0065 limitations and a separate installed-client Task tracker lifecycle with its own origin, meaningful CI, admitted contribution, client-owned tests, verify, review, functional proof, PR and green CI."
+        "FORGE-COORD-1.1 proves required local Mac runtime observations and meaningful Ubuntu24.04 x64/native Windows CI, with unavailable authenticated CLI/Desktop observations explicitly stated as accepted0065 limitations, plus, after the Quality marker reaches trunk, the one user-authorized installed-client Task tracker exception: private origin/CI, clean harness install, declared lint/type/build/test checks, recorded create/list/complete persistence, admitted contribution, client-owned proof, review, functional proof, PR and green CI. Integration refuses until the client task marker, reviewed PR, functional proof and green CI match its cited repository/commit; there is no ninth harness task or surrogate cross-repo ID.",
+        "FORGE-COORD-1.1 encodes pass_fail_summary as one JSON array string with the exact ordered six labels and exact row fields label/status/evidence_kind/os/cpu/revision/runtime/commands/logs. Its own json.loads validator resolves logs and client proof, derives aggregate status and rejects malformed/duplicate/missing/contradictory/unresolved evidence; C10 consumes the review-bound aggregate. Preliminary PR-body inspection permits only the draft checkpoint, while final formal Forge review binds the complete updated platform report before readiness. Integration cites separate durable native lifecycle, Mac CLI/Desktop and Task tracker interaction logs with exact correlations; one producer cannot certify another surface."
       ]
     }
   ],
@@ -280,6 +353,6 @@
   "story": "FORGE-COORD-1",
   "epic": "symphony-forge",
   "plan_file": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-  "plan_sha256": "648a930abce5770c7ec4fb088b7a27237d5efea1150654e9ea44a741382621b0",
-  "commit": "7a462bc2bd770a4df0ba47f40d515916438b8ac7"
+  "plan_sha256": "62ca0e35ff8fb251c09e74b364d02d36544a9e02cbd493df8f2f858c5c645559",
+  "commit": "d482f16fa323c5377dca6c1fe7788fbb71211bd2"
 }

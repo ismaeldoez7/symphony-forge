@@ -3,33 +3,190 @@
   "gate": "spec",
   "verdict": "pass",
   "gaps": [
-    "Grill applicability was not deterministic across the two coordinators.",
-    "Review capacity was ambiguous against the roadmap and Decision 0058.",
-    "The workspace contract omitted explicit approved-story, decomposition, identity and trunk-dependency bindings.",
-    "Coordinator review ownership and the delegated fix/re-review loop were not explicit.",
-    "The six-cell report did not name its existing artifact, producer or aggregate predicate.",
-    "Event compaction lacked exact storage, format, reader compatibility and atomicity boundaries.",
-    "Prepared-byte provenance did not name its durable inventory, baseline and versioned ownership graph.",
-    "Follow-up requirements read needed exact per-gate classification inputs and independent digest bindings for shared design reads.",
-    "The review-only draft PR checkpoint needed its explicit safe-reuse and uncertain-lookup contract restored."
+    "Product BRIEF wording conflicts with interchangeable coordination and dependency-ready task worktrees.",
+    "Decision0057 agent retirement conflicts with Decision0066's 15-agent registry and task ownership.",
+    "Review-only draft ordering conflicts with Decision0065 platform-before-formal-review freshness.",
+    "Platform row truth could be hidden in free-form report text while generic C10 sees only aggregate status.",
+    "Combined review completion and partial-attempt publication were not explicit.",
+    "Lossless review chunk completion lacked durable binding semantics.",
+    "Shared grill reads appeared to need a new multi-gate recording authority.",
+    "Shared reads could incorrectly reuse legacy question provenance across gates.",
+    "New question identity and historical compatibility were not separated.",
+    "Design-review classification lacked exact fields and deterministic triggers.",
+    "Event bundle member identity and canonical comparison were underspecified.",
+    "Event migration did not distinguish mutable live sources from immutable history.",
+    "Agent upgrade preservation did not distinguish same-name harness definitions from distinct client additions.",
+    "Worktree attachment and admission location identity were underspecified.",
+    "Completion and stage-close revocation mechanisms lacked an explicit proof mapping.",
+    "Historical whole-bundle C10 fallback eligibility was too vague.",
+    "Draft PR recovery authority and metadata-commit freshness were underspecified.",
+    "Quality coverage set and exact Ruff/Pyright versions lacked settled precision.",
+    "Decision0066 plan-validation wording had been broadened to all validation.",
+    "Dogfood CI and private-origin authority lacked exact bounded proof.",
+    "New closure obligations lacked an explicit roadmap-authority crosswalk.",
+    "The older pause-all instruction conflicts with independent authorized work.",
+    "The spec calls a nonexistent context-file argument existing and leaves it unowned.",
+    "The CI CLI package and separate client prerequisite were not exact.",
+    "The lifecycle plan lacks explicit constitution-bound logging and errors."
   ],
   "contradictions": [],
   "resolutions": [
-    "After LEAN-WORKFLOW ships, the approval-bound artifact records design_review required/routine in existing frontmatter. Missing/unknown means required; the named sensitive-change triggers require design scrutiny and routine classification needs a no-trigger rationale. Workers cannot downgrade it. Both adapters use the same predicate. One actual assessment may cover several applicable gates only with complete reviewed inputs and independent existing digest bindings. The first task retains all current gates until changed enforcement ships; no current pass is fabricated from this future rule.",
-    "Accepted 0064 explicitly amends the obsolete fixed-cap interpretation of 0058. The specification defines existing review limits as the installed helpers actual safeguards and complete lossless coverage, not a pinned 512000-byte Forge limit. Measure complete final inputs, use supported chunks and split if intact input cannot fit; no helper cap is edited or overridden. This implements the users already approved simplification while preserving the roadmap criterion.",
-    "The specification restores approved story, matching decomposition, exact story/task identity, fetched trunk commit and all effective dependency markers; open PR, green CI and messages are explicitly insufficient. It preserves fixed IDs/order/dependencies and the existing clean, unowned, same-common-directory attachment and publish-owner-last requirements under 0059.",
-    "The specification names main-launched forge review under accepted 0011/0064, prohibits self-certification and nested reviewers, and requires delegated fixes followed by review until every assessment is clean. Proposed 0049 is explicitly not authority. First uses current three-lens execution; LEAN later implements one combined operation with genuine linked lens artifacts.",
-    "The specification retains factory/schemas/test-automated.json, implementer production, the existing recorder/task path and six fixed labels. Accepted0065 applies the users explicit CI-only Linux/Windows ruling: actual local Mac CLI/Desktop and meaningful Ubuntu24.04 x64/nativeWindows CI are required. CI rows explicitly state regression/package-smoke evidence and unavailable authenticated behavior; Desktop observations stay unobserved limitations. Required evidence or any actual failure blocks aggregate readiness; accepted unavailable-platform limitations remain in remaining_gaps without fabricated passes. Existing fields and C10 propagate the honest aggregate; no new schema/matrix.",
-    "The specification names scoped and legacy events.bundle.json paths, format forge-event-bundle/v1, matching story/explicit IDs, validated reader union and identical-ID deduplication during interrupted cleanup. Conflicts refuse; legacy idless history stays unchanged and unread as new live events. After shipped proof is durable, sibling temporary write plus atomic replacement precedes read-back exact comparison and source removal. Failure preserves loose sources and hard proof.",
-    "The specification names the existing committed native-foreground-preparation-inventory.json, exact824baed4 baseline, 109953-byte bee122 patch and16 prepared-file hashes. It requires the complete versioned lean-delivery graph and reproducible artifacts to allocate all original paths/hunks and be SHA-bound by the approved story plan before any support-task contract. Main is publishing that graph and exact patches before plan approval; the spec does not treat temporary paths or source approvals as target authority.",
-    "The saved specification now maps all six gates to their exact existing classification input, record and digest. Epics derives classification from linked capability specs rather than adding JSON authority; signoff includes its complete located handover. Classification/rationale stay authored and digest-bound. A shared read explicitly names every gate, includes complete located/grounding inputs, returns independently assessed frontiers and binds each existing record; current one-gate launches cannot claim this future capability. LEAN owns implementation and refusal regressions before the feature is usable.",
-    "The checkpoint now names normal Git/gh draft operations instead of forge task pr-ready, matches origin/head repository/head branch/base/reviewed commit, refuses creation after uncertain or ambiguous lookup, and re-queries after uncertain creation. It preserves one PR identity and eventual marker identity/timestamp. Shared owns the retry mechanism and Integration its live checkpoint; no new registry or authority is introduced."
+    "Accepted0053 is named as the targeted BRIEF coordinator amendment and accepted0047/0059 replace the old worktree/sequencing literals; Shared later aligns BRIEF text.",
+    "Decision0066 explicitly amends only0057 agent retirement and0065/the scope lesson existing-First-scope limit for the later user model/team request; it preserves0064 question narrowing, original prepared hunk ownership, source/target binding and the eight-task graph. The complete overlay is First-owned and requires fresh normal task binding/proof before implementation.",
+    "The checkpoint preserves preliminary independent code inspection after contribution/verify but records no formal clean Forge review; platform results update the report, then a fresh complete brief and mandatory formal review bind readiness.",
+    "Integration encodes the exact six platform rows as a JSON array inside existing pass_fail_summary and validates exact fields/order/states/revision/logs and client proof before aggregate passed. Independent review checks actual evidence. C10 consumes the existing review-bound aggregate; no schema property, report or registry is added.",
+    "Lean writes raw helper output and three genuine validated projections as candidates in the existing review family and publishes the existing review-run pointer last. Explicit incomplete/exit2/missing chunk/lens/mixed binding refuses even when JSON exists; preserving a prior complete pointer never permits stale product proof.",
+    "Bind complete review-input digest/bytes, actual installed-helper identity, exact raw result, ordered complete pass_reports and three assessment outputs through the existing family. The installed helper does not emit per-chunk input hashes; no reconstructed private prompt manifest is promised. Complete lossless partitioning remains mandatory.",
+    "The spec retains separately bound existing gate records and makes shared reading only an assessment optimization; missing/unassessed/changed gate inputs refuse and Lean defines transient execution details in its JIT.",
+    "Shared reads neither share nor newly consume legacy structured-question provenance; until Shared ships complete identity, a structured round stays on its single-gate path and decision-free grills use canonical empty frontier.",
+    "After Shared ships, new questions bind runtime/session/event/tool-call/question/story/gate/task at capture with exact question/options/answer; each question in a multi-question call is independently eligible and single-use. Historical completed grills remain readable; no legacy identity is fabricated or reassigned.",
+    "The exact fields are design_review and nonblank design_review_rationale; the spec enumerates mechanical boundary, destructive, migration, public-contract, lifecycle and ownership triggers, keeps signoff mandatory and derives epics from capabilities.",
+    "Bundle keys are exactly format/story/events with forge-event-bundle/v1 and ID-sorted unchanged-payload members; equal ID/canonical payload deduplicates, same-ID unequal payload refuses, and distinct IDs remain distinct.",
+    "Only actual live per-file sources of an exactly validated shipped story can be cleaned. Existing bundles/history are immutable; unseen late IDs refuse untouched. Apply requires the preview inventory/shipped-proof/bundle digest; first publication cannot overwrite, and exact durable read-back precedes deletion. Legitimate legacy story-level runs do not acquire retroactive task-marker obligations.",
+    "Decision0066 deliberately defines same-name files/config as harness refresh targets and preserves distinct client-added agents through existing init/upgrade behavior; no TOML merge or provenance mechanism is promised.",
+    "Git registration and Forge ownership are distinguished; protected run.json published last is the owner record, and canonical worktree/Git-dir/common-dir location selects every owner/stage/delegation/lock/revocation record without duplicate fields.",
+    "Existing mechanisms are named: cancel writes the current tombstone before cleanup, terminal success/failure plus dead process/released lock revoke completion, and non-active stage incarnation revokes stage closure; no new marker work is added.",
+    "The approved First JIT whole-bundle rule is promoted: a legitimate committed marker selects exact plan/grill/approval/proof at seal with identity, ancestry, binding and unchanged-product checks; partial modern bundles refuse and sealed pre-merge CI remains eligible.",
+    "Shared uses one existing draft-PR-body checkpoint with exact Git/GitHub tuple, inspected diff/product/helper identity and actual raw helper output. Metadata-only E/M/N advancement uses ancestry plus unchanged classified product. Missing platform proof yields no formal review/marker; complete platform proof requires a fresh formal review before normal promotion.",
+    "The user-approved pins are Ruff0.16.6 and Pyright1.1.411, and coverage is exactly tracked Python below factory/scripts and factory/tests including fixtures, with the identical explicit local/CI set.",
+    "All candidates now say planning, decomposition, architecture, plan validation and grills use Sol/high; technical test verification remains with implementation and autoreview fixes at Sol/medium.",
+    "The user's bounded exception authorizes one /tmp Task tracker, one private authenticated origin and CI solely for story proof; acceptance requires clean install, declared lint/type/build/test checks and recorded create/list/complete persistence.",
+    "The amended story/graph explicitly crosswalk retained client failures, AC1-AC12, C1-C10 and three unchanged roadmap criteria to existing owners and concrete proof. Transitional old records must be replaced through normal gates before further implementation.",
+    "Accepted0064 explicitly narrows0057: only addressed or causally dependent work pauses; unaffected separately owned dependency-ready work may continue without treating silence as authority.",
+    "Lean adds optional explicit --context-file to the existing grill CLI/composer and reads one caller-selected regular UTF-8 snapshot as untrusted context without altering primary identity/authority or truncating it.",
+    "The installed CLI and live npm registry verify0.153.4; required CI pins @openai/codex@0.153.4. Main starts the separate normally governed Tasktracker after Quality ships; Integration requires its exact marker, reviewed PR, green CI and functional proof.",
+    "Native-Lifecycle emits required structured/redacted/correlated logs when existing transitions occur, bounds existing retries without adding automatic retry behavior, and tests cancellation/terminal error propagation. Integration preserves separate actual surface-specific logs."
   ],
-  "rounds": [],
   "open_items": [],
+  "rounds": [],
   "frontier_empty": true,
-  "summary": "Actual independent native Forge spec read launch-4b859e18db2b416a9ca56133b022b179, session01a08a2e-3a40-7651-b52b-719ebf1f6013 completed with these seven findings. Main adjudicated and resolved them in the saved current specification and accepted0064, with the existing one-read resolution procedure. This technical record claims no new implementation, worker contribution or platform proof; confirmation uses the users standing authorization for the accepted lean workflow and client migration. Actual subsequent requirements read launch-8eab636cdde543289b4958af475583d7, session01a08a40-f15e-74e3-bc7d-d3de778fb3c0 supplied these two additional clarifications. They are technical corrections within accepted0064 and the existing checkpoint scope, resolved without another cold read. Its third suggestion to mandate Native receipt A is rejected in the requirements disposition because that answer was explicitly limited to one2026-09-08 hook-delivery probe, not a product naming requirement. The users subsequent explicit CI-only Linux/Windows ruling is recorded in accepted0065; main amended only platform acceptance and its exact report interpretation while preserving all other resolved findings. No additional cold read or actual CI/runtime pass is claimed.",
-  "input_sha256": "9b94b886b837e5547f754031097fa85852a83be6d4f33c61fcfe3bbf2e080265",
-  "recorded_at": "2026-09-10T08:26:21+00:00",
-  "commit": "120c6b607afc4cb5f58f35e579bd4f04c3009436"
+  "questions_asked": 0,
+  "summary": "Resolved continuation of the genuine Sol/high spec read launch-3032e9f4f5f344b6b887f734f51cd722, informed by completed requirements read launch-c110b1635070497fbd5f1fd5e61f9580 and plan read launch-d04aad7951e1466d9cbd1f4da050506c. Findings are resolved from actual later user authority, accepted decisions and concrete corrections. No new human answer, repeated cold read, implementation proof or inherited old approval is claimed. Record only against the corrected saved draft; normal confirmation updates its status header.",
+  "inspected_refs": [
+    "docs/product/BRIEF.md",
+    "docs/specs/dual-coordinator-parity.md",
+    "docs/decisions/0057-coordinator-operation-simplification.md",
+    "docs/decisions/0064-lean-delivery-and-durable-history.md",
+    "docs/decisions/0065-ci-platform-evidence.md",
+    "docs/decisions/0066-sol-specialized-workflow-models.md",
+    "plans/roadmap.json",
+    "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
+    "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
+    ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
+    ".factory/stories/FORGE-COORD-1/decomposition.json",
+    "factory/scripts/forge_cli/review.py",
+    "factory/scripts/record_review_from_json.py",
+    "factory/scripts/record_grill_from_json.py",
+    "factory/scripts/forge_cli/events.py",
+    "factory/scripts/forge_cli/tasks.py",
+    "factory/scripts/forge_cli/worker_admission.py",
+    "factory/scripts/factory_lib.py",
+    "factory/schemas/review.json",
+    "factory/schemas/test-automated.json"
+  ],
+  "citations": [
+    {
+      "finding": "Product BRIEF wording conflicts with interchangeable coordination and dependency-ready task worktrees.",
+      "source": "docs/product/BRIEF.md; docs/decisions/0053-interchangeable-coordinator-shared-forge-contract.md; docs/decisions/0059-task-owned-jit-workspaces.md; corrected spec coordination/workspace clauses"
+    },
+    {
+      "finding": "Decision0057 agent retirement conflicts with Decision0066's 15-agent registry and task ownership.",
+      "source": "docs/decisions/0057-coordinator-operation-simplification.md; docs/decisions/0066-sol-specialized-workflow-models.md; corrected Decision0066 limited-amendment clause"
+    },
+    {
+      "finding": "Review-only draft ordering conflicts with Decision0065 platform-before-formal-review freshness.",
+      "source": "docs/decisions/0065-ci-platform-evidence.md; factory/scripts/forge_cli/review_brief.py; corrected spec review-only checkpoint clause"
+    },
+    {
+      "finding": "Platform row truth could be hidden in free-form report text while generic C10 sees only aggregate status.",
+      "source": "factory/schemas/test-automated.json; factory/scripts/factory_lib.py; corrected spec platform validation-boundary clause"
+    },
+    {
+      "finding": "Combined review completion and partial-attempt publication were not explicit.",
+      "source": "docs/decisions/0064-lean-delivery-and-durable-history.md; factory/scripts/forge_cli/review.py; corrected spec atomic review publication clause"
+    },
+    {
+      "finding": "Lossless review chunk completion lacked durable binding semantics.",
+      "source": "factory/schemas/review.json; factory/scripts/forge_cli/review.py; corrected spec existing review-run chunk-binding clause"
+    },
+    {
+      "finding": "Shared grill reads appeared to need a new multi-gate recording authority.",
+      "source": "factory/scripts/grill_gates.py; factory/scripts/record_grill_from_json.py; corrected spec separately-bound shared-read clause"
+    },
+    {
+      "finding": "Shared reads could incorrectly reuse legacy question provenance across gates.",
+      "source": "factory/scripts/record_grill_from_json.py; corrected spec shared-read legacy provenance clause"
+    },
+    {
+      "finding": "New question identity and historical compatibility were not separated.",
+      "source": "factory/scripts/post_tool_use.py; factory/schemas/grill-round.json; corrected spec new-versus-historical identity clause"
+    },
+    {
+      "finding": "Design-review classification lacked exact fields and deterministic triggers.",
+      "source": "docs/product/BRIEF.md; corrected spec design_review/design_review_rationale trigger table"
+    },
+    {
+      "finding": "Event bundle member identity and canonical comparison were underspecified.",
+      "source": "factory/scripts/forge_cli/events.py; corrected spec exact bundle member/canonical comparison clause"
+    },
+    {
+      "finding": "Event migration did not distinguish mutable live sources from immutable history.",
+      "source": "factory/scripts/pr_ready.py; docs/decisions/0064-lean-delivery-and-durable-history.md; corrected spec live-source eligibility clause"
+    },
+    {
+      "finding": "Agent upgrade preservation did not distinguish same-name harness definitions from distinct client additions.",
+      "source": "factory/scripts/forge_cli/upgrade.py; docs/decisions/0066-sol-specialized-workflow-models.md; corrected same-name refresh/distinct-client-addition clause"
+    },
+    {
+      "finding": "Worktree attachment and admission location identity were underspecified.",
+      "source": "factory/scripts/forge_cli/tasks.py; factory/scripts/forge_cli/worker_admission.py; corrected run.json and Git-control location clause"
+    },
+    {
+      "finding": "Completion and stage-close revocation mechanisms lacked an explicit proof mapping.",
+      "source": "factory/scripts/forge_cli/delegate.py; factory/scripts/forge_cli/stages.py; factory/scripts/forge_cli/worker_admission.py; corrected existing-mechanism revocation clause"
+    },
+    {
+      "finding": "Historical whole-bundle C10 fallback eligibility was too vague.",
+      "source": ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md; corrected spec C10 historical whole-bundle clause"
+    },
+    {
+      "finding": "Draft PR recovery authority and metadata-commit freshness were underspecified.",
+      "source": "factory/scripts/record_review_from_json.py; factory/scripts/pr_ready.py; corrected spec metadata-safe Git/GitHub draft recovery clause"
+    },
+    {
+      "finding": "Quality coverage set and exact Ruff/Pyright versions lacked settled precision.",
+      "source": "docs/decisions/0055-enforced-static-quality-baseline.md; docs/decisions/0056-staged-quality-baseline-rollout.md; corrected exact quality clause"
+    },
+    {
+      "finding": "Decision0066 plan-validation wording had been broadened to all validation.",
+      "source": "docs/decisions/0066-sol-specialized-workflow-models.md; corrected spec and task model-lane clauses"
+    },
+    {
+      "finding": "Dogfood CI and private-origin authority lacked exact bounded proof.",
+      "source": "docs/product/BRIEF.md; docs/decisions/0065-ci-platform-evidence.md; corrected bounded dogfood exception clause"
+    },
+    {
+      "finding": "New closure obligations lacked an explicit roadmap-authority crosswalk.",
+      "source": "plans/roadmap.json; docs/decisions/0064-lean-delivery-and-durable-history.md; corrected spec proof-and-handoff crosswalk"
+    },
+    {
+      "finding": "The older pause-all instruction conflicts with independent authorized work.",
+      "source": "docs/specs/dual-coordinator-parity.md; docs/decisions/0064-lean-delivery-and-durable-history.md; docs/decisions/0065-ci-platform-evidence.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md"
+    },
+    {
+      "finding": "The spec calls a nonexistent context-file argument existing and leaves it unowned.",
+      "source": "docs/specs/dual-coordinator-parity.md; docs/decisions/0064-lean-delivery-and-durable-history.md; docs/decisions/0065-ci-platform-evidence.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md"
+    },
+    {
+      "finding": "The CI CLI package and separate client prerequisite were not exact.",
+      "source": "docs/specs/dual-coordinator-parity.md; docs/decisions/0064-lean-delivery-and-durable-history.md; docs/decisions/0065-ci-platform-evidence.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md"
+    },
+    {
+      "finding": "The lifecycle plan lacks explicit constitution-bound logging and errors.",
+      "source": "docs/specs/dual-coordinator-parity.md; docs/decisions/0064-lean-delivery-and-durable-history.md; docs/decisions/0065-ci-platform-evidence.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md"
+    }
+  ],
+  "input_sha256": "c03e7c19237b44cdd9bc1cda98f5105864b635d618c20ecb0ad9fc9b039d5876",
+  "recorded_at": "2026-09-10T20:45:56+00:00",
+  "commit": "d482f16fa323c5377dca6c1fe7788fbb71211bd2"
 }
