@@ -1757,6 +1757,11 @@ def _finish_stage(base: Path, args: argparse.Namespace, data: dict,
     # `task close` runs the proof BEFORE spending a review and hands it in
     # here, so a proof-driven fix never costs a review that ran too early;
     # a standalone `stage done` keeps its own refusal order.
+    # A corrupt delegation ledger refuses before any other verdict: nothing
+    # below can be trusted against it. The old stamp binding read the ledger
+    # incidentally and so failed here by accident; now it is deliberate.
+    from .delegate import load_delegations
+    load_delegations(base)
     _measure(base, args.id, stage, task)
     _require_reviewed_commit(base, stage, task)
     _require_successful_launch(base, args.id, stage, task)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -500,14 +501,23 @@ def seal_task(base: Path, task_id: str) -> None:
     }
     if any(not isinstance(value, str) or not value.strip() for value in payload.values()):
         fail("task PR marker fields must all be non-empty strings")
+    # Already sealed when a committed marker exists and no PRODUCT byte has
+    # moved since the commit it sealed. HEAD itself moves at every seal (the
+    # marker is its own evidence commit), so comparing commits re-sealed on
+    # every run; the product delta is what a seal is about.
+    from factory_lib import product_delta_digest
     existing = load_json(base / marker, default={})
-    already_sealed = (
-        isinstance(existing, dict) and existing.get("commit") == commit
-        and _git(base, "diff", "--quiet", "HEAD", "--", marker.as_posix()).returncode == 0
+    sealed_commit = existing.get("commit") if isinstance(existing, dict) else None
+    already_sealed = bool(
+        isinstance(sealed_commit, str) and sealed_commit
         and _git(base, "cat-file", "-e", f"HEAD:{marker.as_posix()}").returncode == 0
+        and _git(base, "cat-file", "-e", f"{sealed_commit}^{{commit}}").returncode == 0
+        and product_delta_digest(base, sealed_commit, commit)
+        == hashlib.sha256(b"").hexdigest()
     )
     if already_sealed:
-        print(f"Task {args.id} already sealed at {commit[:12]}; marker committed.")
+        print(f"Task {args.id} already sealed at {sealed_commit[:12]}; the product "
+              "has not moved since. Marker committed.")
     else:
         dump_json(base / marker, payload)
         # The marker is committed and pushed by this command (an evidence-only
