@@ -1,0 +1,285 @@
+{
+  "generated_by": "docs-decomposer",
+  "user_facing": true,
+  "tasks": [
+    {
+      "id": "NATIVE-FOREGROUND-ACTIVATE",
+      "title": "Native foreground and complete first-task proof",
+      "objective": "Native foreground and complete first-task proof: Existing complete foreground hooks/checker/readiness and process-bound admission; C9 full approved plan and automated report in review inputs; C10 shared complete local/committed/task-board/readiness proof through task_proof_problems and seal before mutation.",
+      "dependencies": [],
+      "user_facing": false,
+      "acceptance_criteria": [
+        "NATIVE-FOREGROUND-ACTIVATE preserves the full target hook configuration and Claude parity: native hook JSON stays scoped, `.claude/settings.json` gains clear registration, `check_dual_runtime.py` verifies independent and both-adapter omissions, official hook readiness remains trusted, and Accepted0062 plus the actual harness/launch keep Luna at max as the worker-selection authority.",
+        "Process-bound admission remains truthful: foreground launch registers before stdin with terminal identity, zero-exit without completed turn is failed, native write admission covers add/update/delete/move only after registration, admission is revoked before interruption/failure cleanup signals, and failed cleanup never invents success.",
+        "C9 review inputs are complete and task-specific: task, branch, and all three review lenses receive the full approved target task plan, approval/grill fields, digest identity, and resolved automated report; missing, unapproved, stale, summarized, truncated, or future-row-substituted inputs refuse.",
+        "C10 proof uses one task-aware predicate for local worktree, committed CI, task-board/readiness through `task_proof_problems`, and pre-seal gating: verify ok, automated passed with no blockers, review scores/bindings clean, conditional functional proof clean, whole-bundle legacy fallback only with genuine task marker/history, and zero marker/Git/PR mutation on refusal; story singleton summary remains successor-owned.",
+        "Workspace-before-JIT honors incumbent0063 first bootstrap and successor starts: source save/grill/approval and existing task-start refusals precede first preparation import; later `cmd_task_start` checks approved story/plan/decomposition, digest/task identity, fetched trunk, dependencies, protected path/owner, and then requires fresh target grounding/JIT/grill/approval, stage, and registered admission before writes.",
+        "Unsupported native operations refuse before side effects: native background/read-only background, general status, live/dead worker status, cancel/resume/jobs, explore, and native question delivery do not compose briefs, spend question eligibility, append ledgers, signal processes, or dispatch children until their successor owners ship. The only native status exception renders already-dead registered native grill rows through existing dead_launches, restricted to strict grill gate/task labels and starting/running rows proven dead; it does not call the general status handler. Preserve unchanged Claude dispatch.",
+        "Own-task review preflight uses `proof_path(base, story, artifact, task_id=args.id)` for the active task, accepts only own-task proof, and refuses story or other-task proof without helper fallback.",
+        "The real admitted native worker proves protected-state read by executing forge next against the correct story/task/stage, then exercises the actual native tool hook against the protected task plan with harmless absent patch context. Only an actual correlated PreToolUse deny event counts: the existing automated report receipt, protected registered terminal row and durable tool log must identify the same native launch/session/tool call and actual hook-denial response. The existing implemented plan-contract review verdict checks that correlation; unchanged bytes, context/patch failure or a synthetic payload never certify denial. No new schema or CI/C10 evidence parser is introduced."
+      ],
+      "write_scope": [
+        ".claude/settings.json",
+        ".codex/hooks.json",
+        "factory/schemas/delegation.json",
+        "factory/scripts/check_dual_runtime.py",
+        "factory/scripts/forge_cli/delegate.py",
+        "factory/scripts/forge_cli/doctor.py",
+        "factory/scripts/forge_cli/stages.py",
+        "factory/scripts/pre_tool_use.py",
+        "factory/scripts/session_start.py",
+        "factory/tests/test_gates.py",
+        "harness.yaml",
+        "factory/scripts/forge_cli/codex_runtime.py",
+        "factory/scripts/forge_cli/worker_admission.py",
+        "factory/tests/test_native_launch.py",
+        "factory/tests/test_native_setup.py",
+        "factory/tests/test_worker_admission.py",
+        "factory/scripts/forge.py",
+        "factory/scripts/factory_lib.py",
+        "factory/scripts/forge_cli/readiness.py",
+        "factory/scripts/forge_cli/review_brief.py",
+        "factory/scripts/check_task_proof.py",
+        "factory/scripts/forge_cli/tasks.py",
+        "AGENTS.md",
+        "factory/scripts/forge_cli/review.py"
+      ],
+      "plan_contracts": [
+        {
+          "id": "NATIVE-FOREGROUND-ACTIVATE-C1",
+          "statement": "NATIVE-FOREGROUND-ACTIVATE preserves the full target hook configuration and Claude parity: native hook JSON stays scoped, `.claude/settings.json` gains clear registration, `check_dual_runtime.py` verifies independent and both-adapter omissions, official hook readiness remains trusted, and Accepted0062 plus the actual harness/launch keep Luna at max as the worker-selection authority.",
+          "source": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_dual_runtime_checker_requires_each_session_start_source, test_codex_hook_readiness_requires_exact_enabled_trusted_source"
+        },
+        {
+          "id": "NATIVE-FOREGROUND-ACTIVATE-C2",
+          "statement": "Process-bound admission remains truthful: foreground launch registers before stdin with terminal identity, zero-exit without completed turn is failed, native write admission covers add/update/delete/move only after registration, admission is revoked before interruption/failure cleanup signals, and failed cleanup never invents success.",
+          "source": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_native_launch_registers_before_stdin_and_records_terminal_identity, test_native_zero_exit_without_completed_turn_is_failed, test_native_worker_patch_add_update_delete_and_move_is_admitted, test_foreground_cleanup_revokes_admission_before_signals"
+        },
+        {
+          "id": "NATIVE-FOREGROUND-ACTIVATE-C3",
+          "statement": "C9 review inputs are complete and task-specific: task, branch, and all three review lenses receive the full approved target task plan, approval/grill fields, digest identity, and resolved automated report; missing, unapproved, stale, summarized, truncated, or future-row-substituted inputs refuse.",
+          "source": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_review_consumers_include_complete_approved_inputs"
+        },
+        {
+          "id": "NATIVE-FOREGROUND-ACTIVATE-C4",
+          "statement": "C10 proof uses one task-aware predicate for local worktree, committed CI, task-board/readiness through `task_proof_problems`, and pre-seal gating: verify ok, automated passed with no blockers, review scores/bindings clean, conditional functional proof clean, whole-bundle legacy fallback only with genuine task marker/history, and zero marker/Git/PR mutation on refusal; story singleton summary remains successor-owned.",
+          "source": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_task_proof_consumers_share_complete_predicate, test_task_seal_refuses_incomplete_proof_before_mutation"
+        },
+        {
+          "id": "NATIVE-FOREGROUND-ACTIVATE-C5",
+          "statement": "Workspace-before-JIT honors incumbent0063 first bootstrap and successor starts: source save/grill/approval and existing task-start refusals precede first preparation import; later `cmd_task_start` checks approved story/plan/decomposition, digest/task identity, fetched trunk, dependencies, protected path/owner, and then requires fresh target grounding/JIT/grill/approval, stage, and registered admission before writes.",
+          "source": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_task_start_creates_before_jit_with_approved_identity"
+        },
+        {
+          "id": "NATIVE-FOREGROUND-ACTIVATE-C6",
+          "statement": "Unsupported native operations refuse before side effects: native background/read-only background, general status, live/dead worker status, cancel/resume/jobs, explore, and native question delivery do not compose briefs, spend question eligibility, append ledgers, signal processes, or dispatch children until their successor owners ship. The only native status exception renders already-dead registered native grill rows through existing dead_launches, restricted to strict grill gate/task labels and starting/running rows proven dead; it does not call the general status handler. Preserve unchanged Claude dispatch.",
+          "source": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_native_unshipped_operations_refuse_before_dispatch"
+        },
+        {
+          "id": "NATIVE-FOREGROUND-ACTIVATE-C7",
+          "statement": "Own-task review preflight uses `proof_path(base, story, artifact, task_id=args.id)` for the active task, accepts only own-task proof, and refuses story or other-task proof without helper fallback.",
+          "source": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_review_preflight_uses_active_task_proof, test_review_preflight_refuses_other_task_or_story_proof"
+        },
+        {
+          "id": "NATIVE-FOREGROUND-ACTIVATE-C8",
+          "statement": "The real admitted native worker proves protected-state read by executing forge next against the correct story/task/stage, then exercises the actual native tool hook against the protected task plan with harmless absent patch context. Only an actual correlated PreToolUse deny event counts: the existing automated report receipt, protected registered terminal row and durable tool log must identify the same native launch/session/tool call and actual hook-denial response. The existing implemented plan-contract review verdict checks that correlation; unchanged bytes, context/patch failure or a synthetic payload never certify denial. No new schema or CI/C10 evidence parser is introduced.",
+          "source": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_native_worker_reads_state_without_protected_write_authority, test_any_protected_revocation_marker_denies_admission"
+        }
+      ],
+      "required_tests": [
+        {
+          "id": "test_review_consumers_include_complete_approved_inputs",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_proof_consumers_share_complete_predicate",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_seal_refuses_incomplete_proof_before_mutation",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_start_creates_before_jit_with_approved_identity",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_native_unshipped_operations_refuse_before_dispatch",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_preflight_uses_active_task_proof",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_preflight_refuses_other_task_or_story_proof",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_foreground_cleanup_revokes_admission_before_signals",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_native_worker_reads_state_without_protected_write_authority",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_dual_runtime_checker_requires_each_session_start_source",
+          "path": "factory/tests/test_native_setup.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_native_worker_patch_add_update_delete_and_move_is_admitted",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_any_protected_revocation_marker_denies_admission",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_native_launch_registers_before_stdin_and_records_terminal_identity",
+          "path": "factory/tests/test_native_launch.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_native_zero_exit_without_completed_turn_is_failed",
+          "path": "factory/tests/test_native_launch.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_codex_hook_readiness_requires_exact_enabled_trusted_source",
+          "path": "factory/tests/test_native_setup.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        }
+      ],
+      "verify_commands": [
+        "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_native_launch.py factory/tests/test_native_setup.py factory/tests/test_worker_admission.py -q",
+        "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py"
+      ],
+      "review_budget": {
+        "max_changed_files": 24,
+        "max_changed_lines": 4000,
+        "reason": "Exact 24-path first scope: the 16-path original preparation measured 2159 changed lines and the eight named proof/workspace/guard surfaces add bounded headroom. These limits do not authorize unrelated files, incomplete review, or any byte-fit claim; stop on measured overrun or scope expansion."
+      },
+      "reviewer_focus": [
+        "C1 hooks/Claude/modelpins: verify the full target hook config, Claude clear registration, independent/both-adapter omission checks, trusted native hook readiness, and Accepted0062 Luna/max worker selection. Selector map: test_dual_runtime_checker_requires_each_session_start_source; test_codex_hook_readiness_requires_exact_enabled_trusted_source.",
+        "C2 process admission/truthful terminal/revocation: verify registered-before-stdin terminal identity, zero-exit failure, admitted native write boundary, revocation before cleanup signals, and no invented success. Selector map: test_native_launch_registers_before_stdin_and_records_terminal_identity; test_native_zero_exit_without_completed_turn_is_failed; test_native_worker_patch_add_update_delete_and_move_is_admitted; test_foreground_cleanup_revokes_admission_before_signals.",
+        "C3 C9 inputs: read the full approved .factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md and .factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json, then verify task, branch, and all three review lenses receive the complete approved plan, approval/grill fields, digest identity, and full automated report. Selector map: test_review_consumers_include_complete_approved_inputs.",
+        "C4 C10 proof/readiness: verify success/status/blocker/functional/review binding checks, whole historical bundle fallback, pre-seal zero mutation, and task-board/readiness through task_proof_problems only. The story singleton summary in board.py is outside first scope and remains SHARED-COORDINATOR-JOURNEY-owned. Selector map: test_task_proof_consumers_share_complete_predicate; test_task_seal_refuses_incomplete_proof_before_mutation.",
+        "C5 workspace-before-JIT: verify incumbent0063 first bootstrap plus successor task-start checks, including source save/grill/approval before first preparation import and fresh target grounding/JIT/grill/approval/stage/admission before writes. Selector map: test_task_start_creates_before_jit_with_approved_identity.",
+        "C6 unsupported native operations: under test_native_unshipped_operations_refuse_before_dispatch, verify native status only renders already-dead registered native grill rows via existing dead_launches, with strict grill gate/task labels and starting/running rows proven dead; never call the general status handler. Native live/dead worker status, cancel/resume/background/jobs/explore/question paths still refuse before side effects. Claude dispatch remains unchanged.",
+        "C7 own-task review preflight: validate review.py uses task_id-aware proof_path for active task proof and refuses story or other-task proof without helper fallback. Selector map: test_review_preflight_uses_active_task_proof; test_review_preflight_refuses_other_task_or_story_proof.",
+        "C8 live native protected-state read and hook denial: retain the harmless absent-context patch, but require an actual correlated PreToolUse deny event linking the existing report receipt to the protected registered terminal row and durable tool log for the same native launch/session/tool call. The existing implemented plan-contract review verdict checks this correlation; no new schema or CI/C10 parser. Absent patch context, context/patch failure, synthetic events or unchanged bytes alone cannot pass. Selector map: test_native_worker_reads_state_without_protected_write_authority; test_any_protected_revocation_marker_denies_admission.",
+        "Measure the complete result against 24 files / 4000 changed lines and the installed review helper\u2019s actual safeguards with complete lossless coverage under0064; no cap override, preparation credited as worker proof, test/proof/approval/admission claim from this external candidate, or forged target proof."
+      ]
+    },
+    {
+      "id": "LEAN-WORKFLOW",
+      "title": "One brief and one complete independent review",
+      "objective": "One brief and one complete independent review: Authoritative task brief with derived metadata; actual standing authorization reused for in-scope work; Remove compulsory requirements/story/task certification and repeated human approval rituals in every producer and consumer; One combined independent review result with actual three assessments and existing same-run proof projections.",
+      "dependencies": [
+        "NATIVE-FOREGROUND-ACTIVATE"
+      ],
+      "user_facing": false,
+      "acceptance_criteria": [
+        "LEAN-WORKFLOW preserves worker policy and complete gates, carries continuation/context rulings into fresh workers, preserves developer journey proof inputs, and replaces repeated certification with one authoritative brief plus one complete independent review while retaining existing proof/refusal authority.",
+        "LEAN-WORKFLOW owns the roadmap acceptance that both coordinators preserve existing worker policy and every Forge gate, including complete review packaging and one combined review with genuine quality, performance and security assessments."
+      ]
+    },
+    {
+      "id": "NATIVE-LIFECYCLE",
+      "title": "Native background lifecycle and read-only helpers",
+      "objective": "Native background lifecycle and read-only helpers: Detached native supervisor/request/launch, jobs/status/cancel/resume/explore; Process identity, recovery, locking and truthful cleanup; Preserve native_jobs/cmd_cancel and both original cancellation tests.",
+      "dependencies": [
+        "LEAN-WORKFLOW"
+      ],
+      "user_facing": false,
+      "acceptance_criteria": [
+        "NATIVE-LIFECYCLE delivers native independence and protected-write lifecycle behavior through detached supervisor/request/launch, jobs/status/cancel/resume/explore, process identity, recovery, locking and truthful cleanup while preserving worker policy and handoff truth.",
+        "NATIVE-LIFECYCLE keeps background/status/cancel/resume/explore unsupported until this owner lands, then replaces only the first task refusals with proved native lifecycle behavior and both original cancellation regressions."
+      ]
+    },
+    {
+      "id": "SHARED-COORDINATOR-JOURNEY",
+      "title": "Coordinator questions, task ownership and reliable continuation",
+      "objective": "Coordinator questions, task ownership and reliable continuation: Complete optional native question identity/normalization/schema/recorder/eligibility/single use; Main-only host-permitted decisions and exact current artifact display; Remaining0062 max/model/fallback/settings and shared adapter policy.",
+      "dependencies": [
+        "NATIVE-LIFECYCLE"
+      ],
+      "user_facing": true,
+      "acceptance_criteria": [
+        "SHARED-COORDINATOR-JOURNEY proves real human answers, worker policy, lifecycle/question hooks, continuation/context, handoff and developer journey behavior through exact optional-question identity, main-only decisions/display, model/settings policy, task attachment, board/queue ownership and safe resume/reconciliation.",
+        "SHARED-COORDINATOR-JOURNEY owns actual board journey behavior and functional proof while preserving stable task identity, same-PR retry/handoff, quiet continuation and exact current artifact display for both coordinators."
+      ]
+    },
+    {
+      "id": "PORTABLE-DELIVERY-MIGRATION",
+      "title": "Portable setup, durable history and existing-client migration",
+      "objective": "Portable setup, durable history and existing-client migration: Native selection/refusal/repair propagation and init/adopt/upgrade ownership; Retired original agents removed only if unchanged; modified/custom/unknown files preserved; Decision JSON generated from existing parser, no new authority.",
+      "dependencies": [
+        "SHARED-COORDINATOR-JOURNEY"
+      ],
+      "user_facing": false,
+      "acceptance_criteria": [
+        "PORTABLE-DELIVERY-MIGRATION preserves native independence, lifecycle hook delivery, setup/client preservation and mandatory quality preconditions through native setup/init/adopt/upgrade, retired-agent handling, derived active decisions and safe shipped-event retention.",
+        "PORTABLE-DELIVERY-MIGRATION keeps legacy JSONL untouched with no heuristic deduplication, stores stable IDs only in one immutable events.bundle.json, and migrates existing clients while preserving owned and dirty files."
+      ]
+    },
+    {
+      "id": "FORMAT-SOURCES",
+      "title": "Complete pure mechanical Python formatting",
+      "objective": "Complete pure mechanical Python formatting: Full pinned formatter output over all authored Python; No semantic fixes or scope omissions; preserve tests and comments/directives; One coherent reviewable formatting task using complete lossless review inputs.",
+      "dependencies": [
+        "PORTABLE-DELIVERY-MIGRATION"
+      ],
+      "user_facing": false,
+      "acceptance_criteria": [
+        "FORMAT-SOURCES owns mandatory full quality for pure mechanical Python formatting across all authored Python, with exact reproduction, AST equivalence, comment/directive preservation, complete tests and independent review of every exception.",
+        "FORMAT-SOURCES replaces the former QF-01 through QF-19 buckets without semantic changes or omitted source ranges."
+      ]
+    },
+    {
+      "id": "QUALITY-BASELINE",
+      "title": "Semantic fixes and mandatory full quality baseline",
+      "objective": "Semantic fixes and mandatory full quality baseline: Fix every remaining Ruff/Pyright diagnostic against actual post-format tree; Pin exact tools/config and Python3.11; same full authored source/test scope locally and CI; Enforce missing configuration/tool and deliberate violations; meaningful client-language validation.",
+      "dependencies": [
+        "FORMAT-SOURCES"
+      ],
+      "user_facing": false,
+      "acceptance_criteria": [
+        "QUALITY-BASELINE owns mandatory full quality by resolving all remaining Ruff/Pyright diagnostics with actual semantic fixes and enforcing identical pinned source/test checks locally and in CI.",
+        "QUALITY-BASELINE replaces QS-01 through QS-12 and QA-01, including missing-tool/configuration and planted-violation failures plus meaningful client-language validation."
+      ]
+    },
+    {
+      "id": "FORGE-COORD-1.1",
+      "title": "Complete native parity and installed-client dogfood",
+      "objective": "Complete native parity and installed-client dogfood: Full integrated AC1-12 and roadmap acceptance; Required local Mac and Linux/Windows CI proof, complete logs and explicit unavailable live-platform limitations; Separate /tmp Task tracker installed client, own private origin/CI and complete native task lifecycle.",
+      "dependencies": [
+        "QUALITY-BASELINE"
+      ],
+      "user_facing": false,
+      "acceptance_criteria": [
+        "FORGE-COORD-1.1 closes AC1 through AC12 and the current roadmap acceptance for both coordinators, including preservation of existing worker policy and Forge gates, real native Codex without Claude/plugin state, complete approved native support, quality predecessors and final parity integration.",
+        "FORGE-COORD-1.1 proves required local Mac runtime observations and meaningful Ubuntu24.04 x64/native Windows CI, with unavailable authenticated CLI/Desktop observations explicitly stated as accepted0065 limitations and a separate installed-client Task tracker lifecycle with its own origin, meaningful CI, admitted contribution, client-owned tests, verify, review, functional proof, PR and green CI."
+      ]
+    }
+  ],
+  "project": "",
+  "story": "FORGE-COORD-1",
+  "epic": "symphony-forge",
+  "plan_file": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
+  "plan_sha256": "648a930abce5770c7ec4fb088b7a27237d5efea1150654e9ea44a741382621b0",
+  "commit": "7a462bc2bd770a4df0ba47f40d515916438b8ac7"
+}

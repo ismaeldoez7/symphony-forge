@@ -1,0 +1,93 @@
+{
+  "generated_by": "griller",
+  "gate": "task",
+  "task_id": "NATIVE-FOREGROUND-ACTIVATE",
+  "verdict": "pass",
+  "gaps": [
+    "The first acceptance criterion combined independently falsifiable behaviors without paired proof mapping.",
+    "A protected patch that fails to match is not itself evidence that the real native hook denied it; exact launch/session/tool correlation must be inspected.",
+    "C10 board consumer scope did not distinguish task completion from story summary singleton ticks.",
+    "The temporary native status refusal conflicted with existing killed-grill diagnostic recovery.",
+    "Required pytest commands omitted task-local uv cache locations."
+  ],
+  "contradictions": [],
+  "resolutions": [
+    "Split the existing first capability into paired acceptance/plan-contract rows, preserving the same24paths/4000lines/15test IDs, all8task IDs/dependencies and every successor. The saved JIT maps each row to focused selectors and the real review obligation; this makes each behavior independently falsifiable without new work or scope.",
+    "Retain the harmless absent-context patch, but explicitly reject unchanged hashes, context failures and worker prose as proof. Passing requires the actual native PreToolUse denial/factory-state reason correlated by exact launch/session/tool event to the protected succeeded terminal row and complete hashed durable transcript. Main checks actual process completion before recording; mandatory independent review follows exact identities and records its evidence in the relevant implemented contract verdict, blocking any missing/mismatch. C10 enforces that genuine clean review. This is explicitly an independent-review validation boundary, not a new report schema/CI parser or a claim that generic report fields automatically prove a live event.",
+    "C10 governs the board task completion/readiness result through task_proof_problems. Separate story-summary singleton ticks remain the existing SHARED-COORDINATOR-JOURNEY responsibility; board.py is outside this first24pathscope. Local and committed-CI task proof use the same predicate as required.",
+    "Keep only the existing killed-grill read-only status recovery: an in-scope forge.py wrapper filters existing dead_launches to native exact grill labels/starting-or-running rows proven dead and prints their launch/task/PID/log/rerun references. It never invokes the general native/plugin job renderer. No eligible dead grill, live grill and live/dead worker status all refuse; cancel/resume stay refused. Existing dead_launches is verified read-only/transport-agnostic. Test mixed rows and unchanged Claude behavior under the existing unsupported-operations selector; no codex_status.py edit or new lifecycle feature.",
+    "Prefix all15required pytest selector commands and the combined native suite with task-local UV_CACHE_DIR and UV_TOOL_DIR under /tmp, matching the already-prefixed normal verify wrapper. Preserve every test ID/path and all planned proof requirements."
+  ],
+  "rounds": [],
+  "open_items": [],
+  "frontier_empty": true,
+  "summary": "Actual target read launch-d2cdf065aa47445eae52ba8b1767010d, session01a08a84-d766-75e2-8cb6-a40e391e5fa7, completed on 2026-09-10 with these five findings in this target at base7a462bc. Main resolved the factual execution-contract frontier without repeating the cold read. This fresh target record uses the existing candidate recorder with cwd set to the real target under0058/0063/0064; it does not copy source approval or certify any contribution/test/live observation/review. Standing user authorization covers the same in-scope work and these concrete clarifications. Actual stage start then succeeded, but first delegate refused before launch because the pre-stage working-tree grounding covered authorized prepared bytes while the stage baseline is HEAD7a462bc. The exact task plan, contract and product bytes did not change. Re-record this SAME completed target read under the existing active-stage grounding semantics, then re-approve; no new read, implementation or passing worker result is claimed.",
+  "inspected_refs": [
+    ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
+    "docs/decisions/0063-first-native-task-workspace-bootstrap.md",
+    "docs/decisions/0064-lean-delivery-and-durable-history.md",
+    "docs/decisions/0065-ci-platform-evidence.md",
+    "docs/specs/dual-coordinator-parity.md",
+    "plans/exploration/coordinator-parity-preparation/native-foreground-preparation-inventory.json",
+    "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
+    "factory/scripts/forge_cli/tasks.py",
+    "factory/scripts/forge_cli/review_brief.py",
+    "factory/scripts/forge_cli/review.py",
+    "factory/scripts/forge_cli/delegate.py",
+    "factory/scripts/forge_cli/codex_runtime.py",
+    "factory/scripts/pre_tool_use.py",
+    "factory/scripts/factory_lib.py",
+    "factory/scripts/check_task_proof.py",
+    "factory/scripts/record_grill_from_json.py",
+    "factory/scripts/forge_cli/board.py",
+    "factory/scripts/forge_cli/codex_status.py",
+    "factory/schemas/test-automated.json",
+    "factory/prompts/implementer.md"
+  ],
+  "current_flow": "The real task target was created by incumbent task start after genuine source approval, from merged PR198 at7a462bc. Exact16-path preparation was applied and35 preparation tests passed; full trusted hook configuration was observed. Target JIT and this actual target independent read are now complete, but fresh target approval, stage, registered writer and task proof are still required. The implementation repairs first native admission/cleanup and scoped task proof consumers; later tasks own the lean workflow, lifecycle, shared story-board summary, quality and final integration.",
+  "criteria_map": {
+    "NATIVE-FOREGROUND-ACTIVATE preserves the full target hook configuration and Claude parity: native hook JSON stays scoped, `.claude/settings.json` gains clear registration, `check_dual_runtime.py` verifies independent and both-adapter omissions, official hook readiness remains trusted, and Accepted0062 plus the actual harness/launch keep Luna at max as the worker-selection authority.": "NATIVE-FOREGROUND-ACTIVATE-C1 is bounded by the saved target JIT and paired with test_dual_runtime_checker_requires_each_session_start_source, test_codex_hook_readiness_requires_exact_enabled_trusted_source. Run declared focused tests, normal verify and actual independent three-lens review; these are planned checks, not passing proof.",
+    "Process-bound admission remains truthful: foreground launch registers before stdin with terminal identity, zero-exit without completed turn is failed, native write admission covers add/update/delete/move only after registration, admission is revoked before interruption/failure cleanup signals, and failed cleanup never invents success.": "NATIVE-FOREGROUND-ACTIVATE-C2 is bounded by the saved target JIT and paired with test_native_launch_registers_before_stdin_and_records_terminal_identity, test_native_zero_exit_without_completed_turn_is_failed, test_native_worker_patch_add_update_delete_and_move_is_admitted, test_foreground_cleanup_revokes_admission_before_signals. Run declared focused tests, normal verify and actual independent three-lens review; these are planned checks, not passing proof.",
+    "C9 review inputs are complete and task-specific: task, branch, and all three review lenses receive the full approved target task plan, approval/grill fields, digest identity, and resolved automated report; missing, unapproved, stale, summarized, truncated, or future-row-substituted inputs refuse.": "NATIVE-FOREGROUND-ACTIVATE-C3 is bounded by the saved target JIT and paired with test_review_consumers_include_complete_approved_inputs. Run declared focused tests, normal verify and actual independent three-lens review; these are planned checks, not passing proof.",
+    "C10 proof uses one task-aware predicate for local worktree, committed CI, task-board/readiness through `task_proof_problems`, and pre-seal gating: verify ok, automated passed with no blockers, review scores/bindings clean, conditional functional proof clean, whole-bundle legacy fallback only with genuine task marker/history, and zero marker/Git/PR mutation on refusal; story singleton summary remains successor-owned.": "NATIVE-FOREGROUND-ACTIVATE-C4 is bounded by the saved target JIT and paired with test_task_proof_consumers_share_complete_predicate, test_task_seal_refuses_incomplete_proof_before_mutation. Run declared focused tests, normal verify and actual independent three-lens review; these are planned checks, not passing proof.",
+    "Workspace-before-JIT honors incumbent0063 first bootstrap and successor starts: source save/grill/approval and existing task-start refusals precede first preparation import; later `cmd_task_start` checks approved story/plan/decomposition, digest/task identity, fetched trunk, dependencies, protected path/owner, and then requires fresh target grounding/JIT/grill/approval, stage, and registered admission before writes.": "NATIVE-FOREGROUND-ACTIVATE-C5 is bounded by the saved target JIT and paired with test_task_start_creates_before_jit_with_approved_identity. Run declared focused tests, normal verify and actual independent three-lens review; these are planned checks, not passing proof.",
+    "Unsupported native operations refuse before side effects: native background/read-only background, general status, live/dead worker status, cancel/resume/jobs, explore, and native question delivery do not compose briefs, spend question eligibility, append ledgers, signal processes, or dispatch children until their successor owners ship. The only native status exception renders already-dead registered native grill rows through existing dead_launches, restricted to strict grill gate/task labels and starting/running rows proven dead; it does not call the general status handler. Preserve unchanged Claude dispatch.": "NATIVE-FOREGROUND-ACTIVATE-C6 is bounded by the saved target JIT and paired with test_native_unshipped_operations_refuse_before_dispatch. Run declared focused tests, normal verify and actual independent three-lens review; these are planned checks, not passing proof.",
+    "Own-task review preflight uses `proof_path(base, story, artifact, task_id=args.id)` for the active task, accepts only own-task proof, and refuses story or other-task proof without helper fallback.": "NATIVE-FOREGROUND-ACTIVATE-C7 is bounded by the saved target JIT and paired with test_review_preflight_uses_active_task_proof, test_review_preflight_refuses_other_task_or_story_proof. Run declared focused tests, normal verify and actual independent three-lens review; these are planned checks, not passing proof.",
+    "The real admitted native worker proves protected-state read by executing forge next against the correct story/task/stage, then exercises the actual native tool hook against the protected task plan with harmless absent patch context. Only an actual correlated PreToolUse deny event counts: the existing automated report receipt, protected registered terminal row and durable tool log must identify the same native launch/session/tool call and actual hook-denial response. The existing implemented plan-contract review verdict checks that correlation; unchanged bytes, context/patch failure or a synthetic payload never certify denial. No new schema or CI/C10 evidence parser is introduced.": "NATIVE-FOREGROUND-ACTIVATE-C8 is bounded by the saved target JIT and paired with test_native_worker_reads_state_without_protected_write_authority, test_any_protected_revocation_marker_denies_admission. Additionally require the actual registered native protected-read and hook-denial receipt, terminal/log correlation and independent implemented contract verdict; fixtures alone do not satisfy live proof."
+  },
+  "decision": "keep",
+  "new_abstractions": [
+    "One consolidated task-proof predicate using existing worktree/committed-Git readers replaces duplicated consumers; no new record, matrix, authority, service or version heuristic."
+  ],
+  "citations": [
+    {
+      "finding": "The first acceptance criterion combined independently falsifiable behaviors without paired proof mapping.",
+      "source": ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md; actual target read launch-d2cdf065aa47445eae52ba8b1767010d"
+    },
+    {
+      "finding": "A protected patch that fails to match is not itself evidence that the real native hook denied it; exact launch/session/tool correlation must be inspected.",
+      "source": ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md; actual target read launch-d2cdf065aa47445eae52ba8b1767010d"
+    },
+    {
+      "finding": "C10 board consumer scope did not distinguish task completion from story summary singleton ticks.",
+      "source": ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md; actual target read launch-d2cdf065aa47445eae52ba8b1767010d"
+    },
+    {
+      "finding": "The temporary native status refusal conflicted with existing killed-grill diagnostic recovery.",
+      "source": ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md; actual target read launch-d2cdf065aa47445eae52ba8b1767010d"
+    },
+    {
+      "finding": "Required pytest commands omitted task-local uv cache locations.",
+      "source": ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md; actual target read launch-d2cdf065aa47445eae52ba8b1767010d"
+    }
+  ],
+  "input_sha256": "0fc16f07bb2eeb3ba35468dba91dba7b5fd501562438560a3d2c2f2282d4fd03",
+  "grounding_basis": "working-tree",
+  "grounding_treeish": "",
+  "task_plan_sha256": "305360823ff333886592145004e7f65bc4d0993da7981b7705fedf2b59f0eba8",
+  "recorded_at": "2026-09-10T09:14:38+00:00",
+  "commit": "7a462bc2bd770a4df0ba47f40d515916438b8ac7",
+  "approved_task_plan_sha256": "305360823ff333886592145004e7f65bc4d0993da7981b7705fedf2b59f0eba8",
+  "approved_by": "User (standing approval and accepted0063/0064/0065)",
+  "approved_at": "2026-09-10T09:14:45+00:00"
+}

@@ -1,0 +1,98 @@
+{
+  "id": "NATIVE-FOREGROUND-ACTIVATE",
+  "title": "Native foreground and complete first-task proof",
+  "status": "active",
+  "started_at": "2026-09-10T09:12:51+00:00",
+  "base_sha": "7a462bc2bd770a4df0ba47f40d515916438b8ac7",
+  "dirty_at_start": {
+    ".claude/settings.json": {
+      "digest": "9d422e916b2f8a4970b1d7de9300d0ba69b3f69cad6ab5171935ef46b8245fe6",
+      "git": "1 M. N... 100644 100644 100644 2cb138560f412c0c79a5f9cef353ee82fd372353 ae7ad17ad66732654b31019284e5d053ef44cfea .claude/settings.json\u0000\u0000100644 ae7ad17ad66732654b31019284e5d053ef44cfea 0\t.claude/settings.json\u0000\u0000H .claude/settings.json\u0000"
+    },
+    ".codex/hooks.json": {
+      "digest": "634fb7b7df2858c77f58fbc26ebcd60e61624650b69abf5c13022835efb9b345",
+      "git": "1 M. N... 100644 100644 100644 ab303275b557074ca75d5c0aca0045bc91a12301 0679557865731b58ef7c954be2438f632869dad9 .codex/hooks.json\u0000\u0000100644 0679557865731b58ef7c954be2438f632869dad9 0\t.codex/hooks.json\u0000\u0000H .codex/hooks.json\u0000"
+    },
+    ".factory/events/0a8eaa8a92a84182921f96f6a493fdc5.json": {
+      "digest": "ca950f081a44d18a7e78f4b1ecd5eb439b1ff76c8a4340f65bcf3f4befe2d1b8",
+      "git": "? .factory/events/0a8eaa8a92a84182921f96f6a493fdc5.json\u0000\u0000\u0000"
+    },
+    ".factory/stories/FORGE-COORD-1/decomposition.json": {
+      "digest": "96b178a2b02ed5d320f9c6332e8e06e29f4b9008b3373502dc4416658ad7a80d",
+      "git": "? .factory/stories/FORGE-COORD-1/decomposition.json\u0000\u0000\u0000"
+    },
+    ".factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json": {
+      "digest": "c986e06edee41d32e935149325af485b49d69db7ddea499ada51f78b8b6ac4ad",
+      "git": "? .factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json\u0000\u0000\u0000"
+    },
+    ".factory/stories/FORGE-COORD-1/stages/NATIVE-FOREGROUND-ACTIVATE.json": {
+      "digest": "28eccec1868991914cbe99774526d0cb3e6abc10c8b523f11366599d524a80d6",
+      "git": "? .factory/stories/FORGE-COORD-1/stages/NATIVE-FOREGROUND-ACTIVATE.json\u0000\u0000\u0000"
+    },
+    ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md": {
+      "digest": "5fd3b10c22090ee0a0251c89712d07e281fc34eeabfbaf1254c58bc4f9494208",
+      "git": "? .factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md\u0000\u0000\u0000"
+    },
+    "factory/schemas/delegation.json": {
+      "digest": "995e79eab696b435b5412aa11041a5d8e63e74c2df6b2c730924993414a6ce9a",
+      "git": "1 M. N... 100644 100644 100644 c463d3e43fc7c8f84f688eef5bd4895fc0159907 f8ffda78c53a0192bd90ecf30e086f5235061ebd factory/schemas/delegation.json\u0000\u0000100644 f8ffda78c53a0192bd90ecf30e086f5235061ebd 0\tfactory/schemas/delegation.json\u0000\u0000H factory/schemas/delegation.json\u0000"
+    },
+    "factory/scripts/check_dual_runtime.py": {
+      "digest": "dbe7c4333a3e962a3d393591fb173f4c0c2d1033f7acc8181efee797e6f924b8",
+      "git": "1 M. N... 100644 100644 100644 9be8d46e37679888067742b6886f9900fb53be8b 8694f839f9f72eac4fe24fb194de1203c9b235af factory/scripts/check_dual_runtime.py\u0000\u0000100644 8694f839f9f72eac4fe24fb194de1203c9b235af 0\tfactory/scripts/check_dual_runtime.py\u0000\u0000H factory/scripts/check_dual_runtime.py\u0000"
+    },
+    "factory/scripts/forge_cli/codex_runtime.py": {
+      "digest": "86a63af20bf3b9364af5c6f748b852d46952df2d6939d49f77b4f895e11b8675",
+      "git": "1 A. N... 000000 100644 100644 0000000000000000000000000000000000000000 17b5f4613ef125b72e9cdfd964313376bfeea8e3 factory/scripts/forge_cli/codex_runtime.py\u0000\u0000100644 17b5f4613ef125b72e9cdfd964313376bfeea8e3 0\tfactory/scripts/forge_cli/codex_runtime.py\u0000\u0000H factory/scripts/forge_cli/codex_runtime.py\u0000"
+    },
+    "factory/scripts/forge_cli/delegate.py": {
+      "digest": "832b7579447a0f3c65581dcfbe57ffa79405204a7b3c834f907887f43e1ff72b",
+      "git": "1 M. N... 100644 100644 100644 74c9b83d72605e6c987b86e4b6d61384e85dab2f 1a12951c2ad674d666cdd9371db13806606a4566 factory/scripts/forge_cli/delegate.py\u0000\u0000100644 1a12951c2ad674d666cdd9371db13806606a4566 0\tfactory/scripts/forge_cli/delegate.py\u0000\u0000H factory/scripts/forge_cli/delegate.py\u0000"
+    },
+    "factory/scripts/forge_cli/doctor.py": {
+      "digest": "2377bdc71ad4c2001fb426c7abe672d12271df44b29b5fe764b53041e3656e9a",
+      "git": "1 M. N... 100644 100644 100644 da43d0c127ba1f163de95914f3ae740b7e871827 5a1f3f6b8d9a3bcd4c7953084db78e0a47c22fd3 factory/scripts/forge_cli/doctor.py\u0000\u0000100644 5a1f3f6b8d9a3bcd4c7953084db78e0a47c22fd3 0\tfactory/scripts/forge_cli/doctor.py\u0000\u0000H factory/scripts/forge_cli/doctor.py\u0000"
+    },
+    "factory/scripts/forge_cli/stages.py": {
+      "digest": "d0ffa0ee9bb879116c8d0398cdadb9df36b37f4b2dc210b484bab0af895327b0",
+      "git": "1 M. N... 100644 100644 100644 4cf56b926c76e8ef323acc3ed1fc38c91cad0f60 06b1b98cedf3c826c906bf4ebe5cc5c4347b80d8 factory/scripts/forge_cli/stages.py\u0000\u0000100644 06b1b98cedf3c826c906bf4ebe5cc5c4347b80d8 0\tfactory/scripts/forge_cli/stages.py\u0000\u0000H factory/scripts/forge_cli/stages.py\u0000"
+    },
+    "factory/scripts/forge_cli/worker_admission.py": {
+      "digest": "cf491dee54c9bfc8b11ec25afd1468c6a6aca54ca08fe0bc1aceb00664c83d26",
+      "git": "1 A. N... 000000 100644 100644 0000000000000000000000000000000000000000 deb42ed67d6350e6130d9039919a8c24ca48446f factory/scripts/forge_cli/worker_admission.py\u0000\u0000100644 deb42ed67d6350e6130d9039919a8c24ca48446f 0\tfactory/scripts/forge_cli/worker_admission.py\u0000\u0000H factory/scripts/forge_cli/worker_admission.py\u0000"
+    },
+    "factory/scripts/pre_tool_use.py": {
+      "digest": "2442f4084e63041710232bbbb9f1671c73b873193b36cfe8a0b89a0783f1e1c6",
+      "git": "1 M. N... 100755 100755 100755 b587099d011c40d12e1f3cd22b9330acd2eb18ff f5ec6dddf699f8a9c388a00b089c0b543308d07b factory/scripts/pre_tool_use.py\u0000\u0000100755 f5ec6dddf699f8a9c388a00b089c0b543308d07b 0\tfactory/scripts/pre_tool_use.py\u0000\u0000H factory/scripts/pre_tool_use.py\u0000"
+    },
+    "factory/scripts/session_start.py": {
+      "digest": "002730261d2c9723b2ce408a77a48169c0166d4f73efe650a6a5d8f4a42b9e49",
+      "git": "1 M. N... 100755 100755 100755 6ce791458aec5d69589687b51ab35ac016ad1cee 99fbb9a5d908065c2e25689487dbefd3c48f7c59 factory/scripts/session_start.py\u0000\u0000100755 99fbb9a5d908065c2e25689487dbefd3c48f7c59 0\tfactory/scripts/session_start.py\u0000\u0000H factory/scripts/session_start.py\u0000"
+    },
+    "factory/tests/test_gates.py": {
+      "digest": "437e910c071868845dd0e1f2c1105f8fd5b1dfa827bcf78cd2b319a5990fade5",
+      "git": "1 M. N... 100644 100644 100644 095c89b3364139905f44dbd5550239aeac502e4f 2d434f0cd78bf1432e620081368460760593cf97 factory/tests/test_gates.py\u0000\u0000100644 2d434f0cd78bf1432e620081368460760593cf97 0\tfactory/tests/test_gates.py\u0000\u0000H factory/tests/test_gates.py\u0000"
+    },
+    "factory/tests/test_native_launch.py": {
+      "digest": "590af3faaaa46d17a045d9b2d62c427c250b6c29e5cd360d2160364c09ae09b2",
+      "git": "1 A. N... 000000 100644 100644 0000000000000000000000000000000000000000 4691e6c2f6660a378dfd616469b3468acea64bac factory/tests/test_native_launch.py\u0000\u0000100644 4691e6c2f6660a378dfd616469b3468acea64bac 0\tfactory/tests/test_native_launch.py\u0000\u0000H factory/tests/test_native_launch.py\u0000"
+    },
+    "factory/tests/test_native_setup.py": {
+      "digest": "d815bdae5be1a6f216027b57d0e99fa68d951e1071538b0561f650fb26bda19c",
+      "git": "1 A. N... 000000 100644 100644 0000000000000000000000000000000000000000 e91961b12dfded51367f4580b24e6980d3dd97a0 factory/tests/test_native_setup.py\u0000\u0000100644 e91961b12dfded51367f4580b24e6980d3dd97a0 0\tfactory/tests/test_native_setup.py\u0000\u0000H factory/tests/test_native_setup.py\u0000"
+    },
+    "factory/tests/test_worker_admission.py": {
+      "digest": "86463749e106ccae523a443b729cf4d983e928f0c75796d091e9e55177e9abd3",
+      "git": "1 A. N... 000000 100644 100644 0000000000000000000000000000000000000000 d6de994cbe2c52ad02204eb82808825140c95ef5 factory/tests/test_worker_admission.py\u0000\u0000100644 d6de994cbe2c52ad02204eb82808825140c95ef5 0\tfactory/tests/test_worker_admission.py\u0000\u0000H factory/tests/test_worker_admission.py\u0000"
+    },
+    "harness.yaml": {
+      "digest": "af063176be4f17e108c5d7bd597db9e52938bbfbd9662b3a0326a4559a0efb4b",
+      "git": "1 M. N... 100644 100644 100644 da7b0ec93ca2d163aa7ff20a60a313e228e75830 412ea0b1e76897bbceafd62b8eed29802712383a harness.yaml\u0000\u0000100644 412ea0b1e76897bbceafd62b8eed29802712383a 0\tharness.yaml\u0000\u0000H harness.yaml\u0000"
+    },
+    "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md": {
+      "digest": "2ca01fdefdc2ba462357ab4e75e571f3c948f43534baac7c45ca5faa6df0e18d",
+      "git": "? plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md\u0000\u0000\u0000"
+    }
+  },
+  "task_sha256": "85e1327fce025d8027c5742b6e7b54b668f5588ba2d44c552af8cf11e8f9d326"
+}
