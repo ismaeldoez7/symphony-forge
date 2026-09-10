@@ -9317,6 +9317,10 @@ def test_story_closeout_requires_all_task_markers_and_completed_stories_reads_sh
     decomposition["tasks"].append({
         **decomposition["tasks"][0], "id": "T2", "title": "second slice",
     })
+    decomposition["tasks"] = [
+        task_with_plan_contracts(task, prefix=f"{task['id']}-C")
+        for task in decomposition["tasks"]
+    ]
     decomposition_path.write_text(json.dumps(decomposition))
     (scoped / "decomposition.json").write_text(json.dumps(decomposition))
     write_passing_artifacts(repo)
@@ -9333,9 +9337,28 @@ def test_story_closeout_requires_all_task_markers_and_completed_stories_reads_sh
     def seal_task_proof(task_id: str) -> tuple[Path, str]:
         task = next(item for item in decomposition["tasks"]
                     if item.get("id") == task_id)
+        write_stages(repo, {"issue": "ENG-1", "stages": [
+            {"id": item["id"], "title": item["title"],
+             "status": "active" if item["id"] == task_id else (
+                 "done" if (scoped / "tasks" / item["id"] / "pr-ready.json")
+                 .exists() else "pending")}
+            for item in decomposition["tasks"]
+        ]})
         code, out = record_task_grill(repo, task)
         assert code == 0, out
-        proof = write_task_proof(repo, task_id, publish_review=True)
+        proof = write_task_proof(
+            repo, task_id, user_facing=task.get(
+                "user_facing", decomposition.get("user_facing", False)),
+            publish_review=True,
+        )
+        quality_path = proof / "reviews" / "quality.json"
+        quality = json.loads(quality_path.read_text())
+        quality["contract_verdicts"] = [
+            {"contract_id": contract["id"], "verdict": "implemented",
+             "evidence": "src/app.py:1"}
+            for contract in task["plan_contracts"]
+        ]
+        quality_path.write_text(json.dumps(quality))
         proof_files = proof.relative_to(repo).as_posix()
         git(repo, "add", proof_files, ".factory/review-briefs/all.md")
         git(repo, "commit", "-q", "-m", f"record {task_id} proof")
@@ -9366,6 +9389,14 @@ def test_story_closeout_requires_all_task_markers_and_completed_stories_reads_sh
     _, t2_seal = seal_task_proof("T2")
     publish_sealed_marker("T2", t2_seal)
     write_passing_artifacts(repo)
+    quality_path = scoped / "reviews" / "quality.json"
+    quality = json.loads(quality_path.read_text())
+    quality["contract_verdicts"] = [
+        verdict for task in decomposition["tasks"]
+        for verdict in json.loads((scoped / "tasks" / task["id"] / "reviews"
+                                   / "quality.json").read_text())["contract_verdicts"]
+    ]
+    quality_path.write_text(json.dumps(quality))
     closeout_base = head(repo)
     code, out = run(repo, "pr_ready.py")
     assert code == 0 and "shipped in place" in out, out
