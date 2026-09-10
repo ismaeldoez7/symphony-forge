@@ -9304,17 +9304,38 @@ def test_story_closeout_requires_all_task_markers_and_completed_stories_reads_sh
     assert not (scoped / "shipped.json").exists()
     assert roadmap_items(repo)["ENG-1"]["status"] == "active"
 
-    publish_task_marker(repo, "ENG-1", "T1")
+    def seal_task_proof(task_id: str) -> tuple[Path, str]:
+        seal = head(repo)
+        proof = write_task_proof(repo, task_id)
+        proof_files = proof.relative_to(repo).as_posix()
+        git(repo, "add", proof_files)
+        git(repo, "commit", "-q", "-m", f"record {task_id} proof")
+        return proof, seal
+
+    def publish_sealed_marker(task_id: str, seal: str) -> None:
+        marker = scoped / "tasks" / task_id / "pr-ready.json"
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(json.dumps({
+            "task_id": task_id,
+            "branch": git(repo, "symbolic-ref", "--short", "HEAD"),
+            "base_main_sha": pointer["base_main_sha"],
+            "commit": seal,
+            "sealed_at": "2026-09-10T00:00:00+00:00",
+        }))
+        git(repo, "add", marker.relative_to(repo).as_posix())
+        git(repo, "commit", "-q", "-m", f"mark {task_id} ready")
+        git(repo, "push", "-q", "origin", "HEAD:main")
+
+    _, t1_seal = seal_task_proof("T1")
+    publish_sealed_marker("T1", t1_seal)
     write_passing_artifacts(repo)
-    write_task_proof(repo, "T1", commit=head(repo))
     code, out = run(repo, "pr_ready.py")
     assert code != 0 and "T2" in out, out
     assert not (scoped / "shipped.json").exists()
 
-    publish_task_marker(repo, "ENG-1", "T2")
+    _, t2_seal = seal_task_proof("T2")
+    publish_sealed_marker("T2", t2_seal)
     write_passing_artifacts(repo)
-    write_task_proof(repo, "T1", commit=head(repo))
-    write_task_proof(repo, "T2", commit=head(repo))
     closeout_base = head(repo)
     code, out = run(repo, "pr_ready.py")
     assert code == 0 and "shipped in place" in out, out
