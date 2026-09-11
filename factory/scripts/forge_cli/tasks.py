@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -112,6 +113,16 @@ def cmd_plan_save(args: argparse.Namespace) -> None:
     dest = _task_plan_path(base, args.id, for_write=True)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(content, encoding="utf-8")
+    # The plan carries a RENDERED copy of its contract, never a hand-written
+    # one, so the reader sees scope, tests and criteria that cannot drift.
+    from factory_lib import (
+        protected_decomposition_state_path, refresh_task_plan_contract,
+    )
+    contract = next((t for t in load_json(
+        protected_decomposition_state_path(base), default={}).get("tasks", [])
+        if isinstance(t, dict) and t.get("id") == args.id), None)
+    if contract:
+        refresh_task_plan_contract(base, args.id, contract)
     state = load_json(run_state_path(base), default={})
     story = state.get("issue_key") or state.get("story")
     grill_path = evidence_path(
@@ -449,34 +460,12 @@ def cmd_task_reopen(args: argparse.Namespace) -> None:
               f"{args.id} is unshipped; proceeding on local state. Do NOT reopen a "
               "task whose PR has already merged.")
     if getattr(args, "review_fix", False):
-        # A review fix keeps the stage's identity: the contract did not change,
-        # the base ref still measures the task's real delta, and the plan
-        # approval stands. Only the stage-local review stamp goes — it is bound
-        # to the pre-fix tree — so `stage done` demands a fresh clean one.
-        # Without this, `forge review`'s own "delegate the fixes" instruction
-        # is unfollowable: delegate writes only inside an active stage, and a
-        # done stage never reopened (ASKFLOOR-1-T5a spent six degraded windows
-        # on review fixes for that reason).
-        if status != "done":
-            fail(f"task {args.id} is '{status}', not done — --review-fix reopens "
-                 "a stage that closed clean and then failed its review")
-        later = [s.get("id") for s in stages[idx + 1:]
-                 if s.get("status") in ("done", "active")]
-        if later:
-            fail(f"task {args.id} cannot take a review fix while "
-                 f"{', '.join(later)} already built on it; reopen without "
-                 "--review-fix to move the frontier back")
-        for field in ("local_review_stamp", "completed_at"):
-            target.pop(field, None)
-        target["status"] = "active"
-        target["review_fix_reopened_at"] = now_iso()
-        target["review_fix_count"] = int(target.get("review_fix_count") or 0) + 1
-        write_stages(base, data)
+        from forge_cli.stages import reopen_stage_for_review_fix
+        target = reopen_stage_for_review_fix(base, args.id)
         print(f"Reopened {args.id} -> active for a review fix (round "
               f"{target['review_fix_count']}): base, contract and plan approval "
-              f"stand. Delegate the fixes, commit, `forge review {args.id}` (a run "
-              "with no blocking finding stamps the stage), then "
-              f"`forge stage done {args.id}` and `forge task pr-ready {args.id}`.")
+              f"stand. Delegate the fixes, commit, then `forge task close {args.id}` "
+              "(it re-reviews the new diff, closes and seals).")
         return
     # Reopening ripples forward: the done-tail built on this task has a changed
     # base, so it returns to pending too. Clear the evidence so every reopened
@@ -504,6 +493,20 @@ def cmd_task_reopen(args: argparse.Namespace) -> None:
 
 def cmd_task_pr_ready(args: argparse.Namespace) -> None:
     base = Path(args.repo).resolve() if args.repo else repo_root()
+    seal_task(base, args.id)
+
+
+def seal_task(base: Path, task_id: str) -> None:
+    """Write the task marker, push the branch, open (or find) its PR.
+
+    Idempotent: a marker already committed at this HEAD is not rewritten, a
+    push of an up-to-date branch is a no-op, and an open PR for the branch is
+    reported rather than duplicated. `task close` ends here.
+    """
+    class _Args:
+        pass
+    args = _Args()
+    args.id = task_id
     task = require_task_sealed(base, args.id)
     state = load_json(run_state_path(base), default={})
     key = state.get("issue_key") or state.get("story")
@@ -530,27 +533,34 @@ def cmd_task_pr_ready(args: argparse.Namespace) -> None:
             f"origin/{default_branch}", "HEAD",
         )
 
+    commit = _require_git(
+        base, "resolving task HEAD", "rev-parse", "--verify", "HEAD^{commit}",
+    )
     marker = task_marker_path(key, args.id)
     try:
         existing = load_json(base / marker, default=None)
     except json.JSONDecodeError:
         existing = None
-    reusable, _ = _committed_task_marker(base, key, args.id, existing, None)
+    reusable, marker_problem = _committed_task_marker(
+        base, key, args.id, existing, None,
+    )
+    if marker_problem:
+        fail(marker_problem)
+
+    from factory_lib import product_delta_digest, task_proof_problems
     same_seal = bool(
         reusable
         and reusable["branch"] == branch
         and reusable["base_main_sha"] == base_main_sha
-        and _git(
-            base, "diff", "--quiet", reusable["commit"], "HEAD", "--", ".",
-            f":(exclude){marker.as_posix()}",
-        ).returncode == 0
+        and product_delta_digest(base, reusable["commit"], commit)
+        == hashlib.sha256(b"").hexdigest()
+        and not task_proof_problems(base, key, task)
     )
     if same_seal:
         commit = reusable["commit"]
+        print(f"Task {args.id} already sealed at {commit[:12]}; the product "
+              "and proof have not moved since. Marker committed.")
     else:
-        commit = _require_git(
-            base, "resolving task HEAD", "rev-parse", "--verify", "HEAD^{commit}",
-        )
         payload = {
             "task_id": args.id,
             "branch": branch,

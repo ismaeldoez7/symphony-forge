@@ -143,15 +143,17 @@ then pass the digest-bound task grill and record its human approval. Run
 `forge stage start <id>`, then `forge delegate <id>`. Do not guess later-task
 execution detail. `forge next` routes this loop one action at a time.
 
-Each task closes in this order: implement and run focused tests, commit the
-product changes, run deterministic verify and record the task's automated
-tests, then `forge review <id>`. Resolve blocking findings in one fix batch,
-commit and refresh the affected proof before re-review. Run the functional
-check when `user_facing`, then `forge stage done <id>` and
-`forge task pr-ready <id>`. Wait for that PR's CI and merge before starting
-the next task. Once every task marker and its proof are on trunk, record the
-story outcome and run `pr_ready.py`; no second story review or verify is
-required. Follow `docs/QUALITY.md` bounded recovery when progress stalls.
+Each task closes through `forge task close <id>`: after implementation and
+focused checks, commit the product changes; `close` runs the declared proof,
+runs one three-lens review only when the product delta is not already stamped,
+and checks the complete task-owned automated and conditional functional proof
+before it measures and closes the stage, writes the task marker, pushes and
+opens the PR. The lenses run concurrently by default; blocking findings are
+fixed in one delegated batch, committed, and `close` is rerun. Wait for that
+PR's CI and merge before starting the next task. Once every task marker and its
+proof are on trunk, record the story outcome and run `pr_ready.py`; no second
+story review or verify is required. Follow `docs/QUALITY.md` bounded recovery
+when progress stalls.
 
 Store the decomposition in `.factory/decomposition.json` — that artifact is
 canonical. Mirroring into a tracker (Linear, GitHub Issues, Jira) is optional.

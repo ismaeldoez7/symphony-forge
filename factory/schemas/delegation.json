@@ -29,6 +29,7 @@
     "session_id": "str",
     "resume_session": "str",
     "background": "bool",
+    "write_scope": "list",
     "stage_started_at": "str",
     "pid": "int",
     "pgid": "int",

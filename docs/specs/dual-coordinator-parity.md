@@ -95,7 +95,7 @@ There is no mandatory preliminary independent inspection. Under Decision 0067, a
 
 ### Setup, retention, quality, and rollout
 
-`./setup` and `forge doctor [--fix]` accept `--coordinator claude|codex`. Selection order is explicit argument, `FORGE_COORDINATOR`, one unambiguous detected host, then an interactive TTY choice. Conflict, invalid input, cancellation, EOF, or unattended absence refuses before repair. The resolved value applies only to that invocation and is not persisted. `init`, `adopt`, and `upgrade` always install and preserve both adapters and do not choose a coordinator. The committed team model policy follows Decision 0066, and native operation never depends on Claude state.
+`./setup` and `forge doctor [--fix]` accept `--coordinator claude|codex`. Selection order is explicit argument, `FORGE_COORDINATOR`, one unambiguous detected host, then an interactive TTY choice. Conflict, invalid input, cancellation, EOF, or unattended absence refuses before repair. The resolved value applies only to that invocation and is not persisted. `init`, `adopt`, and `upgrade` always install and preserve both adapters and do not choose a coordinator. The committed team model policy follows Decision 0068, and native operation never depends on Claude state.
 
 Event retention follows Decision 0064. The immutable bundle contains validated shipped-story events keyed by their lowercase 32-hex source filename stems and preserves each parsed payload exactly. Preview binds apply; source deletion requires exact durable readback. If a new eligible event appears after publication, preview and apply refuse, leave it loose and unchanged, and report its ID. Retry may delete only loose events already represented by identical members. V1 creates no successor shard and never rewrites the bundle. Legacy JSONL and historical copies remain byte-immutable.
 
@@ -128,7 +128,7 @@ The separate installed-client dogfood starts only after the mandatory-quality ta
 - **C2 Questions:** event/question identity, exact scope/input/content, eligibility, and single use are enforced consistently; historical grills remain readable and legacy records cannot be newly consumed.
 - **C3 Hooks:** the five-row adapter matrix and exact current tool matchers are installed, validated, and exercised on applicable runtimes.
 - **C4 Lifecycle:** launch, registration, status, cancellation, terminal state, revocation, recovery, structured errors, bounded metrics, trace correlation, signal-mask behavior, and refusal are truthful.
-- **C5 Distribution:** both adapters, the Decision 0066 team policy, and validated event retention survive init, adopt, upgrade, and client preservation.
+- **C5 Distribution:** both adapters, the Decision 0068 team policy, and validated event retention survive init, adopt, upgrade, and client preservation.
 - **C6 Context:** complete grounded inputs and settled rulings cross fresh contexts without creating authority or truncating oversized input.
 - **C7 Delivery:** task-owned planning through green CI, conditional functional proof, between-task coordinator changes, and dependency-ready scheduling preserve the approved graph.
 - **C8 Evidence:** real native contribution, required platform checks, accepted limitations, and dogfood evidence are stated without substitution.

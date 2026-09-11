@@ -428,43 +428,65 @@ sequence a JIT contract loop for every pending task:
 7. the orchestrator inspects the diff and rejects overbuilt code
 8. that stage's assumption rows are validated (`forge assumptions list --open`)
 9. smallest relevant checks run
-10. commit product changes, run deterministic verify and record the task's
-   automated tests, then **`forge review <id>`** — ONE three-lens autoreview of
-   the task's own delta, run by Codex with the settled contracts in the brief. A
-   run with no blocking (P0/P1) finding STAMPS the stage, bound to that tree;
-   non-blocking findings are recorded follow-ups. A blocking finding is ALWAYS
-   fixed by re-delegating to Codex (`forge delegate <id>` — the stage is still
-   active), committed, and reviewed again; the orchestrator never stops to ask
-   who fixes. A finding that contradicts an accepted decision, a plan section or
-   a sealed contract is not a defect: `forge review <id> --reject "<text>"
-   --lens <l> --reason ... --cite <decision|contract|section> --by <agent>`
-   records the rejection, ledgers the contract as a lesson and stamps when no
-   lens blocks. The ONE exception to re-delegating: a fix that genuinely
-   cannot be verified inside the companion sandbox (needs a database/network/
-   Docker it lacks) — open a bounded degraded window (`forge mode degraded
-   start --reason ...`), make the MINIMAL host fix, log it with `forge signal
-   raise --kind host-exception`, verify host-side, and resume.
-11. `forge stage done <id>` — it seals on the review stamp and measures the
-   delta. It REFUSES only when verify or a required test fails, or the review
-   stamp is missing or stale. Write-scope strays, a review-budget overrun and
-   a required-test id that matched no JUnit case (exact id or id-prefix) are
-   MEASURED: recorded on the stage (`forge stage list`), printed as NOTES,
-   ledgered as a `stage-measured` event — never refused. The one measure that
-   still refuses is a delta above twice the declared line budget. Decision
-   records (`docs/decisions/`) never count as strays. A degraded window that
-   closed with at most five files, all inside the task's write scope, counts
-   as the stage's write launch when no Codex launch exists (recorded on the
-   stage as `host_window`). A review that finds blockers AFTER the stage closed reopens it for
-   the fix with `forge task reopen <id> --review-fix` (base, contract and
-   approval stand; only the stamp drops), then the same loop: delegate, commit,
-   review, stage done.
+10. commit the product changes, run deterministic verify, and record the task's
+    automated tests.
+11. `forge task close <id>` — one resumable command from a built task to its
+    open PR. It requires a clean committed product tree and no open signal,
+    window or assumption; derives the product delta (`delta_id`, the hash of
+    `base..HEAD` on product paths); runs the declared verify commands and
+    required tests; and runs the ONE three-lens review only when no review
+    stamp already covers that exact delta. The three lenses run together, one
+    Codex process each, and join at the end; `--sequential` runs them one at a
+    time. Before closing the stage, `close` requires complete task-owned
+    automated proof and conditional functional proof.
+
+    A run with no blocking (P0/P1) finding stamps the stage; non-blocking
+    findings are recorded follow-ups. The coordinator sends all blocking
+    findings from the joined round back to Codex in one fix batch (`forge
+    delegate <id>`), commits the fix, and reruns `close`; it never asks the
+    human who should fix them. A finding that contradicts an accepted decision,
+    a plan section or a sealed contract is not a defect: `forge review <id>
+    --reject "<text>" --lens <l> --reason ... --cite
+    <decision|contract|section> --by <agent>` records the rejection and the
+    settled contract. The one exception to re-delegating is a fix that cannot
+    be verified inside the companion sandbox (for example, it needs a database,
+    network or Docker): use the bounded degraded route and record the host
+    exception.
+
+    With clean proof and review, `close` measures the task, marks the stage done,
+    writes the task marker, pushes, and opens the PR. It stops at the first
+    failed step and names the next action; a retry repeats only what the new
+    delta invalidated. A done stage whose delta moved reopens itself inside
+    `close` with its base, contract and approval intact. Write-scope strays, a
+    review-budget overrun and a required-test id that matched no JUnit case are
+    measured and recorded, not refused. A delta above twice the declared line
+    budget still refuses. A closed degraded window with at most five in-scope
+    files may satisfy the stage's write launch when no Codex launch exists.
+
+   What each closeout record binds to — and so what can stale it:
+   the review stamp binds to `delta_id` and nothing else (a contract
+   re-record, a decision record, a scope amendment or an evidence commit
+   changes no product byte and stales no review); the delegate launch binds
+   to the stage (Codex wrote inside it; the contract at launch time is kept as
+   evidence, not required to match); after stage start the task grill binds to
+   objective, acceptance criteria, plan contracts, `user_facing` and the plan
+   (`write_scope`, `required_tests` and `verify_commands` are MEASUREMENT
+   fields — `stage done` enforces them by measuring and running them, so
+   changing them mid-stage re-grills nothing); the plan digest excludes the
+   harness-rendered `<!-- forge:contract -->` block, which every task plan
+   carries as the rendered, never hand-copied, copy of its contract.
+   Scope is widened with `forge stage amend-scope`, and the measure, the
+   delegate brief, the grill brief and the review brief all read the same
+   effective scope. The explicit verbs remain: `forge review <id>`,
+   `forge stage done <id>`, `forge task pr-ready <id>`, and `forge task
+   reopen <id> --review-fix`.
 
 `forge next` derives this frontier from the same readiness gate and reports
 the next action from contract authoring through implementation, task proof,
-review, stage closure and `await-merge`. **Per-task PRs are the standard:** after a task's review
-and `forge stage done`, ship it as its OWN PR — `forge task pr-ready <id>` (writes
-the marker, pushes, opens the PR, poll CI to green) — and let it merge to the
-trunk before the next task starts, never batching a whole story into one PR.
+review, stage closure and `await-merge`. **Per-task PRs are the standard:** after
+a task is built, `forge task close <id>` reviews, closes and ships it as its OWN
+PR (marker, push, PR; poll CI to green) — let it merge to the trunk before the
+next task starts, never batching a whole story into one PR.
 `await-merge` surfaces this in BOTH run-pointer modes (task-level and a stage
 running in the story worktree), so the frontier never skips past a done-but-
 unshipped task.
