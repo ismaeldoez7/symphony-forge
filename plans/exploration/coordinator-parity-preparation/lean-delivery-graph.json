@@ -1,7 +1,7 @@
 {
   "status": "Approval-input ownership graph; effective only after this exact digest is versioned and bound by the approved story plan. Not a Forge recorder payload.",
   "story": "FORGE-COORD-1",
-  "plan": "/Users/dev/.codex/plans/symphony-forge+coord-1-model-policy-story-amendment+20260911.md",
+  "plan": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
   "canon_owner": "Main; accepted0064 and confirmed specification, actual artifact publication and recorder gates",
   "transition": {
     "source": "/Users/dev/Workdir/symphony-forge-native-dogfood",
@@ -10,11 +10,11 @@
     "route": "Existing0063 source ceremony, existing task start from fetched trunk, exact allocated preparation, fresh real-target binding, registered admission",
     "first_original_patch_bytes": 109953,
     "first_original_patch_sha256": "bee122bb370177ededefb5fe81a82f8c600f69af8502e151956ec7b8afed29e2",
-    "first_scope_status": "Amended64: original24 plus three prior technical amendments, two selector fixtures, Decisions0062/0066, the versioned ownership graph, and 32 additional current model-policy specification/profile/guidance/agent/distribution paths. Original 40 prepared path/hunk ownership is unchanged.",
-    "scope_path_count": 64,
+    "first_scope_status": "Amended71: the live 66-path First contract plus factory/scripts/record_review_from_json.py and the four Main-owned canon alignments docs/product/BRIEF.md, docs/architecture/dual-coordinator-parity.md, docs/specs/strict-role-split.md and docs/degraded-mode.md. The D-0032 and model-policy overlays do not alter any original 40 prepared path/hunk owner.",
+    "scope_path_count": 67,
     "old_caps": "Accepted0064 and confirmed spec replace obsolete120000/180000 clauses, including0058 wording, with actual installed helper safeguards; no implicit patch cap or helper-limit edit.",
     "current_helper": "Main resolved current helper and verified large-input and lossless-chunk tests PASS;512000 per-prompt bound",
-    "first_review": "Current three-lens execution; later LEAN-WORKFLOW single combined reviewer run with genuine three assessments",
+    "first_review": "NATIVE-FOREGROUND-ACTIVATE owns the complete one-helper combined review and pointer-last publication now; LEAN-WORKFLOW consumes it without reimplementation.",
     "source_inventory": "plans/exploration/coordinator-parity-preparation/native-foreground-preparation-inventory.json; SHA2563874bb1a3e698c340c19b419d22cad897d12c80d2314bd4b5142d5c3656fa48f"
   },
   "tasks": [
@@ -45,81 +45,89 @@
         "Claude clear registration and independent/both-adapter hook omission tests",
         "Explicit reviewed task proof_path preflight, never another task/story proof",
         "Actual native protected-state read and denied unauthorized mutation proof; current client reads already work, false phase wording belongs to LEAN",
-        "Additional Decision0066 model-policy overlay across owning selectors, active profiles/guidance, 15 committed team agents, init/upgrade distribution proof and exact-known same-plugin Luna/max repair; original 40 prepared hunk owners unchanged"
+        "Additional Decision0066 model-policy overlay across owning selectors, active profiles/guidance, 15 committed team agents, init/upgrade distribution proof and exact-known same-plugin Luna/max repair; original 40 prepared hunk owners unchanged",
+        "Explicit user-requested D-0032 overlay: one combined helper call, exact assessment grammar, immutable raw plus three same-binding projections, task-scoped selected-pointer-last publication, fixed-only refusal, non-publishing single-lens diagnostics and coherent selected-set rejection republishing; original prepared hunk owners unchanged"
       ],
       "planning_surfaces": [
-        ".claude/settings.json",
-        ".codex/hooks.json",
-        "factory/schemas/delegation.json",
-        "factory/scripts/check_dual_runtime.py",
-        "factory/scripts/forge_cli/delegate.py",
-        "factory/scripts/forge_cli/doctor.py",
-        "factory/scripts/forge_cli/stages.py",
-        "factory/scripts/pre_tool_use.py",
-        "factory/scripts/session_start.py",
-        "factory/tests/test_gates.py",
-        "harness.yaml",
-        "factory/scripts/forge_cli/codex_runtime.py",
-        "factory/scripts/forge_cli/worker_admission.py",
-        "factory/tests/test_native_launch.py",
-        "factory/tests/test_native_setup.py",
-        "factory/tests/test_worker_admission.py",
-        "factory/scripts/forge.py",
-        "factory/scripts/factory_lib.py",
-        "factory/scripts/forge_cli/readiness.py",
-        "factory/scripts/forge_cli/review_brief.py",
-        "factory/scripts/check_task_proof.py",
-        "factory/scripts/forge_cli/tasks.py",
-        "AGENTS.md",
-        "factory/scripts/forge_cli/review.py",
-        "factory/scripts/check_encoding_hygiene.py",
-        "factory/tests/test_review_settled_contracts.py",
-        "factory/tests/test_review_task_delta.py",
-        "factory/tests/test_gate_table.py",
-        "factory/tests/test_grill_release.py",
-        "docs/decisions/0062-luna-max-exploration-and-implementation.md",
-        "docs/decisions/0066-sol-specialized-workflow-models.md",
-        "docs/specs/dual-coordinator-parity.md",
-        "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
         ".claude/CLAUDE.md",
-        ".codex/config.toml",
-        ".codex/explore.config.toml",
-        ".codex/agents/architect.toml",
+        ".claude/settings.json",
         ".codex/agents/AGENTS.md",
+        ".codex/agents/architect.toml",
         ".codex/agents/backend.toml",
         ".codex/agents/debugger.toml",
+        ".codex/agents/docs-decomposer.toml",
         ".codex/agents/explorer.toml",
         ".codex/agents/frontend.toml",
+        ".codex/agents/functional-checker.toml",
         ".codex/agents/griller.toml",
         ".codex/agents/lite.toml",
         ".codex/agents/performance.toml",
+        ".codex/agents/planner-high.toml",
         ".codex/agents/planner.toml",
         ".codex/agents/refactorer.toml",
         ".codex/agents/security.toml",
         ".codex/agents/tester.toml",
-        ".codex/agents/planner-high.toml",
-        ".codex/agents/docs-decomposer.toml",
-        ".codex/agents/functional-checker.toml",
+        ".codex/config.toml",
+        ".codex/explore.config.toml",
+        ".codex/hooks.json",
+        "AGENTS.md",
         "README.md",
         "WORKFLOW.md",
         "docs/FACTORY.md",
         "docs/QUALITY.md",
         "docs/ROLES.md",
+        "docs/architecture/dual-coordinator-parity.md",
+        "docs/decisions/0062-luna-max-exploration-and-implementation.md",
+        "docs/decisions/0066-sol-specialized-workflow-models.md",
+        "docs/degraded-mode.md",
         "docs/getting-started.md",
-        "factory/skills/forge.md",
+        "docs/product/BRIEF.md",
+        "docs/specs/dual-coordinator-parity.md",
+        "docs/specs/strict-role-split.md",
         "factory/prompts/griller.md",
         "factory/prompts/implementer.md",
         "factory/prompts/planner.md",
         "factory/prompts/reviewer.md",
-        "factory/scripts/forge_cli/upgrade.py"
+        "factory/schemas/delegation.json",
+        "factory/scripts/check_dual_runtime.py",
+        "factory/scripts/check_encoding_hygiene.py",
+        "factory/scripts/check_task_proof.py",
+        "factory/scripts/factory_lib.py",
+        "factory/scripts/forge.py",
+        "factory/scripts/forge_cli/codex_runtime.py",
+        "factory/scripts/forge_cli/delegate.py",
+        "factory/scripts/forge_cli/doctor.py",
+        "factory/scripts/forge_cli/phase.py",
+        "factory/scripts/forge_cli/readiness.py",
+        "factory/scripts/forge_cli/review.py",
+        "factory/scripts/forge_cli/review_brief.py",
+        "factory/scripts/forge_cli/stages.py",
+        "factory/scripts/forge_cli/tasks.py",
+        "factory/scripts/forge_cli/upgrade.py",
+        "factory/scripts/forge_cli/worker_admission.py",
+        "factory/scripts/pre_tool_use.py",
+        "factory/scripts/record_review_from_json.py",
+        "factory/scripts/session_start.py",
+        "factory/scripts/stop_continue.py",
+        "factory/skills/forge.md",
+        "factory/tests/test_gate_table.py",
+        "factory/tests/test_gates.py",
+        "factory/tests/test_grill_release.py",
+        "factory/tests/test_native_launch.py",
+        "factory/tests/test_native_setup.py",
+        "factory/tests/test_review_settled_contracts.py",
+        "factory/tests/test_review_task_delta.py",
+        "factory/tests/test_worker_admission.py",
+        "harness.yaml",
+        "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json"
       ],
       "verification": [
         "Genuine0063 source and target bindings; wrong owner/placeholder/copied proof refuse",
-        "Admitted new contribution, targeted tests, declared verify, current three-lens review, PR and green CI",
+        "Admitted new contribution, targeted tests, declared verify, one-helper combined three-lens review, PR and green CI",
         "Background/jobs/status/cancel/resume/explore/optional questions refuse until later owner",
         "cmd_review accepts own task-only proof and refuses other task/story proof; Git-local refusal regression follows actual diagnosed access boundary",
         "Review Codex engine pins Sol/high and refuses known Terra-fallback/unreadable helpers before brief publication or launch",
-        "21 exact required selectors; four frozen patches cover 38 unique in-scope paths and preparation never counts as proof"
+        "48 exact required-test declarations, including the nine-selector combined-review batch; four frozen patches cover 38 unique in-scope historical paths and preparation never counts as proof"
       ]
     },
     {
@@ -140,8 +148,6 @@
       "owned_behavior": [
         "Authoritative task brief with derived metadata; actual standing authorization reused for in-scope work",
         "Remove compulsory requirements/story/task certification and repeated human approval rituals in every producer and consumer",
-        "One combined independent review result with actual three assessments and existing same-run proof projections",
-        "Complete review packaging including CI files, generated artifacts and supported lossless chunks",
         "Fresh worker context carries settled rulings; one decision card only for real unknowns",
         "Shared exact-file workflow ownership predicate: only four scaffold-owned workflows excluded; arbitrary client .github paths included in measurement/review/staleness",
         "Rulings propagate through existing task brief/contract and recorders to fresh delegate/review briefs; no new ruling ledger or workspace-minted authority",
@@ -149,7 +155,7 @@
         "Accepted0064 narrows pause-all: only addressed/causally dependent work pauses; separately owned dependency-ready unaffected work continues",
         "In-scope technical corrections use existing brief save/invalidation/fresh approval binding with standing-authority attribution and no false reread claim",
         "Optional explicit --context-file reads one regular UTF-8 snapshot, including authorized outside paths, as untrusted supplemental context without changing primary identity",
-        "One helper result projects three genuine lenses to immutable candidates; existing review-run.json is the pointer-last atomic commit and sole formal publication authority"
+        "Consume First-owned complete combined-review proof through the shared proof predicate without reimplementing D-0032"
       ],
       "planning_surfaces": [
         "factory/scripts/forge_cli/tasks.py",
@@ -186,8 +192,7 @@
         "Old legitimate proof remains readable, no synthetic approval or review conversion",
         "Local/CI/board reject identical missing/stale/blocked proof; complete reviewed scope",
         "Gate/proof/continuation regressions; no UI components, daemon or registry",
-        "Context-file inside/outside/missing/non-UTF8/non-regular/untrusted-instruction cases preserve primary identity and full input",
-        "Pointer-selected combined-review publication, interruption/copy/missing-chunk/stale/legacy all-or-nothing cases agree across readiness, seal, board and CI"
+        "Context-file inside/outside/missing/non-UTF8/non-regular/untrusted-instruction cases preserve primary identity and full input"
       ]
     },
     {
@@ -211,7 +216,8 @@
         "Process identity, recovery, locking and truthful cleanup",
         "Preserve native_jobs/cmd_cancel and both original cancellation tests",
         "Structured correlated and redacted JSON lifecycle logs for accepted/start/running/retry/cancel/terminal transitions",
-        "Bounded idempotent retries, revocation-before-signal cancellation, one truthful terminal result and surfaced sanitized terminal errors"
+        "Bounded idempotent retries, revocation-before-signal cancellation, one truthful terminal result and surfaced sanitized terminal errors",
+        "Top-level native launcher/supervisor Exception boundary emits one sanitized nonzero terminal failure and increments forge_native_unexpected_errors_total exactly once with bounded labels and matching correlation"
       ],
       "planning_surfaces": [
         "factory/scripts/forge_cli/codex_runtime.py",
@@ -229,7 +235,7 @@
         "test_cancel_revokes_admission_before_slow_cleanup",
         "test_failed_cancel_cleanup_leaves_live_worker_revoked",
         "No Claude fallback or helper write authority",
-        "Required log fields, correlation continuity, redaction, retry/cancel ordering, terminal uniqueness and unexpected-failure propagation"
+        "Required log fields, correlation continuity, redaction, retry/cancel ordering, terminal uniqueness, global unexpected-Exception boundary, nonzero result, exactly-once error metric increment and failure propagation"
       ]
     },
     {
@@ -258,13 +264,11 @@
         "Interaction and shared adapter policy under Decision0066; model selection itself is First-owned",
         "Git-registered same-common-directory attachment with protected run.json owner published last; exact resolved Git-control/common-directory identity for owner, stage, delegation, lock, revocation and recovery",
         "Safe story resume, question ledger hydration, sealed-record immutability and sibling/trunk integration",
-        "Metadata-safe draft PR reuse through verified origin/repository/branch/base/current-head plus preliminary-inspection ancestry and unchanged classified product digest; final Forge review remains post-platform",
         "Hydrate actual consumed grill-rounds records only; plan-mode marker gate remains withdrawn",
         "Preserve/reconstruct task_id/branch/base_main_sha and verified owner on resume; never downgrade task-proof mode",
         "Preserve complete stage seal fields; read-only next must not destructively rebuild state",
         "Resolve exact approved plan/story before auto-selection and reload state after valid pointer recovery",
-        "Pending required questions pause only the addressed/causally dependent set under0064; Shared enforces scope without reassigning Lean continuation policy",
-        "GitHub draft PR body forge-preliminary-inspection/v1 block is the sole pre-platform checkpoint authority; exact tuple reuse/promotion, ancestry plus unchanged product digest, no formal proof or marker"
+        "Pending required questions pause only the addressed/causally dependent set under0064; Shared enforces scope without reassigning Lean continuation policy"
       ],
       "planning_surfaces": [
         "factory/scripts/post_tool_use.py",
@@ -282,7 +286,6 @@
         "factory/schemas",
         "factory/board",
         "factory/skills/forge.md",
-        "docs/product/BRIEF.md",
         "docs/native-coordinator.md",
         "AGENTS.md",
         "factory/scripts/forge_cli/story.py"
@@ -291,8 +294,7 @@
         "Exact optional question/session/tool/turn/story/free-text/replay/cancel cases; no fabricated approvals",
         "Wrong story/owner, dirty/unregistered/independent-clone target and unproven sealed state refuse without destructive repair",
         "Actual board functional proof, fresh-context/PR/handoff recovery and platform evidence inputs",
-        "Each multi-question item has one distinct question_id and exactly one answer; wrong gate/task/sibling consumption refuses",
-        "Draft PR body tamper/tuple/multiple/uncertain-create/product-change refusals and metadata-only E-to-M-to-N advancement"
+        "Each multi-question item has one distinct question_id and exactly one answer; wrong gate/task/sibling consumption refuses"
       ]
     },
     {
@@ -316,7 +318,8 @@
         "Client rollout preserves and refreshes the Decision0066 project agent registry; the prior three-agent retirement intent is superseded",
         "Only validated live attributed per-file events compact after exact scoped/legacy shipped eligibility; preview inventory digest is required by apply; root/history JSONL and existing bundles are immutable",
         "First publication uses atomic no-overwrite; retry cleans only exact loose pairs already represented, while late IDs remain untouched and refuse; no union, replacement, sidecar or retroactive marker",
-        "Four distinct client common directories upgraded through existing forge upgrade; dirty MyClaw checkouts preserved",
+        "One-time upgrade migration converts only complete coherent gate-relevant fixed review sets into task-scoped origin=upgrade candidates and selected pointers before machinery replacement; unbound archives remain display-only and fixed files become inert",
+        "Client-safe upgrade and compact/apply capability ships on trunk before the separately authorized four-client story-level external rollout",
         "Exercise existing init full-tree copy and upgrade same-name refresh behavior while preserving distinct client-added agent files; retain Decision0028 boundary tripwires and never delete client-owned agent trees"
       ],
       "planning_surfaces": [
@@ -344,7 +347,8 @@
         "Init/adopt/upgrade native ownership and coordinator repair/verify parity",
         "Decision0028 destination/symlink/raw-write sentinel refusals",
         "Accepted0064 fixtures: scoped/legacy shipped eligibility, stable-ID collisions, immutable existing bundle, late-ID refusal, expected-digest mismatch, regular-file reread, atomic no-overwrite, partial-failure retry, legacy story-level compatibility and unchanged JSONL/history",
-        "Vendor manifests/integrity, meaningful client checks, isolated clean or dirty-client PRs"
+        "Review migration fixtures prove old-reader readability before upgrade, zero mutation on malformed/incomplete/ambiguous/colliding/symlinked input, canonical selected-set readability after replacement, and byte-identical idempotent retry",
+        "Vendor manifests/integrity and meaningful isolated client fixtures prove the capability before Portable review, merge and marker; external client PRs are later story-level evidence consumed by Integration"
       ]
     },
     {
@@ -379,15 +383,19 @@
         "QF-19"
       ],
       "owned_behavior": [
+        "Create and commit requirements-quality.txt with ruff==0.16.6 and pyright==1.1.411 plus the final ruff.toml before invoking the formatter",
         "Run Ruff 0.16.6 formatter over exactly every tracked *.py below factory/scripts/ and factory/tests/, including tracked fixtures",
         "No semantic fixes or scope omissions; preserve tests and comments/directives",
         "One coherent reviewable formatting task using complete lossless review inputs"
       ],
       "planning_surfaces": [
         "All authored Python source and tests covered by the actual pinned baseline",
-        "AGENTS.md concise local practice pointer only if needed"
+        "AGENTS.md concise local practice pointer only if needed",
+        "requirements-quality.txt",
+        "ruff.toml"
       ],
       "verification": [
+        "Pinned requirements and ruff.toml exist at the Format commit before formatting and remain byte-identical for Quality",
         "Exact formatter reproduction",
         "AST equivalence and explicit comment/directive preservation and exception review",
         "Full meaningful tests and independent review; no broad suppression"
@@ -419,6 +427,7 @@
         "QA-01"
       ],
       "owned_behavior": [
+        "Consume FORMAT-SOURCES requirements-quality.txt and ruff.toml byte-for-byte; do not change formatter behavior",
         "Fix every remaining Ruff 0.16.6/Pyright 1.1.411 diagnostic against actual post-format tree",
         "Use exactly every tracked *.py below factory/scripts/ and factory/tests/, including tracked fixtures, with the identical explicit set locally and in CI",
         "Enforce missing covered path/configuration/tool and deliberate violations; use meaningful client-language validation outside the harness roots",
@@ -426,8 +435,6 @@
       ],
       "planning_surfaces": [
         "All authored Python source/test semantic diagnostic owners",
-        "requirements-quality.txt",
-        "ruff.toml",
         "pyrightconfig.json",
         "factory/scripts/check_python_quality.py",
         "factory/scripts/verify.py",
@@ -473,8 +480,9 @@
         "Full integrated AC1-12 and roadmap acceptance",
         "Required local Mac and Linux/Windows CI proof through separately produced durable CLI/Desktop/native-lifecycle logs, complete correlations and explicit unavailable live-platform limitations",
         "After QUALITY-BASELINE marker reaches trunk, exercise the separate authorized /tmp Task tracker client through its normal lifecycle; require exact client task marker, reviewed PR, functional proof and green CI before Integration",
+        "Require exact four authorized external client rollout PR/CI outcomes from the merged Portable trunk revision before Integration closes; preserve no ninth harness task",
         "Existing story outcome only after every real predecessor marker is on trunk",
-        "Validate JSON-encoded exact six-row pass_fail_summary and required client evidence against cited logs before aggregate passed; preliminary PR-body inspection gates draft, final formal Forge review follows complete platform report"
+        "Validate JSON-encoded exact six-row pass_fail_summary and required client evidence against cited logs before aggregate passed; run the one formal combined review only after required platform evidence is complete, then use ordinary task pr-ready/PR/CI"
       ],
       "planning_surfaces": [
         "Task-owned existing report/recorder inputs and any approved integration repair scope",
@@ -485,7 +493,8 @@
         "Client clean install, declared lint/type/build/test checks and recorded create/list/complete persistence, plus admitted contribution, client-owned proof, review, functional proof, PR and green CI",
         "Integration report references exact client origin/commit/PR/artifact/log paths; no copied harness proof",
         "pass_fail_summary JSON array has exact ordered labels and exact row fields; malformed/duplicate/missing/contradictory/unresolved evidence refuses",
-        "No ninth harness task or cross-repository surrogate identity; client proof remains client-owned"
+        "No ninth harness task or cross-repository surrogate identity; client proof remains client-owned",
+        "Exact cadence/toolshed/myclaw/knacklabs-ats rollout rows bind remote-default bases, merged Portable source revision, PRs, checks and CI; unresolved rows block Integration"
       ]
     }
   ],
@@ -609,15 +618,15 @@
       "audit_report": "/Users/dev/.codex/reviews/forge-lean-20260910/lifecycle-proof-bugs.md"
     },
     {
-      "id": "cross-task-legacy-fallback",
-      "symptom": "Old tasks borrow a new story/task review through fallback",
+      "id": "cross-task-review-selection",
+      "symptom": "A task borrows another task or story review through unscoped selection",
       "owner": "NATIVE-FOREGROUND-ACTIVATE",
       "source_seams": [
         "factory/scripts/factory_lib.py",
         "factory/scripts/check_task_proof.py"
       ],
-      "acceptance": "Repair in first C10 owner; fallback only for genuine recorded legacy ownership",
-      "audit_status": "Confirmed and reproduced cross-task singleton fallback; first C10 must reject unqualified legacy proof",
+      "acceptance": "First requires one exact task-scoped selected pointer and refuses fixed-only or cross-task proof; Portable performs the only preflighted upgrade migration",
+      "audit_status": "Confirmed and reproduced cross-task singleton selection; First must require selected task proof and Portable must migrate only coherent bound sets",
       "report_number": 8,
       "audit_report": "/Users/dev/.codex/reviews/forge-lean-20260910/lifecycle-proof-bugs.md"
     },
@@ -2693,8 +2702,10 @@
       "local and CI execute exactly the same pinned command",
       "vendored clients select meaningful product-stack checks rather than the harness Python runner"
     ],
-    "measurement": "FORMAT measures actual pinned output on shipped PORTABLE predecessor; QUALITY measures actual residual diagnostics/diff on shipped FORMAT predecessor. Both bind exact file/line budgets, full byte inventory and complete helper-rendered prompt partitions before execution/review.",
-    "refusal_threshold": "Actual file/line scope exceeds approved positive budget, full instructions/evidence cannot be losslessly partitioned under the installed helper limit, any chunk is missing/failed, or format output changes semantics. Stop before review/seal and use existing amendment route. No implicit product-patch byte cap or chunk-count cap. Split only independently meaningful acceptance/proof boundaries after an actual scope contradiction; no automatic byte-sized tasks."
+    "measurement": "FORMAT measures actual pinned output after its own requirements-quality.txt and final ruff.toml are committed on the shipped PORTABLE predecessor. QUALITY consumes those files byte-for-byte and measures actual residual diagnostics/diff on shipped FORMAT. Both bind exact file/line budgets, full byte inventory and complete helper-rendered prompt partitions before execution/review.",
+    "refusal_threshold": "Actual file/line scope exceeds approved positive budget, full instructions/evidence cannot be losslessly partitioned under the installed helper limit, any chunk is missing/failed, or format output changes semantics. Stop before review/seal and use existing amendment route. No implicit product-patch byte cap or chunk-count cap. Split only independently meaningful acceptance/proof boundaries after an actual scope contradiction; no automatic byte-sized tasks.",
+    "format_owner": "FORMAT-SOURCES creates and commits requirements-quality.txt with the exact pins and final ruff.toml before invoking Ruff format.",
+    "quality_owner": "QUALITY-BASELINE consumes requirements-quality.txt and ruff.toml byte-for-byte, owns pyrightconfig.json, the runner and activation surfaces, and cannot change formatter behavior."
   },
   "review_contract": {
     "authority": [
@@ -2704,10 +2715,9 @@
       "0011-orchestrator-runs-autoreview"
     ],
     "non_authority": "0049 is proposed and supplies no authority",
-    "operation": "One ./forge review <task-id> logical operation; after Lean one combined prompt invokes the installed helper once, including its supported internal chunks; fixes may publish another complete run until clean",
-    "first": "Existing three-lens runner inside that operation until LEAN-WORKFLOW ships",
-    "after_lean": "Exact validated helper JSON with ordered complete pass_reports is the source for three genuine immutable task-owned projections; missing/non-contiguous chunks or review_status incomplete refuses even if JSON exists",
-    "publication": "Write raw result and three schema-valid projections as unique existing-family candidates, validate/read back their full input/helper/run/diff/product bindings and byte hashes, then atomically os.replace existing review-run.json last. Only its pointed set is authority; interrupted/mixed/copied/stale attempts cannot replace or pass. Legacy fixed proof is all-or-nothing and never mixed.",
+    "operation": "First-owned one ./forge review <task-id> logical operation composes one combined prompt and invokes the installed helper once for quality, performance and security; fixes may publish another complete run until clean",
+    "first": "NATIVE-FOREGROUND-ACTIVATE owns complete D-0032 implementation under the explicit 2026-09-11 user-request overlay; original prepared hunk ownership is unchanged",
+    "publication": "Write exact raw result and three schema-valid projections as no-clobber candidates below the task review family, validate/read back their full input/helper/run/diff/product bindings and byte hashes, then atomically replace the task-scoped reviews/selected.json last with origin=combined. Only its named and hashed set is authority; fixed-only, interrupted, mixed, copied or stale attempts refuse without replacing it.",
     "binding": [
       "task_id",
       "review_run_id",
@@ -2717,9 +2727,13 @@
       "helper file/version identity and SHA256",
       "complete input digest and byte count",
       "raw result path and byte SHA256",
-      "three projection paths and byte SHA256"
+      "three projection paths and byte SHA256",
+      "task-scoped selected pointer path and SHA256",
+      "publication origin: combined or one-time upgrade"
     ],
-    "success": "Pointer-selected candidates contain all actual ordered complete helper pass reports and three genuine assessments on one current binding; complete blocking results publish and block; no private prompt reconstruction, parallel manifest/registry, hostile-worker containment, nested review or story-wide duplicate"
+    "success": "Task-scoped pointer-selected candidates contain all actual ordered complete helper pass reports and three genuine assessments on one current binding; complete blocking results publish and block; fixed paths are never runtime proof; no private prompt reconstruction, parallel manifest/registry, hostile-worker containment, nested review or story-wide duplicate",
+    "assessment_grammar": "Each actual pass overall_explanation contains exactly one nonempty BEGIN FORGE ASSESSMENT <lens>/END FORGE ASSESSMENT <lens> block per selected lens in quality, performance, security order; quality retains VERDICT lines. Every finding title starts with exactly one selected [quality], [performance], or [security] tag; normalized assessment bodies differ and untagged fingerprints are cross-lens unique.",
+    "upgrade_migration": "PORTABLE-DELIVERY-MIGRATION is the only compatibility transition: before factory replacement it turns complete coherent fixed review sets reachable from active tasks or committed task markers into origin=upgrade candidates and task-scoped selected pointers, binding the original bytes and existing provenance without inventing a combined raw result; malformed or unbound input refuses before mutation."
   },
   "registry_distribution_contract": {
     "owner": "NATIVE-FOREGROUND-ACTIVATE",
@@ -2771,19 +2785,19 @@
       }
     ],
     "procedure": [
-      "Refresh branch/HEAD/common-dir/status and identify a safe story boundary; preserve every observed checkout and hotfix",
-      "Create a new feature/forge-lean-upgrade-<client> branch and sibling worktree from verified current committed head; do not stash, reset or use --force",
-      "From shipped harness run ./forge upgrade --target <upgrade-worktree>; review owned machinery/doc contracts and VENDORED_FROM/VENDOR_MANIFEST",
-      "In upgraded worktree run proposed ./forge history --compact --preview then --apply for attributable shipped per-file events; leave legacy-only streams unchanged",
-      "Run python factory/scripts/check_vendor_integrity.py --repo <upgrade-worktree>, then client declared verify/quality/type/tests and CI; record applied/no-op/conflict outcome",
-      "Unsafe/ambiguous client gets a concrete blocker/deferral with path and next action; continue other clients, never claim all migrated while a row remains unresolved"
+      "Refresh remotes/common-dir/status and verify each remote default-branch tip; preserve every checkout and hotfix",
+      "Create feature/forge-lean-upgrade-<client> and an isolated sibling worktree from the fetched remote default-branch tip; never use either dirty MyClaw checkout head, stash, reset or force",
+      "Run upgrade and history compact preview/apply from the exact merged Portable trunk revision; review machinery/doc contracts and VENDORED_FROM/VENDOR_MANIFEST",
+      "Run vendor integrity, client-declared verify/quality/type/tests and CI; record applied/no-op/conflict with source revision, base, PR, commit and logs",
+      "Unsafe/unresolvable client gets a concrete blocker/deferral; continue other clients, and Integration refuses while any row is unresolved"
     ],
     "smallest_checks": [
       "uv run --python 3.11 python factory/scripts/check_vendor_integrity.py --repo <upgrade-worktree>",
       "From upgraded client: uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py, consuming that clients own .envrc structural/type/test/quality commands",
       "Focused shipped harness tests: uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_gates.py -k \"upgrade or no_raw_write_primitive_outside_the_boundary_helper\" -q"
     ],
-    "authority": "Confirmed dual-coordinator-parity specification plus this bound client-ledger-migration-inventory; accepted0064 governs retention behavior but is not the source of the four-client list."
+    "authority": "The user previously explicitly approved one-time branch, push and PR work for exactly cadence, toolshed, myclaw and knacklabs-ats. The inventory supplies identity/history; accepted0064 supplies retention behavior.",
+    "ordering": "Portable first verifies, reviews, merges and reaches its trunk marker. Main then runs the four-client story-level external rollout from that exact merged Portable revision before Integration closes; no ninth harness task."
   },
   "client_dogfood": {
     "owner": "Separate installed-client task TASKTRACKER-1/TASKTRACKER-1.1 (planned identity, main records it in that client)",
@@ -2834,7 +2848,8 @@
       "unobserved"
     ],
     "codex_cli_package": "@openai/codex@0.153.4",
-    "validator": "Integration-owned json.loads producer/validator requires exact label order/fields/state, null unavailable runtime with remaining-gap explanation, array commands/logs, resolves every cited log to tested revision, requires client proof and derives aggregate; rejects malformed/duplicate/missing/contradictory/unresolved evidence. Independent review checks same logs; C10 consumes aggregate, not this encoding."
+    "validator": "Integration-owned json.loads producer/validator requires exact label order/fields/state, null unavailable runtime with remaining-gap explanation, array commands/logs, resolves every cited log to tested revision, requires client proof and derives aggregate; rejects malformed/duplicate/missing/contradictory/unresolved evidence. Independent review checks same logs; C10 consumes aggregate, not this encoding.",
+    "codex_cli_reason": "0.153.4 is locally observed, already frozen in cross-platform fixtures, and above the required model-support floor, minimizing unrelated Mac/Linux/Windows variables; a version change requires amendment."
   },
   "recurring_finding_disposition": {
     "owner": "PORTABLE-DELIVERY-MIGRATION",
@@ -2887,16 +2902,15 @@
   "roadmap_limit_interpretation": "The existing review limits phrase means the actual installed helper safeguards under accepted0064, which expressly amends obsolete0058/spec caps; no helper limit edit or implicit patch cap.",
   "confirmed_spec": {
     "path": "docs/specs/dual-coordinator-parity.md",
-    "sha256": "439cfc38c4939fdf3e7e62e2ac07aa413cb3954920fca2fb151d8ebe71c8b970",
+    "sha256": "cb0e454d73d76d12e7d1367ac12b5098f9bd1cfa6f0db9917312bae4d8dc86df",
     "status": "confirmed through actual main-owned save/grill/confirm route"
   },
   "retention_contract_source": "Confirmed docs/specs/dual-coordinator-parity.md and accepted0064; all necessary scope and proof is included here and in the bound story plan.",
-  "draft_checkpoint_contract": "After contribution and deterministic verification, one preliminary helper inspection is recorded only by a machine-readable forge-preliminary-inspection/v1 block in the GitHub draft PR body: exact origin/head/base/current-remote-head tuple, inspected commit/diff/product digest, helper identity, exact raw result inline or immutable diagnostic candidate path+commit+bytes+SHA256, findings, missing required rows and accepted limitations. Exactly one matching draft is reused; zero creates one; multiple/mismatch/failure/uncertainty refuses and uncertain create is re-queried. Metadata-only head advances require inspected ancestry and unchanged classified product; product change requires fresh inspection. No formal review pointer, marker or task pr-ready before platform proof. After report pass, fresh formal review reuses/promotes same PR through normal readiness; PR body alone is checkpoint authority.",
   "model_policy_amendment": {
     "authority": "Explicit user model/team-policy request; accepted Decision0066, which narrowly amends Decision0065 existing First scope and the matching scope lesson while preserving all other0065 duties",
     "owner": "NATIVE-FOREGROUND-ACTIVATE",
     "kind": "Additional new-request overlay; it does not reassign any original prepared hunk",
-    "first_declared_scope_count": 64,
+    "first_declared_scope_count": 71,
     "new_policy_paths": [
       ".claude/CLAUDE.md",
       ".codex/config.toml",
@@ -3046,16 +3060,31 @@
     "correlation": "story/task/launch/session/process/stage with static messages and concise context",
     "redaction": "No prompts, tokens, credentials, raw environment values, PII or whole request objects",
     "failure": "Bounded idempotent retry records attempt/cause and retains prior failure; revocation precedes cancel signals; one truthful terminal result; unexpected error surfaces stable errorId/internal code and sanitized message, never swallowed/raw stack.",
-    "proof": "Focused field/correlation/redaction/retry/cancel/terminal/failure tests plus separate durable native, Mac CLI/Desktop and Task tracker interaction producers consumed by Integration."
+    "proof": "Focused field/correlation/redaction/retry/cancel/terminal tests plus global boundary, nonzero result and exactly-once error-metric tests; separate durable native, Mac CLI/Desktop and Task tracker interaction producers are consumed by Integration.",
+    "unexpected_boundary": "Top-level native launcher/supervisor catches otherwise-unhandled Exception, emits one sanitized stable-ID terminal failure, and returns nonzero without raw stack/provider data.",
+    "error_metric": "Increment durable structured forge_native_unexpected_errors_total exactly once per unexpected terminal failure with bounded service/module/outcome labels and the same correlation ID."
   },
   "historical_policy_split": {
     "row": "POLICY",
     "immutability": "prepared_hunk_owners remains byte-equivalent; no original hunk reassignment",
     "owners": {
-      "LEAN-WORKFLOW": "workflow, standing-authority, context and combined-review policy",
-      "SHARED-COORDINATOR-JOURNEY": "interaction, question, resume/owner and draft-PR policy",
-      "NATIVE-FOREGROUND-ACTIVATE": "later explicit Decision0066 model/team overlay only"
+      "LEAN-WORKFLOW": "workflow, standing-authorization and context policy; consumes combined-review proof",
+      "SHARED-COORDINATOR-JOURNEY": "interaction, question, resume and owner policy",
+      "NATIVE-FOREGROUND-ACTIVATE": "later explicit Decision0066 model/team overlay plus explicit 2026-09-11 complete D-0032 overlay"
     },
     "closure": "Historical POLICY is closed only after all three owner proofs; this is an intentional hunk/overlay split, not duplicate implementation ownership."
+  },
+  "combined_review_amendment": {
+    "authority": "Explicit user request on 2026-09-11 to move complete D-0032 from LEAN-WORKFLOW to NATIVE-FOREGROUND-ACTIVATE because three helper calls cost too much time",
+    "owner": "NATIVE-FOREGROUND-ACTIVATE",
+    "kind": "Additional overlay; no original prepared_hunk_owners path or hunk changes owner",
+    "added_scope": [
+      "factory/scripts/record_review_from_json.py"
+    ],
+    "canon_postimages": [
+      "docs/specs/dual-coordinator-parity.md",
+      "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json"
+    ],
+    "boundary": "Complete one-helper combined-review behavior, exact tags/pass validation, raw plus three immutable candidates, task-scoped selected-pointer-last publication, fixed-only refusal, non-publishing single-lens diagnostics and coherent selected-set rejection. LEAN-WORKFLOW does not reimplement it."
   }
 }
