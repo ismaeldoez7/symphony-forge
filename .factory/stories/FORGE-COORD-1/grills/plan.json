@@ -3,35 +3,53 @@
   "gate": "plan",
   "verdict": "pass",
   "gaps": [
-    "The draft falsely identifies itself as already approved.",
-    "The ownership amendment is not propagated to the protected handover artifacts.",
-    "Review ownership contradicts accepted task-worktree ownership.",
-    "AC6 has contradictory owners.",
-    "The new authoritative review pointer has no schema owner.",
-    "The required combined assessment can exceed an undisclosed helper output limit.",
-    "Chunked lens aggregation is undefined.",
-    "classified product is an undefined authority digest.",
-    "The event-retention identity rule cannot match existing events.",
-    "Background write authority is unresolved.",
-    "The handoff generation has no transaction contract.",
-    "External client authorization is bound to filesystem locations, not repository identities.",
-    "The proposed quality baseline is neither every-push nor fully pinned."
+    "The settled D-0032 reassignment remains contradicted by live records.",
+    "The Wait for all answer is not applied.",
+    "Zero-round grills contradict binding law.",
+    "The crosswalk is incorrectly presented as authority over active decisions.",
+    "Platform-proof ordering cannot satisfy Decision 0065.",
+    "The approved graph is knowingly unfinishable at Toolshed.",
+    "First is not shown to fit one bounded session.",
+    "Review identity has two incompatible definitions.",
+    "The CI-only draft-PR path has no producing task.",
+    "Multiple citation rejections cannot complete.",
+    "Single-lens diagnostics create a second review authority.",
+    "Immutable generation lacks an immutable-publication contract.",
+    "Chunked combined-review parsing is under-specified.",
+    "The fixed-review migration inventory is not executable.",
+    "The design-review section claims a specification contract that does not exist.",
+    "Legacy event compaction confuses PR-ready with shipped.",
+    "The Task-tracker external mutation target is unspecified.",
+    "The Codex-version rationale contradicts the confirmed spec.",
+    "The four-client rollout is bound to an intermediate harness revision.",
+    "Changed Docs ownership is internally inconsistent.",
+    "Lifecycle observability omits the required logger and transport choice.",
+    "The client branch recipe violates the constitution without a written deviation."
   ],
   "contradictions": [],
   "resolutions": [
-    "The plan frontmatter is draft and its transition section requires the normal save, digest-bound approval, decomposition, task-plan grill, and task approval sequence before delegation.",
-    "The plan explicitly marks the protected old plan, decomposition, and First task plan inoperative for this amendment, then requires normal replacement of all three before the active stage continues. The matching external decomposition is already aligned and will be recorded only after plan approval.",
-    "The owner of each task carries that task in its own worktree through implementation, review fixes, PR, and green CI. The coordinator invokes review there under Decision 0011. Main owns only story scheduling and the separately authorized story-level client rollout.",
-    "The committed graph assigns AC6 to First, Lean, and Integration consistently with the plan crosswalk. First and Lean prove the task-bound diagnostic-versus-proof boundary; Integration proves the aggregate boundary.",
-    "First owns factory/schemas/review-set.json and factory/scripts/record_review_from_json.py. The one schema distinguishes origin=combined, origin=rejection, and origin=upgrade generations and validates the raw-plus-three-lens envelope and selected pointer.",
-    "The plan requires a preflight proving the three assessment markers and all quality verdict lines fit the installed helper's 3,000-character overall_explanation limit. Failure refuses before launch and requires an actual task or contract split; nothing is truncated or summarized.",
-    "Every top-level and nested provider pass is validated independently with exact full-line markers and exact chunk 1/N ordering. Projections filter the validated raw result by lens while preserving pass order, and existing score, recommendation, and worst quality-verdict rules define the aggregate. A missing, reordered, conflicting, or failed pass invalidates the generation.",
-    "The classified-product digest was removed. One factory_lib classifier now supplies the same sorted committed product paths and exclusions to review scope and current/historical binary branch-diff hashing; genuine contribution cites a path and hunk in that same diff. No product-tree snapshot or second digest exists.",
-    "The validated lowercase 32-hex source filename stem is authoritative because incumbent event payloads have no ID field. Bundle members preserve that stem plus the validated original payload, and exact canonical readback precedes source deletion.",
-    "Native lifecycle may detach only read-only helpers and supervisors. Implementation writers remain foreground and stage-bound; background write admission is refused and has no owner in this story.",
-    "The live handoff protocol was deleted. A coordinator may change only between completed tasks after the old session stops, refreshed trunk contains the marker and green CI, and no worker or partial structured question remains. The new coordinator resumes through forge next; no counter, snapshot, fencing token, registry, or concurrent ownership is added.",
-    "The committed inventory binds common directory, configured origin, canonical repository, and default branch for Cadence, MyClaw, and KnackLabs ATS. Every execution boundary revalidates those values. Toolshed has no remote and remains paused with zero mutation until the user supplies and approves its exact identity.",
-    "Format commits requirements-quality.txt with exact Ruff, Pyright, pytest, pytest-xdist, and psutil pins plus final ruff.toml before formatting. Quality consumes those bytes unchanged and makes the identical explicit source/test gate run on every branch push and pull request on Ubuntu and native Windows."
+    "D-0032 is resolved in plans/deferrals.md, the ownership lesson now assigns the complete protocol to First under accepted Decision 0067, and the bound plan, graph, decomposition and task plan all agree.",
+    "The plan applies the selected Wait for all answer to coordinator transfer: independent dependency-ready work may continue, while transfer waits until every required exchange closes or is canceled; missing or canceled answers grant no authority.",
+    "Accepted Decision 0069 permits an exactly bound ledgered empty-frontier cold read to close with zero rounds only after Shared ships; incumbent Decision 0051 floors remain until then.",
+    "The AC, roadmap and parity tables are explicitly closure crosswalks only; all active decisions and deterministic gates remain binding even when omitted from a table.",
+    "Accepted Decision 0070 allows pre-Quality tasks to record the unavailable new jobs as scheduled gaps, makes Quality the CI producer through a transport-only draft, and requires final platform proof at Quality and Integration.",
+    "D-0033 now records Toolshed as a zero-mutation deferral with its exact identity and authority trigger; the three configured clients close Integration while the Toolshed limitation remains explicit.",
+    "The plan binds First to at most 16 existing runtime/test paths plus one new schema and 2,500 changed lines inside the 75-path envelope, with an explicit stop-and-amend rule for any excess.",
+    "The plan reuses product_excluded_prefixes and product_delta_digest as the sole current delta_id for review and closeout; any compatibility branch_diff_digest field stores that same value and no second identity exists.",
+    "Decision 0070 assigns Main the direct GitHub transport action for Quality: push the exact task branch, create or reuse its matching draft, record the PR identity, and grant it no proof or seal authority.",
+    "Rejection may extend the selected combined generation or its selected rejection descendant, binding the immediate source generation file SHA256 and root combined generation ID while preserving exact decoded raw-result bytes and immutable rejection history across multiple false-positive rejections.",
+    "A single-lens run is diagnostic only and cannot publish, stamp, revoke or compete with the selected complete generation.",
+    "The plan now defines lowercase generation_id from canonical sorted compact UTF-8 JSON excluding the ID, recomputation on read, real non-symlink directory ancestors, regular single-link leaves, atomic no-overwrite generation publication, byte-identical retry and unequal collision refusal.",
+    "Every pass_reports report is recursively validated and projected in exact chunk order; the synthesized top-level summary is not a lens assessment, and the 3,000-character value is correctly treated as an output maximum.",
+    "Portable now inventories every task-scoped fixed triple and only uniquely attributable story triples before mutation, binds the sorted inventory digest, handles active versus marker-bound sealed state, and leaves ambiguous or unbound archives display-only.",
+    "The plan makes the approved plan and later rendered task contract the classification producers, removes the nonexistent spec claim, and requires complete-input assessment for any reuse across existing gates.",
+    "Compaction eligibility now requires exact shipped identity, merged PR and green required CI for scoped and legacy records; legacy pr-ready state alone cannot authorize deletion.",
+    "The dogfood target is private vrknetha/symphony-forge-tasktracker-dogfood on main, with absent-name preflight and recorded-ID identity checks for safe partial retry or collision refusal.",
+    "Codex 0.153.4 is an explicit pinned story input; the plan makes no fixture-backed or minimum model-support-floor claim and requires amendment for a version change.",
+    "The configured client rollout now starts only from the final Quality-or-later harness revision, after Portable, Format and Quality land.",
+    "First owns the necessary canonical documentation and graph hunks as task-bound contribution inside its exact envelope; Main owns only planning artifact publication and later client orchestration.",
+    "NATIVE-LIFECYCLE owns one codex_runtime shared logger, stderr for local interaction and task-scoped JSONL for durable local evidence, with redaction, correlation, bounded retry and exactly-once unexpected-error metrics.",
+    "The plan requires ticket-bearing feature/FORGE-COORD-1-forge-upgrade branches and records an explicit deviation for Cadence and Gantry to branch from and return to their verified main default while ATS uses develop."
   ],
   "open_items": [],
   "rounds": [
@@ -56,85 +74,125 @@
   "frontier_empty": true,
   "questions_asked": 2,
   "issue": "FORGE-COORD-1",
-  "summary": "Resolved all 13 findings from the latest genuine Sol/high plan cold read launch-4c908e8d875e4d58835496d170451aa0, session 01a090b0-5f62-7722-82bb-b60e18573ec1. The final user simplification, accepted Decisions 0066 and 0067, renumbered model policy Decision 0068, confirmed specification, committed architecture/graph, and amended plan preserve main c9a705bc as inherited closeout/concurrent-review/board/CI baseline while First still owns one-helper immutable-generation publication. A requested additional read was refused before launch by the two-read convergence cap, so this pass honestly re-binds the complete existing frontier to the amended plan rather than bypassing the guard.",
+  "summary": "Resolved all 22 findings from the one required Sol/high cold read, native launch cfc9824, session 01a091ce-6c0a-7fb2-ba17-14468633fae8. Decisions 0069 and 0070, D-0033, the amended plan, bound graph and First contract make the eight-task sequence executable without another cold read.",
   "inspected_refs": [
     "docs/specs/dual-coordinator-parity.md",
-    "docs/specs/strict-role-split.md",
-    "docs/product/BRIEF.md",
     "docs/architecture/dual-coordinator-parity.md",
-    "docs/decisions/0011-orchestrator-runs-autoreview.md",
-    "docs/decisions/0017-repo-as-system-of-record.md",
-    "docs/decisions/0053-interchangeable-coordinator-shared-forge-contract.md",
+    "docs/decisions/0051-every-grill-gate-is-ledger-matched.md",
     "docs/decisions/0054-native-questions-and-task-proof.md",
-    "docs/decisions/0059-task-owned-jit-workspaces.md",
     "docs/decisions/0064-lean-delivery-and-durable-history.md",
-    "docs/decisions/0067-combined-review-generation.md",
-    "constitution/07-exception-handling.md",
-    "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
-    "plans/exploration/coordinator-parity-preparation/client-ledger-migration-inventory.json",
-    "/Users/dev/.codex/plans/symphony-forge+coord-1-combined-review-story-amendment+20260911.md",
-    "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-decomposition.json",
-    "factory/scripts/record_review_from_json.py",
-    "factory/schemas/review.json",
+    "docs/decisions/0065-ci-platform-evidence.md",
     "docs/decisions/0066-closeout-binds-to-the-diff.md",
-    "docs/decisions/0068-sol-specialized-workflow-models.md"
+    "docs/decisions/0067-combined-review-generation.md",
+    "docs/decisions/0068-sol-specialized-workflow-models.md",
+    "docs/decisions/0069-empty-frontier-grill-proof.md",
+    "docs/decisions/0070-staged-platform-proof.md",
+    "plans/deferrals.md",
+    "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
+    "factory/scripts/forge_cli/close.py",
+    "factory/scripts/forge_cli/review.py",
+    "factory/scripts/forge_cli/grill.py",
+    "factory/scripts/grill_gates.py",
+    "factory/scripts/pr_ready.py",
+    "constitution/05-logging-and-observability.md",
+    "constitution/06-logger-and-log-transports.md",
+    "constitution/pnp-branch-naming-standards.md",
+    "/Users/dev/.codex/plans/symphony-forge+coord-1-combined-review-story-amendment+20260911.md",
+    "/Users/dev/.codex/plans/symphony-forge+native-foreground-combined-review+20260911.md",
+    "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-decomposition.json"
   ],
-  "current_flow": "Record this pass against the amended external plan, save the plan awaiting approval, obtain exact digest-bound approval, save the unchanged approved plan, record the matching eight-task decomposition, then replace and grill the First task plan before delegation.",
+  "current_flow": "Record this pass against the amended external story plan, save and bind the user's standing approval to that exact digest, record the matching eight-task decomposition, then save, cold-read once, grill, approve and delegate the First task.",
   "citations": [
     {
-      "finding": "The draft falsely identifies itself as already approved.",
-      "source": "Final plan frontmatter and Transition before delegation"
+      "finding": "The settled D-0032 reassignment remains contradicted by live records.",
+      "source": "plans/deferrals.md D-0032; ownership lesson; accepted Decision 0067; amended plan Transition and First boundary"
     },
     {
-      "finding": "The ownership amendment is not propagated to the protected handover artifacts.",
-      "source": "Confirmed dual-coordinator spec Why section and final plan Transition before delegation"
+      "finding": "The Wait for all answer is not applied.",
+      "source": "Amended plan One brief and proportionate scrutiny and Human questions"
     },
     {
-      "finding": "Review ownership contradicts accepted task-worktree ownership.",
-      "source": "Final plan Review flow and Verify Plan; Decisions 0011 and 0059"
+      "finding": "Zero-round grills contradict binding law.",
+      "source": "Accepted Decision 0069 and amended plan Shared boundary"
     },
     {
-      "finding": "AC6 has contradictory owners.",
-      "source": "Final plan Complete closure crosswalk and committed lean-delivery-graph task acceptance sets"
+      "finding": "The crosswalk is incorrectly presented as authority over active decisions.",
+      "source": "Amended plan closure-crosswalk disclaimer"
     },
     {
-      "finding": "The new authoritative review pointer has no schema owner.",
-      "source": "Final plan Reproducible preparation and First write scope; confirmed spec Independent review and task proof"
+      "finding": "Platform-proof ordering cannot satisfy Decision 0065.",
+      "source": "Accepted Decision 0070 and amended plan platform proof sequence"
     },
     {
-      "finding": "The required combined assessment can exceed an undisclosed helper output limit.",
-      "source": "Final plan Review flow helper 3,000-character preflight"
+      "finding": "The approved graph is knowingly unfinishable at Toolshed.",
+      "source": "plans/deferrals.md D-0033 and amended plan bound client table"
     },
     {
-      "finding": "Chunked lens aggregation is undefined.",
-      "source": "Final plan Review flow exact pass/chunk/filter/aggregation contract"
+      "finding": "First is not shown to fit one bounded session.",
+      "source": "Amended plan Reproducible preparation and first worker bounded remaining delta"
     },
     {
-      "finding": "classified product is an undefined authority digest.",
-      "source": "Final plan Review flow shared classifier and branch-diff identity"
+      "finding": "Review identity has two incompatible definitions.",
+      "source": "Amended plan Review and measurable cleanup boundaries and bound graph review_contract.classifier"
     },
     {
-      "finding": "The event-retention identity rule cannot match existing events.",
-      "source": "Final plan Safe installation retention and client migration filename-stem contract"
+      "finding": "The CI-only draft-PR path has no producing task.",
+      "source": "Accepted Decision 0070 and amended plan review publication and platform proof paragraphs"
     },
     {
-      "finding": "Background write authority is unresolved.",
-      "source": "Confirmed dual-coordinator spec Adapter events and native lifecycle; committed graph Native lifecycle owner"
+      "finding": "Multiple citation rejections cannot complete.",
+      "source": "Amended plan rejection successor-chain contract"
     },
     {
-      "finding": "The handoff generation has no transaction contract.",
-      "source": "Confirmed spec Human questions and coordinator changes; final plan Human questions and adapter proof"
+      "finding": "Single-lens diagnostics create a second review authority.",
+      "source": "Amended plan diagnostic non-authority contract"
     },
     {
-      "finding": "External client authorization is bound to filesystem locations, not repository identities.",
-      "source": "Final plan bound client table and committed client-ledger-migration-inventory.json"
+      "finding": "Immutable generation lacks an immutable-publication contract.",
+      "source": "Amended plan generation_id and atomic no-overwrite publication contract"
     },
     {
-      "finding": "The proposed quality baseline is neither every-push nor fully pinned.",
-      "source": "Final plan Falsifiable quality activation and committed graph quality_contract"
+      "finding": "Chunked combined-review parsing is under-specified.",
+      "source": "Amended plan recursive pass_reports and 3,000-character maximum contract"
+    },
+    {
+      "finding": "The fixed-review migration inventory is not executable.",
+      "source": "Amended plan C10 Portable migration inventory contract"
+    },
+    {
+      "finding": "The design-review section claims a specification contract that does not exist.",
+      "source": "Amended plan design-review producer and consumer paragraph"
+    },
+    {
+      "finding": "Legacy event compaction confuses PR-ready with shipped.",
+      "source": "Amended plan retention shipped-identity and CI eligibility contract"
+    },
+    {
+      "finding": "The Task-tracker external mutation target is unspecified.",
+      "source": "Amended plan Exact installed-client dogfood target"
+    },
+    {
+      "finding": "The Codex-version rationale contradicts the confirmed spec.",
+      "source": "Amended plan platform-proof pinned-input paragraph"
+    },
+    {
+      "finding": "The four-client rollout is bound to an intermediate harness revision.",
+      "source": "Amended plan Safe installation retention and client migration execution ordering"
+    },
+    {
+      "finding": "Changed Docs ownership is internally inconsistent.",
+      "source": "Amended plan First envelope and Surface Impact"
+    },
+    {
+      "finding": "Lifecycle observability omits the required logger and transport choice.",
+      "source": "Amended plan Human questions and adapter proof logging paragraph"
+    },
+    {
+      "finding": "The client branch recipe violates the constitution without a written deviation.",
+      "source": "Amended plan client rollout branch and written-deviation paragraph"
     }
   ],
-  "input_sha256": "ae2a52b958cda14bda4edc8522461f6da50767677c6af2ff2810ebdfd07d2162",
-  "recorded_at": "2026-09-11T18:16:19+00:00",
-  "commit": "db03a5708ca292d0e7e918d385748eb5b60008e5"
+  "input_sha256": "8b79ce6121e8612dcff2bafc77865358c7ab861e8f0eb12ecfe72b17674e7697",
+  "recorded_at": "2026-09-11T20:04:34+00:00",
+  "commit": "4a239797cb86bc36cdfb24b3e9cbd80613693034"
 }

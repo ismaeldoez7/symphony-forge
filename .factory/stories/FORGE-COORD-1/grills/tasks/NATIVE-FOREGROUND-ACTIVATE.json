@@ -4,86 +4,156 @@
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
   "verdict": "pass",
   "gaps": [
-    "The handover described obsolete bootstrap and recovery work even though the protected objective required only the third-review correction patch.",
-    "The prior plan described a zero-question grill compatibility that the target recorder would refuse under its mandatory round floor.",
-    "The declared 70-file/7,500-line review budget was already exceeded by the complete generated and proof-bearing diff.",
-    "Nine active correction regressions from the frozen 16-selector receipt were absent from the protected required_tests list.",
-    "The current C8 quality verdict cited operation-transcript line 224 even though that line did not bind the claimed launch, session, denial, and plan hash."
+    "The recorded worker boundary was broader than the approved remaining-work boundary.",
+    "The task promised a board migration without reconciling the existing board reader or write scope.",
+    "`forge task close` ownership and the stale-stamp/sequential behavior were unresolved.",
+    "The new evidence contract lacked an exact generation, selection, origin, and recorder interface.",
+    "The meaning and representation of raw helper bytes were undefined.",
+    "The lens tag and finding fingerprint could not be derived from the installed helper schema.",
+    "Quality verdict extraction was not isolated to validated quality assessment blocks.",
+    "Publication had incompatible rules for failure before and after pointer replacement.",
+    "Rejection could race a concurrent selection and overwrite an unselected source.",
+    "The required tests did not falsify eight mandatory generation, upgrade, routing, and consumer invariants.",
+    "The filesystem topology rule incorrectly treated ancestor directories like regular single-link files.",
+    "`reviewer_focus` restated load-bearing rules without citing the constitution.",
+    "The helper identity and SHA could describe different bytes from the executable actually launched."
   ],
   "contradictions": [],
   "resolutions": [
-    "Replace the obsolete fixture-recovery handoff with the current five First-owned formal-review repairs over product tip 5b745bdd914c1a6cc5842db82f130dc5f6c21ae4 and review metadata ce4e233e881a39b5771f07569b9f6fa64cf5e155. The worker inspects the actual review and checkout, uses ponytail, and never reads or replays a historical patch, receipt or recovery recipe.",
-    "Rebind this same completed historical five-gap read through the already-authorized source-recorder compatibility. Preserve rounds=[], frontier_empty=true, questions_asked=0 and the exact historical gaps, citations and criteria_map; do not invent a question, new cold read or retrospective attribution. The current formal-review technical note is separate validation. The repeated helper process is D-0032 and remains LEAN-WORKFLOW-owned.",
-    "Preserve the complete 180-file/18,000-line budget and exact 66-path write scope. The five repairs add no path, criterion, authority, graph edge, model-policy change, schema or CI parser. Main measures the complete result and stops on overrun.",
-    "Preserve all 41 required selector/path declarations and their exact command templates plus the three verify commands. Extend only the five existing selectors named in the plan. The raw-exec, apply_patch, detached-write and dead-grill behavior cases must prove RED before production fixes; the launch-order production path is already correct, so its strengthened test may be green before production edits. The post-fix batch writes fresh JUnit /tmp/forge-native-c8-formal-review-fixes-focused.xml.",
-    "Preserve all prior launches and C8 as historical observations. One registered Sol/medium worker applies only the five First-owned fixes, runs the focused selectors, reads ./forge next, performs the actual protected-plan PreToolUse denial with literal marker THIS PATCH MUST NEVER EXECUTE, and returns prose only. Main alone correlates public terminal evidence, commits, runs full verification, records proof, performs the current normal three-lens review, and owns closure, seal, PR and CI."
+    "The final decomposition records the complete accumulated task as 75 paths and 58 tests, while the approved task plan limits the remaining delegate to exactly 16 existing paths plus one new schema and 2,500 changed lines. Every other in-envelope path is preserve-byte-for-byte input, and any additional path or line overrun stops for amendment.",
+    "The existing board task-progress path already calls `task_proof_problems`, so it will consume the shared selected-generation predicate without editing `board.py`. Its separate fixed-file story summary remains non-authoritative display and belongs to the later Shared journey.",
+    "The scope now includes `factory/scripts/forge_cli/close.py`. `stamp_is_fresh` becomes the shared selected-clean/current-delta predicate used by closeout and stage consumers, and `forge.py`, `close.py`, and `review.py` remove the obsolete sequential CLI, environment, and internal plumbing.",
+    "The task plan now enumerates exact generation, helper, input, raw-result, lens, rejection, upgrade, and selection fields. It defines `record_review_from_json.py --set --task <id> --input <candidate.json>` as the complete-set interface, mutually exclusive with diagnostic `--aspect`, with one shared schema-backed publication function for review, rejection, and upgrade.",
+    "The generation stores `raw_result={encoding: base64, sha256, bytes, data}` where `data` is RFC 4648 base64 of the exact bytes read once from the helper JSON-output file before UTF-8 JSON parsing. Rejection preserves that exact decoded byte sequence and metadata.",
+    "Finding titles begin with exactly one `[quality] `, `[performance] `, or `[security] ` token. The helper supplies one integer line, so start and end both equal it; duplicate identity is NFC POSIX repository-relative path, the integer start/end pair, and NFC whitespace-collapsed case-folded title after removing the tag, with no category component.",
+    "Only `VERDICT` lines inside each actual pass's validated quality assessment block count. Performance and security blocks, finding bodies, and the synthesized chunk summary cannot supply or worsen a quality verdict.",
+    "Pointer replacement is now the publication commit point. Failure before replacement preserves the prior pointer byte-for-byte; a later stage-stamp failure keeps the new pointer selected, and retry validates and stamps that same current generation.",
+    "The existing cross-platform protected task lock gains kind `review-selection` and covers source read, source validation, generation publication, final selected-source comparison, pointer replacement, and stamping. A rejection refuses if selection changed after its source read.",
+    "The decomposition adds eight named invariant cases, raising the task to 58 required tests and the focused batch to nineteen selectors. They cover generation-ID tampering, idempotent retry and collision, exact sealed upgrade binding, rejection CAS, board selection, close/frontier current-delta routing, origin/raw-byte validation, and helper identity mismatch.",
+    "Every existing ancestor of a generation, selection, or same-directory temporary path must be a real non-symlink directory. Existing and new leaves must be regular single-link files; exclusive no-follow temporary creation, hard-link/no-overwrite generation publication, and atomic pointer replacement have separate explicit rules.",
+    "The final `reviewer_focus` cites `constitution/README.md` and its conduct sections directly, while the task plan invokes ponytail's minimum-diff ladder and the exact preserve/stop boundary instead of re-deriving the repository law.",
+    "The runner resolves one real regular helper path, captures version, file identity, and SHA immediately before launch, then re-resolves and rechecks the same identity after exit and before publication. Any mismatch discards the attempt without pointer or stamp mutation."
   ],
-  "rounds": [],
+  "rounds": [
+    {
+      "question": "Strict-role specification amendment: should Decision 0053 make the coordinator wording neutral while preserving the enforced delegated-Codex-writer boundary and the bounded degraded-mode outage valve?",
+      "options": [
+        "Apply coordinator-neutral amendment (Recommended)",
+        "Keep Claude-only wording"
+      ],
+      "chosen": "Apply coordinator-neutral amendment (Recommended)",
+      "frontier_empty": true
+    }
+  ],
   "frontier_empty": true,
   "open_items": [],
-  "questions_asked": 0,
-  "summary": "This source preserves the same completed historical five-finding Sol/high cold read launch-7ae6771745504c44a8d9e814edb96f70/session01a08db2-bd3a-7fb1-840d-7f6fa00ecbc6, with its gaps, citations, zero rounds, zero questions and criteria_map unchanged. Separately, formal-review-remediation-technical-note.md SHA256 7de3823931c7e9c3954c02e7c8496b102316ced5749e9d163a3f503cd383e90d verifies the committed review, consolidates seven authored findings into six distinct issues, assigns five bounded fixes to First, and keeps the combined-helper finding in D-0032 for LEAN-WORKFLOW. Current plan SHA256 2ae2d5c34c071242ee8910e72e45efed31ade3b6b1fdac394f135078641f3eed; matching decomposition SHA256 e3f7b0f0d2ecae336736d281fb158228273de3ea7eb032722a006045faed2cb2; immutable review archive sources.json SHA256 b7a01a468c564d5ce62bdb1d85a6792c18aafd8a436e1349fb08fa974f074b23. This is preparation only and claims no target edit, passing test, C8, review or lifecycle result.",
+  "questions_asked": 1,
+  "summary": "Resolved all 13 blocking findings from the one required Sol/high task cold read, native launch 1ea94216c0724707937ab4ee3370b844, session 01a091fd-6657-7f72-9b37-e313e3ae118c. The final 75-path/58-test contract confines the remaining delegate to 17 paths and 2,500 lines and fully specifies one-helper publication, selection, rejection, proof consumers, closeout, filesystem safety, and identity checks without a second cold read.",
   "inspected_refs": [
     ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
     ".factory/stories/FORGE-COORD-1/decomposition.json",
-    ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/verify.json",
-    ".factory/stories/FORGE-COORD-1/stages/NATIVE-FOREGROUND-ACTIVATE.json",
+    "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
+    "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
+    "constitution/README.md",
+    "docs/QUALITY.md",
+    "harness.yaml",
+    "factory/scripts/check_task_proof.py",
+    "factory/scripts/factory_lib.py",
+    "factory/scripts/record_review_from_json.py",
+    "factory/scripts/forge_cli/board.py",
+    "factory/scripts/forge_cli/close.py",
+    "factory/scripts/forge_cli/review.py",
+    "factory/scripts/forge_cli/review_brief.py",
+    "factory/scripts/forge_cli/stages.py",
+    "factory/scripts/forge_cli/tasks.py",
     "factory/tests/test_gates.py",
-    "factory/tests/test_worker_admission.py",
-    "factory/scripts/forge_cli/delegate.py",
-    "factory/scripts/forge_cli/codex_runtime.py",
-    "factory/scripts/record_grill_from_json.py"
+    "factory/tests/test_proof_read_path.py",
+    "factory/tests/test_review_lenses_in_parallel.py",
+    "factory/tests/test_review_settled_contracts.py",
+    "factory/tests/test_review_task_delta.py"
   ],
-  "current_flow": "Main records the matching decomposition and compact plan, source-compat rebinds this same resolved five-gap history with the separate current technical note, and applies standing0064 approval. Preserve the already-active stage. One registered Sol/medium worker inspects the actual committed review, uses ponytail, proves four behavior guards RED, strengthens the already-correct launch-order test, applies only the five First-owned repairs, and runs the five-selector focused batch to /tmp/forge-native-c8-formal-review-fixes-focused.xml. It reads ./forge next, performs the real protected-plan denial, never replays historical patches, and returns prose only. Main owns terminal correlation, commit, full verify, proof, the normal current three-lens review, closure, seal, PR and CI. D-0032 remains open for LEAN-WORKFLOW.",
+  "current_flow": "Main has published and approved the amended story plan, recorded the matching eight-task decomposition, and saved this final JIT task plan. One registered Sol/medium delegate writes the nineteen focused cases first, proves the new one-helper and strict-task-proof cases red, implements only the exact 17-path/2,500-line remainder through the existing review, proof, lock, and closeout seams, runs focused plus declared verification, then exercises `forge next` and the harmless real hook denial. Main correlates the terminal evidence, commits only the task delta, records proof, and runs resumable `forge task close`; any blocking review returns as one bounded fix delegation before retry, PR, CI, and merge.",
   "criteria_map": {
-    "NATIVE-FOREGROUND-ACTIVATE preserves the full target hook configuration and Claude parity: native hook JSON stays scoped, `.claude/settings.json` gains clear registration, `check_dual_runtime.py` verifies independent and both-adapter omissions, and official hook readiness remains trusted. As an explicitly additional user-requested overlay, First owns every current model-policy hunk without moving any of the original 40 prepared path/hunk allocations: its owning harness/launcher, active project profiles and guidance, all 15 committed team agent definitions, exact init/upgrade distribution proof, and same-plugin Luna/max doctor compatibility. Exploration uses Sol/low; planning, decomposition, architecture, plan validation and every grill use Sol/high; all implementation, technical test verification and autoreview fixes use Sol/medium, with formal Lite as the Luna/max exception; formal autoreview and functional checking use Sol/high; no new actor may run on Terra. Decision 0066 supersedes Decision 0062's model policy and amends only Decision 0031's model clause while preserving its Lite lifecycle. The original C8 Luna/max launch, receipt and transcript remain unchanged historical proof against the original approved task plan, not current selector authority. Review execution pins Codex to Sol/high and refuses an unreadable or known Terra-fallback helper before review-brief publication or process launch, with update-helper guidance and no doctor mutation.": "This acceptance criterion remains byte-identical and is bound by the compact current task plan and matching 41-selector decomposition. The process-loop correction changes only authorized routing, Stop, early guidance, documentation, and idempotent PR-retry behavior inside the 66-path scope; it adds no sibling capability, authority, evidence schema, or claim of target completion.",
-    "Process-bound admission remains truthful: foreground launch registers before stdin with terminal identity, zero-exit without completed turn is failed, and native write admission covers add/update/delete/move only after registration. Cancellation writes the existing durable revocation marker before cleanup signals; terminal success/failure plus dead process and released matching lock revoke completion; non-active stage incarnation revokes stage closure. Admission requires an exact starting/running row, live matching process ancestry, held matching lock, active matching stage and no explicit revocation; failed cleanup never invents success and no new completion tombstone is introduced.": "This acceptance criterion remains byte-identical and is bound by the compact current task plan and matching 41-selector decomposition. The process-loop correction changes only authorized routing, Stop, early guidance, documentation, and idempotent PR-retry behavior inside the 66-path scope; it adds no sibling capability, authority, evidence schema, or claim of target completion.",
-    "C9 review inputs are complete and task-specific: task, branch, and all three review lenses receive the full approved target task plan, approval/grill fields, digest identity, and resolved automated report; missing, unapproved, stale, summarized, truncated, or future-row-substituted inputs refuse.": "This acceptance criterion remains byte-identical and is bound by the compact current task plan and matching 41-selector decomposition. The process-loop correction changes only authorized routing, Stop, early guidance, documentation, and idempotent PR-retry behavior inside the 66-path scope; it adds no sibling capability, authority, evidence schema, or claim of target completion.",
-    "C10 proof uses one task-aware predicate for local worktree, committed CI, task-board/readiness through `task_proof_problems`, and pre-seal gating: verify ok, automated passed with no blockers, review scores/bindings clean, conditional functional proof clean, whole-bundle legacy fallback only with genuine task marker/history, and zero marker/Git/PR mutation on refusal; story singleton summary remains successor-owned.": "This acceptance criterion remains byte-identical and is bound by the compact current task plan and matching 41-selector decomposition. The process-loop correction changes only authorized routing, Stop, early guidance, documentation, and idempotent PR-retry behavior inside the 66-path scope; it adds no sibling capability, authority, evidence schema, or claim of target completion.",
-    "Workspace-before-JIT honors incumbent0063 first bootstrap and successor starts: source save/grill/approval and existing task-start refusals precede first preparation import; later `cmd_task_start` checks approved story/plan/decomposition, digest/task identity, fetched trunk, dependencies, protected path/owner, and then requires fresh target grounding/JIT/grill/approval, stage, and registered admission before writes.": "This acceptance criterion remains byte-identical and is bound by the compact current task plan and matching 41-selector decomposition. The process-loop correction changes only authorized routing, Stop, early guidance, documentation, and idempotent PR-retry behavior inside the 66-path scope; it adds no sibling capability, authority, evidence schema, or claim of target completion.",
-    "Unsupported native operations refuse before side effects: native background/read-only background, general status, live/dead worker status, cancel/resume/jobs, explore, and native question delivery do not compose briefs, spend question eligibility, append ledgers, signal processes, or dispatch children until their successor owners ship. The only native status exception renders already-dead registered native grill rows through existing dead_launches, restricted to strict grill gate/task labels and starting/running rows proven dead; it does not call the general status handler. Preserve unchanged Claude dispatch.": "This acceptance criterion remains byte-identical and is bound by the compact current task plan and matching 41-selector decomposition. The process-loop correction changes only authorized routing, Stop, early guidance, documentation, and idempotent PR-retry behavior inside the 66-path scope; it adds no sibling capability, authority, evidence schema, or claim of target completion.",
-    "Own-task review preflight uses `proof_path(base, story, artifact, task_id=args.id)` for the active task, accepts only own-task proof, and refuses story or other-task proof without helper fallback.": "This acceptance criterion remains byte-identical and is bound by the compact current task plan and matching 41-selector decomposition. The process-loop correction changes only authorized routing, Stop, early guidance, documentation, and idempotent PR-retry behavior inside the 66-path scope; it adds no sibling capability, authority, evidence schema, or claim of target completion.",
-    "The real admitted native worker proves protected-state read by executing forge next against the correct story/task/stage, then exercises the actual native tool hook against the protected task plan with harmless absent patch context. Only an actual correlated PreToolUse deny event counts: the existing automated report receipt, protected registered terminal row and durable tool log must identify the same native launch/session/tool call and actual hook-denial response. The existing implemented plan-contract review verdict checks that correlation; unchanged bytes, context/patch failure or a synthetic payload never certify denial. No new schema or CI/C10 evidence parser is introduced.": "This acceptance criterion remains byte-identical and is bound by the compact current task plan and matching 41-selector decomposition. The process-loop correction changes only authorized routing, Stop, early guidance, documentation, and idempotent PR-retry behavior inside the 66-path scope; it adds no sibling capability, authority, evidence schema, or claim of target completion."
+    "NATIVE-FOREGROUND-ACTIVATE preserves the full target hook configuration and Claude parity: native hook JSON stays scoped, `.claude/settings.json` gains clear registration, `check_dual_runtime.py` verifies independent and both-adapter omissions, and official hook readiness remains trusted. As an explicitly additional user-requested overlay, First owns every current model-policy hunk without moving any of the original 40 prepared path/hunk allocations: its owning harness/launcher, active project profiles and guidance, all 15 committed team agent definitions, exact init/upgrade distribution proof, and same-plugin Luna/max doctor compatibility. Exploration uses Sol/low; planning, decomposition, architecture, plan validation and every grill use Sol/high; all implementation, technical test verification and autoreview fixes use Sol/medium, with formal Lite as the Luna/max exception; formal autoreview and functional checking use Sol/high; no new actor may run on Terra. Decision 0068 supersedes Decision 0062's model policy and amends only Decision 0031's model clause while preserving its Lite lifecycle. The original C8 Luna/max launch, receipt and transcript remain unchanged historical proof against the original approved task plan, not current selector authority. Review execution pins Codex to Sol/high and refuses an unreadable or known Terra-fallback helper before review-brief publication or process launch, with update-helper guidance and no doctor mutation.": "The approved task preserves the completed native/Claude adapter and Sol model-policy work, pins formal Codex review to Sol/high, and adds before/after helper identity enforcement without moving the original prepared hunk owners.",
+    "Process-bound admission remains truthful: foreground launch registers before stdin with terminal identity, zero-exit without completed turn is failed, and native write admission covers add/update/delete/move only after registration. Cancellation writes the existing durable revocation marker before cleanup signals; terminal success/failure plus dead process and released matching lock revoke completion; non-active stage incarnation revokes stage closure. Admission requires an exact starting/running row, live matching process ancestry, held matching lock, active matching stage and no explicit revocation; failed cleanup never invents success and no new completion tombstone is introduced.": "The accumulated admission and revocation behavior remains preserved byte-for-byte outside the 17-path delegate boundary; the real admitted worker and existing launch evidence continue to exercise the protected lifecycle.",
+    "C9 review inputs are complete and task-specific: task, branch and combined review receive the full approved target task plan, approval/grill fields, digest identity, current delta identity and resolved automated report; missing, unapproved, stale, summarized, truncated or future-row-substituted inputs refuse. Each initial or post-fix default `./forge review <task-id>` creates one schema-exact content-addressed immutable `origin=combined` generation containing RFC4648 base64 of the exact pre-parse helper output bytes, composes one combined prompt and calls the installed helper exactly once. The recorder-enforced `factory/schemas/review-set.json` also validates citation-based `origin=rejection` and one-time `origin=upgrade`, the helper schema's 3,000-character `overall_explanation` maximum and required-boilerplate preflight, exact full-line quality/performance/security markers in order, exact chunk order, one exact `[quality] `, `[performance] `, or `[security] ` title tag per finding with end line equal to the helper's sole line, the normalized path/line/title duplicate fingerprint, existing score/recommendation and worst quality-verdict rules, quality verdicts only from each pass's validated quality block, before/after helper identity verification, a cross-platform review-selection lock with rejection compare-and-swap, and generation-first/pointer-last publication whose pointer replacement is the commit point. `generation_id` is the lowercase SHA256 of canonical sorted compact UTF-8 JSON for every generation field except `generation_id`; the generation file includes that ID, every read recomputes it, all existing ancestors are real non-symlink directories and existing/new leaves are regular single-link files, a byte-identical retry succeeds, and an unequal same-ID collision refuses. A blocking complete generation publishes and revokes clean status; only the selected clean current-delta generation certifies proof. A single-lens run remains diagnostic and cannot publish, stamp, revoke, or otherwise compete with the selected complete generation. A rejection may extend the selected combined generation or its selected rejection descendant, binds both its immediate source generation file SHA256 and root combined generation ID, preserves the exact decoded `raw_result` bytes and immutable rejection history, and refuses upgrade, unselected, fixed-only, or unrelated sources. First and Lean produce only recorder-backed exact-task AC6 proof and label preparation or diagnostics as non-proof.": "The exact one-helper grammar, raw-byte representation, origin shapes, deterministic generation identity, safe publication, rejection chain, locking, helper identity, diagnostic boundary, and selected-clean predicate are specified and assigned to named code paths and nineteen focused selectors.",
+    "C10 proof uses one task-aware predicate for local worktree, committed CI, board/readiness, `forge task close` and pre-seal gating. Every pre-seal consumer resolves the one immutable generation named and hashed by the task-scoped `selected.json` pointer; that generation contains raw output and all three lens records and is bound to the same current `delta_id` produced by the inherited `product_delta_digest` seam. Normal sealed reads use the pointer from the marker commit; only Portable may later supply an `origin=upgrade` pointer whose sealed-commit binding exactly equals that immutable marker. The pointer publishes last, and any absent, fixed-only, incomplete, malformed, copied, mixed, stale, tampered or interrupted set refuses while leaving the prior complete pointer unchanged. `forge task close`, stage/frontier routing, CI and board task progress skip review only for the selected clean current-delta generation through one shared predicate; refusal mutates no marker, Git, PR, stage or proof state, and runtime readers never fall back to fixed quality/performance/security files or story-level proof for a task-owned artifact.": "One selected-generation/current-delta predicate now owns task proof for closeout, stages, frontier, readiness, CI, checks, and board task progress; marker-commit reads and Portable's exact sealed upgrade exception are explicit, with no fixed or story fallback.",
+    "Workspace-before-JIT honors incumbent0063 for the first bootstrap. Successor task start checks the approved story plan and decomposition, task/digest identity, refreshed trunk and dependency markers, then creates the task worktree before task-plan save/grill/approval. The explicit attach route accepts only a clean, registered, unowned same-common-directory worktree at that trunk commit with matching branch/story/task/decomposition/dependencies. Grounding, JIT approval, stage and registered admission still precede writes.": "The already-implemented first workspace bootstrap remains preserved, and successor workspace-before-JIT behavior stays assigned to its later owner; this amendment adds no second workspace or attachment mechanism.",
+    "Unsupported native operations refuse before side effects: native background/read-only background, general status, live/dead worker status, cancel/resume/jobs, explore, and native question delivery do not compose briefs, spend question eligibility, append ledgers, signal processes, or dispatch children until their successor owners ship. The only native status exception renders already-dead registered native grill rows through existing dead_launches, restricted to strict grill gate/task labels and starting/running rows proven dead; it does not call the general status handler. Preserve unchanged Claude dispatch.": "The existing unsupported-operation refusals remain preserved outside this delegate boundary, including the narrow dead native-grill status exception and unchanged Claude dispatch.",
+    "Own-task review preflight uses `proof_path(base, story, artifact, task_id=args.id)` for the active task, accepts only own-task proof, and refuses story or other-task proof without helper fallback.": "The rewritten strict-proof regression and exact `proof_path(..., task_id=args.id)` preflight prove that own-task evidence is required and story or other-task proof cannot launch review.",
+    "The real admitted native worker proves protected-state read by executing forge next against the correct story/task/stage, then exercises the actual native tool hook against the protected task plan with harmless absent patch context. Only an actual correlated PreToolUse deny event counts: the existing automated report receipt, protected registered terminal row and durable tool log must identify the same native launch/session/tool call and actual hook-denial response. The existing implemented plan-contract review verdict checks that correlation; unchanged bytes, context/patch failure or a synthetic payload never certify denial. The one shared review-set schema is introduced here; no second review registry or CI/C10 evidence parser is introduced.": "The worker must run `forge next` and the real harmless native PreToolUse denial; Main correlates launch, session, tool call, hook response, unchanged task-plan bytes, and `patch_executed=false`. The one shared review-set schema is the only new evidence schema."
   },
   "decision": "keep",
-  "new_abstractions": [],
+  "new_abstractions": [
+    "One schema-backed review-generation publication function shared by default review, citation rejection, and Portable upgrade."
+  ],
   "citations": [
     {
-      "finding": "The handover described obsolete bootstrap and recovery work even though the protected objective required only the third-review correction patch.",
-      "source": "launch-7ae public finding 1 at native line 169; prior raw task plan SHA256 85c82e6d653044e643d06f4ad23ec15417c42a854efc9a57cc0a467fe0a4a871; amended plan CURRENT section; latest CURRENT minimal successor-fixture appendix preserves completed plan history; latest CURRENT review-dataset appendix preserves completed plan history"
+      "finding": "The recorded worker boundary was broader than the approved remaining-work boundary.",
+      "source": "Native cold read launch 1ea94216c0724707937ab4ee3370b844 / session 01a091fd-6657-7f72-9b37-e313e3ae118c finding 1; final task plan lines 9 and 19-39; story plan line 181; recorded decomposition write_scope=75 and required_tests=58."
     },
     {
-      "finding": "The prior plan described a zero-question grill compatibility that the target recorder would refuse under its mandatory round floor.",
-      "source": "launch-7ae public finding 2 at native line 169; prior raw task-plan line 370; docs/decisions/0061-host-native-human-interaction.md consequences; docs/decisions/0064-lean-delivery-and-durable-history.md lines 30-38; source recorder SHA256 4089b310edc6aa32fcb4d848d73c2d374937921a92114a7eb4204d4c03c24ffe"
+      "finding": "The task promised a board migration without reconciling the existing board reader or write scope.",
+      "source": "Cold read finding 2; final task plan line 97; story plan lines 181-183; factory/scripts/forge_cli/board.py task progress reaches task_proof_problems while its story summary remains display-only."
     },
     {
-      "finding": "The declared 70-file/7,500-line review budget was already exceeded by the complete generated and proof-bearing diff.",
-      "source": "launch-7ae public finding 3 at native line 169; first-complete-review-budget-projection.json SHA256 998b91b9480cd2ad6b39e4ddddf3cb946d9dc8b66d3047bccfe84e853220f7a3"
+      "finding": "`forge task close` ownership and the stale-stamp/sequential behavior were unresolved.",
+      "source": "Cold read finding 3; final task plan lines 27, 82, 86, and 97; decomposition includes factory/scripts/forge_cli/close.py."
     },
     {
-      "finding": "Nine active correction regressions from the frozen 16-selector receipt were absent from the protected required_tests list.",
-      "source": "launch-7ae public finding 4 at native line 169; third-review-confirmed-fixes.receipt.md lines 55-63 SHA256 912a54cf5a97fd8e644fabc322dc58d127e74fadc2767485b9c02b337bc3d40b; amended decomposition required_tests"
+      "finding": "The new evidence contract lacked an exact generation, selection, origin, and recorder interface.",
+      "source": "Cold read finding 4; final task plan lines 66-70 and 92-97; factory/scripts/record_review_from_json.py and harness.yaml are in the remaining write boundary."
     },
     {
-      "finding": "The current C8 quality verdict cited operation-transcript line 224 even though that line did not bind the claimed launch, session, denial, and plan hash.",
-      "source": "launch-7ae public finding 5 at native line 169; completed launch-9d91 and launch-cc524 C8 remain historical; new c8-review-dataset-operation-transcript.json and c8-review-dataset-source-check.json are required before fresh review"
+      "finding": "The meaning and representation of raw helper bytes were undefined.",
+      "source": "Cold read finding 5; final task plan lines 66 and 84 define the exact pre-parse JSON-output bytes, RFC 4648 base64 representation, hash/count, and rejection preservation."
+    },
+    {
+      "finding": "The lens tag and finding fingerprint could not be derived from the installed helper schema.",
+      "source": "Cold read finding 6; final task plan lines 60-62 bind the exact title tokens, helper single-line mapping, and normalized duplicate fingerprint."
+    },
+    {
+      "finding": "Quality verdict extraction was not isolated to validated quality assessment blocks.",
+      "source": "Cold read finding 7; final task plan line 62 restricts contract verdict extraction to validated quality blocks and excludes other blocks, findings, and synthesized summaries."
+    },
+    {
+      "finding": "Publication had incompatible rules for failure before and after pointer replacement.",
+      "source": "Cold read finding 8; final task plan lines 72 and 76 distinguish generation publication from selection replacement and name pointer replacement as the commit point."
+    },
+    {
+      "finding": "Rejection could race a concurrent selection and overwrite an unselected source.",
+      "source": "Cold read finding 9; final task plan line 76 holds the review-selection lock through read, validation, publication, final compare, pointer replacement, and stamp; selector test_rejection_compare_and_swap_refuses_interleaved_selection."
+    },
+    {
+      "finding": "The required tests did not falsify eight mandatory generation, upgrade, routing, and consumer invariants.",
+      "source": "Cold read finding 10; final task plan lines 103-130 name nineteen selectors; amended decomposition declares 58 exact required tests."
+    },
+    {
+      "finding": "The filesystem topology rule incorrectly treated ancestor directories like regular single-link files.",
+      "source": "Cold read finding 11; final task plan line 72 distinguishes real non-symlink directory ancestors from regular single-link leaves for generation, selection, and temporary paths."
+    },
+    {
+      "finding": "`reviewer_focus` restated load-bearing rules without citing the constitution.",
+      "source": "Cold read finding 12; amended decomposition reviewer_focus cites constitution/README.md conduct sections 1, 2, 4, 5, 6, 7, 9, and 10; final task plan lines 15 and 19-39 bind minimality and scope."
+    },
+    {
+      "finding": "The helper identity and SHA could describe different bytes from the executable actually launched.",
+      "source": "Cold read finding 13; final task plan line 74 requires before/after real-path, file-identity, version, and SHA checks; test_review_helper_identity_mismatch_refuses_publication falsifies mismatch."
     }
   ],
   "preparation_sources": [
-    "/Users/dev/.codex/plans/symphony-forge+process-loop-recovery+20260911.md",
-    "/Users/dev/.codex/reviews/forge-lean-20260910/formal-review-remediation-decomposition.json",
-    "/Users/dev/.codex/reviews/forge-lean-20260910/formal-review-remediation-technical-note.md",
-    "/Users/dev/.codex/reviews/forge-lean-20260910/formal-review-remediation-plan.md",
-    "/Users/dev/.codex/reviews/forge-lean-20260910/formal-review-ce4e233-blocking/sources.json",
-    "/Users/dev/Workdir/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/plans/deferrals.md#D-0032"
+    "/Users/dev/.codex/plans/symphony-forge+coord-1-combined-review-story-amendment+20260911.md",
+    "/Users/dev/.codex/plans/symphony-forge+native-foreground-combined-review+20260911.md",
+    "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-decomposition.json",
+    "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-lean-delivery-graph-postimage.json"
   ],
-  "input_sha256": "35cda4f21b9d0f1ced3cac4c9e1844d7b17376e3220860c4270b8716b04b6264",
+  "input_sha256": "97d1c91b2f980867a259c1a474680d49c686dedd035759c414b47933222191a4",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
-  "task_plan_sha256": "0f1969a8554f64e0f1266174a10f7b962491fed202a5f7e114a8d4f1faadbd5b",
-  "recorded_at": "2026-09-11T09:15:13+00:00",
-  "commit": "ce4e233e881a39b5771f07569b9f6fa64cf5e155",
-  "approved_task_plan_sha256": "0f1969a8554f64e0f1266174a10f7b962491fed202a5f7e114a8d4f1faadbd5b",
-  "approved_by": "User (explicit process-loop recovery and standing0064 approval, Codex conversation 2026-09-11)",
-  "approved_at": "2026-09-11T09:15:27+00:00"
+  "task_plan_sha256": "46aa6cc23ad4056ea61fa59f53ad7ed89ad4a1c0583f0a8b1767d6171d0af824",
+  "recorded_at": "2026-09-11T20:11:06+00:00",
+  "commit": "4a239797cb86bc36cdfb24b3e9cbd80613693034",
+  "approved_task_plan_sha256": "46aa6cc23ad4056ea61fa59f53ad7ed89ad4a1c0583f0a8b1767d6171d0af824",
+  "approved_by": "User (all plans approved, Codex conversation 2026-09-12)",
+  "approved_at": "2026-09-11T20:11:06+00:00"
 }
