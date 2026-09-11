@@ -8676,7 +8676,8 @@ def test_plan_save_refuses_without_fresh_requirements_grill(repo, tmp_path):
     assert code != 0 and "awaiting-approval" in out
 
 
-def test_forge_next_routes_requirements_round_first(repo):
+def test_forge_next_routes_requirements_round_first(repo, monkeypatch):
+    monkeypatch.setenv("FORGE_COORDINATOR", "claude")
     sign_off(repo)
     intake(repo)
 
