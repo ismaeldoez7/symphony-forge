@@ -6,7 +6,8 @@ Symphony Forge is KnackLabs's process harness for building applications with
 either Claude Code or native Codex coordinating and delegated Codex workers executing. It turns in-repo architecture and
 decision documents into shipped software through a fixed sequence — discovery,
 confirmed capability specs, a derived roadmap, client sign-off, one planned
-story at a time, bounded tasks, deterministic verification, one autoreview pass,
+story at a time, bounded tasks, deterministic verification, one independent
+review lifecycle with quality, performance, and security assessments,
 and a recorded outcome — and it enforces that sequence in code rather than in
 instructions an agent can talk itself out of.
 
@@ -45,9 +46,10 @@ repository and reproducible in a fresh worktree.
   derived from confirmed specs; the client signs off once, and that sign-off
   gates every later phase.
 - One roadmap story is planned, grilled, and approved, then decomposed into
-  bounded dependency-aware tasks; each task owns a worktree, is delegated with a composed brief,
-  measured on its own diff, and reviewed locally before it commits.
-- Verification, tests, one review operation with three assessments, and an outcome are recorded through
+  bounded dependency-aware tasks; each task owns a worktree, is delegated with
+  a composed brief, implements and tests its change, runs deterministic
+  verification, and loops through independent review and fixes until clean.
+- Verification, tests, one review lifecycle with three assessments, and an outcome are recorded through
   schema-validated commands, and `pr_ready` refuses until all of them exist.
 - Dependency-ready stories fan out into separate worktrees; their roadmap
   status flips converge deterministically on merge.
@@ -87,8 +89,10 @@ repository and reproducible in a fresh worktree.
   client repos cannot drift from the machinery they were given.
 - Evidence enters `.factory/` only through recording commands that validate
   against `factory/schemas/`, including a pinned `generated_by`.
-- The planning lock is always armed; the only exits are an approved plan with a
-  recorded decomposition, or a bounded, ledgered quickfix window.
+- The planning lock is always armed. Full work requires an approved plan and
+  decomposition; bounded ledgered quickfix and Lite windows are the other
+  planning-lock exits. The degraded window is the separate five-file delegated-
+  writer outage valve.
 - One story is planned at a time; each task owns a worktree, and dependency-ready tasks may overlap only with disjoint protected scopes.
 - The board is read-only and derives everything from committed artifacts; it
   never approves.

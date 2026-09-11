@@ -1,74 +1,74 @@
 # Dual-coordinator parity architecture
 
-This document owns the shared technical boundaries used by the confirmed dual-coordinator capability. The approved story decomposition and each approved task plan still own delivery order, exact paths, tests, and implementation scope.
+This document owns the shared technical boundaries for dual-coordinator parity. The approved story decomposition and task plans own delivery order, exact paths, tests, and implementation scope.
 
 ## Coordinator and writer boundary
 
-Claude Code and native Codex are adapters to the same Forge phase engine. The active coordinator owns orchestration and the human conversation. Product writes flow through an admitted task worker whose process, task, worktree, stage, brief, and scope all match. The ledgered five-file degraded window remains the bounded outage path.
+Claude Code and native Codex adapt the same Forge phase engine. One coordinator owns the current human conversation; product writes still require an admitted task worker whose process, task, worktree, stage, brief, and scope match. The ledgered five-file degraded window remains the outage path.
 
-Both adapters register the same lifecycle owners for SessionStart, PreCompact, PreToolUse, PostToolUse, and Stop. Adapter-specific tool names are mapped to those owners by `check_dual_runtime.py`; the adapters do not implement separate phase or authority rules.
+A coordinator changes only between completed tasks. The old session stops with no active worker or partial structured question; the new coordinator refreshes trunk and resumes with `forge next`. This story adds no live transfer command, fencing token, coordinator registry, or concurrent coordinator ownership.
 
-Each invocation writes an `adapter-event-result` through the existing event
-family when repository identity is available. It binds the runtime, event row,
-installed owner, outcome, host blocking capability, session, story, and task.
-The shared task-proof reader consumes current results. If the hook cannot write
-the result, it emits the same stable sanitized identity to the host error
-channel and cannot supply successful hook proof. A host may fail open where its
-API requires that behavior, including Stop owner failures, but the adapter may
-not report a successful lifecycle observation.
+After the Decision 0063 first-task exception, `task start` creates the worktree before task-plan save and grill. Its attach option accepts only a clean, registered, unowned worktree from the same Git common directory at the fetched trunk commit, with matching branch, story, task, decomposition, and dependency markers. Empty dependencies inherit the immediate predecessor; a nonempty list selects exactly those dependencies. `stage start --trunk` remains legacy behavior and cannot satisfy the new workspace-owned flow.
+
+`./setup` and `forge doctor [--fix]` select the coordinator for one invocation: explicit argument, `FORGE_COORDINATOR`, one unambiguous detected host, then an interactive TTY question. Failure or ambiguity refuses before repair. Init, adopt, and upgrade install both adapters and never persist a selected coordinator.
+
+## Adapter contract
+
+The committed configurations are the normative current tool inventory:
+
+| Runtime | Hook | Matcher or source |
+|---|---|---|
+| Claude | `SessionStart` | `startup|resume|clear|compact` |
+| Claude | `PreCompact` | the host pre-compact event |
+| Claude | `PreToolUse` | `Bash|AskUserQuestion` and `Edit|Write|MultiEdit|NotebookEdit` |
+| Claude | `PostToolUse` | completed `AskUserQuestion` plus diagnostic write capture |
+| Claude | `Stop` | the host stop event |
+| Codex | `SessionStart` | `startup|resume|clear|compact` |
+| Codex | `PreCompact` | the host pre-compact event |
+| Codex | `PreToolUse` | `Bash|Edit|Write|apply_patch|request_user_input|request_user_input_async` |
+| Codex | `PostToolUse` | completed synchronous `request_user_input` |
+| Codex | `Stop` | the host stop event |
+
+An asynchronous question call is guarded at issuance but is not completion evidence. A newly exposed tool must be added to the applicable matcher and tests before parity can be claimed. `check_dual_runtime.py`, focused hook tests, and the recorder-produced automated report are task proof. Timeline events remain best-effort diagnostics under Decision 0017.
+
+Unexpected lifecycle exceptions reach one top-level boundary, return nonzero with a stable sanitized error ID, write one correlated structured error, and increment `forge_native_unexpected_errors_total` once with bounded labels. The error ID is the trace join key. Decision 0060's narrow POSIX signal-mask restoration stays in the existing launch path.
+
+## Human-question identity
+
+A successful structured-question hook writes one immutable event. The filename's fresh lowercase 32-hex stem is its event ID; a zero-based index identifies each question in the call. Eligibility binds runtime, session, event ID, question index, exact story/gate/task scope, current input digest, requiredness, question, ordered options, and nonblank answer. The recorder consumes an eligible question once. Historical rounds keep their old contract.
+
+If an answer changes an approval-bound artifact, the owning decision or approval records the changed revision and the grill covers that final revision. No revision-mapping protocol or chat collector is added. Ordinary required questions remain in the host conversation; abandonment grants no authority and a later coordinator asks again.
 
 ## Review publication
 
-The story-level `review-run.json` is an input and run token. It never selects proof.
-
-Each task selects exactly one review generation through:
+The story-level `review-run.json` remains only an input/run token. Each task selects one immutable review generation through:
 
 `.factory/stories/<story>/tasks/<task>/reviews/selected.json`
 
-A task has one review lifecycle with immutable generations. Every initial or
-post-fix default invocation creates one generation and calls the helper once.
-A combined publication stores exact raw helper bytes and three schema-valid
-lens candidates below `reviews/candidates/<publication-id>/`. The selected
-pointer uses `origin=combined` and binds the candidate paths and hashes, review
-run, brief, task input, branch diff, classified product, helper, story, and
-task. All candidates validate and read back before a same-directory atomic
-pointer replacement. Failure before replacement may leave unreferenced
-candidates but cannot change the selected set. A blocking generation is still
-selected and revokes clean status; only the selected clean generation
-certifies task proof.
+One default review calls the installed helper once and writes one generation below `reviews/generations/`. The generation contains the raw helper result and three schema-valid lens records. Forge validates and reads it back before atomically replacing the pointer. A blocking generation is selected and revokes clean status; only a selected clean generation certifies proof. `factory/schemas/review-set.json` distinguishes `origin=combined`, `origin=rejection`, and `origin=upgrade`.
 
-Every finding begins with one exact lens tag. Its untagged fingerprint uses the
-specification's RFC 8785 and Unicode normalization contract, and one
-fingerprint may have only one owning finding record. Other affected lens blocks
-refer to it with the exact `AFFECTS <fingerprint> BLOCKING|NONBLOCKING` grammar.
+Each actual provider pass has exactly three full-line blocks, in quality, performance, security order:
 
-Pre-seal readers resolve the current task pointer. Sealed readers resolve the task pointer at the marker's sealed commit. Every readiness, board, CI, seal, and rejection consumer calls the same resolver. Missing, fixed-only, unsafe, malformed, incomplete, mixed, copied, stale, or tampered proof refuses. Runtime readers do not inspect fixed review paths.
+```text
+BEGIN FORGE ASSESSMENT <lens>
+<non-empty body>
+END FORGE ASSESSMENT <lens>
+```
 
-A single-lens run is diagnostic and cannot select proof or stamp a stage. Rejecting one finding republishes a complete selected set with the cited projection changed and the other bindings preserved.
+Quality carries the existing machine-parsed contract verdicts. Forge preflights their minimum size against the helper's 3,000-character explanation limit. Unchunked output is one top-level pass; chunked reports are nonempty and labelled exactly `chunk 1/N` through `chunk N/N`. Every finding has one lowercase lens tag. Cross-lens duplicate detection uses repo-relative NFC POSIX path, integer start/end lines, and the NFC, whitespace-collapsed, case-folded title after removing the tag. Projections preserve pass order and reuse the existing score, recommendation, and worst quality-verdict functions.
+
+One classifier in `factory_lib.py` supplies review scope plus current and historical binary branch-diff hashing. Genuine-contribution proof cites its qualifying path and hunk in that same diff and correlates it with admitted write and terminal evidence. There is no product-tree digest.
+
+Pre-seal readers resolve the current pointer. Normal sealed readers resolve the pointer at the task marker commit. A citation-based rejection reads a selected combined generation and writes an immutable `origin=rejection` successor with source hash, exact finding, reason, citation, and actor; it preserves raw output and unaffected lenses. Fixed-only rejection refuses.
 
 ## One-time upgrade migration
 
-Before its first target write, `forge upgrade` globally enumerates and
-preflights fixed three-lens review sets reachable from the active task or
-committed task markers. An active unsealed set binds the current task plan,
-grill, approval, stage incarnation, base, diff, run, and brief and has no marker
-or seal. A sealed set additionally binds its committed marker, seal, and
-inspected commit. Mixed state refuses. After the complete inventory passes,
-upgrade writes no-clobber candidates and an `origin=upgrade` selected pointer
-that hash-binds the original artifact bytes and available provenance without
-inventing raw combined-helper output. It reads every complete result back
-before replacing machinery and runs the new resolver over every migrated
-pointer afterward.
+Upgrade preflights every eligible fixed three-lens set before any target write. Active proof binds current task state. Sealed proof binds the original marker commit and exact fixed-artifact bytes. Only after the whole inventory passes may upgrade write and read back `origin=upgrade` generations and their pointers.
 
-Malformed, incomplete, ambiguous, colliding, symlinked, or otherwise unsafe input stops before target mutation. A byte-identical retry is idempotent. Old fixed files remain inert, and unbound archives remain display-only.
+For already sealed legacy tasks, the current migration pointer is valid only when its generation's sealed-commit binding exactly equals the immutable marker. A replacement, mismatch, malformed set, mixed state, collision, linked path, or ambiguous owner refuses. Byte-identical retry is idempotent. Runtime readers never fall back to fixed paths.
 
-## Successor extensions
+The first event bundle for a shipped story is immutable. A later eligible event makes preview and apply refuse while leaving that event loose and unchanged. Retry may delete only loose events already represented by identical bundle members. V1 adds no successor shard.
 
-`NATIVE-LIFECYCLE` extends the shared launcher with detached lifecycle, recovery, correlated structured errors, metrics, and cancellation truth. `SHARED-COORDINATOR-JOURNEY` extends question identity, handoff, board, and owner recovery. `PORTABLE-DELIVERY-MIGRATION` implements the upgrade migration above. Each extension updates this architecture before its implementation when it changes an enduring boundary.
+## Successor ownership
 
-The shared handoff path refreshes trunk and holds one protected-state lock used
-by every relevant state mutator. It captures one monotonic generation plus the
-exact task, worker, stage, approval, selected-review, CI, and marker identities.
-Transfer requires the marker on refreshed trunk, green CI for that commit, no
-active worker, and every required question exchange closed. Unsafe paths,
-generation drift, or inconsistent identities refuse before transfer.
+`NATIVE-LIFECYCLE` owns detached read-only helpers, lifecycle recovery, cancellation, correlated errors, metrics, and signal behavior. `SHARED-COORDINATOR-JOURNEY` owns question identity, workspace-first task ownership, board state, and between-task coordinator changes. `PORTABLE-DELIVERY-MIGRATION` owns setup delivery, review migration, event retention, and client rollout support. Each successor updates this architecture before changing an enduring boundary.
