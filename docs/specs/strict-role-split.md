@@ -1,7 +1,7 @@
 ---
 slug: strict-role-split
 title: The role split is a gate: coordinators orchestrate, only delegated Codex workers write product
-status: draft
+status: confirmed
 saved: 2026-09-11T12:14:29+00:00
 ---
 
