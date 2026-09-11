@@ -38,6 +38,7 @@
         "NATIVE-FOREGROUND-ACTIVATE"
       ],
       "owned_behavior": [
+        "Preserve the validated origin/main c9a705bc closeout, delta, task-proof, concurrent incumbent review, board and CI baseline without claiming it as First contribution; replace only review generation creation/publication as owned by Decision0067.",
         "Existing complete foreground hooks/checker/readiness and process-bound admission",
         "C9 full approved plan and automated report in review inputs",
         "C10 shared complete local/committed/board proof and seal before mutation",
@@ -46,7 +47,7 @@
         "Claude clear registration and independent/both-adapter hook omission tests",
         "Explicit reviewed task proof_path preflight, never another task/story proof",
         "Actual native protected-state read and denied unauthorized mutation proof; current client reads already work, false phase wording belongs to LEAN",
-        "Additional Decision0066 model-policy overlay across owning selectors, active profiles/guidance, 15 committed team agents, init/upgrade distribution proof and exact-known same-plugin Luna/max repair; original 40 prepared hunk owners unchanged",
+        "Additional Decision0068 model-policy overlay across owning selectors, active profiles/guidance, 15 committed team agents, init/upgrade distribution proof and exact-known same-plugin Luna/max repair; original 40 prepared hunk owners unchanged",
         "Explicit user-requested D-0032 overlay: one task review lifecycle and one combined helper call per attempt; three ordered assessment sections and one lens tag per finding; one immutable raw-plus-three-lens generation; task-scoped selected-pointer-last publication; fixed-only refusal; non-publishing single-lens diagnostics; and citation-based origin=rejection successors that preserve raw bytes and unaffected lenses. Original prepared hunk owners remain unchanged.",
         "One review-set schema validates one immutable raw-plus-three-lens generation and one small selected pointer; one shared classifier drives review scope and current/historical branch-diff hashing"
       ],
@@ -80,7 +81,7 @@
         "docs/ROLES.md",
         "docs/architecture/dual-coordinator-parity.md",
         "docs/decisions/0062-luna-max-exploration-and-implementation.md",
-        "docs/decisions/0066-sol-specialized-workflow-models.md",
+        "docs/decisions/0068-sol-specialized-workflow-models.md",
         "docs/degraded-mode.md",
         "docs/getting-started.md",
         "docs/product/BRIEF.md",
@@ -269,7 +270,7 @@
       "owned_behavior": [
         "Structured-question identity (runtime/session/event/question-index) with exact story/gate/task, current input digest, requiredness, question, ordered options and answer; optional non-gate encoding; native empty-frontier zero-round proof; accepted-authority references; and exact single use",
         "Main-only host-permitted decisions and exact current artifact display",
-        "Interaction and shared adapter policy under Decision0066; model selection itself is First-owned",
+        "Interaction and shared adapter policy under Decision0068; model selection itself is First-owned",
         "Workspace-first task start plus explicit safe attachment of a clean, registered, unowned same-common-directory worktree at refreshed trunk with matching branch/story/task/decomposition/dependencies; publish protected run.json ownership last",
         "Safe story resume, question ledger hydration, sealed-record immutability and sibling/trunk integration",
         "Hydrate actual consumed grill-rounds records only; plan-mode marker gate remains withdrawn",
@@ -324,7 +325,7 @@
       ],
       "owned_behavior": [
         "Per-invocation ./setup and forge doctor --coordinator selection: explicit argument, FORGE_COORDINATOR, one unambiguous detected host, then interactive TTY; conflict, invalid input, cancellation, EOF or unattended absence refuses before repair. The choice is not persisted; init/adopt/upgrade preserve both adapters.",
-        "Client rollout preserves and refreshes the Decision0066 project agent registry; the prior three-agent retirement intent is superseded",
+        "Client rollout preserves and refreshes the Decision0068 project agent registry; the prior three-agent retirement intent is superseded",
         "Only validated live attributed per-file events compact after exact scoped/legacy shipped eligibility; validated lowercase 32-hex filename stem is the authoritative ID because payloads have no ID field; parsed payload is preserved, preview inventory digest is required by apply, and root/history JSONL plus existing bundles remain immutable",
         "First event-bundle publication uses atomic no-overwrite. Retry cleans only exact loose pairs already represented; a later eligible ID remains loose and makes preview/apply refuse. V1 creates no successor shard, replacement, sidecar or retroactive marker.",
         "Before the first target write, globally preflight every eligible fixed review set. Active proof binds current state; sealed proof binds the immutable marker commit and exact fixed bytes. Only then create/read back origin=upgrade generations and selected pointers. A sealed reader accepts the later pointer only for an exact marker-commit binding; replacement, mismatch, mixed/unsafe input or ambiguity refuses. Unbound archives stay display-only and fixed files inert.",
@@ -1141,7 +1142,7 @@
           },
           {
             "id": "factory/prompts/griller.md#hunk-4",
-            "header": "@@ -131,7 +126,7 @@ approve. `NOT CONVERGED` does NOT mean read again — it means resolve what the",
+            "header": "@@ -131,7 +126,7 @@ approve. `NOT CONVERGED` does NOT mean read again \u2014 it means resolve what the",
             "patch_line": 956,
             "sha256": "4fbee0121d0219615c5de54a065b8cb72b19ed47bba232500fc71e170d419bf8"
           },
@@ -2749,7 +2750,8 @@
     "assessment_grammar": "Each actual pass overall_explanation contains exactly one nonempty full-line BEGIN/END FORGE ASSESSMENT block for quality, performance and security in that order; quality retains one current VERDICT line per task contract, and the minimum is preflighted against the helper 3,000-character limit. Unchunked output is the top-level pass; chunked output uses exact nonempty chunk 1/N through chunk N/N reports. Each finding has one lowercase lens tag. Cross-lens duplicate detection uses repo-relative NFC POSIX path, integer start/end lines and NFC/whitespace-collapsed/case-folded title after tag removal. Projections preserve pass order and reuse existing score, recommendation and worst quality-verdict behavior.",
     "upgrade_migration": "PORTABLE-DELIVERY-MIGRATION is the only compatibility transition. Before the first target write it globally preflights every eligible fixed set. Active proof binds current task state; sealed proof binds the immutable marker commit and exact fixed bytes. Only then may it create and read back origin=upgrade generations and pointers. A sealed reader accepts a later migration pointer only when the generation's sealed-commit binding exactly equals the marker commit; replacement, mismatch, malformed, mixed, colliding, linked or ambiguous input refuses. Byte-identical retry passes and unbound archives remain display-only.",
     "classifier": "factory_lib owns one classifier whose excluded prefixes and sorted committed product paths are reused by review scope and current/historical binary branch-diff hashing. Genuine-contribution proof cites a qualifying path and hunk in that same diff and correlates it with admitted write and terminal evidence. No product-tree snapshot or second digest is introduced.",
-    "rejection": "Reject only from a selected origin=combined generation. Create an immutable origin=rejection successor bound to the source hash; preserve raw helper bytes, shared bindings, pass order and unaffected lenses; change only the cited projection and record exact finding, reason, citation and actor before pointer-last publication. Fixed-only rejection refuses."
+    "rejection": "Reject only from a selected origin=combined generation. Create an immutable origin=rejection successor bound to the source hash; preserve raw helper bytes, shared bindings, pass order and unaffected lenses; change only the cited projection and record exact finding, reason, citation and actor before pointer-last publication. Fixed-only rejection refuses.",
+    "incumbent_baseline": "origin/main c9a705bc runs three lens helpers concurrently and task close reuses exact-delta review proof. This is inherited runtime, not Decision0067 completion; First replaces generation creation with one helper while reusing closeout and task-proof seams."
   },
   "registry_distribution_contract": {
     "owner": "NATIVE-FOREGROUND-ACTIVATE",
@@ -2935,12 +2937,12 @@
   "roadmap_limit_interpretation": "The existing review limits phrase means the actual installed helper safeguards under accepted0064, which expressly amends obsolete0058/spec caps; no helper limit edit or implicit patch cap.",
   "confirmed_spec": {
     "path": "docs/specs/dual-coordinator-parity.md",
-    "sha256": "9fc1e4579d040e1115743c592a967a75d24f214b64b566f3fe4175a7046c432e",
+    "sha256": "7b2bdc79bb5d9bc0163f22ad1fcf7f557db7f53102bdc288a6d0633e6e2a4f7e",
     "status": "confirmed through actual main-owned save/change-scoped-grill/confirm route"
   },
   "retention_contract_source": "Confirmed docs/specs/dual-coordinator-parity.md and accepted0064; all necessary scope and proof is included here and in the bound story plan.",
   "model_policy_amendment": {
-    "authority": "Explicit user model/team-policy request; accepted Decision0066, which narrowly amends Decision0065 existing First scope and the matching scope lesson while preserving all other0065 duties",
+    "authority": "Explicit user model/team-policy request; accepted Decision0068, which narrowly amends Decision0065 existing First scope and the matching scope lesson while preserving all other0065 duties",
     "owner": "NATIVE-FOREGROUND-ACTIVATE",
     "kind": "Additional new-request overlay; it does not reassign any original prepared hunk",
     "first_declared_scope_count": 71,
@@ -3106,7 +3108,7 @@
     "owners": {
       "LEAN-WORKFLOW": "workflow, standing-authorization and context policy; consumes combined-review proof",
       "SHARED-COORDINATOR-JOURNEY": "interaction, question, resume and owner policy",
-      "NATIVE-FOREGROUND-ACTIVATE": "later explicit Decision0066 model/team overlay plus explicit 2026-09-11 complete D-0032 overlay"
+      "NATIVE-FOREGROUND-ACTIVATE": "later explicit Decision0068 model/team overlay plus explicit 2026-09-11 complete D-0032 overlay"
     },
     "closure": "Historical POLICY is closed only after all three owner proofs; this is an intentional hunk/overlay split, not duplicate implementation ownership."
   },
@@ -3149,5 +3151,22 @@
       "interactive TTY choice"
     ],
     "rule": "Resolve claude or codex for this invocation only. Conflict, invalid input, cancellation, EOF or unattended absence refuses before repair. Do not persist selection. Init, adopt and upgrade install and preserve both adapters."
+  },
+  "inherited_main_baseline": {
+    "origin_main_commit": "c9a705bc315d4677309815eb03b58e61e7957e50",
+    "task_merge_commit": "db03a5708ca292d0e7e918d385748eb5b60008e5",
+    "authority": [
+      "0066-closeout-binds-to-the-diff"
+    ],
+    "behaviour": [
+      "delta_id and resumable forge task close",
+      "rendered task contract blocks excluded from the approved plan digest",
+      "task-aware proof readers and complete proof before closeout stage mutation",
+      "current three-helper review runner with concurrent lens execution",
+      "board and CI readers for task plan and proof state",
+      "marker-only sealing and recorded-scope validation for native launch evidence"
+    ],
+    "ownership": "Inherited baseline only. NATIVE-FOREGROUND-ACTIVATE does not claim these bytes or behaviours as its contribution and reuses their seams.",
+    "transition": "The inherited three-helper runner remains the interim runtime. First owns Decision0067 one-helper generation creation, immutable raw-plus-three-lens publication, and selected-pointer-last authority."
   }
 }

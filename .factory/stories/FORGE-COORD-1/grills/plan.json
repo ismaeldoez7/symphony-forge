@@ -56,7 +56,7 @@
   "frontier_empty": true,
   "questions_asked": 2,
   "issue": "FORGE-COORD-1",
-  "summary": "Resolved all 13 findings from the latest genuine Sol/high plan cold read launch-4c908e8d875e4d58835496d170451aa0, session 01a090b0-5f62-7722-82bb-b60e18573ec1. The final user simplification, accepted Decision 0067, confirmed specification, committed architecture/graph, and amended plan remove the live handoff protocol, mandatory timeline-event proof, expanded question identity, product-tree snapshot, persisted setup selection, and multi-file review publication. A requested additional read was refused before launch by the two-read convergence cap, so this pass honestly records the complete existing frontier against the final amended plan rather than bypassing the guard.",
+  "summary": "Resolved all 13 findings from the latest genuine Sol/high plan cold read launch-4c908e8d875e4d58835496d170451aa0, session 01a090b0-5f62-7722-82bb-b60e18573ec1. The final user simplification, accepted Decisions 0066 and 0067, renumbered model policy Decision 0068, confirmed specification, committed architecture/graph, and amended plan preserve main c9a705bc as inherited closeout/concurrent-review/board/CI baseline while First still owns one-helper immutable-generation publication. A requested additional read was refused before launch by the two-read convergence cap, so this pass honestly re-binds the complete existing frontier to the amended plan rather than bypassing the guard.",
   "inspected_refs": [
     "docs/specs/dual-coordinator-parity.md",
     "docs/specs/strict-role-split.md",
@@ -75,9 +75,11 @@
     "/Users/dev/.codex/plans/symphony-forge+coord-1-combined-review-story-amendment+20260911.md",
     "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-decomposition.json",
     "factory/scripts/record_review_from_json.py",
-    "factory/schemas/review.json"
+    "factory/schemas/review.json",
+    "docs/decisions/0066-closeout-binds-to-the-diff.md",
+    "docs/decisions/0068-sol-specialized-workflow-models.md"
   ],
-  "current_flow": "Record this final plan pass against the amended external plan, save the plan awaiting approval, obtain exact digest-bound approval, save the unchanged approved plan, record the matching eight-task decomposition, then replace and grill the First task plan before delegation.",
+  "current_flow": "Record this pass against the amended external plan, save the plan awaiting approval, obtain exact digest-bound approval, save the unchanged approved plan, record the matching eight-task decomposition, then replace and grill the First task plan before delegation.",
   "citations": [
     {
       "finding": "The draft falsely identifies itself as already approved.",
@@ -132,7 +134,7 @@
       "source": "Final plan Falsifiable quality activation and committed graph quality_contract"
     }
   ],
-  "input_sha256": "8982167185663e693f3c295d66a19ca0d8b066cd540a7cf3fb08fe66f880b9fd",
-  "recorded_at": "2026-09-11T17:22:10+00:00",
-  "commit": "3956e10b72e1ba8eab610132f3b7c3d06d31b978"
+  "input_sha256": "ae2a52b958cda14bda4edc8522461f6da50767677c6af2ff2810ebdfd07d2162",
+  "recorded_at": "2026-09-11T18:16:19+00:00",
+  "commit": "db03a5708ca292d0e7e918d385748eb5b60008e5"
 }
