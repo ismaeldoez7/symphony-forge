@@ -5,17 +5,19 @@
   "canon_owner": "Main; accepted0064 and confirmed specification, actual artifact publication and recorder gates",
   "transition": {
     "source": "/Users/dev/Workdir/symphony-forge-native-dogfood",
-    "current_trunk": "824baed4a657a83a6a7583e85ee67d2907e7c172",
+    "current_trunk": "c9a705bc315d4677309815eb03b58e61e7957e50",
     "fresh_main_reproduction": "/Users/dev/Workdir/symphony-forge-lean",
-    "route": "Existing0063 source ceremony, existing task start from fetched trunk, exact allocated preparation, fresh real-target binding, registered admission",
+    "route": "Existing0063 task workspace with exact allocated preparation, then validated origin/main c9a705bc merge db03a570, fresh contract binding and registered admission",
     "first_original_patch_bytes": 109953,
     "first_original_patch_sha256": "bee122bb370177ededefb5fe81a82f8c600f69af8502e151956ec7b8afed29e2",
-    "first_scope_status": "Amended72: the live 66-path First contract plus factory/scripts/record_review_from_json.py, factory/schemas/review-set.json and the four Main-owned canon alignments docs/product/BRIEF.md, docs/architecture/dual-coordinator-parity.md, docs/specs/strict-role-split.md and docs/degraded-mode.md. The D-0032 and model-policy overlays do not alter any original 40 prepared path/hunk owner.",
-    "scope_path_count": 72,
+    "first_scope_status": "Amended74: the live 66-path First contract plus recorder, review-set schema, four Main-owned canon alignments, and the inherited-main parallel-review and task-to-story-proof fallback regressions. The D-0032 and model-policy overlays do not alter any original 40 prepared path/hunk owner.",
+    "scope_path_count": 74,
     "old_caps": "Accepted0064 and confirmed spec replace obsolete120000/180000 clauses, including0058 wording, with actual installed helper safeguards; no implicit patch cap or helper-limit edit.",
     "current_helper": "Main resolved current helper and verified large-input and lossless-chunk tests PASS;512000 per-prompt bound",
     "first_review": "NATIVE-FOREGROUND-ACTIVATE owns the complete one-helper combined review and pointer-last publication now; LEAN-WORKFLOW consumes it without reimplementation.",
-    "source_inventory": "plans/exploration/coordinator-parity-preparation/native-foreground-preparation-inventory.json; SHA2563874bb1a3e698c340c19b419d22cad897d12c80d2314bd4b5142d5c3656fa48f"
+    "source_inventory": "plans/exploration/coordinator-parity-preparation/native-foreground-preparation-inventory.json; SHA2563874bb1a3e698c340c19b419d22cad897d12c80d2314bd4b5142d5c3656fa48f",
+    "preparation_base": "824baed4a657a83a6a7583e85ee67d2907e7c172",
+    "task_merge_commit": "db03a5708ca292d0e7e918d385748eb5b60008e5"
   },
   "tasks": [
     {
@@ -48,8 +50,8 @@
         "Explicit reviewed task proof_path preflight, never another task/story proof",
         "Actual native protected-state read and denied unauthorized mutation proof; current client reads already work, false phase wording belongs to LEAN",
         "Additional Decision0068 model-policy overlay across owning selectors, active profiles/guidance, 15 committed team agents, init/upgrade distribution proof and exact-known same-plugin Luna/max repair; original 40 prepared hunk owners unchanged",
-        "Explicit user-requested D-0032 overlay: one task review lifecycle and one combined helper call per attempt; three ordered assessment sections and one lens tag per finding; one immutable raw-plus-three-lens generation; task-scoped selected-pointer-last publication; fixed-only refusal; non-publishing single-lens diagnostics; and citation-based origin=rejection successors that preserve raw bytes and unaffected lenses. Original prepared hunk owners remain unchanged.",
-        "One review-set schema validates one immutable raw-plus-three-lens generation and one small selected pointer; one shared classifier drives review scope and current/historical branch-diff hashing"
+        "Explicit user-requested D-0032 overlay: one task review lifecycle and one combined helper call per attempt; three ordered assessment sections and one lens tag per finding; one content-addressed immutable raw-plus-three-lens generation with canonical generation_id, recomputation, no-link paths, byte-identical retry and collision refusal; task-scoped selected-pointer-last publication; fixed-only refusal; single-lens diagnostics that cannot publish, stamp or revoke; and citation-based origin=rejection chains that bind immediate and root generations and preserve raw bytes, history and unaffected lenses. Original prepared hunk owners remain unchanged.",
+        "One review-set schema validates one immutable raw-plus-three-lens generation and one small selected pointer; the inherited product_excluded_prefixes and product_delta_digest closeout seam supplies the one current delta identity used by review and closeout"
       ],
       "planning_surfaces": [
         ".claude/CLAUDE.md",
@@ -119,6 +121,8 @@
         "factory/tests/test_grill_release.py",
         "factory/tests/test_native_launch.py",
         "factory/tests/test_native_setup.py",
+        "factory/tests/test_proof_read_path.py",
+        "factory/tests/test_review_lenses_in_parallel.py",
         "factory/tests/test_review_settled_contracts.py",
         "factory/tests/test_review_task_delta.py",
         "factory/tests/test_worker_admission.py",
@@ -131,8 +135,9 @@
         "Background/jobs/status/cancel/resume/explore/optional questions refuse until later owner",
         "cmd_review accepts own task-only proof and refuses other task/story proof; Git-local refusal regression follows actual diagnosed access boundary",
         "Review Codex engine pins Sol/high and refuses known Terra-fallback/unreadable helpers before brief publication or launch",
-        "48 exact required-test declarations, including the nine-selector combined-review batch; four frozen patches cover 38 unique in-scope historical paths and preparation never counts as proof",
-        "Helper 3,000-character minimum-output preflight; exact chunk labels; one valid lens tag per merged finding; duplicate cross-lens issue refusal; existing per-lens score/recommendation and worst contract-verdict behavior"
+        "50 exact required-test declarations, including the eleven-selector combined-review and strict-task-proof batch; the inherited parallel-review and story-fallback regressions are rewritten in place; four frozen patches cover 38 unique in-scope historical paths and preparation never counts as proof",
+        "Helper schema 3,000-character overall_explanation maximum and required-boilerplate preflight; exact chunk labels; one valid lens tag per merged finding; duplicate cross-lens issue refusal; existing per-lens score/recommendation and worst contract-verdict behavior",
+        "forge task close runs the one-helper review for fixed-only, missing, blocking or stale selection and skips it only for a selected clean generation bound to the same current delta_id"
       ]
     },
     {
@@ -329,7 +334,7 @@
         "Only validated live attributed per-file events compact after exact scoped/legacy shipped eligibility; validated lowercase 32-hex filename stem is the authoritative ID because payloads have no ID field; parsed payload is preserved, preview inventory digest is required by apply, and root/history JSONL plus existing bundles remain immutable",
         "First event-bundle publication uses atomic no-overwrite. Retry cleans only exact loose pairs already represented; a later eligible ID remains loose and makes preview/apply refuse. V1 creates no successor shard, replacement, sidecar or retroactive marker.",
         "Before the first target write, globally preflight every eligible fixed review set. Active proof binds current state; sealed proof binds the immutable marker commit and exact fixed bytes. Only then create/read back origin=upgrade generations and selected pointers. A sealed reader accepts the later pointer only for an exact marker-commit binding; replacement, mismatch, mixed/unsafe input or ambiguity refuses. Unbound archives stay display-only and fixed files inert.",
-        "Client-safe upgrade and compact/apply capability ships on trunk before the separately authorized four-client story-level external rollout",
+        "Client-safe upgrade and compact/apply capability ships on trunk before the separately authorized three configured-client story-level external rollout; Toolshed remains a zero-mutation D-0033 deferral.",
         "Exercise existing init full-tree copy and upgrade same-name refresh behavior while preserving distinct client-added agent files; retain Decision0028 boundary tripwires and never delete client-owned agent trees"
       ],
       "planning_surfaces": [
@@ -491,7 +496,7 @@
         "Full integrated AC1-12 and roadmap acceptance",
         "Mandatory local Mac CLI and Desktop plus Linux/Windows CI proof through separately produced durable logs and correlations; only unavailable Linux/Windows live CLI/Desktop observations are limitations",
         "After QUALITY-BASELINE marker reaches trunk, exercise the separate authorized /tmp Task tracker client through its normal lifecycle; require exact client task marker, reviewed PR, functional proof and green CI before Integration",
-        "Require exact four authorized external client rollout PR/CI outcomes from the merged Portable trunk revision before Integration closes; preserve no ninth harness task",
+        "Require exact cadence, myclaw and knacklabs-ats rollout PR/CI outcomes from the final Quality-or-later harness revision before Integration closes; retain Toolshed as an explicit zero-mutation D-0033 limitation and preserve no ninth harness task.",
         "Existing story outcome only after every real predecessor marker is on trunk",
         "Validate JSON-encoded exact six-row pass_fail_summary and required client evidence against cited logs before aggregate passed; run the task review lifecycle whose selected clean immutable generation binds the completed platform report only after required platform evidence is complete, then use ordinary task pr-ready/PR/CI"
       ],
@@ -505,7 +510,7 @@
         "Integration report references exact client origin/commit/PR/artifact/log paths; no copied harness proof",
         "pass_fail_summary JSON array has exact ordered labels and exact row fields; malformed/duplicate/missing/contradictory/unresolved evidence refuses",
         "No ninth harness task or cross-repository surrogate identity; client proof remains client-owned",
-        "Exact cadence/toolshed/myclaw/knacklabs-ats rollout rows bind remote-default bases, merged Portable source revision, PRs, checks and CI; unresolved rows block Integration"
+        "Exact cadence/myclaw/knacklabs-ats rollout rows bind remote-default bases, final Quality-or-later harness revision, PRs, checks and CI; Toolshed remains an explicit D-0033 limitation and does not block Integration."
       ]
     }
   ],
@@ -1142,7 +1147,7 @@
           },
           {
             "id": "factory/prompts/griller.md#hunk-4",
-            "header": "@@ -131,7 +126,7 @@ approve. `NOT CONVERGED` does NOT mean read again \u2014 it means resolve what the",
+            "header": "@@ -131,7 +126,7 @@ approve. `NOT CONVERGED` does NOT mean read again — it means resolve what the",
             "patch_line": 956,
             "sha256": "4fbee0121d0219615c5de54a065b8cb72b19ed47bba232500fc71e170d419bf8"
           },
@@ -2732,26 +2737,26 @@
       "0011-orchestrator-runs-autoreview"
     ],
     "non_authority": "0049 is proposed and supplies no authority",
-    "operation": "One task review lifecycle contains immutable generations; each initial or post-fix ./forge review <task-id> generation composes one combined prompt and invokes the installed helper exactly once for quality, performance and security. A blocking generation publishes and revokes clean status; only the selected clean generation certifies proof.",
+    "operation": "One task review lifecycle contains immutable generations; each initial or post-fix ./forge review <task-id> generation composes one combined prompt and invokes the installed helper exactly once for quality, performance and security. A blocking complete generation publishes and blocks; only the selected clean generation certifies proof. A single-lens diagnostic cannot publish, stamp, revoke or otherwise compete with the selected complete generation.",
     "first": "NATIVE-FOREGROUND-ACTIVATE owns complete D-0032 implementation under the explicit 2026-09-11 user-request overlay; original prepared hunk ownership is unchanged",
-    "publication": "Validate one immutable generation and one small pointer through factory/schemas/review-set.json, with origin=combined, origin=rejection or origin=upgrade. The generation contains the raw result and three lens records; write/read it back first, then atomically replace task-scoped reviews/selected.json. Fixed-only, interrupted, mixed, copied, stale or tampered attempts refuse without replacing the pointer.",
+    "publication": "Validate one content-addressed immutable generation and one small pointer through factory/schemas/review-set.json, with origin=combined, origin=rejection or origin=upgrade. generation_id is the lowercase SHA256 of canonical sorted compact UTF-8 JSON for all generation fields except generation_id; the file at reviews/generations/<generation_id>.json includes that ID and every read recomputes it. Require every normal ancestor and leaf to be regular and unlinked. Publish via a complete temporary file and atomic no-overwrite: byte-identical retry succeeds and unequal same-ID collision refuses. Read back and validate the generation first, then atomically replace task-scoped reviews/selected.json. Fixed-only, interrupted, mixed, copied, stale or tampered attempts refuse without replacing the pointer.",
     "binding": [
       "task_id",
       "review_run_id",
       "brief_sha256",
-      "branch_diff_digest",
+      "current delta_id produced by the inherited product_delta_digest seam",
       "helper file/version identity and SHA256",
       "complete input digest and byte count",
       "publication origin: combined, citation-based rejection, or one-time upgrade",
       "immutable generation path and byte SHA256",
       "task-scoped selected pointer path and byte SHA256"
     ],
-    "success": "The task pointer selects one immutable generation containing all actual ordered complete helper pass reports and three genuine lens records on one current binding. Complete blocking results publish and block; only selected clean certifies. Fixed paths are never runtime proof, and no private prompt reconstruction, parallel registry, hostile-worker containment, nested review or story-wide duplicate exists.",
-    "assessment_grammar": "Each actual pass overall_explanation contains exactly one nonempty full-line BEGIN/END FORGE ASSESSMENT block for quality, performance and security in that order; quality retains one current VERDICT line per task contract, and the minimum is preflighted against the helper 3,000-character limit. Unchunked output is the top-level pass; chunked output uses exact nonempty chunk 1/N through chunk N/N reports. Each finding has one lowercase lens tag. Cross-lens duplicate detection uses repo-relative NFC POSIX path, integer start/end lines and NFC/whitespace-collapsed/case-folded title after tag removal. Projections preserve pass order and reuse existing score, recommendation and worst quality-verdict behavior.",
+    "success": "The task pointer selects one immutable generation containing all actual ordered complete helper pass reports and three genuine lens records on one current delta_id binding. Complete blocking results publish and block; only selected clean certifies. forge task close skips review only for that selected clean current-delta generation. Fixed paths are never runtime proof, and no private prompt reconstruction, parallel registry, hostile-worker containment, nested review or story-wide duplicate exists.",
+    "assessment_grammar": "Each actual pass overall_explanation contains exactly one nonempty full-line BEGIN/END FORGE ASSESSMENT block for quality, performance and security in that order; quality retains one current VERDICT line per task contract, and the required boilerplate is preflighted against the helper schema's 3,000-character overall_explanation maximum; oversized output refuses. Unchunked output is the top-level pass; chunked output uses exact nonempty chunk 1/N through chunk N/N reports. Each finding has one lowercase lens tag. Cross-lens duplicate detection uses repo-relative NFC POSIX path, integer start/end lines and NFC/whitespace-collapsed/case-folded title after tag removal. Projections preserve pass order and reuse existing score, recommendation and worst quality-verdict behavior.",
     "upgrade_migration": "PORTABLE-DELIVERY-MIGRATION is the only compatibility transition. Before the first target write it globally preflights every eligible fixed set. Active proof binds current task state; sealed proof binds the immutable marker commit and exact fixed bytes. Only then may it create and read back origin=upgrade generations and pointers. A sealed reader accepts a later migration pointer only when the generation's sealed-commit binding exactly equals the marker commit; replacement, mismatch, malformed, mixed, colliding, linked or ambiguous input refuses. Byte-identical retry passes and unbound archives remain display-only.",
-    "classifier": "factory_lib owns one classifier whose excluded prefixes and sorted committed product paths are reused by review scope and current/historical binary branch-diff hashing. Genuine-contribution proof cites a qualifying path and hunk in that same diff and correlates it with admitted write and terminal evidence. No product-tree snapshot or second digest is introduced.",
-    "rejection": "Reject only from a selected origin=combined generation. Create an immutable origin=rejection successor bound to the source hash; preserve raw helper bytes, shared bindings, pass order and unaffected lenses; change only the cited projection and record exact finding, reason, citation and actor before pointer-last publication. Fixed-only rejection refuses.",
-    "incumbent_baseline": "origin/main c9a705bc runs three lens helpers concurrently and task close reuses exact-delta review proof. This is inherited runtime, not Decision0067 completion; First replaces generation creation with one helper while reusing closeout and task-proof seams."
+    "classifier": "Reuse factory_lib.product_excluded_prefixes and product_delta_digest for review scope, current and historical product paths, and closeout delta_id. Genuine-contribution proof cites a qualifying path and hunk in that same delta and correlates it with admitted write and terminal evidence. No second classifier, branch-diff digest, product-tree snapshot or parallel identity is introduced.",
+    "rejection": "Reject from the selected origin=combined generation or its selected origin=rejection descendant. Create an immutable origin=rejection successor bound to the immediate source hash and root combined generation; preserve raw helper bytes, shared bindings, pass order, rejection history and unaffected lenses; change only the cited projection and record exact finding, reason, citation and actor before pointer-last publication. Multiple false-positive rejections form an immutable chain. Fixed-only, upgrade, unselected or unrelated sources refuse.",
+    "incumbent_baseline": "origin/main c9a705bc runs three lens helpers concurrently, accepts story proof as a task fallback in one reader, and lets task close reuse exact-delta review proof. These are inherited runtime facts, not Decision0067/C10 completion; First replaces generation creation with one helper, removes the task-to-story proof fallback, and reuses the closeout delta seam."
   },
   "registry_distribution_contract": {
     "owner": "NATIVE-FOREGROUND-ACTIVATE",
@@ -2790,7 +2795,7 @@
         "name": "toolshed",
         "common_directory": "/Users/dev/Workdir/toolshed/.git",
         "snapshot_dirty": false,
-        "outcome": "No mutation while paused. Exact owner/repository and default branch must be supplied and approved before an isolated upgrade PR; unresolved row blocks Integration.",
+        "outcome": "No mutation under D-0033. Exact owner/repository, default branch and mutation authority must be supplied and approved before any isolated upgrade PR; the explicit limitation does not block the three configured client proofs or Integration.",
         "configured_origin": null,
         "canonical_repository": null,
         "default_branch": null,
@@ -2823,16 +2828,16 @@
       "Create feature/forge-lean-upgrade-<client> and an isolated sibling worktree from the fetched remote default-branch tip; never use either dirty MyClaw checkout head, stash, reset or force",
       "Run upgrade and history compact preview/apply from the exact merged Portable trunk revision; review machinery/doc contracts and VENDORED_FROM/VENDOR_MANIFEST",
       "Run vendor integrity, client-declared verify/quality/type/tests and CI; record applied/no-op/conflict with source revision, base, PR, commit and logs",
-      "Unsafe/unresolvable client gets a concrete blocker/deferral; continue other clients, and Integration refuses while any row is unresolved"
+      "Unsafe configured rows stop that row and Integration; Toolshed remains the explicit zero-mutation D-0033 limitation until its trigger is satisfied."
     ],
     "smallest_checks": [
       "uv run --python 3.11 python factory/scripts/check_vendor_integrity.py --repo <upgrade-worktree>",
       "From upgraded client: uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py, consuming that clients own .envrc structural/type/test/quality commands",
       "Focused shipped harness tests: uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_gates.py -k \"upgrade or no_raw_write_primitive_outside_the_boundary_helper\" -q"
     ],
-    "authority": "The user previously explicitly approved one-time branch, push and PR work for exactly cadence, toolshed, myclaw and knacklabs-ats. The inventory supplies identity/history; accepted0064 supplies retention behavior. The user selected Pause Toolshed through structured question input on 2026-09-11; this grants no Toolshed mutation authority and leaves that row blocking.",
-    "ordering": "Portable first verifies, reviews, merges and reaches its trunk marker. Main then runs the four-client story-level external rollout from that exact merged Portable revision before Integration closes; no ninth harness task.",
-    "identity_rule": "At every boundary require resolved common directory plus exact configured-origin/canonical-repository/default-branch match. Redirects must resolve to the bound canonical repository. Toolshed is paused with zero mutation until its missing identity is supplied and approved; other rows may proceed, but Integration cannot close."
+    "authority": "The user previously explicitly approved one-time branch, push and PR work for cadence, toolshed, myclaw and knacklabs-ats. The inventory supplies identity/history; accepted0064 supplies retention behavior. Toolshed lacks a configured remote, so D-0033 defers it with zero mutation until the user supplies and approves exact owner/repository, default branch and mutation authority. That explicit limitation does not block the three currently configured client proofs or Integration.",
+    "ordering": "Portable first verifies, reviews, merges and reaches its trunk marker. Format and Quality then land their final workflow bytes. Main runs cadence, myclaw and knacklabs-ats from that final Quality-or-later harness revision before Integration closes; Toolshed remains D-0033 and no ninth harness task is created.",
+    "identity_rule": "At every boundary require resolved common directory plus exact configured-origin/canonical-repository/default-branch match. Redirects must resolve to the bound canonical repository. Toolshed is paused with zero mutation under D-0033 until its missing identity and authority are supplied and approved; the three configured rows may proceed and close Integration."
   },
   "client_dogfood": {
     "owner": "Separate installed-client task TASKTRACKER-1/TASKTRACKER-1.1 (planned identity, main records it in that client)",
@@ -2843,7 +2848,10 @@
     "integration_consumes": "Exact client origin/commit/PR/log and client-owned artifact paths, not copied authority or credited harness code",
     "starts_after": "QUALITY-BASELINE marker is on trunk",
     "integration_requires": "Exact client task marker, reviewed PR, green CI and functional proof matching cited client repository/commit",
-    "boundary": "Normal external client lifecycle; no ninth harness task and no fake cross-repository task ID"
+    "boundary": "Normal external client lifecycle; no ninth harness task and no fake cross-repository task ID",
+    "repository": "vrknetha/symphony-forge-tasktracker-dogfood",
+    "local_parent": "/tmp",
+    "creation": "After Quality reaches trunk, require both repository name and local run directory absent before creating the private main-default repository. A partial retry may reuse it only when recorded repository ID, owner, default branch, record-origin marker and client task identity all match; otherwise refuse without deletion or overwrite."
   },
   "native_report_contract": {
     "task": "FORGE-COORD-1.1",
@@ -2884,7 +2892,7 @@
     ],
     "codex_cli_package": "@openai/codex@0.153.4",
     "validator": "Integration-owned json.loads producer/validator requires exact label order/fields/state, null unavailable runtime with remaining-gap explanation, array commands/logs, resolves every cited log to tested revision, requires client proof and derives aggregate; rejects malformed/duplicate/missing/contradictory/unresolved evidence. Independent review checks same logs; C10 consumes aggregate, not this encoding.",
-    "codex_cli_reason": "0.153.4 is locally observed, already frozen in cross-platform fixtures, and above the required model-support floor, minimizing unrelated Mac/Linux/Windows variables; a version change requires amendment."
+    "codex_cli_reason": "0.153.4 is the explicitly pinned story input already frozen in cross-platform fixtures, minimizing unrelated Mac/Linux/Windows variables; the contract makes no minimum model-support claim, and a version change requires amendment."
   },
   "recurring_finding_disposition": {
     "owner": "PORTABLE-DELIVERY-MIGRATION",
@@ -3118,13 +3126,15 @@
     "kind": "Additional overlay; no original prepared_hunk_owners path or hunk changes owner",
     "added_scope": [
       "factory/scripts/record_review_from_json.py",
-      "factory/schemas/review-set.json"
+      "factory/schemas/review-set.json",
+      "factory/tests/test_proof_read_path.py",
+      "factory/tests/test_review_lenses_in_parallel.py"
     ],
     "canon_postimages": [
       "docs/specs/dual-coordinator-parity.md",
       "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json"
     ],
-    "boundary": "Complete one-lifecycle/one-helper-per-generation combined review, exact section/tag/chunk validation, one immutable raw-plus-three-lens generation, task-scoped selected-pointer-last publication, fixed-only refusal, non-publishing single-lens diagnostics and coherent selected-set rejection. It owns the one shared schema, output-limit preflight and branch-diff classifier. LEAN-WORKFLOW does not reimplement it."
+    "boundary": "Complete one-lifecycle/one-helper-per-generation combined review, exact full-line section/tag/chunk validation, one content-addressed immutable raw-plus-three-lens generation with canonical ID/read recomputation/no-link/collision rules, task-scoped selected-pointer-last publication, fixed-only and task-to-story-fallback refusal, single-lens diagnostics that cannot publish, stamp or revoke, and immutable rejection chains from the selected combined or rejection descendant. It owns the one shared schema and output-maximum preflight, and reuses the inherited product delta seam. LEAN-WORKFLOW does not reimplement it."
   },
   "pr_transport_contract": {
     "authority": "Accepted 0054 permits a draft PR before unavailable platform observations; it does not make a preliminary inspection mandatory or create proof authority",
@@ -3161,12 +3171,12 @@
     "behaviour": [
       "delta_id and resumable forge task close",
       "rendered task contract blocks excluded from the approved plan digest",
-      "task-aware proof readers and complete proof before closeout stage mutation",
+      "task-aware proof readers, including the incumbent story fallback that First removes for task-owned proof, and complete proof before closeout stage mutation",
       "current three-helper review runner with concurrent lens execution",
       "board and CI readers for task plan and proof state",
       "marker-only sealing and recorded-scope validation for native launch evidence"
     ],
     "ownership": "Inherited baseline only. NATIVE-FOREGROUND-ACTIVATE does not claim these bytes or behaviours as its contribution and reuses their seams.",
-    "transition": "The inherited three-helper runner remains the interim runtime. First owns Decision0067 one-helper generation creation, immutable raw-plus-three-lens publication, and selected-pointer-last authority."
+    "transition": "The inherited three-helper runner remains the interim runtime. First owns Decision0067 one-helper generation creation, immutable raw-plus-three-lens publication, selected-pointer-last authority, strict task-owned proof reads, and current-delta closeout integration."
   }
 }
