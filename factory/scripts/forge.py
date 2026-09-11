@@ -18,7 +18,6 @@ sys.dont_write_bytecode = True
 
 import argparse
 import os
-import re
 from pathlib import Path
 
 
@@ -26,21 +25,17 @@ def _native_dead_grill_status(args: argparse.Namespace) -> None:
     """Render only already-dead native grill rows; never general job status."""
     from factory_lib import repo_root
     from forge_cli.codex_runtime import coordinator_runtime
-    from grill_gates import gate_names
+    from forge_cli.worker_admission import parse_native_grill_label
 
     if coordinator_runtime() != "codex":
         codex_status.cmd_status(args)
         return
     base = Path(args.repo).resolve() if args.repo else repo_root()
-    labels = re.compile(
-        rf"grill-(?:{'|'.join(gate_names())})(?:-[A-Za-z0-9._-]+)?"
-    )
     dead = [
         row for row in codex_status.dead_launches(base)
         if row.get("transport") == "native"
         and row.get("launch_status") in {"starting", "running"}
-        and isinstance(row.get("task"), str)
-        and labels.fullmatch(row["task"])
+        and parse_native_grill_label(row.get("task")) is not None
     ]
     if not dead:
         raise SystemExit(

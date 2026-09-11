@@ -1062,7 +1062,7 @@ def codex_hook_readiness(base: Path) -> tuple[bool, str]:
             for matcher in matchers
         )
 
-    pre_tools = (("Bash",), ("apply_patch", "Edit", "Write"),
+    pre_tools = (("Bash",), ("apply_patch",), ("Edit",), ("Write",),
                  ("request_user_input",), ("request_user_input_async",))
     missing_matchers = [aliases[0] for aliases in pre_tools
                         if not matcher_covers("preToolUse", aliases)]

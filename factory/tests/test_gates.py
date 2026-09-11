@@ -11709,7 +11709,9 @@ def test_quickfix_ids_survive_concurrent_worktrees(repo):
     assert first_id != second_id
 
 
-def test_codex_exec_ban_matches_invocations_not_prose(repo):
+def test_codex_exec_ban_matches_invocations_not_prose(repo, monkeypatch):
+    monkeypatch.delenv("FORGE_LAUNCH_ID", raising=False)
+    monkeypatch.delenv("FORGE_PROCESS_TOKEN", raising=False)
     def bash(cmd):
         return hook(repo, {"tool_name": "Bash", "permission_mode": "default",
                            "tool_input": {"command": cmd}})
@@ -11718,6 +11720,12 @@ def test_codex_exec_ban_matches_invocations_not_prose(repo):
                 'FACTORY_DEGRADED=1 codex exec -s read-only "x"',
                 '/opt/homebrew/bin/codex exec "x"',
                 'command codex exec "x"',
+                'env codex exec "x"',
+                '/usr/bin/env FACTORY_DEGRADED=1 codex exec "x"',
+                'nohup codex exec "x"',
+                'xargs codex exec',
+                'nice codex exec "x"',
+                'sh -c \'codex exec "x"\'',
                 '"/opt/tools/codex" exec "x"',
                 'command "/opt/Tools With Spaces/codex" exec "x"',
                 'cd /tmp && codex exec "x"',
@@ -18142,7 +18150,7 @@ def _write_complete_automated(repo, task_id="T1"):
 
 
 def test_review_consumers_include_complete_approved_inputs(
-        repo, tmp_path, monkeypatch):
+        repo, tmp_path, monkeypatch, capsys):
     first = _native_review_fixture(repo, tmp_path)
     proof = _write_complete_automated(repo)
     code, out = run(repo, "forge.py", "review-brief", "T1", "--repo", str(repo))
@@ -18211,7 +18219,7 @@ def test_review_consumers_include_complete_approved_inputs(
 
     def fake_require_git(_base, _what, *args, **_kwargs):
         if args[:3] == ("worktree", "add", "--detach"):
-            Path(args[3]).mkdir(parents=True)
+            Path(args[3]).mkdir(parents=True, exist_ok=True)
         if args[0] == "rev-parse":
             return "a" * 40
         if args[0] == "diff":
@@ -18261,6 +18269,54 @@ def test_review_consumers_include_complete_approved_inputs(
     assert all(copied == dataset_bytes for _, _, copied in seen)
     assert all(b"### Approved task inputs" not in prompt for _, prompt, _ in seen)
     assert dataset_path.read_bytes() == dataset_bytes
+
+    def refuse_detached_link(kind):
+        review_case = tmp_path / f"review-{kind}"
+        worktree = review_case / "wt"
+        worktree.mkdir(parents=True)
+        outside = tmp_path / f"outside-{kind}.md"
+        outside.write_bytes(b"sentinel")
+        review_dir = worktree / ".factory" / "review-briefs"
+        review_dir.parent.mkdir(parents=True)
+        if kind == "ancestor":
+            review_dir.symlink_to(outside.parent, target_is_directory=True)
+            outside = outside.parent / "all.md"
+            outside.write_bytes(b"sentinel")
+        else:
+            review_dir.mkdir()
+            (review_dir / "T1.security.md").symlink_to(outside)
+
+        def forbidden(*_args, **_kwargs):
+            pytest.fail("review helper or recorder launched after unsafe destination")
+
+        with monkeypatch.context() as unsafe:
+            unsafe.setattr(review_mod, "cmd_review_brief", lambda _args: None)
+            unsafe.setattr(review_mod, "resolve_skill", lambda _explicit: tmp_path / "helper")
+            unsafe.setattr(review_mod, "_product_dirty", lambda _base: [])
+            unsafe.setattr(review_mod, "resolve_review_base", lambda *_args: "b" * 40)
+            unsafe.setattr(review_mod, "review_excluded_prefixes", lambda _base: ())
+            unsafe.setattr(review_mod, "_require_git", fake_require_git)
+            unsafe.setattr(review_mod, "_git", lambda *_args, **_kwargs:
+                           subprocess.CompletedProcess([], 0, "", ""))
+            unsafe.setattr(review_mod, "product_only_tip", lambda *_args: "c" * 40)
+            unsafe.setattr(review_mod, "_run_skill", forbidden)
+            unsafe.setattr(review_mod.tempfile, "mkdtemp", lambda **_kwargs: str(review_case))
+            unsafe.setattr(review_mod.subprocess, "run", forbidden)
+            unsafe.setattr(stages_mod, "stamp_stage_review", forbidden)
+            with pytest.raises(SystemExit) as error:
+                review_mod.cmd_review(argparse.Namespace(
+                    id="T1", reject=None, lens=None, repo=str(repo),
+                    skill=str(tmp_path / "fake-autoreview"), engine="claude",
+                    max_priority="P1",
+                ))
+            assert error.value.code == 1
+            assert "unsafe detached review destination" in capsys.readouterr().out
+        assert outside.read_bytes() == b"sentinel"
+        if kind == "leaf":
+            assert not (review_dir / "all.md").exists()
+
+    refuse_detached_link("ancestor")
+    refuse_detached_link("leaf")
 
     # Approved records are untrusted prompt data. A fence longer than every
     # content run keeps embedded Markdown from becoming reviewer structure,
@@ -18641,17 +18697,19 @@ def test_native_unshipped_operations_refuse_before_dispatch(
         for invalid in ([], [row("T1")], [row("T1", pid=11)],
                         [row("grill-task-T1", pid=11)], [row("grill-plan", status="failed")],
                         [row("grill-plan", transport="companion")], [row("grill-unknown")],
-                        [row("grill-plan/T1")]):
+                        [row("grill-plan/T1")], [row("grill-plan-T1")],
+                        [row("grill-signoff-anything")]):
             rows[:] = invalid
             with pytest.raises(SystemExit, match="no eligible dead native grill"):
                 cli._native_dead_grill_status(status_args)
         capsys.readouterr()
-        rows[:] = [row("T1"), row("grill-plan", pid=11), row("grill-task-T1")]
+        rows[:] = [row("T1"), row("grill-plan"), row("grill-task-T1")]
         cli._native_dead_grill_status(status_args)
         output = capsys.readouterr().out
         assert "[DEAD GRILL] grill-task-T1" in output
+        assert "[DEAD GRILL] grill-plan" in output
         assert "native.jsonl" in output and "native.stderr" in output
-        assert "[DEAD GRILL] T1" not in output and "[DEAD GRILL] grill-plan" not in output
+        assert "[DEAD GRILL] T1" not in output
     for tool_name in ("request_user_input", "request_user_input_async"):
         code, output = run(repo, "pre_tool_use.py", stdin=json.dumps({
             "tool_name": tool_name, "tool_input": {"questions": []},

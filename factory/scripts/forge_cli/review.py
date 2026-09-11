@@ -18,6 +18,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -844,14 +845,25 @@ def cmd_review(args: argparse.Namespace) -> None:
         _require_git(base, "creating the review worktree", "worktree", "add",
                      "--detach", str(worktree), tip_sha)
         review_tip = product_only_tip(worktree, base_sha)
-        dataset_target = worktree / REVIEW_DATASET_REL
-        dataset_target.parent.mkdir(parents=True, exist_ok=True)
-        dataset_target.write_bytes(dataset_body)
-        for lens in lenses:
-            rel, body = prompts[lens]
+        detached_writes = [(REVIEW_DATASET_REL, dataset_body), *prompts.values()]
+        for rel, _body in detached_writes:
             target = worktree / rel
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(body)
+            for index, path in enumerate((worktree / Path(*Path(rel).parts[:part]))
+                                         for part in range(1, len(Path(rel).parts) + 1)):
+                try:
+                    info = path.lstat()
+                except FileNotFoundError:
+                    continue
+                except OSError:
+                    fail(f"unsafe detached review destination: {target}")
+                leaf = index == len(Path(rel).parts) - 1
+                if ((leaf and (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1))
+                        or (not leaf and not stat.S_ISDIR(info.st_mode))):
+                    fail(f"unsafe detached review destination: {target}")
+        for rel, body in detached_writes:
+            factory_rel = Path(rel).relative_to(".factory").as_posix()
+            if not safe_factory_write_bytes(worktree, factory_rel, body):
+                fail(f"unsafe detached review destination: {worktree / rel}")
         for lens in lenses:
             print(f"== {lens} lens: releasing Codex over {len(scope)} path(s) "
                   f"({base_sha[:7]}..{review_tip[:7]}, task tip {tip_sha[:7]}) — "

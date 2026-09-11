@@ -699,6 +699,25 @@ CODEX_EXEC_INVOCATION = re.compile(
     re.MULTILINE,
 )
 
+
+def _wrapped_codex_exec(tokens: list[str]) -> bool:
+    """Detect a literal Codex exec argv behind a command wrapper."""
+    for index, token in enumerate(tokens):
+        if Path(token).name == "codex" and CODEX_EXEC_INVOCATION.match(
+                shlex.join(tokens[index:])):
+            return True
+        if Path(token).name in {"sh", "bash", "dash", "ksh", "zsh"}:
+            try:
+                command_index = tokens.index("-c", index + 1)
+                nested = tokens[command_index + 1]
+                nested_tokens = shlex.split(nested)
+            except (ValueError, IndexError):
+                continue
+            if (CODEX_EXEC_INVOCATION.search(nested)
+                    or _wrapped_codex_exec(nested_tokens)):
+                return True
+    return False
+
 check_bypass = ["pnpm test", "pnpm lint", "pnpm typecheck", "pnpm check:all"]
 if any(token in command for token in check_bypass) and "factory/scripts/verify.py" not in command:
     deny(
@@ -938,7 +957,9 @@ def _has_active_shell_syntax(value: str) -> bool:
     return False
 
 
-codex_match = CODEX_EXEC_INVOCATION.search(command) if tool_name == "Bash" else None
+codex_match = (
+    CODEX_EXEC_INVOCATION.search(command) or _wrapped_codex_exec(shell_tokens)
+) if tool_name == "Bash" else None
 codex_help = (
     shell_tokens in (["codex", "exec", "--help"], ["codex", "exec", "-h"])
     and not _has_active_shell_syntax(command)

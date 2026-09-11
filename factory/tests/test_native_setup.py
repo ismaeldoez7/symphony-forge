@@ -37,7 +37,7 @@ def _hook(event: str, source, *, enabled=True, trust="trusted") -> dict:
 
 
 def test_codex_hook_readiness_requires_exact_enabled_trusted_source(
-        tmp_path, monkeypatch):
+        repo, tmp_path, monkeypatch):
     from forge_cli import doctor
 
     config = tmp_path / ".codex" / "hooks.json"
@@ -92,6 +92,29 @@ def test_codex_hook_readiness_requires_exact_enabled_trusted_source(
     monkeypatch.setattr(
         doctor, "_codex_hooks_inventory", lambda _binary, _base: (wrong, ""))
     assert "PreToolUse matcher" in doctor.codex_hook_readiness(tmp_path)[1]
+
+    tools = ("Bash", "apply_patch", "Edit", "Write",
+             "request_user_input", "request_user_input_async")
+    config_path = repo / ".codex" / "hooks.json"
+    original_config = config_path.read_bytes()
+    for missing in ("apply_patch", "Edit", "Write"):
+        incomplete = [dict(hook) for hook in valid]
+        next(hook for hook in incomplete
+             if hook["eventName"] == "preToolUse")["matcher"] = "|".join(
+                 tool for tool in tools if tool != missing)
+        monkeypatch.setattr(
+            doctor, "_codex_hooks_inventory",
+            lambda _binary, _base, hooks=incomplete: (hooks, ""),
+        )
+        document = json.loads(original_config)
+        document["hooks"]["PreToolUse"][0]["matcher"] = "|".join(
+            tool for tool in tools if tool != missing)
+        config_path.write_text(json.dumps(document), encoding="utf-8")
+        ready, detail = doctor.codex_hook_readiness(tmp_path)
+        code, output = run(repo, "check_dual_runtime.py", str(repo))
+        assert not ready and missing in detail, detail
+        assert code != 0 and f"route {missing}" in output, output
+    config_path.write_bytes(original_config)
 
     malformed = [dict(hook) for hook in valid]
     next(hook for hook in malformed if hook["eventName"] == "preToolUse")["matcher"] = "["

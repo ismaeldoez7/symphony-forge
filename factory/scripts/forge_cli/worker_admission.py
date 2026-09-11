@@ -68,6 +68,20 @@ def worker_admission_revoked(base: Path, launch_id: str) -> bool:
         return True
 
 
+def parse_native_grill_label(label: object) -> tuple[str, str] | None:
+    """Parse only exact non-task grills or grill-task-<safe-id>."""
+    if not isinstance(label, str):
+        return None
+    from grill_gates import gate_names
+    gates = set(gate_names())
+    prefix = "grill-task-"
+    if "task" in gates and label.startswith(prefix):
+        task_id = label.removeprefix(prefix)
+        return ("task", task_id) if SAFE_TASK_ID.fullmatch(task_id) else None
+    return next(((gate, "") for gate in gates - {"task"}
+                 if label == f"grill-{gate}"), None)
+
+
 def _current_process_descends_from(pid: int, identity: str) -> bool:
     try:
         import psutil
@@ -285,23 +299,10 @@ def live_native_read_only_grill(base: Path) -> tuple[dict | None, str]:
         return _deny(error)
     record = rows[-1]
 
-    label = record.get("task")
-    gate = ""
-    task_id = ""
-    if isinstance(label, str):
-        from grill_gates import gate_names
-        for candidate in gate_names():
-            if candidate == "task" and label.startswith("grill-task-"):
-                prefix = "grill-task-"
-                possible = label.removeprefix(prefix)
-                if SAFE_TASK_ID.fullmatch(possible):
-                    gate, task_id = candidate, possible
-                break
-            if candidate != "task" and label == f"grill-{candidate}":
-                gate = candidate
-                break
-    if not gate:
+    parsed_label = parse_native_grill_label(record.get("task"))
+    if parsed_label is None:
         return _deny("the protected read-only launch is not a grill")
+    gate, task_id = parsed_label
     expected = base / ".factory" / (
         f"grill-brief-{gate}" + (f"-{task_id}" if task_id else "") + ".md")
     digest = record.get("task_sha256")

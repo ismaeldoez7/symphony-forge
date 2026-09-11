@@ -183,6 +183,7 @@ def test_native_write_argv_grants_only_exact_codex_scope_files(tmp_path):
 def test_native_launch_registers_before_stdin_and_records_terminal_identity(
         native_repo, tmp_path, monkeypatch):
     import forge_cli.codex_runtime as codex_runtime
+    import forge_cli.delegate as delegate
 
     executable = fake_codex(tmp_path)
     capture_path = native_env(monkeypatch, tmp_path, executable)
@@ -194,6 +195,38 @@ def test_native_launch_registers_before_stdin_and_records_terminal_identity(
         return real_scan(path)
 
     monkeypatch.setattr(codex_runtime, "scan_native_result", scan)
+    monkeypatch.setattr(delegate, "_process_table", lambda: {})
+    monkeypatch.setattr(delegate, "_capture_spawn_identity", lambda _proc: "known")
+    monkeypatch.setattr(
+        delegate, "_wait_and_reap",
+        lambda proc, *_args, **_kwargs: proc.wait() == 0,
+    )
+    real_popen = delegate.subprocess.Popen
+    stdin_snapshots = []
+
+    class StdinProxy:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def write(self, text):
+            stdin_snapshots.append([
+                row["launch_status"] for row in load_delegations(native_repo)
+            ])
+            return self.stream.write(text)
+
+        def close(self):
+            return self.stream.close()
+
+        def __getattr__(self, name):
+            return getattr(self.stream, name)
+
+    def popen(*args, **kwargs):
+        process = real_popen(*args, **kwargs)
+        if args[0][0] == str(executable):
+            process.stdin = StdinProxy(process.stdin)
+        return process
+
+    monkeypatch.setattr(delegate.subprocess, "Popen", popen)
     brief = native_repo / ".factory" / "briefs" / "T1.md"
     terminal = launch_companion(
         native_repo,
@@ -210,7 +243,9 @@ def test_native_launch_registers_before_stdin_and_records_terminal_identity(
     assert [row["launch_status"] for row in rows] == [
         "starting", "running", "succeeded",
     ]
+    assert stdin_snapshots == [["starting", "running"]]
     assert terminal["transport"] == "native"
+    assert terminal["pid_started"] == "known"
     assert terminal["session_id"] == "thread-fixture"
     assert terminal["brief_path"] == ".factory/briefs/T1.md"
     assert Path(terminal["output_path"]).is_file()

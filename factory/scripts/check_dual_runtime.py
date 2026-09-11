@@ -399,14 +399,18 @@ def check_path_parity(root: Path) -> None:
     # runtime-specific question names against the shared handlers too.
     for relative, question_tools in (
         (".claude/settings.json", ("AskUserQuestion",)),
-        (".codex/hooks.json", ("request_user_input", "request_user_input_async", "apply_patch")),
+        (".codex/hooks.json", (
+            "request_user_input", "request_user_input_async", "apply_patch", "Edit", "Write",
+        )),
     ):
         try:
             hooks = json.loads((root / relative).read_text(encoding="utf-8"))["hooks"]
         except (OSError, ValueError, KeyError):
             continue  # Missing/invalid registrations are reported above.
         for tool in question_tools:
-            events = (("PreToolUse",) if tool.endswith("_async") or tool == "apply_patch"
+            events = (("PreToolUse",) if tool.endswith("_async") or tool in {
+                "apply_patch", "Edit", "Write",
+            }
                       else ("PreToolUse", "PostToolUse"))
             for event in events:
                 script = "pre_tool_use" if event == "PreToolUse" else "post_tool_use"
@@ -414,8 +418,7 @@ def check_path_parity(root: Path) -> None:
                 for entry in hooks.get(event, []):
                     matcher = entry.get("matcher") or ".*"
                     try:
-                        aliases = (tool, "Edit", "Write") if tool == "apply_patch" else (tool,)
-                        matches = matcher == "*" or any(re.search(matcher, alias) for alias in aliases)
+                        matches = matcher == "*" or bool(re.search(matcher, tool))
                     except re.error:
                         matches = None
                     if matches and any(
