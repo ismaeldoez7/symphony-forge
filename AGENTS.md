@@ -51,7 +51,7 @@ phases require sign-off; implementation also requires a plan and decomposition.
 
 Prompt files under `factory/prompts/` are phase contracts. They are invoked explicitly by the parent session; hooks only load context and enforce gates.
 
-Use the host's structured request tool for every user-facing question it permits. In Codex Default mode, use `request_user_input` for all optional questions; ask approvals and permissions directly in chat when the host reserves them for that channel, and state that restriction.
+Use the host's structured request tool for every user-facing question it permits. In Codex Default mode, use `request_user_input` for all optional questions; ask approvals and permissions directly in chat when the host reserves them for that channel, and state that restriction. When an approval gate is waiting, end the update with a direct approval question that names the exact artifact or digest.
 
 Default specialist set:
 - `planner-high`
