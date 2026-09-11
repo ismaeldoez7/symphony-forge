@@ -2001,6 +2001,13 @@ def plan_body_digest(path: Path) -> str:
         if not re.match(PLAN_SAVE_OWNED_FIELDS, line)
     )
     approved_body = body.partition(b"\n## Implementation Assumptions")[0]
+    # Trailing newlines are normalised because `strip_derived_sections`
+    # substitutes a newline for the contract block, and the block is appended
+    # after one. Removing it therefore leaves one MORE trailing newline than
+    # the file carried before the block existed, so the first render of the
+    # block changed this digest and `task approve` refused with "the plan
+    # CHANGED" against byte-identical authored text.
+    approved_body = approved_body.rstrip(b"\n") + b"\n"
     return hashlib.sha256(authored + b"\n---\n" + approved_body).hexdigest()
 
 
