@@ -2,34 +2,73 @@
   "generated_by": "griller",
   "gate": "spec",
   "verdict": "pass",
+  "summary": "One cold read of the harness simplification spec returned five findings. Two removed scope that already exists (task close is valid; amend-scope already avoids the cascade), one corrected a conflict with accepted decision 0066, and two tightened the input manifest and the budget definition. The spec is materially smaller than drafted.",
   "gaps": [
-    "Grill applicability was not deterministic across the two coordinators.",
-    "Review capacity was ambiguous against the roadmap and Decision 0058.",
-    "The workspace contract omitted explicit approved-story, decomposition, identity and trunk-dependency bindings.",
-    "Coordinator review ownership and the delegated fix/re-review loop were not explicit.",
-    "The six-cell report did not name its existing artifact, producer or aggregate predicate.",
-    "Event compaction lacked exact storage, format, reader compatibility and atomicity boundaries.",
-    "Prepared-byte provenance did not name its durable inventory, baseline and versioned ownership graph.",
-    "Follow-up requirements read needed exact per-gate classification inputs and independent digest bindings for shared design reads.",
-    "The review-only draft PR checkpoint needed its explicit safe-reuse and uncertain-lookup contract restored."
+    "The proposed input set was not enforceable: an artifact digest plus cited identifiers cannot detect a cited record's content change, inspected_refs and citations are optional for non-task gates, and the criteria covered four gates where the gate table has six.",
+    "Criterion 4 conflicted with accepted decision 0066, which binds a review stamp to delta_id alone and states a contract re-record never affects it.",
+    "Criterion 5 did not say whether widening write scope meant rewriting the recorded contract or using the existing stage amend-scope path, which already adds measured strays without touching the contract or its bindings.",
+    "The claimed command defect was wrong: forge task close is a valid parser command and the accepted one-command closeout path, and 'every command string the harness prints' is unbounded because output includes external programs and placeholders.",
+    "'Allowance' was undefined: a failed launcher still counts toward the cap, escalation only bypasses the cap check while the separate second-read guard still refuses the retry, and the escalation record is unscoped and never consumed by the grill path."
   ],
-  "contradictions": [],
+  "contradictions": [
+    "The draft required some unchanged-tree contract edits to stale a review stamp, which accepted decision 0066 forbids."
+  ],
   "resolutions": [
-    "After LEAN-WORKFLOW ships, the approval-bound artifact records design_review required/routine in existing frontmatter. Missing/unknown means required; the named sensitive-change triggers require design scrutiny and routine classification needs a no-trigger rationale. Workers cannot downgrade it. Both adapters use the same predicate. One actual assessment may cover several applicable gates only with complete reviewed inputs and independent existing digest bindings. The first task retains all current gates until changed enforcement ships; no current pass is fabricated from this future rule.",
-    "Accepted 0064 explicitly amends the obsolete fixed-cap interpretation of 0058. The specification defines existing review limits as the installed helpers actual safeguards and complete lossless coverage, not a pinned 512000-byte Forge limit. Measure complete final inputs, use supported chunks and split if intact input cannot fit; no helper cap is edited or overridden. This implements the users already approved simplification while preserving the roadmap criterion.",
-    "The specification restores approved story, matching decomposition, exact story/task identity, fetched trunk commit and all effective dependency markers; open PR, green CI and messages are explicitly insufficient. It preserves fixed IDs/order/dependencies and the existing clean, unowned, same-common-directory attachment and publish-owner-last requirements under 0059.",
-    "The specification names main-launched forge review under accepted 0011/0064, prohibits self-certification and nested reviewers, and requires delegated fixes followed by review until every assessment is clean. Proposed 0049 is explicitly not authority. First uses current three-lens execution; LEAN later implements one combined operation with genuine linked lens artifacts.",
-    "The specification retains factory/schemas/test-automated.json, implementer production, the existing recorder/task path and six fixed labels. Accepted0065 applies the users explicit CI-only Linux/Windows ruling: actual local Mac CLI/Desktop and meaningful Ubuntu24.04 x64/nativeWindows CI are required. CI rows explicitly state regression/package-smoke evidence and unavailable authenticated behavior; Desktop observations stay unobserved limitations. Required evidence or any actual failure blocks aggregate readiness; accepted unavailable-platform limitations remain in remaining_gaps without fabricated passes. Existing fields and C10 propagate the honest aggregate; no new schema/matrix.",
-    "The specification names scoped and legacy events.bundle.json paths, format forge-event-bundle/v1, matching story/explicit IDs, validated reader union and identical-ID deduplication during interrupted cleanup. Conflicts refuse; legacy idless history stays unchanged and unread as new live events. After shipped proof is durable, sibling temporary write plus atomic replacement precedes read-back exact comparison and source removal. Failure preserves loose sources and hard proof.",
-    "The specification names the existing committed native-foreground-preparation-inventory.json, exact824baed4 baseline, 109953-byte bee122 patch and16 prepared-file hashes. It requires the complete versioned lean-delivery graph and reproducible artifacts to allocate all original paths/hunks and be SHA-bound by the approved story plan before any support-task contract. Main is publishing that graph and exact patches before plan approval; the spec does not treat temporary paths or source approvals as target authority.",
-    "The saved specification now maps all six gates to their exact existing classification input, record and digest. Epics derives classification from linked capability specs rather than adding JSON authority; signoff includes its complete located handover. Classification/rationale stay authored and digest-bound. A shared read explicitly names every gate, includes complete located/grounding inputs, returns independently assessed frontiers and binds each existing record; current one-gate launches cannot claim this future capability. LEAN owns implementation and refusal regressions before the feature is usable.",
-    "The checkpoint now names normal Git/gh draft operations instead of forge task pr-ready, matches origin/head repository/head branch/base/reviewed commit, refuses creation after uncertain or ambiguous lookup, and re-queries after uncertain creation. It preserves one PR identity and eventual marker identity/timestamp. Shared owns the retry mechanism and Integration its live checkpoint; no new registry or authority is introduced."
+    "The spec now requires an input manifest of stable identifier plus CONTENT DIGEST per input, covering the artifact, the cited handover records, and the active decision set applicable to the gate. Owner ruled the manifest hashes all applicable decisions rather than only cited ones, so a decision read but never cited cannot change unnoticed. Criteria 1 to 3 now assert across all six gates in the gate table.",
+    "Owner ruled that 0066 stands and the stamp deaths are the implementation failing an accepted promise. The spec no longer proposes any stamp rule change; criterion 4 asserts a stamp SURVIVES a contract re-record that leaves the delta unchanged, which is what 0066 already requires.",
+    "Removed. stage amend-scope already provides the sanctioned non-cascading path and was used on the client task an hour before this read, so the criterion asked for a feature that exists.",
+    "Removed and corrected in the Why section: forge task close exists upstream and the client repo was running an older vendored copy, which is a vendoring lag rather than a harness defect. The remaining command criterion is bounded to a named set of generated forge invocations parsed against the real grammar, with external programs and placeholders out of scope.",
+    "The spec now defines the budget unit: a read consumes an allowance only when it completes and returns a verdict, a launcher or tool failure consumes nothing, and recording an escalation grants exactly one further read scoped to that gate and task, clearing both the cap and the repeat-read guard, spent when that read completes."
   ],
-  "rounds": [],
-  "open_items": [],
-  "frontier_empty": true,
-  "summary": "Actual independent native Forge spec read launch-4b859e18db2b416a9ca56133b022b179, session01a08a2e-3a40-7651-b52b-719ebf1f6013 completed with these seven findings. Main adjudicated and resolved them in the saved current specification and accepted0064, with the existing one-read resolution procedure. This technical record claims no new implementation, worker contribution or platform proof; confirmation uses the users standing authorization for the accepted lean workflow and client migration. Actual subsequent requirements read launch-8eab636cdde543289b4958af475583d7, session01a08a40-f15e-74e3-bc7d-d3de778fb3c0 supplied these two additional clarifications. They are technical corrections within accepted0064 and the existing checkpoint scope, resolved without another cold read. Its third suggestion to mandate Native receipt A is rejected in the requirements disposition because that answer was explicitly limited to one2026-09-08 hook-delivery probe, not a product naming requirement. The users subsequent explicit CI-only Linux/Windows ruling is recorded in accepted0065; main amended only platform acceptance and its exact report interpretation while preserving all other resolved findings. No additional cold read or actual CI/runtime pass is claimed.",
-  "input_sha256": "9b94b886b837e5547f754031097fa85852a83be6d4f33c61fcfe3bbf2e080265",
-  "recorded_at": "2026-09-10T08:26:21+00:00",
-  "commit": "120c6b607afc4cb5f58f35e579bd4f04c3009436"
+  "open_items": [
+    "The 93 pre-existing test failures on main are unrelated to this work and are pinned by count and identity in criterion 9 so the change is neither credited nor blamed for them."
+  ],
+  "questions_asked": 2,
+  "input_sha256": "78bdf530930c18b8e482d68ee006f8d8ed0ef96395630061ebb51abfe734b64b",
+  "rounds": [
+    {
+      "question": "The input manifest needs a digest per input. How far should it reach for decisions?",
+      "options": [
+        "All active decisions for that gate (Recommended)",
+        "Only cited records",
+        "Artifact only"
+      ],
+      "chosen": "All active decisions for that gate (Recommended)",
+      "frontier_empty": true
+    }
+  ],
+  "inspected_refs": [
+    "docs/specs/gates-stale-only-on-what-they-read.md",
+    "docs/decisions/0066-closeout-binds-to-the-diff.md",
+    "factory/schemas/grill.json",
+    "factory/scripts/grill_gates.py",
+    "factory/scripts/forge.py",
+    "factory/scripts/forge_cli/grill.py",
+    "factory/scripts/forge_cli/signal.py",
+    "factory/scripts/forge_cli/stages.py"
+  ],
+  "citations": [
+    {
+      "finding": "The proposed input set was not enforceable: an artifact digest plus cited identifiers cannot detect a cited record's content change, inspected_refs and citations are optional for non-task gates, and the criteria covered four gates where the gate table has six.",
+      "ref": "factory/schemas/grill.json"
+    },
+    {
+      "finding": "Criterion 4 conflicted with accepted decision 0066, which binds a review stamp to delta_id alone and states a contract re-record never affects it.",
+      "ref": "docs/decisions/0066-closeout-binds-to-the-diff.md"
+    },
+    {
+      "finding": "Criterion 5 did not say whether widening write scope meant rewriting the recorded contract or using the existing stage amend-scope path, which already adds measured strays without touching the contract or its bindings.",
+      "ref": "factory/scripts/forge_cli/stages.py"
+    },
+    {
+      "finding": "The claimed command defect was wrong: forge task close is a valid parser command and the accepted one-command closeout path, and 'every command string the harness prints' is unbounded because output includes external programs and placeholders.",
+      "ref": "factory/scripts/forge.py"
+    },
+    {
+      "finding": "'Allowance' was undefined: a failed launcher still counts toward the cap, escalation only bypasses the cap check while the separate second-read guard still refuses the retry, and the escalation record is unscoped and never consumed by the grill path.",
+      "ref": "factory/scripts/forge_cli/grill.py"
+    }
+  ],
+  "recorded_at": "2026-09-11T17:17:05+00:00",
+  "commit": "c9a705bc315d4677309815eb03b58e61e7957e50"
 }
