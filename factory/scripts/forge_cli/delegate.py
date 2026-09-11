@@ -1215,20 +1215,29 @@ def launch_companion(
     native_result = None
     stdout = ""
     stderr = ""
-    if output_path:
-        # Native stdout is a JSONL protocol: invalid UTF-8 must fail the run,
-        # not be rewritten into evidence that the runtime did not emit.
-        stdout_log = open(output_path, "w+t", encoding="utf-8")
-        stderr_log = open(stderr_path, "w+t", encoding="utf-8")
-    else:
-        # Companion output is display-only and has historically been tolerant
-        # of malformed worker bytes; preserve that audited behavior unchanged.
-        stdout_log = tempfile.TemporaryFile(
-            mode="w+t", encoding="utf-8", errors="replace"
-        )
-        stderr_log = tempfile.TemporaryFile(
-            mode="w+t", encoding="utf-8", errors="replace"
-        )
+    stdout_log = None
+    stderr_log = None
+    try:
+        if output_path:
+            # Native stdout is a JSONL protocol: invalid UTF-8 must fail the run,
+            # not be rewritten into evidence that the runtime did not emit.
+            stdout_log = open(output_path, "w+t", encoding="utf-8")
+            stderr_log = open(stderr_path, "w+t", encoding="utf-8")
+        else:
+            # Companion output is display-only and has historically been tolerant
+            # of malformed worker bytes; preserve that audited behavior unchanged.
+            stdout_log = tempfile.TemporaryFile(
+                mode="w+t", encoding="utf-8", errors="replace"
+            )
+            stderr_log = tempfile.TemporaryFile(
+                mode="w+t", encoding="utf-8", errors="replace"
+            )
+    except OSError:
+        if stdout_log is not None:
+            stdout_log.close()
+        if lock is not None:
+            _release_delegation_lock(lock, record["launch_id"])
+        raise
     handled_signals = list(TERMINATION_SIGNALS)
     previous_handlers = {
         candidate: signal.getsignal(candidate) for candidate in handled_signals

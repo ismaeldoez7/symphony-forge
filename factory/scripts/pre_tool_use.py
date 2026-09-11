@@ -693,7 +693,9 @@ for pattern in blocked:
 # matcher, including substitutions and global flags; exempt only exact help argv
 # and safe display commands whose quoted text happens to contain the phrase.
 CODEX_EXEC_INVOCATION = re.compile(
-    r"(?:^|[;&|]\s*|\$\(\s*|`\s*)(?:\w+=\S+\s+)*codex(?:\s+-{1,2}[\w-]+(?:[= ]\S+)?)*\s+exec\b",
+    r"(?:^|[;&|]\s*|\$\(\s*|`\s*)(?:\w+=\S+\s+)*(?:command\s+)?"
+    r"(?:\"[^\"\r\n;&|]*/codex\"|'[^'\r\n;&|]*/codex'|"
+    r"(?:[^\s;&|]*/)?codex)(?:\s+-{1,2}[\w-]+(?:[= ]\S+)?)*\s+exec\b",
     re.MULTILINE,
 )
 
@@ -936,7 +938,7 @@ def _has_active_shell_syntax(value: str) -> bool:
     return False
 
 
-codex_match = CODEX_EXEC_INVOCATION.search(command)
+codex_match = CODEX_EXEC_INVOCATION.search(command) if tool_name == "Bash" else None
 codex_help = (
     shell_tokens in (["codex", "exec", "--help"], ["codex", "exec", "-h"])
     and not _has_active_shell_syntax(command)
@@ -948,9 +950,9 @@ quoted_display = (
 if codex_match and not codex_help and not quoted_display:
     deny(
         "Direct `codex exec` is off-contract. Use `./forge delegate <task-id>` "
-        "for protected implementation or `./forge explore --prompt-file <brief> "
-        "[--purpose validate]` for read-only exploration; Forge selects and "
-        "records the configured runtime."
+        "for protected implementation; keep read-only exploration in the current "
+        "coordinator chat. Native background and explore commands are unavailable "
+        "in this release."
     )
 
 

@@ -11,7 +11,7 @@ from pathlib import Path
 from factory_lib import (
     _committed_task_marker, _plan_body_digest_bytes, _proof_commit_problems,
     _read_git_bytes, _read_git_json, _stage_baseline_for, branch_diff_digest,
-    head_sha, load_json, now_iso,
+    active_task_id, head_sha, load_json, now_iso,
     plan_digest_without_assumptions, proof_path,
     protected_decomposition_state_path, repo_root, require_task_grill,
     run_state_path, safe_factory_write_bytes, story_dir,
@@ -298,8 +298,32 @@ def render_approved_inputs_section(inputs: dict) -> list[str]:
 def _approved_inputs_section(base: Path, task: dict) -> list[str]:
     return render_approved_inputs_section(_approved_task_inputs(base, task))
 
+
+def _sealed_proof_section(base: Path, task: dict) -> list[str]:
+    """Render bounded identity for an already-sealed task in an --all brief."""
+    state = load_json(run_state_path(base), default={})
+    story = state.get("issue_key") or state.get("story")
+    task_id = task.get("id")
+    marker = load_json(
+        proof_path(base, story, "pr-ready.json", task_id=task_id), default=None)
+    sealed, problem = _committed_task_marker(base, story, task_id, marker, None)
+    if sealed is None and problem is None:
+        return []
+    if sealed is None:
+        raise SystemExit(
+            f"Review brief refused: sealed task {task_id} has invalid proof "
+            f"identity: {problem or 'missing committed marker'}."
+        )
+    identity = {key: sealed.get(key) for key in (
+        "task_id", "branch", "base_main_sha", "commit", "sealed_at",
+    )}
+    return ["### Sealed task proof identity", "", json.dumps(
+        identity, sort_keys=True), ""]
+
+
 def _task_section(
         task: dict, base: Path | None = None, *, full_inputs: bool = True,
+        sealed_context: bool = False,
 ) -> list[str]:
     task_id = task.get("id", "")
     lines = [f"## Task {task_id}", "", "### Plan contracts", ""]
@@ -328,6 +352,8 @@ def _task_section(
         lines.extend(_lessons_section(base, task))
         if full_inputs:
             lines.extend(_approved_inputs_section(base, task))
+        elif sealed_context:
+            lines.extend(_sealed_proof_section(base, task))
     return lines
 
 
@@ -419,15 +445,29 @@ def cmd_review_brief(args: argparse.Namespace) -> None:
 
     lines = [title, "", VERDICT_INSTRUCTION, ""]
     from .stages import load_stages
-    started = {
-        row.get("id") for row in load_stages(base).get("stages", [])
-        if isinstance(row, dict) and row.get("status") in {"active", "done"}
+    statuses = {
+        row.get("id"): row.get("status")
+        for row in load_stages(base).get("stages", [])
+        if isinstance(row, dict)
     }
+    reviewed_task = getattr(args, "review_task", "") or active_task_id(base)
+    if not reviewed_task:
+        reviewed_task = next(
+            (task_id for task_id, status in statuses.items()
+             if status == "active"),
+            "",
+        )
     for task in selected:
-        # Future tasks are context only in a branch-wide brief. The active task
-        # and already-started tasks receive their complete approved inputs.
-        full_inputs = not args.all or task.get("id") in started
-        lines.extend(_task_section(task, base, full_inputs=full_inputs))
+        # The explicit review target receives complete approved inputs even when
+        # its stage is done. Other done tasks retain bounded identity only when
+        # they have actually been sealed; future tasks are contract context.
+        status = statuses.get(task.get("id"))
+        full_inputs = not args.all or task.get("id") == reviewed_task
+        lines.extend(_task_section(
+            task, base, full_inputs=full_inputs,
+            sealed_context=(args.all and status == "done"
+                            and task.get("id") != reviewed_task),
+        ))
     relative = f"review-briefs/{filename}"
     body = ("\n".join(lines).rstrip() + "\n").encode()
     if not safe_factory_write_bytes(base, relative, body):

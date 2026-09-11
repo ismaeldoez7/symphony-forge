@@ -86,7 +86,7 @@ def _current_process_descends_from(pid: int, identity: str) -> bool:
             if parent == current:
                 break
             current = parent
-    except (OSError, psutil.Error):
+    except (OSError, SystemError, psutil.Error):
         return False
     return False
 
@@ -188,9 +188,8 @@ def live_worker_admission(base: Path) -> tuple[dict | None, str]:
         return _deny("FORGE_PROCESS_TOKEN is missing")
     all_rows = None
     if not launch_id:
-        # Older companion launches predate FORGE_LAUNCH_ID. Their protected
-        # process token still resolves one exact launch; native launches require
-        # both markers.
+        # The current Claude companion exports only its protected process token;
+        # it still resolves one exact launch. Native launches require both markers.
         try:
             all_rows = load_delegations(base)
         except (OSError, SystemExit, ValueError) as exc:
@@ -200,7 +199,7 @@ def live_worker_admission(base: Path) -> tuple[dict | None, str]:
             if row.get("process_token") == token and not row.get("transport")
         }
         if len(candidates) != 1 or not all(isinstance(item, str) for item in candidates):
-            return _deny("the legacy process token does not resolve one companion launch")
+            return _deny("the current Claude process token does not resolve one companion launch")
         launch_id = candidates.pop()
     if worker_admission_revoked(base, launch_id):
         return _deny("the protected launch authority was revoked")

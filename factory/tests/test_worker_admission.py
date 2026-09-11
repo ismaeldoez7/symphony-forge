@@ -109,7 +109,7 @@ def _worker_script(tmp_path: Path) -> Path:
 
 
 def _start_worker(repo: Path, tmp_path: Path, *, launch_id: str = "launch-test",
-                  task_id: str = "T1", legacy_env: bool = False):
+                  task_id: str = "T1", without_launch_id: bool = False):
     control = _control(repo)
     lock = control / f"locks/task/{task_id}.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
@@ -121,7 +121,7 @@ def _start_worker(repo: Path, tmp_path: Path, *, launch_id: str = "launch-test",
     }
     argv = [sys.executable, str(_worker_script(tmp_path)), str(lock),
             str(repo / "factory/scripts/pre_tool_use.py"), str(repo)]
-    if legacy_env:
+    if without_launch_id:
         argv.append("legacy")
     proc = subprocess.Popen(
         argv,
@@ -200,6 +200,8 @@ def test_known_native_launch_reads_delegation_ledger_once(tmp_path, monkeypatch)
     import forge_cli.codex_runtime as codex_runtime
     import forge_cli.worker_admission as admission
 
+    real_descends = admission._current_process_descends_from
+
     launch_id = "launch-native"
     token = f"delegation-{launch_id}"
     argv = ["/usr/bin/codex", "exec", "-"]
@@ -269,6 +271,14 @@ def test_known_native_launch_reads_delegation_ledger_once(tmp_path, monkeypatch)
     assert reason == ""
     assert calls == [tmp_path]
     assert native_validations == [(rows[-1], tmp_path, ["src/"])]
+
+    def fail_process_inspection(_pid):
+        raise SystemError("macOS sysctl denied")
+
+    monkeypatch.setattr(psutil, "Process", fail_process_inspection)
+    monkeypatch.setattr(admission, "_current_process_descends_from", real_descends)
+    grant, reason = admission.live_worker_admission(tmp_path)
+    assert grant is None and "outside the registered worker process tree" in reason
 
 
 def test_native_worker_patch_add_update_delete_and_move_is_admitted(repo, tmp_path):
@@ -402,9 +412,10 @@ def test_stage_worker_may_change_repo_marker_only_when_scope_names_it(repo, tmp_
     assert "deny" not in output, output
 
 
-def test_legacy_companion_token_still_resolves_protected_worker(repo, tmp_path):
+def test_current_claude_companion_token_resolves_protected_worker(repo, tmp_path):
     brief, digest = _seed_contract(repo)
-    proc, token, launch_id = _start_worker(repo, tmp_path, legacy_env=True)
+    proc, token, launch_id = _start_worker(
+        repo, tmp_path, without_launch_id=True)
     _record_launch(
         repo, proc, token, launch_id, brief, digest, transport="companion",
     )

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -216,6 +217,34 @@ def test_doctor_repairs_only_exact_plugin_max_source(tmp_path, monkeypatch):
     before = snapshot()
     assert not doctor._codex_plugin_max_status(tmp_path, fix=True)[0]
     assert snapshot() == before
+
+    install()
+    external_root = tmp_path / "external" / "1.0.6"
+    shutil.copytree(root, external_root)
+    shutil.rmtree(root)
+    root.symlink_to(external_root, target_is_directory=True)
+    monkeypatch.setattr(
+        doctor, "companion_script", lambda _home: companion.resolve())
+    external_before = {
+        relative: (external_root / relative).read_bytes() for relative in sources
+    }
+    ok, detail = doctor._codex_plugin_max_status(tmp_path, fix=True)
+    assert not ok and "unsupported install path" in detail
+    assert external_before == {
+        relative: (external_root / relative).read_bytes() for relative in sources
+    }
+
+    root.unlink()
+    install()
+    external_leaf = tmp_path / "external-rescue.md"
+    external_leaf.write_bytes(sources["commands/rescue.md"])
+    leaf = root / "commands" / "rescue.md"
+    leaf.unlink()
+    leaf.symlink_to(external_leaf)
+    monkeypatch.setattr(doctor, "companion_script", lambda _home: companion)
+    ok, detail = doctor._codex_plugin_max_status(tmp_path, fix=True)
+    assert not ok and "unsupported plugin source path" in detail
+    assert external_leaf.read_bytes() == sources["commands/rescue.md"]
 
     install()
     outside = tmp_path / "other" / "1.0.6" / "scripts" / companion.name

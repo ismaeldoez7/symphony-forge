@@ -156,8 +156,10 @@ def review_excluded_prefixes(base: Path) -> tuple[str, ...]:
 
 def _product_dirty(base: Path) -> list[str]:
     excluded = review_excluded_prefixes(base)
-    status = _require_git(base, "reading working tree status", "status",
-                          "--porcelain", "--untracked-files=all")
+    status = _require_git(
+        base, "reading working tree status", "status", "--porcelain",
+        "--untracked-files=all", strip=False,
+    )
     dirty = []
     for line in status.splitlines():
         path = line[3:].strip()
@@ -808,7 +810,9 @@ def cmd_review(args: argparse.Namespace) -> None:
         _require_safe_codex_review_helper(skill)
 
     # Mint the branch review run the recorder binds every artifact to.
-    cmd_review_brief(argparse.Namespace(id=None, all=True, repo=str(base)))
+    cmd_review_brief(argparse.Namespace(
+        id=None, all=True, repo=str(base), review_task=args.id,
+    ))
 
     decomposition = load_json(protected_decomposition_state_path(base), default={})
     all_tasks = [t for t in decomposition.get("tasks") or [] if isinstance(t, dict)]

@@ -30,12 +30,13 @@ def _git(base: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _require_git(base: Path, description: str, *args: str) -> str:
+def _require_git(
+        base: Path, description: str, *args: str, strip: bool = True) -> str:
     proc = _git(base, *args)
     if proc.returncode != 0:
         detail = proc.stderr.strip() or proc.stdout.strip()
         fail(f"{description} failed" + (f": {detail}" if detail else ""))
-    return proc.stdout.strip()
+    return proc.stdout.strip() if strip else proc.stdout
 
 
 def _default_branch(base: Path) -> str:
@@ -319,17 +320,22 @@ def cmd_task_start(args: argparse.Namespace) -> None:
         plan_relative: plan_source,
         Path(".factory") / "stories" / key / "decomposition.json": decomposition_path,
     }
-    # A subsequent task starts with a fresh JIT contract. Existing target plan
-    # and grill records are useful hydration when present, but their absence is
-    # intentional: creation must not certify or require target approval.
+    # Plan content can hydrate a successor workspace, but its source grill is
+    # approval authority and must be recorded afresh in the new target.
     optional_sources = {
-        Path(".factory") / "stories" / key / "grills" / "tasks" / f"{args.id}.json":
-            evidence_path(base, key, f"grills/tasks/{args.id}.json"),
         Path(".factory") / "stories" / key / "task-plans" / f"{args.id}.md":
             evidence_path(base, key, f"task-plans/{args.id}.md"),
     }
-    sources.update({relative: source for relative, source in optional_sources.items()
-                    if source.is_file()})
+    for relative, source in optional_sources.items():
+        try:
+            if source.resolve(strict=False) != source:
+                fail(f"task start refused: optional source is symlinked: {source}")
+        except (OSError, RuntimeError):
+            fail(f"task start refused: optional source cannot be resolved: {source}")
+        if not source.exists():
+            continue
+        if source.is_file():
+            sources[relative] = source
     payloads = {relative: source.read_bytes() for relative, source in sources.items()}
     decomposition_bytes = decomposition_path.read_bytes()
     stages_bytes = (json.dumps({
@@ -348,8 +354,19 @@ def cmd_task_start(args: argparse.Namespace) -> None:
         base, "creating task worktree", "worktree", "add", str(worktree),
         "-b", branch, base_main_sha,
     )
+    # A fetched trunk can contain this task's earlier approval record. Keep it
+    # in Git history, but remove it from the fresh task workspace so the target
+    # must be grilled and approved for its own plan and task identity.
+    from .scaffold import assert_target_file_destination
+    target_grill = assert_target_file_destination(
+        worktree,
+        worktree / ".factory" / "stories" / key / "grills" / "tasks"
+        / f"{args.id}.json",
+    )
+    if target_grill.exists() or target_grill.is_symlink():
+        target_grill.unlink()
     for relative, content in payloads.items():
-        destination = worktree / relative
+        destination = assert_target_file_destination(worktree, worktree / relative)
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(content)
     control = git_control_dir(worktree)

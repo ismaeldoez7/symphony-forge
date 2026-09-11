@@ -514,9 +514,17 @@ def _codex_plugin_max_status(home: Path, *, fix: bool) -> tuple[bool, str]:
         return False, "installation metadata is missing, malformed, or ambiguous"
 
     root = companion.parent.parent
-    expected_root = _codex_plugin_dir(home) / _CODEX_PLUGIN_MAX_VERSION
-    if root != expected_root.resolve():
+    expected_root = _codex_plugin_dir(home.resolve()) / _CODEX_PLUGIN_MAX_VERSION
+    if root != expected_root or expected_root.resolve() != expected_root:
         return False, f"unsupported install path: {root}"
+    source_paths = (".claude-plugin/plugin.json", *_CODEX_PLUGIN_MAX_PATCHES)
+    for relative in source_paths:
+        path = root / relative
+        try:
+            if path.resolve(strict=False) != path:
+                return False, f"unsupported plugin source path: {relative}"
+        except (OSError, RuntimeError):
+            return False, f"unsupported plugin source path: {relative}"
     try:
         manifest = json.loads(
             (root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")

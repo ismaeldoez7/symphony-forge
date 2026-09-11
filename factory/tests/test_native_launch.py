@@ -222,6 +222,59 @@ def test_native_launch_registers_before_stdin_and_records_terminal_identity(
     assert scan_calls == [Path(terminal["output_path"])]
 
 
+@pytest.mark.parametrize("failed_open", [1, 2])
+def test_native_log_open_failure_releases_lock_without_lifecycle_rows(
+        native_repo, tmp_path, monkeypatch, failed_open):
+    import builtins
+    import forge_cli.delegate as delegate
+    import forge_cli.doctor as doctor
+
+    executable = fake_codex(tmp_path)
+    native_env(monkeypatch, tmp_path, executable)
+    monkeypatch.setattr(doctor, "codex_hook_readiness", lambda _base: (True, ""))
+    lock = object()
+    acquired = []
+    released = []
+    monkeypatch.setattr(
+        delegate, "_acquire_delegation_lock",
+        lambda _base, _task, launch_id: acquired.append(launch_id) or lock,
+    )
+    monkeypatch.setattr(
+        delegate, "_release_delegation_lock",
+        lambda handle, launch_id: released.append((handle, launch_id)),
+    )
+    real_open = builtins.open
+    opened = []
+    calls = 0
+
+    def fail_log_open(path, *args, **kwargs):
+        nonlocal calls
+        if "native-runs" in Path(path).parts:
+            calls += 1
+            if calls == failed_open:
+                raise OSError("injected log-open failure")
+            handle = real_open(path, *args, **kwargs)
+            opened.append(handle)
+            return handle
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", fail_log_open)
+    with pytest.raises(OSError, match="injected log-open failure"):
+        launch_companion(
+            native_repo,
+            task_id="T1",
+            text="fixture prompt",
+            path=native_repo / ".factory" / "briefs" / "T1.md",
+            task_sha256_value="task-digest",
+            model="model-pin",
+            effort="medium",
+            write=True,
+        )
+    assert all(handle.closed for handle in opened)
+    assert released == [(lock, acquired[0])]
+    assert load_delegations(native_repo) == []
+
+
 def test_native_zero_exit_without_completed_turn_is_failed(
         native_repo, tmp_path, monkeypatch, capsys):
     executable = fake_codex(tmp_path, terminal="item.completed")

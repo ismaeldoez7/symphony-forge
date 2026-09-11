@@ -1405,9 +1405,15 @@ def _task_contract(
         )
         data = None
         for path in candidates:
-            data = reader(path)
-            if data is not None:
-                break
+            candidate = reader(path)
+            if candidate is None:
+                continue
+            if (path == ".factory/decomposition.json"
+                    and (not isinstance(candidate, dict)
+                         or candidate.get("story") != key)):
+                continue
+            data = candidate
+            break
     else:
         if active_story_key(root) == key:
             # The protected control-dir copy is authoritative for the active
@@ -1920,6 +1926,10 @@ def _legacy_task_proof_problems(
     scopes = (f".factory/stories/{key}", ".factory")
     selected: tuple[str, dict[str, dict]] | None = None
     for scope in scopes:
+        if scope == ".factory":
+            owner = read(".factory/decomposition.json")
+            if not isinstance(owner, dict) or owner.get("story") != key:
+                continue
         records = {
             name: read(_legacy_bundle_path(scope, name))
             for name in _PROOF_NAMES
