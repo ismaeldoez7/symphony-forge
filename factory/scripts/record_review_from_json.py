@@ -9,7 +9,7 @@ from pathlib import Path
 from factory_lib import (
     branch_diff_digest, dump_json, gate, head_sha, load_json, now_iso,
     evidence_path, proof_path, protected_decomposition_state_path, repo_root,
-    require_skills,
+    product_delta_digest, publish_review_generation, require_skills,
     read_stdin_utf8, run_state_path, story_dir, validate_payload,
 )
 from forge_cli.events import append_event
@@ -54,10 +54,12 @@ def ensure_findings(field: str, value):
 
 
 parser = argparse.ArgumentParser(description="Record a review artifact from structured JSON")
-parser.add_argument(
-    "--aspect", required=True,
+kind = parser.add_mutually_exclusive_group(required=True)
+kind.add_argument(
+    "--aspect",
     choices=["quality", "performance", "security", "stage-local"],
 )
+kind.add_argument("--set", action="store_true", help="publish one complete review generation")
 parser.add_argument(
     "--task", default="",
     help="task this review covers; defaults to the task this worktree runs")
@@ -80,6 +82,39 @@ state = gate(
     decomposition=True,
     lite_window_ok=True,
 )
+if args.set:
+    if not args.task:
+        raise SystemExit("--set requires --task")
+    story = state.get("issue_key") or state.get("story")
+    if payload.get("story") != story or payload.get("task_id") != args.task:
+        raise SystemExit("review generation story/task does not match the active task")
+    from forge_cli.stages import stage_baseline
+    task = task_for(root, args.task)
+    stage = next((entry for entry in load_stages(root).get("stages", [])
+                  if entry.get("id") == args.task), {})
+    if not task or stage.get("status") not in {"active", "done"}:
+        raise SystemExit("review generation requires an active or done recorded task")
+    expected_delta = product_delta_digest(root, stage_baseline(root, stage))
+    if payload.get("delta_id") != expected_delta:
+        raise SystemExit("review generation delta_id is stale for the active task")
+    token = load_json(story_dir(root, story) / "review-run.json", default={})
+    for field in ("review_run_id", "brief_sha256"):
+        if payload.get(field) != token.get(field):
+            raise SystemExit(f"review generation {field} does not match review-run.json")
+    if payload.get("inspected_commit") != head_sha(root):
+        raise SystemExit("review generation inspected_commit is not current HEAD")
+    expected_source = ""
+    if payload.get("origin") == "rejection" and isinstance(payload.get("rejection"), dict):
+        expected_source = str(payload["rejection"].get("source_generation_id") or "")
+    generation, selection = publish_review_generation(
+        root, story, args.task, payload, expected_source_id=expected_source,
+        update_stamp=payload.get("origin") != "upgrade",
+    )
+    print(
+        f"Published review generation {generation['generation_id']} and selected it "
+        f"for {args.task} ({selection['delta_id'][:12]})."
+    )
+    raise SystemExit(0)
 validate_payload(root, "review", payload)
 require_skills(root, "review", payload)
 # A review is ALWAYS about one task's diff, so it is stored under that task.
@@ -185,7 +220,13 @@ if args.aspect != "stage-local" and state.get("issue_key"):
         raise SystemExit(
             "Invalid review-run token; rerun `./forge review-brief --all`."
         )
-    if token["branch_diff_digest"] != branch_diff_digest(root):
+    stage = next((entry for entry in load_stages(root).get("stages", [])
+                  if entry.get("id") == args.task), {})
+    current_digest = (
+        product_delta_digest(root, stage_review_binding(root, stage, {})["base_sha"])
+        if stage else branch_diff_digest(root)
+    )
+    if token["branch_diff_digest"] != current_digest:
         raise SystemExit(
             "Branch changed after the review run was minted; rerun "
             "`./forge review-brief --all`."

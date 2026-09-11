@@ -95,8 +95,7 @@ def cmd_task_close(args: argparse.Namespace) -> None:
             outcome = review_task(
                 base, task_id, engine=getattr(args, "engine", "codex"),
                 max_priority=getattr(args, "max_priority", "P2"),
-                skill=getattr(args, "skill", None),
-                parallel=(False if getattr(args, "sequential", False) else None))
+                skill=getattr(args, "skill", None))
             if outcome["blocking"]:
                 _stop("review", f"{outcome['blocking']} blocking finding(s)",
                       f"delegate the fixes (`./forge delegate {task_id}`), commit, "

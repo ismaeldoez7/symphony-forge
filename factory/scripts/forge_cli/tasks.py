@@ -561,6 +561,14 @@ def seal_task(base: Path, task_id: str) -> None:
         print(f"Task {args.id} already sealed at {commit[:12]}; the product "
               "and proof have not moved since. Marker committed.")
     else:
+        from factory_lib import read_selected_review_generation
+        generation, selection, review_problems = read_selected_review_generation(
+            base, key, args.id,
+        )
+        if review_problems or not isinstance(generation, dict) \
+                or not isinstance(selection, dict):
+            fail("task PR marker requires one valid selected review generation: "
+                 + "; ".join(review_problems or ["selection is missing"]))
         payload = {
             "task_id": args.id,
             "branch": branch,
@@ -572,12 +580,23 @@ def seal_task(base: Path, task_id: str) -> None:
             fail("task PR marker fields must all be non-empty strings")
         dump_json(base / marker, payload)
 
-        # Commit only the marker path so an unrelated pre-existing index is not
-        # swept into the evidence commit that this command owns.
-        _require_git(base, "staging the task PR marker", "add", "--", marker.as_posix())
+        generation_path = marker.parent / "reviews" / "generations" / (
+            f"{generation['generation_id']}.json"
+        )
+        selection_path = marker.parent / "reviews" / "selected.json"
+        brief_path = Path(".factory/review-briefs/all.md")
+        proof_paths = [marker, generation_path, selection_path, brief_path]
+        if any(not (base / path).is_file() for path in proof_paths):
+            fail("task PR marker requires the selected generation and saved review brief")
+        # The pointer and its generation must exist in the marker publication
+        # commit. Commit only these exact proof paths so an unrelated index is
+        # not swept into the evidence commit this command owns.
+        _require_git(base, "staging the task PR marker and selected review", "add", "--",
+                     *(path.as_posix() for path in proof_paths))
         _require_git(
             base, "committing the task PR marker", "commit", "--only", "-m",
-            f"{key} {args.id}: task PR marker", "--", marker.as_posix(),
+            f"{key} {args.id}: task PR marker", "--",
+            *(path.as_posix() for path in proof_paths),
         )
     _require_git(base, "pushing the task branch", "push", "-u", "origin", branch)
 

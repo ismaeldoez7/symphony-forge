@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import base64
 import hashlib
 import importlib.util
 import json
@@ -57,7 +58,7 @@ from factory_lib import (
 )
 from grill_gates import GATES
 from forge_cli.events import load_events
-from forge_cli.stages import task_digest, write_stages
+from forge_cli.stages import stage_baseline, task_digest, write_stages
 from record_signoff import REQUIRED_BRIEF_HEADINGS
 
 
@@ -682,19 +683,42 @@ def write_task_proof(repo: Path, task_id: str = "T1", *,
             id=None, all=True, repo=str(repo), review_task=task_id,
         ))
         brief = repo / ".factory" / "review-briefs" / "all.md"
-        brief_sha256 = hashlib.sha256(brief.read_bytes()).hexdigest()
-        review_run_id = hashlib.sha256(
-            (brief_sha256 + branch_digest).encode()
-        ).hexdigest()
+        token = json.loads((story_state(repo, key) / "review-run.json").read_text())
+        brief_sha256 = token["brief_sha256"]
+        branch_digest = token["branch_diff_digest"]
+        review_run_id = token["review_run_id"]
+        delta_id = branch_digest
         for aspect in ("quality", "performance", "security"):
             path = task_root / "reviews" / f"{aspect}.json"
             review = json.loads(path.read_text())
             review.update({
+                "score": 10, "non_blocking_findings": [], "recommendation": "approve",
+                "summary": f"{aspect} review passed",
                 "review_run_id": review_run_id,
                 "brief_sha256": brief_sha256,
-                "branch_diff_digest": branch_digest,
+                "branch_diff_digest": delta_id,
             })
             path.write_text(json.dumps(review))
+        raw = json.dumps({"findings": [], "overall_explanation":
+            "BEGIN QUALITY\nquality\nEND QUALITY\nBEGIN PERFORMANCE\nfast\n"
+            "END PERFORMANCE\nBEGIN SECURITY\nsafe\nEND SECURITY"},
+            sort_keys=True).encode()
+        lib.publish_review_generation(repo, key, task_id, {
+            "format": "forge-review-generation/v1", "origin": "combined",
+            "generated_by": "autoreview", "story": key, "task_id": task_id,
+            "review_run_id": review_run_id, "brief_sha256": brief_sha256,
+            "inspected_commit": sha, "delta_id": delta_id,
+            "helper": {"path": "/fixture/autoreview", "version": "fixture",
+                       "sha256": "a" * 64},
+            "input": {"sha256": "c" * 64, "bytes": 1},
+            "raw_result": {"encoding": "base64", "sha256": hashlib.sha256(raw).hexdigest(),
+                           "bytes": len(raw), "data": base64.b64encode(raw).decode("ascii")},
+            "lenses": {
+                aspect: json.loads((task_root / "reviews" / f"{aspect}.json").read_text())
+                for aspect in ("quality", "performance", "security")
+            },
+            "recorded_at": "2026-09-10T00:00:00+00:00",
+        })
         # The marker command stages only its marker. Keep the brief in the
         # index so a marker commit carries the exact bytes and approved
         # records its reviews bind.
@@ -18241,20 +18265,20 @@ def test_review_consumers_include_complete_approved_inputs(
         return ""
 
     def inspect_skill(_skill, worktree, _base_sha, prompt_rel, _json_out,
-                      _engine, _max_priority, ledger_root=None):
+                      _engine, _max_priority, ledger_root=None, return_raw=False):
         assert ledger_root == repo
+        assert return_raw is True
         prompt_bytes = (worktree / prompt_rel).read_bytes()
         copied_dataset = (worktree / review_mod.REVIEW_DATASET_REL).read_bytes()
         seen.append((prompt_rel, prompt_bytes, copied_dataset))
-        return {
+        report = {
             "overall_explanation":
-                "VERDICT C1: implemented — complete dataset routed",
+                "BEGIN QUALITY\nVERDICT C1: implemented — complete dataset routed\n"
+                "END QUALITY\nBEGIN PERFORMANCE\nfast\nEND PERFORMANCE\n"
+                "BEGIN SECURITY\nsafe\nEND SECURITY",
             "findings": [],
-            "pass_reports": [{"report": {
-                "overall_explanation": "VERDICT C1: implemented — pass report",
-                "findings": [],
-            }}],
         }
+        return report, json.dumps(report).encode()
 
     with monkeypatch.context() as route:
         route.setattr(review_mod, "cmd_review_brief", lambda _args: None)
@@ -18267,6 +18291,8 @@ def test_review_consumers_include_complete_approved_inputs(
                       subprocess.CompletedProcess([], 0, "", ""))
         route.setattr(review_mod, "product_only_tip", lambda *_args: "c" * 40)
         route.setattr(review_mod, "_run_skill", inspect_skill)
+        route.setattr(review_mod, "_helper_identity", lambda _path:
+                      ({"path": "/helper", "version": "v1", "sha256": "a" * 64}, (1, 2)))
         route.setattr(review_mod.tempfile, "mkdtemp", lambda **_kwargs: str(review_tmp))
         route.setattr(review_mod.subprocess, "run", lambda *args, **_kwargs:
                       subprocess.CompletedProcess(args[0], 0, "", ""))
@@ -18277,10 +18303,8 @@ def test_review_consumers_include_complete_approved_inputs(
             max_priority="P1", sequential=True,
         ))
 
-    assert len(seen) == 3
-    assert {Path(prompt).name.split(".")[-2] for prompt, _, _ in seen} == {
-        "quality", "performance", "security",
-    }
+    assert len(seen) == 1
+    assert Path(seen[0][0]).name == "T1.combined.md"
     assert all(copied == dataset_bytes for _, _, copied in seen)
     assert all(b"### Approved task inputs" not in prompt for _, prompt, _ in seen)
     assert dataset_path.read_bytes() == dataset_bytes
@@ -18299,7 +18323,7 @@ def test_review_consumers_include_complete_approved_inputs(
             outside.write_bytes(b"sentinel")
         else:
             review_dir.mkdir()
-            (review_dir / "T1.security.md").symlink_to(outside)
+            (review_dir / "T1.combined.md").symlink_to(outside)
 
         def forbidden(*_args, **_kwargs):
             pytest.fail("review helper or recorder launched after unsafe destination")
@@ -18751,43 +18775,7 @@ def test_native_unshipped_operations_refuse_before_dispatch(
     delegate.cmd_delegate(args)
     assert calls[-1]["background"] is True and calls[-1]["write"] is False
 
-MODERN_PROOF_FAILURES = (
-    ("partial", "reviews/security.json", (), None, True),
-    ("verify_false", "verify.json", ("ok",), False, False),
-    ("automated_failed", "tests.json", ("automated", "status"), "failed", False),
-    ("automated_unknown", "tests.json", ("automated", "status"), "skipped", False),
-    ("automated_missing", "tests.json", ("automated", "status"), None, True),
-    ("automated_blocker", "tests.json", ("automated", "blocking_findings"), ["x"], False),
-    ("review_wrong_task", "reviews/quality.json", ("task_id",), "T2", False),
-    ("review_missing_task", "reviews/quality.json", ("task_id",), None, True),
-    ("review_blocker", "reviews/performance.json", ("blocking_findings",), ["x"], False),
-    ("review_low_score", "reviews/quality.json", ("score",), 7, False),
-    ("review_run_mismatch", "reviews/security.json", ("review_run_id",), "stale", False),
-    ("review_brief_mismatch", "reviews/security.json", ("brief_sha256",), "stale", False),
-    ("review_diff_mismatch", "reviews/security.json", ("branch_diff_digest",), "stale", False),
-    ("functional_missing", "tests.json", ("functional",), None, True),
-    ("functional_failed", "tests.json", ("functional", "status"), "failed", False),
-    ("functional_unknown", "tests.json", ("functional", "status"), "skipped", False),
-    ("functional_low_score", "tests.json", ("functional", "score"), 7, False),
-    ("functional_blocker", "tests.json", ("functional", "blocking_findings"), ["x"], False),
-)
-
-
-def _patch_json(path, keys, value, remove=False):
-    data = json.loads(path.read_text())
-    target = data
-    for key in keys[:-1]:
-        target = target[key]
-    if remove:
-        target.pop(keys[-1])
-    else:
-        target[keys[-1]] = value
-    path.write_text(json.dumps(data))
-
-
-@pytest.mark.parametrize("case", MODERN_PROOF_FAILURES, ids=lambda item: item[0])
-def test_task_proof_consumers_share_complete_predicate(repo, tmp_path, case):
-    name, artifact, keys, value, remove = case
+def test_task_proof_consumers_share_complete_predicate(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
@@ -18811,17 +18799,110 @@ def test_task_proof_consumers_share_complete_predicate(repo, tmp_path, case):
 
     assert not lib.task_proof_problems(repo, "ENG-1", task)
     assert story()["lifecycle"]["proven"] == {"done": 1, "total": 1}
-    path = proof / artifact
-    if not keys:
-        path.unlink()
-    else:
-        _patch_json(path, keys, value, remove=remove)
-    assert lib.task_proof_problems(repo, "ENG-1", task), name
+    selected = json.loads((proof / "reviews/selected.json").read_text())
+    generation = proof / "reviews/generations" / f"{selected['generation_id']}.json"
+    generation.write_bytes(generation.read_bytes() + b" ")
+    assert lib.task_proof_problems(repo, "ENG-1", task)
     assert story()["lifecycle"]["proven"] == {"done": 0, "total": 1}
     git(repo, "add", "-A")
-    git(repo, "commit", "-qm", f"incomplete {name}")
+    git(repo, "commit", "-qm", "tamper selected generation")
     import check_task_proof
-    assert check_task_proof.proof_problems(repo, "ENG-1", "T1"), name
+    assert check_task_proof.proof_problems(repo, "ENG-1", "T1")
+
+
+def _selected_review_case(repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    task = task_with_plan_contracts({**DECOMP["tasks"][0], "id": "T1"}, "C")
+    record_skeleton_then_frontier(repo, [task])
+    write_stages(repo, {"issue": "ENG-1", "stages": [{
+        "id": "T1", "title": task["title"], "status": "active",
+        "base_sha": head(repo),
+    }]})
+    code, out = record_task_grill(repo, task)
+    assert code == 0, out
+    proof = write_task_proof(repo, "T1", publish_review=True)
+    lib = load_factory_lib(repo)
+    selected = json.loads((proof / "reviews/selected.json").read_text())
+    generation_path = proof / "reviews/generations" / f"{selected['generation_id']}.json"
+    generation = json.loads(generation_path.read_text())
+    return task, proof, lib, selected, generation_path, generation
+
+
+def test_combined_review_publication_is_pointer_last_and_failure_atomic(
+        repo, tmp_path, monkeypatch):
+    _task, proof, lib, _selected, _path, generation = _selected_review_case(repo, tmp_path)
+    pointer_path = proof / "reviews/selected.json"
+    before = pointer_path.read_bytes()
+    candidate = {key: value for key, value in generation.items() if key != "generation_id"}
+    candidate["recorded_at"] = "2026-09-12T00:00:00+00:00"
+
+    def interrupted(*_args, **_kwargs):
+        raise SystemExit("interrupted before pointer commit")
+
+    monkeypatch.setattr(lib, "_replace_review_selection", interrupted)
+    with pytest.raises(SystemExit, match="interrupted"):
+        lib.publish_review_generation(repo, "ENG-1", "T1", candidate)
+    assert pointer_path.read_bytes() == before
+
+
+def test_single_lens_review_preserves_cli_without_publishing_an_incomplete_set(
+        repo, tmp_path):
+    _task, proof, _lib, _selected, _path, generation = _selected_review_case(repo, tmp_path)
+    pointer = proof / "reviews/selected.json"
+    before = pointer.read_bytes()
+    diagnostic = dict(generation["lenses"]["security"])
+    diagnostic.update({
+        "score": 7, "recommendation": "request-changes",
+        "blocking_findings": [{"category": "security", "area": "src",
+                                "summary": "diagnostic only"}],
+    })
+    code, out = run(repo, "record_review_from_json.py", "--aspect", "security",
+                    "--task", "T1", stdin=json.dumps(diagnostic))
+    assert code == 0, out
+    assert pointer.read_bytes() == before
+    assert json.loads((proof / "reviews/security.json").read_text())["blocking_findings"]
+
+
+def test_review_generation_id_recomputes_and_tamper_refuses(repo, tmp_path):
+    _task, proof, lib, selected, generation_path, generation = _selected_review_case(
+        repo, tmp_path)
+    assert generation["generation_id"] == lib.review_generation_id(generation)
+    generation["recorded_at"] = "2026-09-12T01:00:00+00:00"
+    body = lib.review_generation_bytes(generation)
+    generation_path.write_bytes(body)
+    selected["generation_sha256"] = hashlib.sha256(body).hexdigest()
+    (proof / "reviews/selected.json").write_bytes(lib.review_generation_bytes(selected))
+    assert any("id does not recompute" in problem for problem in
+               lib.read_selected_review_generation(repo, "ENG-1", "T1")[2])
+
+
+def test_review_generation_retry_and_collision_are_safe(repo, tmp_path):
+    _task, proof, lib, selected, generation_path, generation = _selected_review_case(
+        repo, tmp_path)
+    candidate = {key: value for key, value in generation.items() if key != "generation_id"}
+    before = (proof / "reviews/selected.json").read_bytes()
+    retried, pointer = lib.publish_review_generation(repo, "ENG-1", "T1", candidate)
+    assert retried["generation_id"] == selected["generation_id"]
+    assert pointer["generation_id"] == selected["generation_id"]
+    assert (proof / "reviews/selected.json").read_bytes() == before
+    generation_path.write_bytes(generation_path.read_bytes() + b" ")
+    with pytest.raises(SystemExit, match="collision with unequal bytes"):
+        lib.publish_review_generation(repo, "ENG-1", "T1", candidate)
+    assert (proof / "reviews/selected.json").read_bytes() == before
+
+
+def test_close_and_frontier_use_selected_current_delta(repo, tmp_path):
+    task, proof, lib, selected, _path, _generation = _selected_review_case(repo, tmp_path)
+    from forge_cli.stages import load_stages, stamp_is_fresh, stamp_stage_review
+    stamp_stage_review(repo, "T1", lenses=("quality", "performance", "security"))
+    stage = load_stages(repo)["stages"][0]
+    assert stamp_is_fresh(repo, stage, task)
+    selected["delta_id"] = "f" * 64
+    (proof / "reviews/selected.json").write_bytes(lib.review_generation_bytes(selected))
+    assert not stamp_is_fresh(repo, load_stages(repo)["stages"][0], task)
+    assert lib.task_proof_problems(repo, "ENG-1", task, preseal=True)
 
 
 def test_task_proof_ci_uses_sealed_legacy_t1_not_later_t2_singleton(

@@ -1006,20 +1006,28 @@ def stamp_is_fresh(base: Path, stage: dict, task: dict) -> bool:
         return False
     expected = stage_review_binding(base, stage, task)
     if "delta_id" in stamp:
-        return all(stamp.get(key) == value for key, value in expected.items())
-    legacy = _legacy_stamp_binding(base, stage, task)
-    if any(stamp.get(key) != value for key, value in legacy.items()):
+        binding_ok = all(stamp.get(key) == value for key, value in expected.items())
+    else:
+        legacy = _legacy_stamp_binding(base, stage, task)
+        if any(stamp.get(key) != value for key, value in legacy.items()):
+            return False
+        from .delegate import delegation_exclusion
+        with delegation_exclusion(base, "stages", kind="stage-state", namespace="state"):
+            data = load_stages(base)
+            live = _find(data, stage.get("id", ""))
+            current = live.get("local_review_stamp")
+            if isinstance(current, dict) and "delta_id" not in current:
+                current.update(expected)
+                write_stages(base, data)
+        stamp.update(expected)
+        binding_ok = True
+    if not binding_ok:
         return False
-    from .delegate import delegation_exclusion
-    with delegation_exclusion(base, "stages", kind="stage-state", namespace="state"):
-        data = load_stages(base)
-        live = _find(data, stage.get("id", ""))
-        current = live.get("local_review_stamp")
-        if isinstance(current, dict) and "delta_id" not in current:
-            current.update(expected)
-            write_stages(base, data)
-    stamp.update(expected)
-    return True
+    from factory_lib import active_story_key, selected_review_problems
+    story = active_story_key(base)
+    return bool(story) and not selected_review_problems(
+        base, story, str(stage.get("id") or ""), expected["delta_id"],
+    )
 
 def stamp_stage_review(base: Path, stage_id: str, *, generated_by: str = "autoreview",
                        lenses: tuple[str, ...] | list[str] = ()) -> dict:
@@ -1907,8 +1915,8 @@ def _refuse_incomplete_against_complete_proof(base: Path, task_id: str) -> None:
     when every one of those is present -- a genuinely partial task has not got
     them, so the honest use is untouched.
     """
-    from factory_lib import evidence_path, load_json
-    from .readiness import review_passed, verify_passed
+    from factory_lib import load_json, product_delta_digest, selected_review_problems
+    from .readiness import verify_passed
 
     key = load_json(run_state_path(base), default={}).get("issue_key", "")
     if not key:
@@ -1916,13 +1924,12 @@ def _refuse_incomplete_against_complete_proof(base: Path, task_id: str) -> None:
     verify_ok = verify_passed(load_json(
         proof_read_path(base, key, "verify.json"), default={}))
     tests = load_json(proof_read_path(base, key, "tests.json"), default={})
-    aspects = ("quality", "performance", "security")
-    lenses = {
-        aspect: review_passed(load_json(
-            evidence_path(base, key, f"reviews/{aspect}.json"), default={}))
-        for aspect in aspects
-    }
-    if not (verify_ok and tests and all(lenses.values())):
+    stage = next((item for item in load_stages(base).get("stages", [])
+                  if item.get("id") == task_id), {})
+    review_ok = bool(stage) and not selected_review_problems(
+        base, key, task_id, product_delta_digest(base, stage_baseline(base, stage)),
+    )
+    if not (verify_ok and tests and review_ok):
         return
     fail(
         f"--incomplete records that WORK REMAINS on {task_id}, and the recorded "

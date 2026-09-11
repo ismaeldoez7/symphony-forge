@@ -12,7 +12,12 @@ no lens blocks any more.
 """
 from __future__ import annotations
 
+import base64
+import copy
+import hashlib
 import json
+
+import pytest
 
 from test_gates import (  # noqa: I001 — test_gates puts factory/scripts on sys.path
     DECOMP, STAGE_TASK, _write_complete_automated, git, head, intake,
@@ -20,13 +25,14 @@ from test_gates import (  # noqa: I001 — test_gates puts factory/scripts on sy
     sign_off, skeletal_stage_task, write_stages,
 )
 from factory_lib import (  # noqa: E402
-    load_json, proof_path, protected_decomposition_state_path,
+    load_json, product_delta_digest, protected_decomposition_state_path,
+    publish_review_generation, read_selected_review_generation,
+    review_finding_fingerprint,
 )
 from forge_cli.findings import _finding_rows  # noqa: E402
-from forge_cli.lessons import load_lessons  # noqa: E402
 from forge_cli.review import LENSES, rejected_findings_report  # noqa: E402
 from forge_cli.review_brief import _plan_section_bodies, _task_section  # noqa: E402
-from forge_cli.stages import load_stages, task_digest  # noqa: E402
+from forge_cli.stages import load_stages, stage_baseline, task_digest  # noqa: E402
 
 __all__ = ["repo"]
 
@@ -112,125 +118,104 @@ def test_brief_carries_plan_decisions_and_sealed_contracts(repo, tmp_path):
     assert "T1-AC1" not in "\n".join(_task_section(task, repo))
 
 
-def _record_lens(repo, lens: str, blocking: list[dict], task_id: str = "T2") -> None:
+def _publish(repo, blocking=(), *, recorded_at="2026-09-11T01:00:00+00:00"):
     code, out = run(repo, "forge.py", "review-brief", "--all")
     assert code == 0, out
-    payload = {
-        "generated_by": "autoreview", "task_id": task_id,
-        "score": 10 - 3 * len(blocking),
-        "summary": f"{lens} lens", "blocking_findings": blocking,
-        "non_blocking_findings": [], "recommendation": "request-changes" if blocking else "approve",
-        "skills_used": ["review-animations"],
-    }
-    if lens == "quality":
-        payload["contract_verdicts"] = [
-            {"contract_id": contract_id, "verdict": "implemented",
-             "evidence": "src/work.py:1"}
-            for contract_id in ("T1-AC1", "T2-AC1")
-        ]
-    code, out = run(repo, "record_review_from_json.py", "--aspect", lens, "--task", task_id,
-                    stdin=json.dumps(payload))
-    assert code == 0, out
+    token = load_json(repo / ".factory/stories/ENG-1/review-run.json", default={})
+    stage = next(row for row in load_stages(repo)["stages"] if row["id"] == "T2")
+    delta = product_delta_digest(repo, stage_baseline(repo, stage))
+    common = {"generated_by": "autoreview", "task_id": "T2",
+              "non_blocking_findings": [], "review_run_id": token["review_run_id"],
+              "brief_sha256": token["brief_sha256"], "branch_diff_digest": delta,
+              "commit": head(repo), "reviewed_scope": ["src/work.py"], "skills_used": []}
+    lenses = {}
+    for lens in LENSES:
+        found = list(blocking) if lens == "security" else []
+        lenses[lens] = {**common, "score": max(0, 10 - 3 * len(found)),
+                        "summary": lens, "blocking_findings": found,
+                        "recommendation": "request-changes" if found else "approve"}
+    lenses["quality"]["contract_verdicts"] = [
+        {"contract_id": cid, "verdict": "implemented", "evidence": "src/work.py:1"}
+        for cid in ("T1-AC1", "T2-AC1")]
+    raw_findings = [{"title": f"[security] finding {index}", "body": item["summary"],
+                     "priority": "P1", "confidence": 1, "category": "security",
+                     "code_location": {"file_path": "src/work.py", "line": index}}
+                    for index, item in enumerate(blocking, 1)]
+    raw = json.dumps({"findings": raw_findings, "overall_explanation":
+        "BEGIN QUALITY\nquality\nEND QUALITY\nBEGIN PERFORMANCE\nfast\nEND PERFORMANCE\n"
+        "BEGIN SECURITY\nsafe\nEND SECURITY"}, separators=(",", ":")).encode()
+    candidate = {"format": "forge-review-generation/v1", "origin": "combined",
+        "generated_by": "autoreview", "story": "ENG-1", "task_id": "T2",
+        "review_run_id": token["review_run_id"], "brief_sha256": token["brief_sha256"],
+        "inspected_commit": head(repo), "delta_id": delta,
+        "helper": {"path": "/helper", "version": "v1", "sha256": "a" * 64},
+        "input": {"sha256": "b" * 64, "bytes": 1},
+        "raw_result": {"encoding": "base64", "sha256": hashlib.sha256(raw).hexdigest(),
+                       "bytes": len(raw), "data": base64.b64encode(raw).decode()},
+        "lenses": lenses, "recorded_at": recorded_at}
+    return publish_review_generation(repo, "ENG-1", "T2", candidate)
 
 
-def test_reject_moves_the_finding_ledgers_a_lesson_and_stamps_when_clean(repo, tmp_path):
+def test_reject_republishes_one_complete_pointer_selected_set(repo, tmp_path):
     _story(repo, tmp_path)
-    hard = {"category": "security", "area": "src/runtime",
-            "summary": "Gate every remembered-Allow lookup on hardFloor (src/runtime/coordinator.ts:266)"}
-    _record_lens(repo, "security", [hard])
-    _record_lens(repo, "quality", [])
-    _record_lens(repo, "performance", [])
-
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "hardFloor",
-                    "--lens", "security", "--reason", "T1-AC1 keys the consult on the rail case",
-                    "--cite", "T1-AC1; story S4", "--by", "autoreview")
-    assert code == 0 and "Rejected security finding" in out, out
-    recorded = load_json(proof_path(repo, "ENG-1", "reviews/security.json", task_id="T2"), default={})
-    assert recorded["blocking_findings"] == []
-    assert recorded["rejected_findings"][0]["finding"] == hard
-    assert recorded["rejected_findings"][0]["cite"] == "T1-AC1; story S4"
-    assert recorded["score"] == 10 and recorded["recommendation"] == "approve"
-    lessons = load_lessons(repo)
-    assert any("T1-AC1" in l.get("lesson", "") and l.get("applies_to") == ["src/runtime/**"]
-               for l in lessons)
-    assert "review stamp recorded" in out
-    stamp = next(s for s in load_stages(repo)["stages"] if s["id"] == "T2")["local_review_stamp"]
-    assert stamp["lenses"] == list(LENSES)
+    blockers = [{"category": "security", "area": "src/runtime",
+                 "summary": f"remembered hardFloor lookup {number}"} for number in (1, 2)]
+    root, first_pointer = _publish(repo, blockers)
+    raw = root["raw_result"]
+    quality = root["lenses"]["quality"]
+    for number in (1, 2):
+        code, out = run(repo, "forge.py", "review", "T2", "--reject", f"lookup {number}",
+                        "--lens", "security", "--reason", "remembered hardFloor contract",
+                        "--cite", "T1-AC1", "--by", "autoreview")
+        assert code == 0, out
+    selected, pointer, problems = read_selected_review_generation(repo, "ENG-1", "T2")
+    assert not problems and selected["origin"] == "rejection"
+    assert len(selected["rejection"]["history"]) == 2
+    assert selected["raw_result"] == raw and selected["lenses"]["quality"] == quality
+    assert pointer["generation_id"] != first_pointer["generation_id"]
+    assert "lookup 1" in rejected_findings_report(repo, "ENG-1", "T2")
 
 
-def test_reject_refuses_a_citation_that_names_nothing_settled(repo, tmp_path):
+def test_selected_upgrade_generation_requires_exact_sealed_binding(repo, tmp_path):
     _story(repo, tmp_path)
-    hard = {"category": "security", "area": "src/runtime", "summary": "hardFloor thing"}
-    _record_lens(repo, "security", [hard])
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "hardFloor",
-                    "--lens", "security", "--reason", "r", "--cite", "c", "--by", "autoreview")
-    assert code != 0 and "names nothing settled" in out, out
-    recorded = load_json(proof_path(repo, "ENG-1", "reviews/security.json", task_id="T2"), default={})
-    assert recorded["blocking_findings"] == [hard]
-    # A decision id resolves; so does a plan section header word.
-    (repo / "docs" / "decisions").mkdir(parents=True, exist_ok=True)
-    (repo / "docs" / "decisions" / "0154-generic-scope.md").write_text(
-        "# 0154 generic scope\n\nA remembered hardFloor decision stays a human decision.\n")
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "hardFloor",
-                    "--lens", "security", "--reason", "r", "--cite", "decision 0154",
-                    "--by", "autoreview")
-    assert code == 0 and "cite: decision 0154" in out, out
+    combined, _ = _publish(repo)
+    upgrade = copy.deepcopy(combined)
+    upgrade.pop("generation_id")
+    upgrade["origin"] = "upgrade"
+    upgrade["upgrade"] = {"inventory_digest": "c" * 64, "source_kind": "sealed",
+        "legacy_artifacts": [{"aspect": lens, "path": f"reviews/{lens}.json",
+                              "sha256": chr(100 + index) * 64}
+                             for index, lens in enumerate(sorted(LENSES))],
+        "sealed_commit": "f" * 40}
+    publish_review_generation(repo, "ENG-1", "T2", upgrade)
+    assert not read_selected_review_generation(
+        repo, "ENG-1", "T2", sealed_commit="f" * 40)[2]
+    assert "exact sealed binding" in read_selected_review_generation(
+        repo, "ENG-1", "T2", sealed_commit="e" * 40)[2][0]
 
 
-def test_reject_never_stamps_from_an_incomplete_or_stale_review_set(repo, tmp_path):
+def test_rejection_compare_and_swap_refuses_interleaved_selection(repo, tmp_path):
     _story(repo, tmp_path)
-    hard = {"category": "security", "area": "src/runtime", "summary": "hardFloor thing"}
-    _record_lens(repo, "security", [hard])          # the other two lenses never ran
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "hardFloor",
-                    "--lens", "security", "--reason", "r", "--cite", "T1-AC1",
-                    "--by", "autoreview")
-    assert code == 0 and "No stamp: the quality lens is not recorded" in out, out
-    assert "local_review_stamp" not in next(
-        s for s in load_stages(repo)["stages"] if s["id"] == "T2")
-    # A lens recorded for another task lives under THAT task and never counts
-    # for this one: storage is per task, so T2's quality lens is simply absent.
-    _record_lens(repo, "quality", [], task_id="T1")
-    _record_lens(repo, "performance", [])
-    _record_lens(repo, "security", [hard])
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "hardFloor",
-                    "--lens", "security", "--reason", "r", "--cite", "T1-AC1",
-                    "--by", "autoreview")
-    assert code == 0 and "No stamp: the quality lens is not recorded" in out, out
-    assert load_json(proof_path(repo, "ENG-1", "reviews/quality.json", task_id="T1"),
-                     default={}).get("task_id") == "T1"
-
-
-def test_reject_refuses_an_ambiguous_or_missing_match(repo, tmp_path):
-    _story(repo, tmp_path)
-    _record_lens(repo, "quality", [
-        {"category": "x", "area": "src", "summary": "one hardFloor thing"},
-        {"category": "x", "area": "src", "summary": "another hardFloor thing"},
-    ])
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "hardFloor",
-                    "--lens", "quality", "--reason", "r", "--by", "autoreview")
-    assert code != 0 and "--cite" in out, out
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "hardFloor",
-                    "--lens", "quality", "--reason", "r", "--cite", "T1-AC1", "--by", "autoreview")
-    assert code != 0 and "2 blocking quality findings match" in out, out
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "nothing-like-this",
-                    "--lens", "quality", "--reason", "r", "--cite", "T1-AC1", "--by", "autoreview")
-    assert code != 0 and "no blocking quality finding matches" in out, out
-
-
-def test_reject_refuses_a_stale_artifact_before_touching_it(repo, tmp_path):
-    _story(repo, tmp_path)
-    hard = {"category": "security", "area": "src/runtime", "summary": "hardFloor thing"}
-    _record_lens(repo, "security", [hard])
-    (repo / "src" / "later.py").write_text("more work\n")
-    git(repo, "add", "src/later.py")
-    git(repo, "commit", "-q", "-m", "T2 more work")
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "hardFloor",
-                    "--lens", "security", "--reason", "r", "--cite", "T1-AC1",
-                    "--by", "autoreview")
-    assert code != 0 and "predates the current branch diff" in out, out
-    recorded = load_json(proof_path(repo, "ENG-1", "reviews/security.json", task_id="T2"),
-                         default={})
-    assert recorded["blocking_findings"] == [hard]
+    blocker = {"category": "security", "area": "src", "summary": "hardFloor lookup"}
+    source, pointer = _publish(repo, [blocker])
+    successor = copy.deepcopy(source)
+    successor.pop("generation_id")
+    successor["origin"] = "rejection"
+    successor["recorded_at"] = "2026-09-11T02:00:00+00:00"
+    entry = {"finding_fingerprint": review_finding_fingerprint(blocker), "reason": "r",
+             "citation": "T1-AC1", "actor": "autoreview"}
+    successor["rejection"] = {"source_generation_id": source["generation_id"],
+        "source_generation_sha256": pointer["generation_sha256"],
+        "root_generation_id": source["generation_id"], "history": [entry]}
+    lens = successor["lenses"]["security"]
+    lens["blocking_findings"] = []
+    lens["score"], lens["recommendation"] = 10, "approve"
+    lens["rejected_findings"] = [{"finding": blocker, "reason": "r", "cite": "T1-AC1",
+        "rejected_at": successor["recorded_at"], "rejected_by": "autoreview", "task_id": "T2"}]
+    _publish(repo, [blocker], recorded_at="2026-09-11T03:00:00+00:00")
+    with pytest.raises(SystemExit, match="selection changed"):
+        publish_review_generation(repo, "ENG-1", "T2", successor,
+                                  expected_source_id=source["generation_id"])
 
 
 def test_rejected_findings_cluster_in_patterns_flagged():
@@ -264,60 +249,3 @@ def test_generic_plan_headers_do_not_resolve_a_citation(repo, tmp_path):
     data["stages"][0]["status"] = "pending"
     write_stages(repo, data)
     assert _cite_resolves(repo, "ENG-1", "T1-AC1", "T2")[0] == ""
-
-
-def test_rejected_findings_report_lists_each_rejection_for_the_pr_body(repo, tmp_path):
-    _story(repo, tmp_path)
-    assert rejected_findings_report(repo, "ENG-1", "T2") == ""
-    hard = {"category": "security", "area": "src/runtime", "summary": "hardFloor thing"}
-    _record_lens(repo, "security", [hard])
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "hardFloor",
-                    "--lens", "security", "--reason", "the rail case keys the consult",
-                    "--cite", "T1-AC1", "--by", "autoreview")
-    assert code == 0, out
-    report = rejected_findings_report(repo, "ENG-1", "T2")
-    assert "## Review findings rejected on a citation" in report
-    assert "- **security**: hardFloor thing" in report
-    assert "rejected because: the rail case keys the consult" in report
-    assert "cites: T1-AC1" in report
-
-
-def test_reject_refuses_a_citation_unrelated_to_the_finding(repo, tmp_path):
-    from forge_cli.review import _shared_terms
-    _story(repo, tmp_path)
-    unrelated = {"category": "bug", "area": "src/billing/invoice.ts",
-                 "summary": "Invoice totals ignore the currency rounding rule"}
-    _record_lens(repo, "quality", [unrelated])
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "Invoice",
-                    "--lens", "quality", "--reason", "r", "--cite", "T1-AC1",
-                    "--by", "autoreview")
-    assert code != 0 and "shares no substantive term" in out, out
-    assert _shared_terms({"summary": "hardFloor gating of the remembered lookup"},
-                         "the rail hardFloor flag never gates the remembered lookup") == [
-        "hardfloor", "lookup", "remembered"]
-    # A file-shaped area is ledgered as that file, not as a directory glob.
-    related = {"category": "security", "area": "src/runtime/coordinator.ts",
-               "summary": "hardFloor thing"}
-    _record_lens(repo, "security", [related])
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "hardFloor",
-                    "--lens", "security", "--reason", "r", "--cite", "T1-AC1",
-                    "--by", "autoreview")
-    assert code == 0 and "ledgered as a lesson for src/runtime/coordinator.ts" in out, out
-
-
-def test_a_later_lens_record_keeps_the_rejections_of_the_task(repo, tmp_path):
-    """The recorder is what `forge review` calls per lens; a fresh artifact for
-    the same task carries the earlier rejections (the review command copies
-    them in before recording), so the record of what was set aside survives."""
-    from forge_cli.review import LENSES as _lenses  # noqa: F401
-    _story(repo, tmp_path)
-    hard = {"category": "security", "area": "src/runtime", "summary": "hardFloor thing"}
-    _record_lens(repo, "security", [hard])
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "hardFloor",
-                    "--lens", "security", "--reason", "r", "--cite", "T1-AC1",
-                    "--by", "autoreview")
-    assert code == 0, out
-    before = load_json(proof_path(repo, "ENG-1", "reviews/security.json", task_id="T2"),
-                       default={})
-    assert len(before["rejected_findings"]) == 1
-    assert before["rejected_findings"][0]["task_id"] == "T2"

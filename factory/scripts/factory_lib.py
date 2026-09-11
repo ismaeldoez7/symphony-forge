@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import base64
+import copy
 import hashlib
 import io
 import json
@@ -840,21 +842,18 @@ def task_evidence_path(
 
 
 def proof_read_path(root: Path, key: str | None, name: str) -> Path:
-    """Where a READER finds proof: the task's copy when a task owns the run and
-    has recorded one, the story's otherwise.
+    """Where a reader finds proof: task-owned while a task owns the run.
 
     `proof_path` answers where a WRITER puts proof, and per-task runs put it
     under the task. Readers that resolved story-only therefore missed proof the
     recorders had just written — the review gate, the board, the phase summary,
-    the stage rows and the review brief all did. The fallback keeps story-level
-    runs and older stories working unchanged, which is what makes this a
-    completion of the per-task move rather than a flag day.
+    the stage rows and the review brief all did. A missing task artifact stays
+    missing: falling back could certify one task with a story run's evidence.
+    Story-level runs retain their story path because they have no task identity.
     """
     task_id = active_task_id(root)
     if task_id and key:
-        scoped = task_evidence_path(root, key, task_id, name)
-        if scoped.is_file():
-            return scoped
+        return task_evidence_path(root, key, task_id, name)
     return evidence_path(root, key, name)
 
 
@@ -1471,10 +1470,7 @@ def _task_proof_is_modern(
     reader: Callable[[str], dict | None] | None = None,
 ) -> bool:
     """Whether this task must use the task-owned proof bundle."""
-    names = (
-        "verify.json", "tests.json",
-        "reviews/quality.json", "reviews/performance.json", "reviews/security.json",
-    )
+    names = ("verify.json", "tests.json", "reviews/selected.json")
     if reader is not None:
         return any(reader(f".factory/stories/{key}/tasks/{task_id}/{name}") is not None
                    for name in names)
@@ -1563,7 +1559,8 @@ def _task_contract(
 
 _COMMIT_ID = re.compile(r"^[0-9a-fA-F]{7,64}$")
 _PROOF_LENSES = ("quality", "performance", "security")
-_PROOF_NAMES = (
+_PROOF_NAMES = ("verify.json", "tests.json", "reviews/selected.json")
+_LEGACY_PROOF_NAMES = (
     "verify.json", "tests.json",
     "reviews/quality.json", "reviews/performance.json", "reviews/security.json",
 )
@@ -1924,6 +1921,10 @@ def _modern_task_proof_problems(
     review_branch: str = "",
     proof_base: str = "",
     proof_seal: str = "",
+    expected_review_delta: str = "",
+    selected_reader: Callable[[str], dict | None] | None = None,
+    selected_bytes_reader: Callable[[str], bytes | None] | None = None,
+    sealed_commit: str = "",
 ) -> list[str]:
     """The fail-closed proof predicate for a task-owned bundle."""
     from forge_cli.readiness import tests_passed, verify_passed
@@ -1965,10 +1966,16 @@ def _modern_task_proof_problems(
                     f"{task_id}: functional check must be passed, have no blockers, "
                     "and score >= 8 — fix what it found and re-record it")
 
-    reviews = {
-        lens: read(f"reviews/{lens}.json")
-        for lens in _PROOF_LENSES
-    }
+    generation, _selection, review_generation_problems = read_selected_review_generation(
+        root, key, task_id, reader=selected_reader,
+        bytes_reader=selected_bytes_reader, expected_delta_id=expected_review_delta,
+        sealed_commit=sealed_commit,
+    )
+    problems.extend(review_generation_problems)
+    reviews = (
+        generation.get("lenses", {})
+        if isinstance(generation, dict) else {lens: {} for lens in _PROOF_LENSES}
+    )
     if marker_publication_commit:
         for name in _PROOF_NAMES:
             path = f".factory/stories/{key}/tasks/{task_id}/{name}"
@@ -2054,9 +2061,10 @@ def _legacy_task_proof_problems(
                 continue
         records = {
             name: read(_legacy_bundle_path(scope, name))
-            for name in _PROOF_NAMES
+            for name in _LEGACY_PROOF_NAMES
         }
-        mandatory = all(isinstance(records[name], dict) for name in _PROOF_NAMES)
+        mandatory = all(isinstance(records[name], dict)
+                        for name in _LEGACY_PROOF_NAMES)
         functional_ok = (
             not bool(task.get("user_facing"))
             or isinstance(records["tests.json"].get("functional"), dict)
@@ -2221,6 +2229,24 @@ def task_proof_problems(
     if proof_base and expected_head and _git_commit_exists(root, proof_base):
         proof_seal = expected_head
 
+    selected_reader = reader
+    selected_bytes_reader = None
+    expected_review_delta = ""
+    sealed_review_commit = ""
+    if marker_context is not None:
+        sealed_review_commit = str(marker_context["commit"])
+        selected_treeish = marker_publication_commit or sealed_review_commit
+        selected_reader = lambda path, treeish=selected_treeish: _read_git_json(
+            root, path, treeish
+        )
+        selected_bytes_reader = lambda path, treeish=selected_treeish: _read_git_bytes(
+            root, path, treeish
+        )
+    elif reader is not None:
+        selected_bytes_reader = lambda path: _read_git_bytes(root, path, "HEAD")
+    elif proof_base:
+        expected_review_delta = product_delta_digest(root, proof_base)
+
     if modern or not allow_legacy:
         return _modern_task_proof_problems(
             root, key, task, read_task,
@@ -2235,6 +2261,10 @@ def task_proof_problems(
                            if marker_context is not None else ""),
             proof_base=proof_base,
             proof_seal=proof_seal,
+            expected_review_delta=expected_review_delta,
+            selected_reader=selected_reader,
+            selected_bytes_reader=selected_bytes_reader,
+            sealed_commit=sealed_review_commit,
         )
     if marker_context is not None:
         if legacy_reader is None:
@@ -2255,6 +2285,9 @@ def task_proof_problems(
         reader=reader,
         proof_base=proof_base,
         proof_seal=proof_seal,
+        expected_review_delta=expected_review_delta,
+        selected_reader=selected_reader,
+        selected_bytes_reader=selected_bytes_reader,
     )
 
 
@@ -2443,6 +2476,615 @@ def validate_payload(root: Path, name: str, payload: dict) -> None:
         raise SystemExit(
             f"REFUSED by factory/schemas/{path.name}:\n- " + "\n- ".join(problems)
         )
+
+
+REVIEW_GENERATION_FORMAT = "forge-review-generation/v1"
+REVIEW_SELECTION_FORMAT = "forge-review-selection/v1"
+_LOWER_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _review_set_schema(root: Path) -> dict:
+    return json.loads(schema_path(root, "review-set").read_text(encoding="utf-8"))
+
+
+def _review_set_fail(problems: list[str]) -> None:
+    if problems:
+        raise SystemExit(
+            "REFUSED by factory/schemas/review-set.json:\n- " + "\n- ".join(problems)
+        )
+
+
+def validate_review_document(
+    root: Path, document: dict, *, allow_missing_generation_id: bool = False,
+) -> None:
+    """Validate either exact review generation or exact selected pointer."""
+    if not isinstance(document, dict):
+        _review_set_fail(["document must be a JSON object"])
+    schema = _review_set_schema(root)
+    formats = schema.get("formats") or {}
+    spec = formats.get(document.get("format"))
+    if not isinstance(spec, dict):
+        _review_set_fail([f"unknown format {document.get('format')!r}"])
+    problems: list[str] = []
+    if document.get("format") == REVIEW_SELECTION_FORMAT:
+        expected = set(spec.get("fields") or [])
+    else:
+        origin = document.get("origin")
+        origin_fields = spec.get("origin_fields") or {}
+        if origin not in origin_fields:
+            problems.append(f"origin must be one of {', '.join(origin_fields)}")
+            expected = set(spec.get("common_fields") or [])
+        else:
+            expected = set(spec.get("common_fields") or []) | set(origin_fields[origin])
+        if allow_missing_generation_id:
+            expected.discard("generation_id")
+    if set(document) != expected:
+        problems.append(
+            "fields must be exactly " + ", ".join(sorted(expected))
+        )
+    for field in (
+        "format", "story", "task_id", "generation_id", "generation_sha256",
+        "delta_id", "selected_at", "origin", "generated_by", "review_run_id",
+        "brief_sha256", "inspected_commit", "recorded_at",
+    ):
+        if field in document and (
+            not isinstance(document[field], str) or not document[field].strip()
+        ):
+            problems.append(f"{field} must be a non-empty string")
+    for field in ("generation_id", "generation_sha256", "delta_id", "brief_sha256"):
+        if field in document and not _LOWER_SHA256.fullmatch(str(document[field])):
+            problems.append(f"{field} must be a lowercase SHA256")
+    if document.get("format") == REVIEW_SELECTION_FORMAT:
+        _review_set_fail(problems)
+        return
+    if document.get("generated_by") not in schema.get("generated_by", []):
+        problems.append("generated_by is not pinned for review-set artifacts")
+    helper = document.get("helper")
+    if not isinstance(helper, dict) or set(helper) != {"path", "version", "sha256"}:
+        problems.append("helper needs exactly path, version, sha256")
+    else:
+        if any(not isinstance(helper[key], str) or not helper[key].strip()
+               for key in ("path", "version")):
+            problems.append("helper path and version must be non-empty strings")
+        if not _LOWER_SHA256.fullmatch(str(helper.get("sha256", ""))):
+            problems.append("helper sha256 must be a lowercase SHA256")
+    review_input = document.get("input")
+    if not isinstance(review_input, dict) or set(review_input) != {"sha256", "bytes"}:
+        problems.append("input needs exactly sha256 and bytes")
+    elif (not _LOWER_SHA256.fullmatch(str(review_input.get("sha256", "")))
+          or not isinstance(review_input.get("bytes"), int)
+          or isinstance(review_input.get("bytes"), bool)
+          or review_input["bytes"] < 0):
+        problems.append("input needs a lowercase SHA256 and non-negative byte count")
+    raw = document.get("raw_result")
+    decoded = b""
+    if not isinstance(raw, dict) or set(raw) != {"encoding", "sha256", "bytes", "data"}:
+        problems.append("raw_result needs exactly encoding, sha256, bytes, data")
+    else:
+        try:
+            decoded = base64.b64decode(raw.get("data", ""), validate=True)
+        except (TypeError, ValueError):
+            problems.append("raw_result data must be RFC4648 base64")
+        if raw.get("encoding") != "base64":
+            problems.append("raw_result encoding must be base64")
+        if (not isinstance(raw.get("bytes"), int) or isinstance(raw.get("bytes"), bool)
+                or raw.get("bytes") != len(decoded)):
+            problems.append("raw_result bytes must equal the decoded byte count")
+        if raw.get("sha256") != hashlib.sha256(decoded).hexdigest():
+            problems.append("raw_result sha256 does not match the decoded bytes")
+        if isinstance(raw.get("data"), str) and base64.b64encode(decoded).decode("ascii") != raw["data"]:
+            problems.append("raw_result data is not canonical RFC4648 base64")
+    lenses = document.get("lenses")
+    if not isinstance(lenses, dict) or set(lenses) != {
+        "quality", "performance", "security",
+    }:
+        problems.append("lenses needs exactly quality, performance, security")
+    else:
+        for lens, payload in lenses.items():
+            try:
+                validate_payload(root, "review", payload)
+            except SystemExit as exc:
+                problems.append(f"{lens} lens is invalid: {exc}")
+            if isinstance(payload, dict) and payload.get("task_id") != document.get("task_id"):
+                problems.append(f"{lens} lens is not owned by {document.get('task_id')}")
+            if not isinstance(payload, dict):
+                continue
+            for lens_field, generation_field in (
+                ("review_run_id", "review_run_id"),
+                ("brief_sha256", "brief_sha256"),
+                ("branch_diff_digest", "delta_id"),
+                ("commit", "inspected_commit"),
+            ):
+                if payload.get(lens_field) != document.get(generation_field):
+                    problems.append(
+                        f"{lens} lens {lens_field} does not match generation "
+                        f"{generation_field}"
+                    )
+            blocking = payload.get("blocking_findings")
+            non_blocking = payload.get("non_blocking_findings", [])
+            if isinstance(blocking, list) and isinstance(non_blocking, list):
+                score = max(0, int(10 - 3 * len(blocking)
+                                   - min(2.0, 0.5 * len(non_blocking))))
+                recommendation = (
+                    "request-changes" if blocking else
+                    "approve-with-caveats" if non_blocking else "approve"
+                )
+                if payload.get("score") != score:
+                    problems.append(f"{lens} lens score does not match its findings")
+                if payload.get("recommendation") != recommendation:
+                    problems.append(
+                        f"{lens} lens recommendation does not match its findings"
+                    )
+    origin = document.get("origin")
+    if origin == "rejection":
+        rejection = document.get("rejection")
+        if not isinstance(rejection, dict) or set(rejection) != {
+            "source_generation_id", "source_generation_sha256",
+            "root_generation_id", "history",
+        }:
+            problems.append("rejection needs exact source/root identity and history")
+        else:
+            for field in ("source_generation_id", "source_generation_sha256", "root_generation_id"):
+                if not _LOWER_SHA256.fullmatch(str(rejection.get(field, ""))):
+                    problems.append(f"rejection {field} must be a lowercase SHA256")
+            history = rejection.get("history")
+            if not isinstance(history, list) or not history:
+                problems.append("rejection history must be a non-empty list")
+            else:
+                for index, entry in enumerate(history, 1):
+                    if (not isinstance(entry, dict) or set(entry) != {
+                        "finding_fingerprint", "reason", "citation", "actor",
+                    } or any(not isinstance(value, str) or not value.strip()
+                             for value in entry.values())):
+                        problems.append(f"rejection history[{index}] has an invalid shape")
+    elif origin == "upgrade":
+        upgrade = document.get("upgrade")
+        if not isinstance(upgrade, dict) or set(upgrade) != {
+            "inventory_digest", "source_kind", "legacy_artifacts", "sealed_commit",
+        }:
+            problems.append("upgrade needs exact inventory/source/artifact/seal fields")
+        else:
+            if not _LOWER_SHA256.fullmatch(str(upgrade.get("inventory_digest", ""))):
+                problems.append("upgrade inventory_digest must be a lowercase SHA256")
+            if upgrade.get("source_kind") not in {"active", "sealed"}:
+                problems.append("upgrade source_kind must be active or sealed")
+            sealed = upgrade.get("sealed_commit")
+            if not isinstance(sealed, str) or (upgrade.get("source_kind") == "active" and sealed):
+                problems.append("active upgrade sealed_commit must be empty")
+            if upgrade.get("source_kind") == "sealed" and not str(sealed).strip():
+                problems.append("sealed upgrade needs sealed_commit")
+            artifacts = upgrade.get("legacy_artifacts")
+            if not isinstance(artifacts, list) or len(artifacts) != 3:
+                problems.append("upgrade legacy_artifacts needs three entries")
+            else:
+                expected_aspects = ["performance", "quality", "security"]
+                if [entry.get("aspect") if isinstance(entry, dict) else None
+                        for entry in artifacts] != expected_aspects:
+                    problems.append("upgrade legacy_artifacts must be sorted by aspect")
+                for entry in artifacts:
+                    if (not isinstance(entry, dict) or set(entry) != {"aspect", "path", "sha256"}
+                            or not isinstance(entry.get("path"), str)
+                            or not _LOWER_SHA256.fullmatch(str(entry.get("sha256", "")))):
+                        problems.append("upgrade legacy artifact has an invalid shape")
+                        break
+    if origin in {"combined", "rejection"} and decoded:
+        try:
+            raw_report = json.loads(decoded.decode("utf-8"))
+            from forge_cli.review import _actual_passes, _pass_sections, _tagged_finding
+            raw_passes = _actual_passes(raw_report)
+            for _label, provider in raw_passes:
+                _pass_sections(provider)
+                findings = provider.get("findings", [])
+                if not isinstance(findings, list):
+                    raise SystemExit("combined review pass findings must be a list")
+                for finding in findings:
+                    _tagged_finding(finding)
+            merged = raw_report.get("findings", [])
+            if not isinstance(merged, list):
+                raise SystemExit("combined review findings must be a list")
+            for finding in merged:
+                _tagged_finding(finding)
+        except (UnicodeDecodeError, json.JSONDecodeError, SystemExit) as exc:
+            problems.append(f"raw_result is not a valid combined helper report: {exc}")
+    _review_set_fail(problems)
+
+
+def review_generation_id(document: dict) -> str:
+    content = {key: value for key, value in document.items() if key != "generation_id"}
+    canonical = json.dumps(
+        content, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def review_generation_bytes(document: dict) -> bytes:
+    return (json.dumps(document, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
+
+
+def review_finding_fingerprint(finding: object) -> str:
+    canonical = json.dumps(
+        finding, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _rejection_successor_problems(
+    candidate: dict, source: dict, source_sha256: str,
+) -> list[str]:
+    problems: list[str] = []
+    if source.get("origin") not in {"combined", "rejection"}:
+        return ["rejection source must be a combined or rejection generation"]
+    for field in (
+        "format", "generated_by", "story", "task_id", "review_run_id",
+        "brief_sha256", "inspected_commit", "delta_id", "helper", "input",
+        "raw_result",
+    ):
+        if candidate.get(field) != source.get(field):
+            problems.append(f"rejection changed preserved {field}")
+    rejection = candidate.get("rejection") or {}
+    if rejection.get("source_generation_id") != source.get("generation_id"):
+        problems.append("rejection source_generation_id does not name its source")
+    if rejection.get("source_generation_sha256") != source_sha256:
+        problems.append("rejection source_generation_sha256 does not hash its source file")
+    root_id = (
+        source.get("generation_id") if source.get("origin") == "combined"
+        else (source.get("rejection") or {}).get("root_generation_id")
+    )
+    if rejection.get("root_generation_id") != root_id:
+        problems.append("rejection root_generation_id does not name the combined root")
+    source_history = (
+        [] if source.get("origin") == "combined"
+        else list((source.get("rejection") or {}).get("history") or [])
+    )
+    history = rejection.get("history")
+    if not isinstance(history, list) or history[:-1] != source_history:
+        problems.append("rejection history is not its source history plus one entry")
+        return problems
+    entry = history[-1]
+    source_lenses = source.get("lenses") or {}
+    candidate_lenses = candidate.get("lenses") or {}
+    changed = [lens for lens in ("quality", "performance", "security")
+               if candidate_lenses.get(lens) != source_lenses.get(lens)]
+    if len(changed) != 1:
+        problems.append("rejection must change exactly one lens")
+        return problems
+    lens = changed[0]
+    original = source_lenses[lens]
+    blocking = original.get("blocking_findings") or []
+    matches = [finding for finding in blocking
+               if review_finding_fingerprint(finding)
+               == entry.get("finding_fingerprint")]
+    if len(matches) != 1:
+        problems.append("rejection history does not identify one source blocking finding")
+        return problems
+    finding = matches[0]
+    expected = copy.deepcopy(original)
+    expected["blocking_findings"].remove(finding)
+    expected.setdefault("rejected_findings", []).append({
+        "finding": finding,
+        "reason": entry["reason"],
+        "cite": entry["citation"],
+        "rejected_at": candidate.get("recorded_at"),
+        "rejected_by": entry["actor"],
+        "task_id": candidate.get("task_id"),
+    })
+    remaining = len(expected["blocking_findings"])
+    caveats = len(expected.get("non_blocking_findings") or [])
+    expected["score"] = max(0, int(10 - 3 * remaining - min(2.0, 0.5 * caveats)))
+    expected["recommendation"] = (
+        "request-changes" if remaining else
+        "approve-with-caveats" if caveats else "approve"
+    )
+    if candidate_lenses.get(lens) != expected:
+        problems.append("rejection lens is not the exact one-finding successor")
+    return problems
+
+
+def _review_relpaths(key: str, task_id: str, generation_id: str = "") -> tuple[str, str]:
+    base = f".factory/stories/{key}/tasks/{task_id}/reviews"
+    generation = f"{base}/generations/{generation_id}.json" if generation_id else ""
+    return generation, f"{base}/selected.json"
+
+
+def _safe_review_leaf(root: Path, path: Path, *, required: bool) -> bool:
+    try:
+        relative = path.relative_to(root)
+        current = root
+        root_info = current.lstat()
+        if not stat.S_ISDIR(root_info.st_mode) or current.is_symlink():
+            return False
+        for part in relative.parts[:-1]:
+            current = current / part
+            try:
+                info = current.lstat()
+            except FileNotFoundError:
+                current.mkdir()
+                info = current.lstat()
+            if not stat.S_ISDIR(info.st_mode) or current.is_symlink():
+                return False
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            return not required
+        return stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_nlink == 1
+    except (OSError, ValueError):
+        return False
+
+
+def _read_review_bytes(root: Path, path: Path) -> bytes:
+    if not _safe_review_leaf(root, path, required=True):
+        raise SystemExit(f"unsafe review proof path: {path}")
+    return path.read_bytes()
+
+
+def read_selected_review_generation(
+    root: Path, key: str, task_id: str, *,
+    reader: Callable[[str], dict | None] | None = None,
+    bytes_reader: Callable[[str], bytes | None] | None = None,
+    expected_delta_id: str = "", sealed_commit: str = "",
+) -> tuple[dict | None, dict | None, list[str]]:
+    """Read and recompute the one selected immutable generation."""
+    _generation_unused, selection_rel = _review_relpaths(key, task_id)
+    try:
+        if reader is None:
+            selection_bytes = _read_review_bytes(root, root / selection_rel)
+            selection = json.loads(selection_bytes)
+        else:
+            selection = reader(selection_rel)
+            selection_bytes = bytes_reader(selection_rel) if bytes_reader else None
+            if selection_bytes is None:
+                return None, None, [f"{task_id}: selected review pointer is missing"]
+        validate_review_document(root, selection)
+        generation_rel, _ = _review_relpaths(key, task_id, selection["generation_id"])
+        if reader is None:
+            generation_bytes = _read_review_bytes(root, root / generation_rel)
+            generation = json.loads(generation_bytes)
+        else:
+            generation = reader(generation_rel)
+            generation_bytes = bytes_reader(generation_rel) if bytes_reader else None
+            if generation_bytes is None:
+                return None, selection, [f"{task_id}: selected review generation is missing"]
+        validate_review_document(root, generation)
+    except (OSError, UnicodeError, json.JSONDecodeError, SystemExit) as exc:
+        return None, None, [f"{task_id}: selected review proof is invalid: {exc}"]
+    problems: list[str] = []
+    if generation.get("generation_id") != review_generation_id(generation):
+        problems.append(f"{task_id}: selected review generation id does not recompute")
+    generation_sha = hashlib.sha256(generation_bytes).hexdigest()
+    if selection.get("generation_sha256") != generation_sha:
+        problems.append(f"{task_id}: selected review generation file hash does not match")
+    for field in ("story", "task_id", "generation_id", "delta_id"):
+        if selection.get(field) != generation.get(field):
+            problems.append(f"{task_id}: selected review {field} does not match its generation")
+    if selection.get("story") != key or selection.get("task_id") != task_id:
+        problems.append(f"{task_id}: selected review pointer is copied from another task")
+    if expected_delta_id and selection.get("delta_id") != expected_delta_id:
+        problems.append(f"{task_id}: selected review generation is stale for the current delta")
+    if generation.get("origin") == "upgrade":
+        upgrade = generation.get("upgrade") or {}
+        if upgrade.get("source_kind") == "sealed":
+            if not sealed_commit or upgrade.get("sealed_commit") != sealed_commit:
+                problems.append(
+                    f"{task_id}: upgrade review generation lacks the exact sealed binding"
+                )
+        elif sealed_commit:
+            problems.append(
+                f"{task_id}: active upgrade generation cannot certify a sealed task"
+            )
+    if not problems and generation.get("origin") == "rejection":
+        descendant = generation
+        seen: set[str] = set()
+        while descendant.get("origin") == "rejection":
+            descendant_id = str(descendant.get("generation_id") or "")
+            if descendant_id in seen:
+                problems.append(f"{task_id}: rejection review lineage contains a cycle")
+                break
+            seen.add(descendant_id)
+            source_id = str((descendant.get("rejection") or {}).get(
+                "source_generation_id") or "")
+            source_rel, _ = _review_relpaths(key, task_id, source_id)
+            try:
+                if reader is None:
+                    source_bytes = _read_review_bytes(root, root / source_rel)
+                    source = json.loads(source_bytes)
+                else:
+                    source = reader(source_rel)
+                    source_bytes = bytes_reader(source_rel) if bytes_reader else None
+                    if source_bytes is None or not isinstance(source, dict):
+                        raise ValueError("source generation is missing")
+                validate_review_document(root, source)
+            except (OSError, UnicodeError, json.JSONDecodeError, ValueError, SystemExit) as exc:
+                problems.append(f"{task_id}: rejection review source is invalid: {exc}")
+                break
+            if source.get("generation_id") != review_generation_id(source):
+                problems.append(f"{task_id}: rejection source generation id does not recompute")
+                break
+            source_sha = hashlib.sha256(source_bytes).hexdigest()
+            lineage = _rejection_successor_problems(descendant, source, source_sha)
+            if lineage:
+                problems.extend(f"{task_id}: {problem}" for problem in lineage)
+                break
+            descendant = source
+    return generation, selection, problems
+
+
+def selected_review_problems(
+    root: Path, key: str, task_id: str, delta_id: str,
+) -> list[str]:
+    generation, _selection, problems = read_selected_review_generation(
+        root, key, task_id, expected_delta_id=delta_id,
+    )
+    if problems or not isinstance(generation, dict):
+        return problems or [f"{task_id}: selected review generation is missing"]
+    from forge_cli.readiness import review_passed
+    for lens in ("quality", "performance", "security"):
+        if not review_passed(generation["lenses"].get(lens)):
+            problems.append(f"{task_id}: selected {lens} review is not clean")
+    return problems
+
+
+def _publish_immutable_review_file(root: Path, destination: Path, body: bytes) -> None:
+    if not _safe_review_leaf(root, destination, required=False):
+        raise SystemExit(f"unsafe review generation destination: {destination}")
+    if destination.exists():
+        if _read_review_bytes(root, destination) != body:
+            raise SystemExit("review generation id collision with unequal bytes")
+        return
+    temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
+    if not _safe_review_leaf(root, temporary, required=False):
+        raise SystemExit(f"unsafe review generation temporary path: {temporary}")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(temporary, flags, 0o600)
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise SystemExit("review generation temporary leaf is not a single-link file")
+        view = memoryview(body)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise SystemExit("review generation temporary write was incomplete")
+            view = view[written:]
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    try:
+        if _read_review_bytes(root, temporary) != body:
+            raise SystemExit("review generation temporary readback differs")
+        try:
+            os.link(temporary, destination, follow_symlinks=False)
+        except FileExistsError:
+            if _read_review_bytes(root, destination) != body:
+                raise SystemExit("review generation id collision with unequal bytes")
+        temporary.unlink()
+        if _read_review_bytes(root, destination) != body:
+            raise SystemExit("published review generation readback differs")
+    finally:
+        if temporary.exists() and not temporary.is_symlink():
+            temporary.unlink()
+
+
+def _replace_review_selection(root: Path, destination: Path, selection: dict) -> None:
+    body = review_generation_bytes(selection)
+    if not _safe_review_leaf(root, destination, required=False):
+        raise SystemExit(f"unsafe review selection destination: {destination}")
+    temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
+    if not _safe_review_leaf(root, temporary, required=False):
+        raise SystemExit(f"unsafe review selection temporary path: {temporary}")
+    descriptor = os.open(
+        temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600,
+    )
+    try:
+        view = memoryview(body)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise SystemExit("review selection temporary write was incomplete")
+            view = view[written:]
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    try:
+        if _read_review_bytes(root, temporary) != body:
+            raise SystemExit("review selection temporary readback differs")
+        os.replace(temporary, destination)
+        if _read_review_bytes(root, destination) != body:
+            raise SystemExit("published review selection readback differs")
+    finally:
+        if temporary.exists() and not temporary.is_symlink():
+            temporary.unlink()
+
+
+def publish_review_generation(
+    root: Path, key: str, task_id: str, candidate: dict, *,
+    expected_source_id: str = "", update_stamp: bool = False,
+) -> tuple[dict, dict]:
+    """Publish generation first and selected.json last under one protected lock."""
+    validate_review_document(root, candidate, allow_missing_generation_id=True)
+    if candidate.get("story") != key or candidate.get("task_id") != task_id:
+        raise SystemExit("review generation is copied from another story or task")
+    generation = dict(candidate)
+    generation["generation_id"] = review_generation_id(generation)
+    validate_review_document(root, generation)
+    generation_body = review_generation_bytes(generation)
+    generation_sha = hashlib.sha256(generation_body).hexdigest()
+    generation_rel, selection_rel = _review_relpaths(key, task_id, generation["generation_id"])
+    from forge_cli.delegate import delegation_exclusion
+    with delegation_exclusion(
+        root, task_id, kind="review-selection",
+    ):
+        current = None
+        selection_path = root / selection_rel
+        if selection_path.exists() or selection_path.is_symlink():
+            current_bytes = _read_review_bytes(root, selection_path)
+            try:
+                current = json.loads(current_bytes)
+                validate_review_document(root, current)
+            except (json.JSONDecodeError, SystemExit) as exc:
+                raise SystemExit(f"current review selection is invalid: {exc}") from exc
+        if expected_source_id and (
+            not isinstance(current, dict) or current.get("generation_id") != expected_source_id
+        ):
+            raise SystemExit("review selection changed before rejection publication")
+        if generation.get("origin") == "rejection":
+            rejection = generation["rejection"]
+            if not current or rejection["source_generation_id"] != current.get("generation_id") \
+                    or rejection["source_generation_sha256"] != current.get("generation_sha256"):
+                raise SystemExit("rejection source is not the currently selected generation")
+            source_rel, _ = _review_relpaths(key, task_id, current["generation_id"])
+            source_bytes = _read_review_bytes(root, root / source_rel)
+            try:
+                source = json.loads(source_bytes)
+                validate_review_document(root, source)
+            except (json.JSONDecodeError, SystemExit) as exc:
+                raise SystemExit(f"selected rejection source is invalid: {exc}") from exc
+            if source.get("generation_id") != review_generation_id(source) \
+                    or hashlib.sha256(source_bytes).hexdigest() != current.get(
+                        "generation_sha256"):
+                raise SystemExit("selected rejection source identity is invalid")
+            lineage = _rejection_successor_problems(
+                generation, source, hashlib.sha256(source_bytes).hexdigest(),
+            )
+            _review_set_fail(lineage)
+        _publish_immutable_review_file(root, root / generation_rel, generation_body)
+        if current and current.get("generation_id") == generation["generation_id"] \
+                and current.get("generation_sha256") == generation_sha:
+            selection = current
+        else:
+            selection = {
+                "format": REVIEW_SELECTION_FORMAT, "story": key, "task_id": task_id,
+                "generation_id": generation["generation_id"],
+                "generation_sha256": generation_sha, "delta_id": generation["delta_id"],
+                "selected_at": now_iso(),
+            }
+            validate_review_document(root, selection)
+            if expected_source_id:
+                latest = json.loads(_read_review_bytes(root, selection_path))
+                if latest.get("generation_id") != expected_source_id:
+                    raise SystemExit("review selection changed before pointer replacement")
+            _replace_review_selection(root, selection_path, selection)
+        published, _pointer, published_problems = read_selected_review_generation(
+            root, key, task_id, expected_delta_id=generation["delta_id"],
+            sealed_commit=(generation.get("upgrade") or {}).get("sealed_commit", "")
+            if generation.get("origin") == "upgrade" else "",
+        )
+        if published_problems or not isinstance(published, dict) \
+                or published.get("generation_id") != generation["generation_id"]:
+            raise SystemExit(
+                "selected review generation failed readback: "
+                + "; ".join(published_problems or ["wrong selected generation"])
+            )
+        if update_stamp:
+            blocking = sum(
+                len(lens.get("blocking_findings") or [])
+                for lens in generation["lenses"].values()
+            )
+            from forge_cli.stages import revoke_stage_review_stamp, stamp_stage_review
+            if blocking:
+                revoke_stage_review_stamp(root, task_id)
+            else:
+                stamp_stage_review(root, task_id, lenses=("quality", "performance", "security"))
+        return generation, selection
 
 
 def head_sha(root: Path | None = None) -> str | None:
@@ -3666,23 +4308,18 @@ def _task_action_state(root: Path, key: str, task: dict, stage: dict) -> str:
                 and isinstance(functional, dict)
                 and not tests_passed(functional, functional=True)):
             return "fix-functional"
-        current_review_digest = ""
-        for lens in _PROOF_LENSES:
-            review = load_json(
-                task_evidence_path(
-                    root, key, str(task_id), f"reviews/{lens}.json"),
-                default={},
+        try:
+            current_delta = product_delta_digest(root, _stage_baseline_for(
+                root, str(task_id)))
+            generation, _selection, selected_problems = read_selected_review_generation(
+                root, key, str(task_id), expected_delta_id=current_delta,
             )
-            if review and not review_passed(review):
-                if review.get("commit") == current_head:
-                    return "fix-review"
-                if not current_review_digest:
-                    try:
-                        current_review_digest = branch_diff_digest(root)
-                    except (Exception, SystemExit):
-                        return "inspect-proof"
-                if review.get("branch_diff_digest") == current_review_digest:
-                    return "fix-review"
+        except (Exception, SystemExit):
+            return "inspect-proof"
+        if not selected_problems and isinstance(generation, dict) and any(
+                not review_passed(generation["lenses"].get(lens))
+                for lens in _PROOF_LENSES):
+            return "fix-review"
 
         problems = task_proof_problems(root, key, task, preseal=True)
         if not problems:
@@ -3716,6 +4353,9 @@ def _task_action_state(root: Path, key: str, task: dict, stage: dict) -> str:
             )
         )
         if first.startswith(review_prefixes + (
+            prefix + "selected review",
+            prefix + "rejection review",
+            prefix + "upgrade review",
             prefix + "review brief",
             prefix + "saved review brief",
             prefix + "tests.json review input",

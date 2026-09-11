@@ -150,7 +150,8 @@ phases:
     allowed:
       - "autoreview"
     contract: "factory/prompts/reviewer.md"
-    schema: "factory/schemas/review.json"
+    schema: "factory/schemas/review-set.json"
+    lens_schema: "factory/schemas/review.json"
     required_skills: # enforced: user-facing review artifacts must attest this in skills_used
       user_facing:
         - "review-animations"
@@ -158,9 +159,10 @@ phases:
       Loaded as INPUT to autoreview's quality lens, not a second reviewer —
       the artifact stays generated_by: autoreview.
     notes: >-
-      ONE autoreview run reviews through three lenses (quality incl.
+      ONE autoreview helper call reviews through three lenses (quality incl.
       over-engineering AND cyclomatic complexity, performance, security) and
-      emits the three gate artifacts. The quality lens ALWAYS assesses
+      publishes one immutable raw-plus-three-lens generation, then selected.json.
+      Diagnostic --aspect artifacts never certify task proof. The quality lens ALWAYS assesses
       cyclomatic complexity — excessively tangled control flow is a blocking
       `cyclomatic-complexity` finding. Never nest reviewers; never review inline in the
       coordinating session.

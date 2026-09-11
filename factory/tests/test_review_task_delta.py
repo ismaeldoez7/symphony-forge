@@ -12,6 +12,7 @@ Two 2026-09-04 defects from the first per-task review on a client repo:
 from __future__ import annotations
 
 import json
+import copy
 
 import pytest
 
@@ -19,9 +20,113 @@ from test_gates import (  # noqa: I001 — test_gates puts factory/scripts on sy
     DECOMP, _write_complete_automated, git, head, intake, record_task_grill, repo,
     run, save_plan, sign_off, skeletal_stage_task, task_skeleton,
 )
-from forge_cli.review import resolve_review_base  # noqa: E402
+from forge_cli.review import _project_combined_report, resolve_review_base  # noqa: E402
 
 __all__ = ["repo"]
+
+
+def _combined_explanation(quality: str, performance: str, security: str) -> str:
+    return (
+        f"BEGIN QUALITY\n{quality}\nEND QUALITY\n"
+        f"BEGIN PERFORMANCE\n{performance}\nEND PERFORMANCE\n"
+        f"BEGIN SECURITY\n{security}\nEND SECURITY"
+    )
+
+
+def _combined_finding(lens: str, title: str, path: str, line: int) -> dict:
+    return {
+        "title": f"[{lens}] {title}", "body": "evidence", "priority": "P2",
+        "confidence": 0.9, "category": "bug",
+        "code_location": {"file_path": path, "line": line},
+    }
+
+
+def test_combined_review_projects_tagged_lenses_and_preserves_ordered_pass_verdicts():
+    task = {"id": "T1", "plan_contracts": [
+        {"id": "T1-C1", "statement": "works", "source": "plan"},
+    ]}
+    first = {
+        "overall_explanation": _combined_explanation(
+            "VERDICT T1-C1: implemented — src/a.py:1", "fast", "safe"),
+        "findings": [_combined_finding("performance", "Avoid repeat work", "src/a.py", 4)],
+    }
+    second = {
+        "overall_explanation": _combined_explanation(
+            "VERDICT T1-C1: partial — src/a.py:8 race", "bounded", "isolated"),
+        "findings": [_combined_finding("security", "Validate token", "src/b.py", 9)],
+    }
+    report = {
+        "overall_explanation": "Review passes returned.",
+        "findings": [*first["findings"], *second["findings"]],
+        "pass_reports": [
+            {"label": "chunk 1/2", "report": first},
+            {"label": "chunk 2/2", "report": second},
+        ],
+    }
+
+    lenses = _project_combined_report(
+        task, report, ["src/a.py", "src/b.py"], "a" * 40, "b" * 40, [], [task], {"T1": "active"}, ())
+
+    assert lenses["quality"]["contract_verdicts"] == [{
+        "contract_id": "T1-C1", "verdict": "partial", "evidence": "src/a.py:8 race",
+    }]
+    assert lenses["performance"]["non_blocking_findings"][0]["summary"].startswith(
+        "Avoid repeat work (src/a.py:4)")
+    assert lenses["security"]["non_blocking_findings"][0]["summary"].startswith(
+        "Validate token (src/b.py:9)")
+
+
+def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixed_output():
+    mutators = (
+        lambda report: report.update(overall_explanation=report["overall_explanation"].replace(
+            "BEGIN PERFORMANCE", "BEGIN SECURITY", 1)),
+        lambda report: report["findings"].append(
+            _combined_finding("quality", "Same issue", "src/./a.py", 3)),
+        lambda report: report["findings"].append(
+            _combined_finding("security", "  same   ISSUE ", "src/a.py", 3)),
+        lambda report: report["findings"][0].update(title="Missing lens tag"),
+    )
+    for mutate in mutators:
+        report = {
+            "overall_explanation": _combined_explanation(
+                "VERDICT C1: implemented — src/a.py:1", "measured", "bounded"),
+            "findings": [_combined_finding("quality", "Same issue", "src/a.py", 3)],
+        }
+        mutate(report)
+        with pytest.raises(SystemExit):
+            _project_combined_report(
+                {"id": "T1", "plan_contracts": [{"id": "C1"}]}, report,
+                ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, ())
+    first = {"overall_explanation": _combined_explanation(
+        "VERDICT C1: implemented — src/a.py:1", "measured", "bounded"),
+        "findings": [_combined_finding("quality", "first", "src/a.py", 1)]}
+    second = {**first, "findings": [
+        _combined_finding("security", "second", "src/a.py", 2)]}
+    report = {"overall_explanation": "passes", "findings": [
+        *second["findings"], *first["findings"]], "pass_reports": [
+        {"label": "chunk 1/2", "report": first},
+        {"label": "chunk 2/2", "report": second}]}
+    with pytest.raises(SystemExit):
+        _project_combined_report(
+            {"id": "T1", "plan_contracts": [{"id": "C1"}]}, report,
+            ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, ())
+
+
+def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(repo, tmp_path):
+    from test_review_settled_contracts import _publish, _story
+    _story(repo, tmp_path)
+    generation, _pointer = _publish(repo)
+    candidate = {key: value for key, value in generation.items() if key != "generation_id"}
+    malformed = copy.deepcopy(candidate)
+    malformed["raw_result"]["bytes"] += 1
+    code, out = run(repo, "record_review_from_json.py", "--set", "--task", "T2",
+                    stdin=json.dumps(malformed))
+    assert code != 0 and "decoded byte count" in out
+    malformed = copy.deepcopy(candidate)
+    malformed["origin"] = "rejection"
+    code, out = run(repo, "record_review_from_json.py", "--set", "--task", "T2",
+                    stdin=json.dumps(malformed))
+    assert code != 0 and "fields must be exactly" in out
 
 
 def _commit(repo, name: str, content: str) -> str:

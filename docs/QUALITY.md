@@ -22,9 +22,11 @@ must attest `review-animations`. No attestation, no artifact.
 ## Review — one autoreview run, three lenses
 
 Contract: `factory/prompts/reviewer.md`. A single autoreview run in Codex
-(read-only toward product code) reviews the task diff through three lenses
-and emits one artifact per lens, each matching `factory/schemas/review.json`
-with `generated_by: autoreview`:
+(read-only toward product code) reviews the task diff through three lenses in
+one helper call. The recorder validates `factory/schemas/review-set.json`,
+publishes one immutable generation containing the exact raw helper bytes and
+three `factory/schemas/review.json` lens records, then replaces the task's
+`selected.json` pointer last. Every record uses `generated_by: autoreview`:
 
 - **quality** — correctness, regressions, maintainability-as-risk, test
   gaps, contract drift, over-engineering (constitution-mandated structure
@@ -48,8 +50,9 @@ what is settled (the story plan's decisions and rulings, the contracts of
 tasks already sealed, the lessons in force); a finding that contradicts
 settled text is rejected on the record with `forge review <id> --reject`,
 which requires a citation that resolves to a decision, a plan section or a
-sealed contract, ledgers it as a lesson, and stamps only when every lens is
-recorded for this task on the current diff with nothing blocking.
+sealed contract, ledgers it as a lesson, and publishes an immutable successor
+to the selected combined or rejection generation. A diagnostic `--lens` run
+cannot select proof, stamp a stage, or revoke an earlier selection.
 
 ## Review findings are not a menu
 
@@ -117,12 +120,12 @@ Proof is stored under the task that produced it:
 
     .factory/stories/<key>/tasks/<id>/verify.json
     .factory/stories/<key>/tasks/<id>/tests.json      (automated, functional)
-    .factory/stories/<key>/tasks/<id>/reviews/{quality,performance,security}.json
+    .factory/stories/<key>/tasks/<id>/reviews/selected.json
+    .factory/stories/<key>/tasks/<id>/reviews/generations/<sha256>.json
 
-Recorders resolve the owning task from the worktree's run pointer, so running
-them inside a task worktree records task-scoped proof without being told. A
-story-level run (no `task_id`) still records story-scoped proof, and readers
-fall back to it — work recorded before task scoping is never stranded.
+Complete review recording requires `--set --task <id>` and never falls back to
+story-level or fixed lens files. Fixed `{quality,performance,security}.json`
+files are diagnostic or one-time migration inputs only.
 
 This used to be one set of artifacts per STORY, rewritten by each task in
 turn: a story's review described whichever task ran last, and a task PR could
