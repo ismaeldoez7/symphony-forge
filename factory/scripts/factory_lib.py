@@ -838,6 +838,25 @@ def task_evidence_path(
         root, key, f"tasks/{task_id}/{name}", for_write=for_write)
 
 
+def proof_read_path(root: Path, key: str | None, name: str) -> Path:
+    """Where a READER finds proof: the task's copy when a task owns the run and
+    has recorded one, the story's otherwise.
+
+    `proof_path` answers where a WRITER puts proof, and per-task runs put it
+    under the task. Readers that resolved story-only therefore missed proof the
+    recorders had just written — the review gate, the board, the phase summary,
+    the stage rows and the review brief all did. The fallback keeps story-level
+    runs and older stories working unchanged, which is what makes this a
+    completion of the per-task move rather than a flag day.
+    """
+    task_id = active_task_id(root)
+    if task_id and key:
+        scoped = task_evidence_path(root, key, task_id, name)
+        if scoped.is_file():
+            return scoped
+    return evidence_path(root, key, name)
+
+
 def task_marker_path(key: str, task_id: str) -> Path:
     """Return the committed marker shared by task start and task closeout."""
     for label, value in (("story key", key), ("task id", task_id)):

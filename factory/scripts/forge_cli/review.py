@@ -28,6 +28,7 @@ from pathlib import Path
 
 from factory_lib import (
     branch_diff_digest, clean_git_env, evidence_path, load_json,
+    proof_read_path,
     proof_path, protected_decomposition_state_path, repo_root, run_state_path,
     safe_factory_write_bytes, schema_path,
 )
@@ -964,7 +965,8 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
     if not isinstance(story, str) or not story:
         fail("review requires an active story")
     for artifact in ("verify.json", "tests.json"):
-        if not evidence_path(base, story, artifact).is_file():
+        # Proof follows the writer: a per-task run records under the task.
+        if not proof_read_path(base, story, artifact).is_file():
             fail(f"{artifact} is not recorded for {story}; review runs after "
                  "`python3 factory/scripts/verify.py` and "
                  "`record_test_from_json.py --kind automated`")
