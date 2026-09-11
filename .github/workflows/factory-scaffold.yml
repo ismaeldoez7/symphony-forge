@@ -7,7 +7,7 @@ on:
 
 jobs:
   scaffold-check:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       # This workflow is VENDORED into every client repo, so each step has to be
