@@ -12356,11 +12356,14 @@ def test_task_start_creates_worktree_off_main_and_gates_on_predecessor_marker(
     destinations = {
         "plan": second_worktree / sources["plan"].relative_to(repo),
         "decomposition": story_state(second_worktree, key) / "decomposition.json",
-        "grill": story_state(second_worktree, key) / "grills/tasks/T2.json",
         "task_plan": story_state(second_worktree, key) / "task-plans/T2.md",
     }
-    assert all(destinations[name].read_bytes() == source.read_bytes()
-               for name, source in sources.items())
+    assert all(destination.read_bytes() == sources[name].read_bytes()
+               for name, destination in destinations.items())
+    target_grill = story_state(second_worktree, key) / "grills/tasks/T2.json"
+    assert not target_grill.exists()
+    code, out = run(second_worktree, "forge.py", "stage", "start", "T2")
+    assert code != 0 and "grill" in out.lower(), out
     control = Path(git(second_worktree, "rev-parse", "--absolute-git-dir")) / "forge"
     pointer = json.loads((control / "run.json").read_text())
     assert pointer | {"issue_key": key, "task_id": "T2",
