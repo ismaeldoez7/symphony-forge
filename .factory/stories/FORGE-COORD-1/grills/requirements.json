@@ -66,7 +66,7 @@
   "frontier_empty": true,
   "questions_asked": 1,
   "issue": "FORGE-COORD-1",
-  "summary": "Resolved all 22 findings from the single Sol/high requirements cold read against the final confirmed simplified spec, accepted Decision 0067, and coherent replacement artifacts. No second requirements cold read is run.",
+  "summary": "Resolved all 22 findings from the single genuine Sol/high requirements cold read against the final confirmed simplified specification, accepted Decisions 0066 and 0067, renumbered model policy Decision 0068, and the replacement artifacts now aligned to validated main c9a705bc. No second requirements cold read is run; this record refreshes the exact requirements digest after the inherited baseline merge.",
   "inspected_refs": [
     "docs/specs/dual-coordinator-parity.md",
     "docs/specs/strict-role-split.md",
@@ -82,7 +82,9 @@
     "/Users/dev/.codex/plans/symphony-forge+coord-1-combined-review-story-amendment+20260911.md",
     "/Users/dev/.codex/plans/symphony-forge+native-foreground-combined-review+20260911.md",
     "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-decomposition.json",
-    "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-lean-delivery-graph-postimage.json"
+    "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-lean-delivery-graph-postimage.json",
+    "docs/decisions/0066-closeout-binds-to-the-diff.md",
+    "docs/decisions/0068-sol-specialized-workflow-models.md"
   ],
   "current_flow": "Record this requirements pass, finish exact graph/hash alignment, then run the one user-requested final cold read of the simplified plan.",
   "citations": [
@@ -175,7 +177,7 @@
       "source": "The final spec leaves the complete graph to the approved plan/decomposition while retaining only the explicitly settled First D-0032 and Portable migration owners."
     }
   ],
-  "input_sha256": "f978ddeddd73b644fc05071914cf70e67ae9ac794bab3dec28c06b3cfa79e6ca",
-  "recorded_at": "2026-09-11T14:47:17+00:00",
-  "commit": "1117fc0c1d39d59ad0a6712020ae9e9bc8fad011"
+  "input_sha256": "b294d0006c0483aabb32ead5d0bba9f145b50e7af13a6f040fef1ee5899656c5",
+  "recorded_at": "2026-09-11T18:17:02+00:00",
+  "commit": "95b5c007d713a7d0e2784b4d9ab27ce67a282b0d"
 }
