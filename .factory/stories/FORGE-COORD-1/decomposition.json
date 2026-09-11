@@ -5,7 +5,7 @@
     {
       "id": "NATIVE-FOREGROUND-ACTIVATE",
       "title": "Native foreground and complete first-task proof",
-      "objective": "You are already the registered implementation worker; do not delegate yourself or run coordinator/lifecycle commands. Read the approved `.factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md` section \u201cRuntime corrections and two-pass recovery\u201d before using the Forge skill or `./forge next` routing. If all six exact bootstrap preimages match the bound receipt, apply only `native-policy-path-grants.patch` SHA256 `0e63351a75e2aa29e0d6c28080595f1e513f8766480b79d08330b3dfaae31da6`, run the exact two-file tests and `git diff --check`, then return incomplete progress to Main. If all six exact bootstrap postimages are already present, this is the fresh second pass: do not reapply the bootstrap; execute the four-frozen-patch full approved recovery, missing selector, complete checks, and genuine current-plan C8. If the six files are mixed or match neither complete set, refuse and report to Main. Native foreground and complete first-task proof plus the additional Decision0066 current model-policy overlay: preserve the original prepared allocation while making every executable project selector/guidance surface, 15 team agents, distribution proof and same-plugin Luna/max compatibility current before First ships.",
+      "objective": "You are the newly registered gpt-5.6-sol/medium worker for the CURRENT minimal successor-approval fixture correction. Read the complete protected task plan and `/Users/dev/.codex/reviews/forge-lean-20260910/successor-approval-fixture-dispatch.md`. All prior bootstrap, recovery, model-policy, consolidated-v3, 13-file product, and launch-9d91 C8 work is completed history; never reapply it. At exact target b6ed0dd43fac857b749151823c2b4e5aa30e4201 verify `factory/tests/test_gates.py` preimage c14c4d34b1324da4c3ba2400619bada73e0039c0178f86126f417572517c10e5, then apply only the full literal public `successor-approval-fixture-correction.apply_patch` SHA256 6afed573fd493e2d1bef6f433106c757dca1b3614bb0409c78773ebed744f68d and verify postimage 37f61ce40e624f7186ae7aab110498bf3b6ff96b00943505e3312478a008198b plus `git diff --check`. Run only the two exact successor/fresh-approval selectors named in the dispatch with JUnit. Run `./forge next`, make a distinct actual protected-plan PreToolUse denial, and write only `/tmp/forge-native-c8-successor-fixture-receipt.json` in the existing C8 shape with real IDs and no post-exit claim. Return to Main without self-delegation, stage/lifecycle/proof/review/commit/publication/CI commands. Main alone runs helper 8424883f, normal full host verify, assembler, proof, review, stage, PR, and CI.",
       "dependencies": [],
       "user_facing": false,
       "acceptance_criteria": [
@@ -231,6 +231,51 @@
           "id": "test_review_codex_engine_pins_sol_high",
           "path": "factory/tests/test_gates.py",
           "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_planning_lock_forces_plan_mode",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_codex_exec_ban_matches_invocations_not_prose",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_product_dirty_preserves_porcelain_status_prefix",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_session_start_routes_native_questions_to_main_chat",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_all_bounds_sealed_task_inputs_after_successor_product",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_proof_ci_uses_sealed_legacy_t1_not_later_t2_singleton",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_native_log_open_failure_releases_lock_without_lifecycle_rows",
+          "path": "factory/tests/test_native_launch.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_known_native_launch_reads_delegation_ledger_once",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_current_claude_companion_token_resolves_protected_worker",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
         }
       ],
       "verify_commands": [
@@ -239,21 +284,21 @@
         "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py"
       ],
       "review_budget": {
-        "max_changed_files": 70,
-        "max_changed_lines": 7500,
-        "reason": "Exact 64-path amended First scope plus bounded headroom. The last pre-freeze observation was 27 tracked paths/5,103 lines plus Decision0066 before selector/profile/agent work; remeasure after plan freeze and stop for a real overrun rather than treating the stale count as current."
+        "max_changed_files": 180,
+        "max_changed_lines": 18000,
+        "reason": "Before this amendment the complete tracked and untracked diff was 141 files/12,938 lines and the product-only diff was 61 files/6,798 lines under the unchanged declared 64-path scope. The 180-file/18,000-line cap leaves 39 files/5,062 lines for the one-file fixture correction and required plan/grill/C8/verify/review/seal/publication records. Remeasure after real application and future proof; do not equate declared scope with actual changed paths or override the installed 512,000-byte per-lossless-chunk safeguard."
       },
       "reviewer_focus": [
-        "C1 complete additional model-policy overlay: owning harness/launcher, every executable project profile and active guidance surface, 15 committed team agents, exact init/upgrade distribution preserving client additions, and exact-known same-plugin Luna/max doctor compatibility follow Decision0066. No new actor uses Terra. All original 40 prepared path/hunk owners remain unchanged. Preserve original Luna C8 and verify a distinct current-plan Sol/medium receipt copied by root after process exit.",
+        "C1 complete additional model-policy overlay: owning harness/launcher, every executable project profile and active guidance surface, 15 committed team agents, exact init/upgrade distribution preserving client additions, and exact-known same-plugin Luna/max doctor compatibility follow Decision0066. No new actor uses Terra. All original 40 prepared path/hunk owners remain unchanged. Preserve original Luna C8 and every completed Sol C8 artifact, then verify a distinct current-plan successor-fixture Sol/medium receipt copied by Main after process exit.",
         "C2 process admission/truthful terminal/revocation: verify registered-before-stdin terminal identity, zero-exit failure, admitted native write boundary, revocation before cleanup signals, and no invented success. Selector map: test_native_launch_registers_before_stdin_and_records_terminal_identity; test_native_zero_exit_without_completed_turn_is_failed; test_native_worker_patch_add_update_delete_and_move_is_admitted; test_foreground_cleanup_revokes_admission_before_signals.",
         "C3 C9 inputs: read the full approved .factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md and .factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json, then verify task, branch, and all three review lenses receive the complete approved plan, approval/grill fields, digest identity, and full automated report. Selector map: test_review_consumers_include_complete_approved_inputs.",
         "C4 C10 proof/readiness: verify success/status/blocker/functional/review binding checks, whole historical bundle fallback, pre-seal zero mutation, and task-board/readiness through task_proof_problems only. The story singleton summary in board.py is outside first scope and remains SHARED-COORDINATOR-JOURNEY-owned. Selector map: test_task_proof_consumers_share_complete_predicate; test_task_seal_refuses_incomplete_proof_before_mutation.",
-        "C5 workspace-before-JIT: verify incumbent0063 first bootstrap plus successor task-start checks, including source save/grill/approval before first preparation import and fresh target grounding/JIT/grill/approval/stage/admission before writes. Selector map: test_task_start_creates_before_jit_with_approved_identity. Bind the historical half to `/Users/dev/.codex/reviews/forge-lean-20260910/first-incumbent-bootstrap-probe/first-incumbent-bootstrap-probe.json` (SHA256 `a2bf5ddf80eebd1057bd86fdf36718f20e00a9d34acce86bb99a5b818e57d2c9`) and its four sibling logs: `missing-task-plan.stdout.log` SHA256 `ad301339e36cda002e7f2c332eb1516c0213a70bc6bf217594017557b14decd0`, `missing-task-grill.stdout.log` SHA256 `5a4d9c41fd942b667a7e9d89b16b089b8ac485c5cc1c0cc00a599fec94f6acdb`, and both empty stderr logs SHA256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`. `/Users/dev/.codex/reviews/forge-lean-20260910/first-target-preparation.json` (SHA256 `9a423c081df43b648129d05ed0e897ea9749249ff9c78b15120de4575f3a2f06`) records preparation at `2026-09-10T08:51:05.210867+00:00` on immutable `7a462bc2bd770a4df0ba47f40d515916438b8ac7`; `/Users/dev/.codex/reviews/forge-lean-20260910/first-target-approval-provenance.json` (SHA256 `10db7d222fab67a1078bf82560fe377a90ec193db36e8e5c6207876fa5c3dc3e`) binds the target plan, grill, and decomposition hashes at that head. The ordering boundary is source grill recorded and approved at `2026-09-10T08:47:29+00:00`, then first target preparation, then target grill recorded at `2026-09-10T09:14:38+00:00` and approved at `2026-09-10T09:14:45+00:00`. The probe was created later at `2026-09-10T17:10:19.990025+00:00` against the immutable source commit; it is retrospective proof, not a fabricated pre-creation action. `assemble-first-automated-report.py` embeds the complete probe JSON and durable logs in the final automated report; no new probe is required.",
+        "C5 workspace-before-JIT: preserve incumbent0063 first bootstrap plus successor task-start checks. The successor copies the approved story plan, protected decomposition, and optional task plan, but never inherits a source successor grill or approval authority; fresh target grounding/JIT/grill/approval remains mandatory and stage start refuses while it is missing. The one-file correction updates only the stale expectation in test_task_start_creates_worktree_off_main_and_gates_on_predecessor_marker, while unchanged required selector test_task_start_creates_before_jit_with_approved_identity continues to bind approved story/decomposition/task identity hashes and the same fresh-approval rule. Preserve the existing historical First bootstrap evidence and ordering references byte-for-byte; no new probe is required.",
         "C6 unsupported native operations: under test_native_unshipped_operations_refuse_before_dispatch, verify native status only renders already-dead registered native grill rows via existing dead_launches, with strict grill gate/task labels and starting/running rows proven dead; never call the general status handler. Native live/dead worker status, cancel/resume/background/jobs/explore/question paths still refuse before side effects. Claude dispatch remains unchanged.",
         "C7 own-task review preflight: validate review.py uses task_id-aware proof_path for active task proof and refuses story or other-task proof without helper fallback. Selector map: test_review_preflight_uses_active_task_proof; test_review_preflight_refuses_other_task_or_story_proof.",
-        "C8 live native protected-state read and hook denial: retain the harmless absent-context patch, but require an actual correlated PreToolUse deny event linking the existing report receipt to the protected registered terminal row and durable tool log for the same native launch/session/tool call. The existing implemented plan-contract review verdict checks this correlation; no new schema or CI/C10 parser. Absent patch context, context/patch failure, synthetic events or unchanged bytes alone cannot pass. Selector map: test_native_worker_reads_state_without_protected_write_authority; test_any_protected_revocation_marker_denies_admission.",
-        "Measure the frozen complete result against 70 files / 7500 lines; report the actual measurement once, not the stale 27-path/5103-line observation. Run check_encoding_hygiene.py explicitly. No old C8 rewrite, audit write by implementer, Q-0130 success claim, forbidden model actor, original hunk-owner reassignment, or incomplete review. Read `constitution/README.md` and `constitution/09-agent-conduct.md` \u00a7\u00a72\u20135 before acting; implementation and review must enforce their simplicity, surgical-change, goal-driven verification, and compatibility rules against every changed line.",
-        " Confirm the four frozen preparation patches cover 38 unique in-scope paths in exact sequence; the fourth review-policy patch pins Sol/high and rejects a known fallback before any brief/process side effect. Preparation results are not actual review. Confirm Main assembles the complete existing automated report only after worker exit by adding actual terminal correlation and Main-run normal verify; the worker initial report cannot claim either."
+        "C8 fresh current-plan native evidence: preserve every original Luna/max and completed Sol artifact. The new Sol/medium worker writes /tmp/forge-native-c8-successor-fixture-receipt.json, uses command-local fallback PATH for argv ./forge next while retaining receipt command identity, runs the two exact focused selectors with JUnit, applies the literal one-file tools.apply_patch payload as its scoped public contribution, and obtains a distinct actual PreToolUse deny before protected-plan patch execution. Main post-exit runs helper SHA256 8424883f0422a183b84acea796c53a5f1ce69569edf79cd1807f099f23368669 to create c8-successor-fixture-operation-transcript.json and c8-successor-fixture-source-check.json. Fresh review must cite actual correlated lines; worker return does not certify proof or completion.",
+        "Measure the complete tracked and untracked result against 180 files / 18,000 lines. Before this amendment the actual complete diff was 141/12,938 and product-only diff was 61/6,798 under the declared 64-path scope, leaving 39 files/5,062 lines of headroom. Remeasure after the real correction and future proof; do not assert 64 actual product changes. Keep 64 declared product paths and separately enforce complete lossless review chunks within the installed 512,000-byte bound with no override.",
+        "Treat all bootstrap, recovery, frozen-v2, launch-683b, consolidated-v3, 13-file product, and launch-9d91 C8 work as completed immutable history. The actual consolidated-v3 receipt is SHA256 686d2a45c80d5914df59aebb015897260cd91c6e4498699fd22839ceee87fa26 and is the only historical receipt identity. Current product authority is only successor-approval-fixture-correction.apply_patch SHA256 6afed573fd493e2d1bef6f433106c757dca1b3614bb0409c78773ebed744f68d against the exact one-file preimage/postimage. Require the two focused selectors, fresh C8, no new path/required selector/scope, and no replay of historical patches."
       ]
     },
     {
@@ -354,5 +399,5 @@
   "epic": "symphony-forge",
   "plan_file": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
   "plan_sha256": "62ca0e35ff8fb251c09e74b364d02d36544a9e02cbd493df8f2f858c5c645559",
-  "commit": "d482f16fa323c5377dca6c1fe7788fbb71211bd2"
+  "commit": "b6ed0dd43fac857b749151823c2b4e5aa30e4201"
 }

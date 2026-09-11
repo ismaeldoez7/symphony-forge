@@ -5,6 +5,171 @@ title: First native foreground execution and complete task proof
 status: draft
 ---
 
+
+## CURRENT — minimal successor-approval fixture correction and fresh C8
+
+This section is the sole current execution authority. The complete prior `0d27462e…` plan follows under **Completed hook-content contract and provenance**, with its frontmatter retained unchanged above and its full body preserved byte-for-byte. Every bootstrap, recovery, model-policy, consolidated v3, 13-file product, and `launch-9d91ebc9eaf443859f72649507a2b500` C8 instruction in that history is complete and must never be reapplied.
+
+### One stale successor fixture
+
+Normal full host verification at product commit `b6ed0dd43fac857b749151823c2b4e5aa30e4201` ran 999 cases: 995 passed, exactly one failed, and three existing Windows-only cases skipped. The immutable archive index is `/Users/dev/.codex/reviews/forge-lean-20260910/post-third-review-full-verify-b6ed0dd/sources.json`, SHA256 `ccb2285765d6a9751d610667ddddd3be50f1faa4502347dd8c405d8a62947f24`.
+
+The only failure, `test_task_start_creates_worktree_off_main_and_gates_on_predecessor_marker`, still expected the successor T2 grill to be copied into its new worktree. Approved C5 deliberately clears successor grill and approval authority so the new workspace must receive fresh target grounding, JIT, grill, and approval before stage start. The product behavior is correct; only this stale fixture changes. This is an in-scope technical correction under accepted Decision0064 standing authorization. Rebind the same actual resolved five-finding grill without a new cold read, fabricated question, or false reread.
+
+### Sole current product authority
+
+The only new product authority is the prepared one-file fixture correction:
+
+- Unified patch: `/Users/dev/.codex/reviews/forge-lean-20260910/successor-approval-fixture-correction.patch`, SHA256 `6f7ea360f6b411cbd32bf820b5115f45eccd7e0b6e2041657b1d54c753915b9e`.
+- Native literal payload: `/Users/dev/.codex/reviews/forge-lean-20260910/successor-approval-fixture-correction.apply_patch`, SHA256 `6afed573fd493e2d1bef6f433106c757dca1b3614bb0409c78773ebed744f68d`.
+- Receipt: `/Users/dev/.codex/reviews/forge-lean-20260910/successor-approval-fixture-correction.receipt.md`, SHA256 `0fd572a01106ebf53749ed0a85175578f73e6eea6a11167b6c2bd0bbc74b29f0`.
+
+It changes only `factory/tests/test_gates.py`, from SHA256 `c14c4d34b1324da4c3ba2400619bada73e0039c0178f86126f417572517c10e5` to `37f61ce40e624f7186ae7aab110498bf3b6ff96b00943505e3312478a008198b`, with six insertions and three deletions. It keeps byte-equal checks for the story plan, protected decomposition, and optional task plan; asserts that successor grill/approval authority is absent; and proves stage start refuses until the fresh target grill/approval exists. It does not alter product logic, shared fixture helpers, scope, selectors, acceptance criteria, contracts, or the task graph.
+
+### Registered writer boundary
+
+Delegate one new registered `gpt-5.6-sol`/medium writer. It must:
+
+1. Read the complete protected plan and `/Users/dev/.codex/reviews/forge-lean-20260910/successor-approval-fixture-dispatch.md`. Do not self-delegate, start or finish a stage, use degraded mode, run proof recorders or review, seal, commit, publish, or operate CI.
+2. Verify target HEAD `b6ed0dd43fac857b749151823c2b4e5aa30e4201` and the exact `test_gates.py` preimage before writing. Submit the full native payload as one literal public `tools.apply_patch` argument; hidden-variable or replayed historical payloads refuse. Verify the exact postimage and run `git diff --check -- factory/tests/test_gates.py`.
+3. Run only this focused JUnit selection:
+
+   `UV_CACHE_DIR=/tmp/forge-successor-fixture-uv-cache UV_TOOL_DIR=/tmp/forge-successor-fixture-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest -q factory/tests/test_gates.py::test_task_start_creates_worktree_off_main_and_gates_on_predecessor_marker factory/tests/test_gates.py::test_task_start_creates_before_jit_with_approved_identity --junitxml=/tmp/forge-native-c8-successor-fixture-focused.xml`
+
+4. Produce fresh current-plan C8 using the existing receipt shape. Run argv `['./forge','next']` with only command-local fallback PATH while retaining `receipt.state_read.command` exactly `./forge next`; use the successful one-file payload call as the scoped contribution; and make a distinct harmless public `apply_patch` call against the protected task plan that receives an actual PreToolUse denial before execution. Record real current launch/session/operation IDs, exact outputs, JUnit, unchanged protected-plan hashes, and `post_exit_completion_claim: false`.
+5. Write the C8 receipt only at `/tmp/forge-native-c8-successor-fixture-receipt.json`, then return the truthful focused result and handoff to Main. A worker return does not certify proof, review, stage completion, or semantic success.
+
+The worker does not run the full 30-selector set or normal host verification. Main owns both after the real terminal row.
+
+### Main-owned completion
+
+After the worker exits successfully, Main runs `/Users/dev/.codex/reviews/forge-lean-20260910/preserve-c8-successor-fixture-evidence.py`, SHA256 `8424883f0422a183b84acea796c53a5f1ce69569edf79cd1807f099f23368669`, with the exact scoped wrapper call ID and the named clean public operation IDs. This byte-for-byte derivative of the unchanged accepted helper differs only in its three receipt/output path constants and writes new files only:
+
+- `/Users/dev/.codex/reviews/forge-lean-20260910/c8-successor-fixture-operation-transcript.json`
+- `/Users/dev/.codex/reviews/forge-lean-20260910/c8-successor-fixture-source-check.json`
+
+Main then runs normal full host verification, assembles and records complete proof, releases one complete lossless Sol/high three-lens review, loops genuine in-scope findings, completes the stage, seals, publishes the PR, and polls CI. No candidate or temporary-mirror result in this plan is target proof.
+
+Before this amendment, the complete tracked and untracked diff was 141 files/12,938 lines and the product-only diff was 61 files/6,798 lines under the unchanged declared 64-path scope. The 180-file/18,000-line cap therefore had 39 files/5,062 lines of headroom. Remeasure after the real correction and future proof; do not turn the declared 64-path scope into an actual-change count. The contract remains 64 product paths, 30 required selector/path pairs, three verify commands, eight acceptance criteria, eight byte-equal plan contracts, and the same eight-task graph. Each complete review chunk remains bounded by the installed 512,000-byte limit without truncation or override.
+
+## COMPLETED HOOK-CONTENT CONTRACT AND PROVENANCE
+
+The prior protected contract is archived at `/Users/dev/.codex/reviews/forge-lean-20260910/completed-hook-content-contract-0d27462/sources.json`, SHA256 `8c30958851e6f2d4c4ae18acd42f4a015b71cb433e651ca80399fda1f2cf590e`. Its task plan SHA256 is `0d27462eb8a0c095988f4ab66e9e211ac615c684711a8c8015f9719916bbbaa8`, decomposition SHA256 is `21185d97063a169f8373f7fc7274e60f3c5e5ecdafc965112ffe78b439b3da43`, and recorded same-read task-grill SHA256 is `c6dc8d7839e2dc366d078d350e379e11bd88f0ee86573255fe9df42453440251`. The actual cold-read artifacts remain `/Users/dev/.codex/reviews/forge-lean-20260910/third-review-fix-task-grill-original.json` SHA256 `4666f353eddc1732504df902e6344dbf91e0ea8b6d86368cd5e4abc9ab6473d6` and `/Users/dev/.codex/reviews/forge-lean-20260910/third-review-fix-task-grill-resolved.json` SHA256 `2f50cf23bcbe58942c7fa05a323d8c3539e2e0c3959de58705045c45e8656825`.
+
+Everything below is the prior `0d27462e…` plan body preserved byte-for-byte. Its completed imperatives are provenance only.
+
+
+## CURRENT — hook-content recovery, consolidated v3, and fresh C8
+
+This section is the sole current execution authority. Everything under **Superseded recovery plan and completed provenance** preserves the previously approved plan verbatim after its frontmatter. Its frozen v2 correction and `launch-683b99c5924f47af957ff51afea1db2d` attempt are history and must not be replayed.
+
+### Proven runtime fault after the five-finding grill
+
+The same five-finding Sol/high grill remains the only cold read and remains fully resolved. A later normal registered Sol/medium worker exposed a separate runtime delivery defect, not a sixth griller finding. `launch-683b99c5924f47af957ff51afea1db2d`, session `01a08de1-5eea-74a1-98fd-e10b6fe12a3e`, submitted the full literal 13-file v2 `apply_patch` request as public wrapper call `call_COIfeKczYX54e2dGd6DOc1nz`. Runtime lines 114/116 show the current hook rejected fixture text inside that structured payload as a live direct Codex shell invocation. No product patch executed.
+
+The bound audit is `/Users/dev/.codex/reviews/forge-lean-20260910/third-review-native-patch-content-failure.json`, SHA256 `14beb6161f206fd125583f8775cec9760d23e254ac8f1a0063fe6dc2eb960a9b`. It proves all 13 original preimages remain exact, the protected plan was SHA256 `cfdbc3b02acc73179cf134aca98abf16277a603f96c15f81554a6078243cd97e`, state read and focused test completed, S-0013-0640 was raised, and Root sent SIGINT to verified delegate parent 70279. Normal cleanup revoked the launch and recorded failed exit `-15`; the parent exited 130. Fresh C8 is incomplete: no scoped contribution, protected-plan denial probe, or new receipt exists.
+
+This is an in-scope technical correction under accepted Decision0064 standing authorization. Record the concrete amended plan/decomposition/grill binding and the S-0013-0640 resolution through existing normal paths. Do not launch another cold read, fabricate a question, treat Stop continuation as authority, reuse the failed launch/session, or represent its state read/focused test as current C8.
+
+### Immutable recovery artifacts
+
+Apply exactly two public native payloads in order:
+
+1. Safe one-line bootstrap: `/Users/dev/.codex/reviews/forge-lean-20260910/third-review-shell-guard-bootstrap.apply_patch`, SHA256 `e09c38a2172adb694a0cc9826ae0fe2896cb84a3e82e92fde57de160c09b8672`.
+2. Consolidated v3 payload: `/Users/dev/.codex/reviews/forge-lean-20260910/third-review-confirmed-fixes-v3.apply_patch`, SHA256 `2a3606fc090633e0dcf9437f4aefe88b3b0e0d49cfbae0c6001d0375736614b0`.
+
+The corresponding unified v3 patch is `/Users/dev/.codex/reviews/forge-lean-20260910/third-review-confirmed-fixes-v3.patch`, SHA256 `53c9c2c4577277cca8e19599cf90f0606c89f9f89389d113f686c597c7d348ff`. The full two-step receipt is `/Users/dev/.codex/reviews/forge-lean-20260910/third-review-confirmed-fixes-v3.receipt.md`, SHA256 `686d2a45c80d5914df59aebb015897260cd91c6e4498699fd22839ceee87fa26`. V3 retains every frozen v2 correction, uses the same ordered 13 paths, and produces 421 insertions and 76 deletions. Frozen v2 patch SHA256 `7ccb89501a6d1f966b7510b0be701cb45744387832131f2974f249d752a4e02d`, native payload SHA256 `3bba5a172b205cc354f82849d32b7968df927a3c8b6a4e5658def521193b18db`, and receipt SHA256 `912a54cf5a97fd8e644fabc322dc58d127e74fadc2767485b9c02b337bc3d40b` remain immutable history and are no longer application inputs.
+
+The bootstrap changes one line in `factory/scripts/pre_tool_use.py`: the direct-Codex invocation matcher applies only to the Bash tool. Its payload contains no case-folded guarded phrase, so the pre-fix hook can admit the bootstrap itself. It preserves denial for an actual Bash invocation. V3 then retains that shell-only guard, applies all v2 hunks, and extends the already-required `test_codex_exec_ban_matches_invocations_not_prose` so structured `apply_patch` fixture content is allowed while the equivalent Bash command stays denied. No path, selector, acceptance criterion, contract, task, or scope is added.
+
+### Registered worker sequence
+
+The new registered `gpt-5.6-sol`/medium worker must follow this exact order:
+
+1. Read this full current plan, `/Users/dev/.codex/reviews/forge-lean-20260910/third-review-fix-dispatch.md`, the failure audit, and the v3 receipt. Do not self-delegate, start/finish a stage, use degraded mode, run recorders/review, seal, commit, publish, or operate CI.
+2. Re-hash all 13 untouched original v2 preimages. Refuse any mismatch before writing.
+3. Submit the safe bootstrap verbatim as a full literal `tools.apply_patch` argument in one public `functions.exec` wrapper call. Verify `factory/scripts/pre_tool_use.py` changed from SHA256 `22a047131aae34ac6be1fbff31a38ff6583488454405d447b61960044f89263b` to `f2329c24fcd4ccbb417178832d77fd4ff33589580ce61cb6acc448d52b8b0e58`.
+4. Re-hash all 13 v3 preimages, including that bootstrap postimage. Submit the full v3 native payload verbatim as a second literal public `tools.apply_patch` request. Verify all 13 final postimages from the v3 receipt. Mixed, partial, reordered, or unknown bytes refuse; never fall back to the v2 payload.
+5. Run the full receipt-bound focused selection, including the extended `test_codex_exec_ban_matches_invocations_not_prose`, plus `git diff --check`. Report actual failures or macOS sandbox limitations as such; Main later runs normal full host verification.
+6. Produce fresh current-plan C8 at the still-unused `/tmp/forge-native-c8-sol-review-fix-receipt.json`. Run argv `['./forge','next']` with only command-local fallback PATH while retaining `receipt.state_read.command` exactly `./forge next`; run one actually passing focused JUnit regression; use the successful v3 payload call as the scoped contribution; make a distinct harmless protected-plan `apply_patch` call and require its actual PreToolUse denial before execution. Record only real current launch/session/public operation identities, outputs, unchanged protected-plan hashes, and no post-exit success claim.
+
+Each payload call must contain the full literal payload in the public wrapper request so its expected paths and operation are auditable. Do not load the payload into a hidden runtime variable. The one-line bootstrap and full v3 payload are the only current product writes.
+
+### Main-owned completion
+
+After the worker exits successfully, Main selects only clean public operations by exact IDs and runs `/Users/dev/.codex/reviews/forge-lean-20260910/preserve-c8-sol-review-fix-evidence.py`, SHA256 `f6f71ea39930f721d44bdaf157e9c89af4ecd2260985e4d9e76d7dd98460674e`, against the new receipt. It writes the still-unused `c8-sol-review-fix-operation-transcript.json` and `c8-sol-review-fix-source-check.json`. Do not copy broad session output, reasoning, or agent messages, and do not invent an item for a wrapper denied before dispatch.
+
+Main then performs normal full host verification, assembles and records complete automated proof, and releases one complete lossless Sol/high three-lens review. Review must cite actual fresh C8 launch/session/tool/denial/hash/test/terminal lines rather than the prior incorrect line 224. Main alone loops genuine in-scope fixes, completes the stage, seals proof, publishes the PR, and polls CI.
+
+The complete-diff budget remains 180 files/18,000 lines and the product scope remains 64 paths. The task retains 30 required selector/path pairs, eight acceptance criteria, eight byte-equal plan contracts, three verify commands, and the eight-task graph. The installed 512,000-byte bound still applies separately to each complete lossless review chunk with no truncation or override.
+
+## SUPERSEDED RECOVERY PLAN AND COMPLETED PROVENANCE
+
+The original six-line frontmatter remains above. Everything below is the previous plan content from original line 7 onward, preserved byte-for-byte from `/Users/dev/.codex/plans/symphony-forge+native-foreground-review-fix+20260911.md` SHA256 `cfdbc3b02acc73179cf134aca98abf16277a603f96c15f81554a6078243cd97e`. Its prior CURRENT v2 phase is superseded by the two-step bootstrap/v3 phase above; all earlier bootstrap, recovery, model-policy, failed v2, and C8 language is historical provenance only.
+
+
+## CURRENT — third-review fix and fresh C8
+
+This section is the sole current execution authority. Everything under **Completed historical contract and provenance** is preserved prior contract text and audit history. Its bootstrap, import, recovery, model-policy, old C8, and earlier writer imperatives are complete; do not execute them again. Keep that text byte-for-byte as provenance while following only this current phase.
+
+The protected tree already contains the original bootstrap, all four frozen recovery patches, the Decision0066 model-policy implementation, and the completed `launch-648c24921ec44adca43db8b46e1100ab` Sol/medium contribution. The review at product commit `e736f32e40dd598194ba3c0861d1d0e8e5c47367` and metadata commit `457eeb9b6ae51a45e7cab3b6d03af41f7eddd4d7` produced the third-review corrections. Do not recreate or reapply any completed phase. Preserve the original Luna/max C8 artifacts and the earlier Sol C8 artifacts as historical evidence.
+
+### Frozen current correction
+
+The only product edit now authorized is the exact 13-file correction set:
+
+- Unified patch: `/Users/dev/.codex/reviews/forge-lean-20260910/third-review-confirmed-fixes.patch`, SHA256 `7ccb89501a6d1f966b7510b0be701cb45744387832131f2974f249d752a4e02d`.
+- Receipt: `/Users/dev/.codex/reviews/forge-lean-20260910/third-review-confirmed-fixes.receipt.md`, SHA256 `912a54cf5a97fd8e644fabc322dc58d127e74fadc2767485b9c02b337bc3d40b`.
+- Native `apply_patch` payload with the same 13-file change: `/Users/dev/.codex/reviews/forge-lean-20260910/third-review-confirmed-fixes.apply_patch`, SHA256 `3bba5a172b205cc354f82849d32b7968df927a3c8b6a4e5658def521193b18db`.
+- Exact basis: 13 receipt preimages at product commit `e736f32e40dd598194ba3c0861d1d0e8e5c47367`; projected result 405 insertions and 76 deletions. Every preimage must match before the first write, and all 13 postimages must match after it. Mixed, missing, or unknown bytes refuse.
+
+A registered `gpt-5.6-sol`/medium implementation worker applies that native payload once through the public `functions.exec` → `tools.apply_patch` route. The wrapper request must contain the full JSON-escaped literal payload so all 13 expected paths appear in the actual public request text. Reading the payload into a variable and calling `tools.apply_patch(variable)` is not acceptable evidence. The worker does not self-delegate, start or finish a stage, use degraded mode, run a recorder, launch review, seal proof, commit, publish, or operate CI.
+
+The worker runs the receipt-bound focused selection and `git diff --check`. It reports the result exactly. A macOS `psutil`/`sysctl` sandbox limitation is recorded as failed or limited and is never represented as a pass; Main later runs the normal full host verifier. The 30 protected `required_tests` entries include all 16 receipt selectors by normalized `test_` name, including the nine correction regressions that were missing from the prior 21-entry contract.
+
+### Fresh current-plan C8
+
+Because this plan has a new digest, the same registered worker must produce fresh C8 evidence after the scoped correction. It writes observations only to `/tmp/forge-native-c8-sol-review-fix-receipt.json`. It performs these public operations with distinct IDs:
+
+1. Run `./forge next` against the protected story/task/stage and save exact stdout. To avoid the observed sandbox Apple SDK shim hang, invoke argv `['./forge', 'next']` with only command-local `PATH=/Users/dev/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:$PATH`. Keep `receipt.state_read.command` exactly `./forge next` and record the actual argv and command-local environment separately. Do not edit global or project configuration.
+2. Run one genuinely passing focused regression with JUnit, such as `test_review_product_dirty_preserves_porcelain_status_prefix`, and save exact output. Do not substitute a full subset that is limited by the sandbox.
+3. Make the scoped 13-file contribution through the literal public `tools.apply_patch` call described above.
+4. Exercise a second public `apply_patch` call against the protected task plan with harmless absent context. Passing requires the actual PreToolUse hook denial before patch execution, the exact denial response, unchanged plan hashes, and the correlated wrapper/tool operation IDs. Context failure or unchanged bytes alone do not pass.
+5. Write the complete receipt with the existing C8 receipt shape, real launch/session/tool-call identities, saved output/JUnit paths, native output and delegation-ledger paths, exact denial response, `patch_executed: false`, unchanged plan hashes, and `actual_pretooluse_denial_observed`. The worker makes no post-exit success claim.
+
+After the worker exits successfully, Main runs `/Users/dev/.codex/reviews/forge-lean-20260910/preserve-c8-sol-review-fix-evidence.py`, SHA256 `f6f71ea39930f721d44bdaf157e9c89af4ecd2260985e4d9e76d7dd98460674e`, with the actual scoped wrapper call ID and every named completed public operation ID. This derivative differs from predecessor helper SHA256 `0b3b544fdb92d2b8c9d27c884553262366d0d4ddcf3f7d92c6332ebc45951559` only in the three single-use receipt/output path constants and retains the same parser checks. Its inputs are limited to completed public `command_execution`, `file_change`, `mcp_tool_call`, or `dynamic_tool_call` operations; hidden reasoning and agent messages refuse. Main selects only the scoped apply-patch and denial wrapper request/result by exact call ID plus clean public operation IDs for state read, focused test, receipt write, and denial probe. It must not broadly copy or grep session files, select a command whose output dumps unrelated session records or reasoning, or invent a native item for a wrapper denied before dispatch. It writes new files only:
+
+- `/Users/dev/.codex/reviews/forge-lean-20260910/c8-sol-review-fix-operation-transcript.json`
+- `/Users/dev/.codex/reviews/forge-lean-20260910/c8-sol-review-fix-source-check.json`
+
+Do not overwrite the original Luna/max C8 files or earlier Sol C8 files. The fresh three-lens review must inspect these new artifacts and cite the real correlated source lines for the launch, session, denial, unchanged plan hash, focused test, and successful terminal row. It must not reuse the prior quality verdict's incorrect operation-transcript line 224 citation.
+
+### Actual grill read and standing authorization
+
+The only grill read is completed Sol/high `launch-7ae6771745504c44a8d9e814edb96f70`, session `01a08db2-bd3a-7fb1-840d-7f6fa00ecbc6`, captured at `/Users/dev/.codex/reviews/forge-lean-20260910/third-review-fix-task-grill-original.json`, SHA256 `4666f353eddc1732504df902e6344dbf91e0ea8b6d86368cd5e4abc9ab6473d6`. Record its resolved five-finding disposition from `third-review-fix-task-grill-resolved.json`; do not launch another cold read, fabricate a question round, request a new exception, or switch to Claude.
+
+The empty question list is compatible with accepted Decision0061's no-forced-question consequence and Decision0064 lines 30–38, which carry standing authorization across in-scope corrections and retries. The prior plan already authorized this exact compatibility at its historical line 370. From the target worktree only, Main may run the source candidate `/Users/dev/Workdir/symphony-forge-native-dogfood/factory/scripts/record_grill_from_json.py`, SHA256 `4089b310edc6aa32fcb4d848d73c2d374937921a92114a7eb4204d4c03c24ffe`, to record that same actual read. Source HEAD remains `5dad45fa63d490a1cb641a34bbb1f1cbe12a16af`, and the immutable original 40-path source patch SHA256 `09cd2ec4826e407541cc4fe75d6d604f9ce6b8bb9f1c8b734aef23e2e42ad54f` remains historical. This source-recorder compatibility is confined to recording the completed read and grants no implementation, proof, or lifecycle authority.
+
+### Complete review budget
+
+The complete tracked and untracked diff from base `7a462bc2bd770a4df0ba47f40d515916438b8ac7` through metadata head `457eeb9b6ae51a45e7cab3b6d03af41f7eddd4d7` is 135 files and 12,436 changed lines. Projecting the exact frozen 13-file patch yields 135 files and 12,781 changed lines. The bound projection is `/Users/dev/.codex/reviews/forge-lean-20260910/first-complete-review-budget-projection.json`, SHA256 `998b91b9480cd2ad6b39e4ddddf3cb946d9dc8b66d3047bccfe84e853220f7a3`.
+
+Set `max_changed_files=180` and `max_changed_lines=18000`. This is a positive cap over the complete finished scope, including generated workflow evidence, full plans, reports, inventory, framing, and proof. Remaining headroom is limited to the already-required amended plan/grill, authentic C8 report, full verification, formal review, stage seal, and publication records. It authorizes no new product path: the existing 64-path write scope, eight acceptance criteria, eight plan contracts, and eight-task graph remain unchanged. Measure and report the final complete diff separately from the product-only measurement.
+
+The installed review helper retains its separate maximum input bound of 512,000 bytes per complete lossless chunk. Every chunk must complete. No truncation, skipped semantic or generated output, helper override, or artificial clean result is allowed.
+
+### Current completion sequence
+
+1. Main saves this full plan, records the amended decomposition, records the resolved form of the same actual grill through the confined source-recorder compatibility, and records the standing approval against this revision.
+2. Main delegates one registered Sol/medium worker. The worker verifies exact preimages, applies only the frozen native payload, performs the fresh C8 operations, runs receipt-bound focused checks and `git diff --check`, and returns truthful receipt/results.
+3. Main waits for successful exit, runs the derivative evidence helper with the exact public operation IDs, performs normal full host verification, and assembles and records the complete automated report.
+4. Main releases one normal Sol/high three-lens review over the complete lossless input. Review cites the correct fresh C8 source lines and loops only genuine in-scope corrections until clean.
+5. Main completes the existing stage, seals task proof, publishes the PR, and polls CI. No step in this section changes successor ownership or adds a ninth task.
+
+## COMPLETED HISTORY — preserved prior contract and provenance
+
+The original six-line frontmatter is retained at the top of this file. The remainder below preserves the prior protected plan content from original line 8 onward byte-for-byte; that complete prior file had 409 lines and SHA256 `85c82e6d653044e643d06f4ad23ec15417c42a854efc9a57cc0a467fe0a4a871`. All imperative bootstrap, import, recovery, model-policy, and earlier C8 language below is completed history and must not be acted on again. Its content remains available for provenance and review.
+
 Target contract for the recorded eight-task story in `/Users/dev/Workdir/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE`, created by normal task start from merged PR198 commit `7a462bc2bd770a4df0ba47f40d515916438b8ac7`. The real source contract/grill/approval completed before creation; its copied records are historical inputs, not fresh target approval. The confirmed specification is bound by SHA256 `439cfc38c4939fdf3e7e62e2ac07aa413cb3954920fca2fb151d8ebe71c8b970`. Accepted0065 changes Linux/Windows platform evidence to CI with explicit live limitations; this first task retains its local Mac probe and incumbent source/target gates. Accepted0066 amends only 0065's existing First-scope clause and matching recorded scope lesson for the later explicit model/team overlay, producing 64 paths while preserving every original prepared owner, source/target binding, eight-task graph, and all other 0065 duties. No preparation is contribution or task proof.
 
 ## Workflow

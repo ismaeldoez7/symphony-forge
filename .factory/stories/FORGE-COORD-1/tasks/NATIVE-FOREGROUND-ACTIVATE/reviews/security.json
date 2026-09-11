@@ -1,15 +1,67 @@
 {
   "generated_by": "autoreview",
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
-  "score": 10,
-  "summary": "security lens over NATIVE-FOREGROUND-ACTIVATE (26 product path(s), 7a462bc..3e2ce8a, Codex via the autoreview skill at --max-priority P2): 1 blocking, 0 non-blocking. The process and scope checks are extensive, but the enforcement mechanism is mutable by the very worker it is intended to constrain. Because the selected task explicitly authorizes edits to several files in that mechanism, this is a concrete privilege-escalation path rather than a speculative configuration concern.",
-  "blocking_findings": [],
-  "non_blocking_findings": [],
-  "recommendation": "approve",
+  "score": 3,
+  "summary": "security lens over NATIVE-FOREGROUND-ACTIVATE (59 product path(s), 7a462bc..457eeb9, Codex via the autoreview skill at --max-priority P2): 2 blocking, 2 non-blocking. Review passes returned. chunk 1/3: 2 finding(s), chunk 2/3: 2 finding(s), chunk 3/3: 0 finding(s). See preserved pass reports for provider conclusions.",
+  "blocking_findings": [
+    {
+      "category": "security",
+      "area": "factory/scripts",
+      "summary": "[P1] Bind legacy proof fallbacks to the requested story (factory/scripts/factory_lib.py:1401): The fallback accepts `.factory/decomposition.json` based only on finding the same task ID; it never verifies that the decomposition belongs to `key`."
+    },
+    {
+      "category": "security",
+      "area": "factory/scripts/forge_cli",
+      "summary": "[P1] Refuse symlinked hydration sources before reading them (factory/scripts/forge_cli/tasks.py:332): `Path.is_file()` and the following `read_bytes()` both follow symlinks."
+    }
+  ],
+  "non_blocking_findings": [
+    {
+      "category": "security",
+      "area": "factory/scripts/forge_cli",
+      "summary": "[P2] Refuse symlinked plugin targets before doctor repair (factory/scripts/forge_cli/doctor.py:554): The repair path resolves the expected installation directory and then uses `read_bytes()`/`write_bytes()` on its children without rejecting symlinks."
+    },
+    {
+      "category": "security",
+      "area": "factory/scripts",
+      "summary": "[P2] Match path-qualified raw Codex invocations (factory/scripts/pre_tool_use.py:693): The raw-runtime deny regex recognizes only a literal `codex` at command position."
+    }
+  ],
+  "recommendation": "request-changes",
   "reviewed_scope": [
+    ".claude/CLAUDE.md",
     ".claude/settings.json",
+    ".codex/agents/AGENTS.md",
+    ".codex/agents/architect.toml",
+    ".codex/agents/backend.toml",
+    ".codex/agents/debugger.toml",
+    ".codex/agents/docs-decomposer.toml",
+    ".codex/agents/explorer.toml",
+    ".codex/agents/frontend.toml",
+    ".codex/agents/functional-checker.toml",
+    ".codex/agents/griller.toml",
+    ".codex/agents/lite.toml",
+    ".codex/agents/performance.toml",
+    ".codex/agents/planner-high.toml",
+    ".codex/agents/planner.toml",
+    ".codex/agents/refactorer.toml",
+    ".codex/agents/security.toml",
+    ".codex/agents/tester.toml",
+    ".codex/config.toml",
+    ".codex/explore.config.toml",
     ".codex/hooks.json",
     "AGENTS.md",
+    "README.md",
+    "WORKFLOW.md",
+    "docs/FACTORY.md",
+    "docs/QUALITY.md",
+    "docs/ROLES.md",
+    "docs/getting-started.md",
+    "docs/specs/dual-coordinator-parity.md",
+    "factory/prompts/griller.md",
+    "factory/prompts/implementer.md",
+    "factory/prompts/planner.md",
+    "factory/prompts/reviewer.md",
     "factory/schemas/delegation.json",
     "factory/scripts/check_dual_runtime.py",
     "factory/scripts/check_encoding_hygiene.py",
@@ -26,7 +78,10 @@
     "factory/scripts/forge_cli/worker_admission.py",
     "factory/scripts/pre_tool_use.py",
     "factory/scripts/session_start.py",
+    "factory/skills/forge.md",
+    "factory/tests/test_gate_table.py",
     "factory/tests/test_gates.py",
+    "factory/tests/test_grill_release.py",
     "factory/tests/test_native_launch.py",
     "factory/tests/test_native_setup.py",
     "factory/tests/test_review_settled_contracts.py",
@@ -35,13 +90,6 @@
     "harness.yaml"
   ],
   "skills_used": [],
-  "aspect": "security",
-  "review_run_id": "a0cf1ee0269dc1a556d46c3d044a44c8ef726f38b793405b1b9bb1e9e86c1a0c",
-  "brief_sha256": "fe870cf1af3a20151e0773eba091a1f7ad2412018da67d498ca144edad0702eb",
-  "branch_diff_digest": "75f25b033ef9d454f1ee68366df14baadec781a6347d36cb646db7ac3269abb5",
-  "residual_risks": [],
-  "recorded_at": "2026-09-10T18:50:03+00:00",
-  "commit": "3e2ce8a6a62dd6d7455eaabb28a12d52787ee854",
   "rejected_findings": [
     {
       "finding": {
@@ -55,5 +103,12 @@
       "rejected_by": "orchestrator",
       "task_id": "NATIVE-FOREGROUND-ACTIVATE"
     }
-  ]
+  ],
+  "aspect": "security",
+  "review_run_id": "76af5b15abc365774e579b2645fb9d06e6316812e72e517e42900253b3ac801c",
+  "brief_sha256": "2e5efe80ebe8758bb159b251ac7425a8deffd71c286ff0fbd6dabc1485bc9e17",
+  "branch_diff_digest": "d1762d268c32d3ef2b5155f32b2fdeff47bb178ec53e4f9d38c595ab4d298c81",
+  "residual_risks": [],
+  "recorded_at": "2026-09-10T23:03:18+00:00",
+  "commit": "457eeb9b6ae51a45e7cab3b6d03af41f7eddd4d7"
 }
