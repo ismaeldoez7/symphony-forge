@@ -118,7 +118,7 @@
       "source": "Amended plan C10 migration paragraph and bound graph review_contract.upgrade_migration"
     }
   ],
-  "input_sha256": "4f26c5393fc9cc6e3a68bb6ecdb637da918bbebae60800d7e8a9474d20321a5b",
-  "recorded_at": "2026-09-11T20:04:28+00:00",
-  "commit": "4a239797cb86bc36cdfb24b3e9cbd80613693034"
+  "input_sha256": "5fb7076e2518cfdf87ff585e757bf07730b62f020053ba96f1a2dc1a62d6a783",
+  "recorded_at": "2026-09-11T22:35:07+00:00",
+  "commit": "f5b0b180c6cbec8784da138de7a661d4e4acf4ba"
 }

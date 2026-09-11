@@ -24,7 +24,10 @@
     "The four-client rollout is bound to an intermediate harness revision.",
     "Changed Docs ownership is internally inconsistent.",
     "Lifecycle observability omits the required logger and transport choice.",
-    "The client branch recipe violates the constitution without a written deviation."
+    "The client branch recipe violates the constitution without a written deviation.",
+    "Full verification fails because legacy closeout fixtures still mint a standalone stage-local or fixed-lens stamp, and one direct fixture module is outside the delegate boundary.",
+    "A caller can pair blocker-bearing raw helper output with forged clean lenses and obtain a selected clean stamp.",
+    "The implemented marker names and rejection chain contradict the confirmed capability and architecture."
   ],
   "contradictions": [],
   "resolutions": [
@@ -34,10 +37,10 @@
     "The AC, roadmap and parity tables are explicitly closure crosswalks only; all active decisions and deterministic gates remain binding even when omitted from a table.",
     "Accepted Decision 0070 allows pre-Quality tasks to record the unavailable new jobs as scheduled gaps, makes Quality the CI producer through a transport-only draft, and requires final platform proof at Quality and Integration.",
     "D-0033 now records Toolshed as a zero-mutation deferral with its exact identity and authority trigger; the three configured clients close Integration while the Toolshed limitation remains explicit.",
-    "The plan binds First to at most 16 existing runtime/test paths plus one new schema and 2,500 changed lines inside the 75-path envelope, with an explicit stop-and-amend rule for any excess.",
+    "The full post-implementation verify proves the amended task still fits one bounded session: 17 existing runtime/test paths plus one new schema, at most 3,200 added-plus-deleted lines, inside the 76-path accumulated envelope. Any additional path or cap overrun stops for amendment.",
     "The plan reuses product_excluded_prefixes and product_delta_digest as the sole current delta_id for review and closeout; any compatibility branch_diff_digest field stores that same value and no second identity exists.",
     "Decision 0070 assigns Main the direct GitHub transport action for Quality: push the exact task branch, create or reuse its matching draft, record the PR identity, and grant it no proof or seal authority.",
-    "Rejection may extend the selected combined generation or its selected rejection descendant, binding the immediate source generation file SHA256 and root combined generation ID while preserving exact decoded raw-result bytes and immutable rejection history across multiple false-positive rejections.",
+    "The confirmed capability and architecture permit exactly one citation rejection from the selected combined generation. The amended plan removes rejection chains, binds the successor to that source file SHA256 and ID, and refuses a selected rejection as another source.",
     "A single-lens run is diagnostic only and cannot publish, stamp, revoke or compete with the selected complete generation.",
     "The plan now defines lowercase generation_id from canonical sorted compact UTF-8 JSON excluding the ID, recomputation on read, real non-symlink directory ancestors, regular single-link leaves, atomic no-overwrite generation publication, byte-identical retry and unequal collision refusal.",
     "Every pass_reports report is recursively validated and projected in exact chunk order; the synthesized top-level summary is not a lens assessment, and the 3,000-character value is correctly treated as an output maximum.",
@@ -49,7 +52,10 @@
     "The configured client rollout now starts only from the final Quality-or-later harness revision, after Portable, Format and Quality land.",
     "First owns the necessary canonical documentation and graph hunks as task-bound contribution inside its exact envelope; Main owns only planning artifact publication and later client orchestration.",
     "NATIVE-LIFECYCLE owns one codex_runtime shared logger, stderr for local interaction and task-scoped JSONL for durable local evidence, with redaction, correlation, bounded retry and exactly-once unexpected-error metrics.",
-    "The plan requires ticket-bearing feature/FORGE-COORD-1-forge-upgrade branches and records an explicit deviation for Cadence and Gantry to branch from and return to their verified main default while ATS uses develop."
+    "The plan requires ticket-bearing feature/FORGE-COORD-1-forge-upgrade branches and records an explicit deviation for Cadence and Gantry to branch from and return to their verified main default while ATS uses develop.",
+    "The 70 failures reduce to one shared fixture migration plus direct cases in factory/tests/test_close_binds_to_the_diff.py. The amendment adds only that file; test_seal_measures remains validation-only through the shared test_gates helper. Three representative selectors raise the declared total to 61 and the focused batch to twenty-two.",
+    "Public record_review_from_json.py --set now accepts only origin=combined, rederives all three exact lens records from decoded raw bytes and authoritative task state, and refuses a caller-supplied mismatch before publication. Rejection and upgrade keep their owned routes into the internal publisher.",
+    "The amendment restores exact BEGIN/END FORGE ASSESSMENT <lens> full-line markers and permits one rejection successor only from the selected combined generation. Existing parser and rejection selectors are rewritten in place."
   ],
   "open_items": [],
   "rounds": [
@@ -74,7 +80,7 @@
   "frontier_empty": true,
   "questions_asked": 2,
   "issue": "FORGE-COORD-1",
-  "summary": "Resolved all 22 findings from the one required Sol/high cold read, native launch cfc9824, session 01a091ce-6c0a-7fb2-ba17-14468633fae8. Decisions 0069 and 0070, D-0033, the amended plan, bound graph and First contract make the eight-task sequence executable without another cold read.",
+  "summary": "Resolved all 25 findings across the original Sol/high plan cold read, the authoritative full verification, and the focused integrity/canon audit. The 76-path/61-test plan confines remediation to 18 delegate paths and 3,200 lines, restores canonical review semantics, and closes the forged-lens publication gap without another cold read.",
   "inspected_refs": [
     "docs/specs/dual-coordinator-parity.md",
     "docs/architecture/dual-coordinator-parity.md",
@@ -99,9 +105,14 @@
     "constitution/pnp-branch-naming-standards.md",
     "/Users/dev/.codex/plans/symphony-forge+coord-1-combined-review-story-amendment+20260911.md",
     "/Users/dev/.codex/plans/symphony-forge+native-foreground-combined-review+20260911.md",
-    "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-decomposition.json"
+    "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-decomposition.json",
+    "factory/scripts/factory_lib.py",
+    "factory/scripts/record_review_from_json.py",
+    "factory/tests/test_gates.py",
+    "factory/tests/test_close_binds_to_the_diff.py",
+    "factory/tests/test_seal_measures.py"
   ],
-  "current_flow": "Record this pass against the amended external story plan, save and bind the user's standing approval to that exact digest, record the matching eight-task decomposition, then save, cold-read once, grill, approve and delegate the First task.",
+  "current_flow": "Record this amended pass against the exact external story plan, bind the user standing approval to its digest, record the matching 76-path/61-test decomposition, then save, re-grill and approve the amended First task before one bounded Sol/medium fix delegation.",
   "citations": [
     {
       "finding": "The settled D-0032 reassignment remains contradicted by live records.",
@@ -141,7 +152,7 @@
     },
     {
       "finding": "Multiple citation rejections cannot complete.",
-      "source": "Amended plan rejection successor-chain contract"
+      "source": "docs/specs/dual-coordinator-parity.md lines 90-92; docs/architecture/dual-coordinator-parity.md lines 62-68; amended plan single selected-combined rejection contract"
     },
     {
       "finding": "Single-lens diagnostics create a second review authority.",
@@ -190,9 +201,21 @@
     {
       "finding": "The client branch recipe violates the constitution without a written deviation.",
       "source": "Amended plan client rollout branch and written-deviation paragraph"
+    },
+    {
+      "finding": "Full verification fails because legacy closeout fixtures still mint a standalone stage-local or fixed-lens stamp, and one direct fixture module is outside the delegate boundary.",
+      "source": "/tmp/forge-coord-host-verify-failure.txt; factory/tests/test_gates.py stamp_and_commit/write_task_proof; factory/tests/test_close_binds_to_the_diff.py; factory/tests/test_seal_measures.py"
+    },
+    {
+      "finding": "A caller can pair blocker-bearing raw helper output with forged clean lenses and obtain a selected clean stamp.",
+      "source": "factory/scripts/record_review_from_json.py --set path; factory/scripts/factory_lib.py validate_review_document/publish_review_generation; amended plan recorder contract"
+    },
+    {
+      "finding": "The implemented marker names and rejection chain contradict the confirmed capability and architecture.",
+      "source": "docs/specs/dual-coordinator-parity.md lines 84 and 90; docs/architecture/dual-coordinator-parity.md lines 50-62; amended task plan grammar and rejection sections"
     }
   ],
-  "input_sha256": "8b79ce6121e8612dcff2bafc77865358c7ab861e8f0eb12ecfe72b17674e7697",
-  "recorded_at": "2026-09-11T20:04:34+00:00",
-  "commit": "4a239797cb86bc36cdfb24b3e9cbd80613693034"
+  "input_sha256": "299379a2bc0ad6da4bf3867edf49de5dd854401732515dfdb4605390c714b6c2",
+  "recorded_at": "2026-09-11T22:35:07+00:00",
+  "commit": "f5b0b180c6cbec8784da138de7a661d4e4acf4ba"
 }
