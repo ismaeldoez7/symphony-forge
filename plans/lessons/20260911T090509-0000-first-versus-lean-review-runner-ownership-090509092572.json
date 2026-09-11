@@ -1,0 +1,11 @@
+{
+  "topic": "first-versus-lean-review-runner-ownership",
+  "lesson": "For NATIVE-FOREGROUND-ACTIVATE, the approved story plan deliberately keeps the current three-lens runner. LEAN-WORKFLOW owns the indivisible combined-helper and pointer-last publication contract; treat the current repetition as D-0032 rather than a First-task defect.",
+  "source": "ce4e233 performance review; approved FORGE-COORD-1 plan lines 130-132",
+  "applies_to": [
+    "factory/scripts/forge_cli/review.py"
+  ],
+  "severity": "high",
+  "generated_by": "orchestrator",
+  "added_at": "2026-09-11T09:05:09+00:00"
+}
