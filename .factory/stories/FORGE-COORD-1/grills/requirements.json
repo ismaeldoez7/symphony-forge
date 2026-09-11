@@ -3,93 +3,179 @@
   "gate": "requirements",
   "verdict": "pass",
   "gaps": [
-    "The revised requirements and old approved downstream authority chain have different bindings.",
-    "Old agent retirement and Lean ownership contradict First's complete Decision0066 overlay.",
-    "The closure crosswalk omits C1-C10 while also making them mandatory.",
-    "The spec allows independent work while0057 says pause all work.",
-    "Structured-question identity lacks gate/task and per-question multi-call semantics.",
-    "The old plan weakens design-review triggers and the exact quality coverage set.",
-    "Six platform rows have no deterministic representation inside the existing automated report.",
-    "Standing-authorized corrections cannot honestly inherit the old approval digest.",
-    "Event compaction leaves bundle shape, immutability and destructive retry behavior undefined.",
-    "The context-file input does not exist and has no assigned safe contract."
+    "There is no current authoritative downstream contract because the confirmed spec supersedes the protected older plan and decomposition.",
+    "The settled combined-review reassignment is absent from the protected old plan, decomposition, task plan and D-0032 deferral.",
+    "Review proof has incompatible selectors: the amended spec uses task reviews/selected.json while the old plan uses review-run.json and fixed paths.",
+    "The one-time fixed-review migration has no producing Portable task contract in the protected old decomposition.",
+    "Preliminary-PR requirements conflict between the amended specification, accepted Decision 0054, the old plan and Shared/Integration contracts.",
+    "The Format/Quality requirements and Ruff-configuration ownership amendment is absent from the old plan and decomposition.",
+    "Canon-write wording conflicts with the preserved strict-role classifier that treats ordinary docs and plans as coordinator-owned surfaces.",
+    "Ordinary-chat eligibility conflicts with Decision 0061 when a structured tool exists but is optional-only for native approvals.",
+    "Optional non-gate structured questions cannot be represented because every captured round requires a gate.",
+    "The structured question identity does not bind the issuance artifact revision and cannot prevent revision-A answers from being rebound to revision B.",
+    "Handoff wording conflicts with Decision 0053 by allowing transfer while another required question exchange is incomplete.",
+    "Unanswered ordinary-chat questions have no durable collector and can disappear from handoff state.",
+    "One protected handoff snapshot is not falsifiable without a lock, generation, coherent fields and refreshed-trunk completion.",
+    "The five-row fail-closed claim overstates host behavior for nonblocking SessionStart/PreCompact failures and documented Stop fail-open failures.",
+    "The context-capacity contract has impossible read/count ordering, unknown-limit reporting and ambiguous partition launch behavior.",
+    "AC6 says only task-bound proof satisfies a gate and thereby invalidates legitimate global and story-scoped gate evidence.",
+    "Cross-lens applicability has no coherent deterministic grammar and conflicts with unique finding records.",
+    "Mandatory retention behavior has no acceptance predicate for collision refusal, durable readback, deletion safety and legacy immutability.",
+    "Genuine native delivery permits an inconsequential post-registration change to claim credit for a prepared capability.",
+    "Platform limitation wording can waive mandatory local Mac Desktop proof.",
+    "C1 requires undefined setup repair behavior that the capability does not specify.",
+    "The specification denies owning the delivery graph while independently freezing named owners and exactly eight markers."
   ],
   "contradictions": [],
   "resolutions": [
-    "The normal requirements gate necessarily precedes replacing the old plan. The confirmed spec, corrected versioned graph and complete replacement story/task/decomposition now agree. Normal plan save/approval, decomposition recording and task save/grill/approval must replace all old bindings before any further worker starts; the old passes are history, not current authority.",
-    "Committed accepted0066 explicitly narrows0057 agent retirement and0065/the prior scope lesson for the later user model/team request. The corrected graph and replacement decomposition assign the complete64-path/15-agent overlay to First and preserve all original prepared hunk owners, task IDs and dependencies.",
-    "The replacement story explicitly maps AC1-AC12, C1-C10 and all three unchanged roadmap criteria to existing owners and proof; the bound graph retains all ten client-failure rows. The scope-creep rule applies only outside that complete bound crosswalk.",
-    "Accepted0064 narrows0057's older wording. The addressed and all causally affected work pause for a required answer; separately owned, dependency-ready work with unaffected contracts can continue. The spec and0066 now explicitly preserve that narrowing.",
-    "After Shared ships, capture binds the full runtime/session/event/tool-call/question/story/gate/task tuple and exact question/options/answer. Each unique question in a completed multi-question call is independently eligible and single-use, with exactly one nonblank answer. Legacy identity is never synthesized or rebound.",
-    "The replacement story repeats every mechanical design_review trigger and fails closed for missing/unknown/blank or false routine classification. One pinned Ruff0.16.6/Pyright1.1.411 runner supplies the identical exact tracked Python set below factory/scripts and factory/tests, including fixtures, locally and in CI.",
-    "Integration owns an exact JSON-encoded six-row array in existing pass_fail_summary, with fixed labels/order/fields/states and validation against real revision/log/client evidence. It derives aggregate status and independent review checks it; generic C10 consumes the review-bound aggregate without a new schema property, report or registry.",
-    "Lean uses the existing brief/save/amendment/approval family, records correction reason/classification and actual standing-authority source, removes the old tuple and freshly binds the actual revision. No new human answer or reread is claimed. Material changes still require explicit authority; First's present model scope is authorized by the user's actual later instructions and must pass normal current gates.",
-    "Portable uses exact format/story/events with forge-event-bundle/v1 and ID-sorted unchanged members. Existing bundles stay immutable; late unseen IDs refuse untouched. Apply requires the preview inventory/proof/bundle digest, first publication cannot overwrite, exact durable read-back precedes deletion, and historical eligibility respects the original scoped or legacy delivery contract.",
-    "Lean explicitly owns adding optional --context-file to the existing CLI/composer. It reads one caller-selected regular UTF-8 snapshot, permits authorized outside paths and labels contents untrusted without altering primary artifact identity, decisions, scope, evidence or read-only authority. Missing/unreadable/non-regular/undecodable input refuses; no truncation or new evidence family is added."
+    "The final confirmed spec, accepted Decision 0067, and replacement plan/decomposition/graph form the current downstream contract; normal recorders replace the explicitly inoperative old artifacts before delegation.",
+    "The replacement plan, graph, decomposition, and First task plan assign complete D-0032 to NATIVE-FOREGROUND-ACTIVATE; Lean consumes it without reimplementation.",
+    "Decision 0067, the spec, architecture, and replacement artifacts use one task selected pointer. Fixed paths are one-time upgrade input only; review-run remains an input token.",
+    "Portable explicitly owns global-preflight origin=upgrade migration, including historical sealed-marker binding, before machinery replacement.",
+    "Decision 0067 amends Decision 0054: a draft PR is allowed only when required platform CI needs it, grants no proof, and receives formal review only after platform evidence passes.",
+    "The amended plan, graph and decomposition make Format commit the pinned requirements and final Ruff configuration and make Quality consume those exact bytes while owning semantic enforcement.",
+    "The final spec distinguishes managed status/approval/evidence writes, which require owning commands, from in-scope Main-authored ordinary canon source. Worker writes still require admission; strict-role and classifier behavior remains coherent.",
+    "Decision 0061 remains authoritative: necessary approvals use ordinary chat where host rules require it, and the owning approval/decision command binds the exact final revision.",
+    "Optional non-gate questions use empty scope/input fields and cannot satisfy a gate or approval.",
+    "Question identity is simplified to runtime, session, fresh event ID, and zero-based question index plus exact scope, current input digest, content, and answer. Approval-bound changes use the owning decision/approval; no revision map is added.",
+    "The invented live handoff is removed. Decision 0053 allows only a between-task coordinator change after the old session stops and the completed marker and green CI reach refreshed trunk.",
+    "An unanswered ordinary-chat question holds its turn. Abandonment grants no authority; a later coordinator asks again. No machine handoff predicate claims to observe chat.",
+    "There is no handoff snapshot, counter, fencing token, or live-transfer command. The new coordinator resumes through forge next at a completed task boundary.",
+    "Existing events remain best-effort diagnostics under Decision 0017. Committed hook configuration, focused tests, and recorder-produced automated logs carry required proof and real host-blocking outcomes.",
+    "The final spec captures each input once as immutable safe UTF-8 bytes with hash/count, requires known limits, launches only captured bytes, and partitions only under a declared ordered all-or-nothing aggregation contract.",
+    "AC6 now scopes exact-task proof to task-bound gates and explicitly preserves existing global and story recorder identities.",
+    "The simplified combined review uses exact full-line lens markers, exact chunk labels, one lowercase tag, and a deterministic NFC repo-path/line/normalized-title cross-lens fingerprint; no AFFECTS protocol or extra record family exists.",
+    "AC8, AC12, and Portable require immutable bundles, exact IDs/payload readback, collisions, retry, and late-event refusal while preserving legacy/history bytes.",
+    "AC7 reuses the task binary branch diff and cites one qualifying hunk correlated to admitted write, terminal evidence, and a criterion/finding. No product-tree snapshot exists.",
+    "The final spec makes local Mac CLI and Desktop evidence mandatory. Only unavailable Linux/Windows live CLI/Desktop runtime observations may remain accepted limitations; missing Mac evidence blocks.",
+    "Setup and forge doctor choose a coordinator for one invocation by argument, environment, detection, then TTY. Init/adopt/upgrade install both adapters and persist no choice.",
+    "The final spec leaves the complete graph to the approved plan/decomposition while retaining only the explicitly settled First D-0032 and Portable migration owners."
   ],
   "open_items": [],
-  "rounds": [],
-  "frontier_empty": true,
-  "questions_asked": 0,
-  "summary": "Resolution of every visible finding from the genuine Sol/high requirements cold read launch-c110b1635070497fbd5f1fd5e61f9580, session 01a08cf0-64f7-77c0-bf8b-ab4d63146307. Main and bounded native specialists resolved repository facts and implementation details using actual standing and later explicit user authority. No new user answer, additional cold read, inherited approval or implementation pass is claimed. Record only against the final confirmed spec/corrected graph and frozen replacement plan; subsequent normal approval and task proof remain required.",
-  "inspected_refs": [
-    "docs/specs/dual-coordinator-parity.md",
-    "docs/decisions/0057-coordinator-operation-simplification.md",
-    "docs/decisions/0064-lean-delivery-and-durable-history.md",
-    "docs/decisions/0065-ci-platform-evidence.md",
-    "docs/decisions/0066-sol-specialized-workflow-models.md",
-    "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
-    "/Users/dev/.codex/plans/symphony-forge+coord-1-model-policy-story-amendment+20260911.md",
-    "/Users/dev/.codex/plans/symphony-forge+native-foreground-model-policy-decomposition+20260911.json",
-    "/Users/dev/.codex/plans/symphony-forge+native-foreground-model-policy-amendment+20260911.md",
-    "factory/scripts/forge_cli/plans.py",
-    "factory/scripts/forge_cli/tasks.py",
-    "factory/scripts/factory_lib.py"
-  ],
-  "citations": [
+  "rounds": [
     {
-      "finding": "The revised requirements and old approved downstream authority chain have different bindings.",
-      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
-    },
-    {
-      "finding": "Old agent retirement and Lean ownership contradict First's complete Decision0066 overlay.",
-      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
-    },
-    {
-      "finding": "The closure crosswalk omits C1-C10 while also making them mandatory.",
-      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
-    },
-    {
-      "finding": "The spec allows independent work while0057 says pause all work.",
-      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
-    },
-    {
-      "finding": "Structured-question identity lacks gate/task and per-question multi-call semantics.",
-      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
-    },
-    {
-      "finding": "The old plan weakens design-review triggers and the exact quality coverage set.",
-      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
-    },
-    {
-      "finding": "Six platform rows have no deterministic representation inside the existing automated report.",
-      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
-    },
-    {
-      "finding": "Standing-authorized corrections cannot honestly inherit the old approval digest.",
-      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
-    },
-    {
-      "finding": "Event compaction leaves bundle shape, immutability and destructive retry behavior undefined.",
-      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
-    },
-    {
-      "finding": "The context-file input does not exist and has no assigned safe contract.",
-      "source": "/Users/dev/.codex/reviews/forge-lean-20260910/model-policy-requirements-grill-not-converged.json; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-authority-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-question-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/requirements-grill-data-resolutions.md; /Users/dev/.codex/reviews/forge-lean-20260910/plan-grill-publication-resolutions.md; corrected confirmed spec and bound replacement story/graph"
+      "question": "Dual-coordinator review migration: should Forge remove ongoing fixed-path review compatibility and use one Portable-owned upgrade migration into canonical task-scoped selected review sets?",
+      "options": [
+        "Use one-time upgrade migration (Recommended)",
+        "Keep ongoing fixed-path fallback"
+      ],
+      "chosen": "Use one-time upgrade migration (Recommended)",
+      "frontier_empty": true
     }
   ],
+  "frontier_empty": true,
+  "questions_asked": 1,
   "issue": "FORGE-COORD-1",
-  "input_sha256": "8c717ce01886a2415b7ddabc8a86cbef80323f78eff0d2895d3562e66a06ef41",
-  "recorded_at": "2026-09-10T20:51:51+00:00",
-  "commit": "d482f16fa323c5377dca6c1fe7788fbb71211bd2"
+  "summary": "Resolved all 22 findings from the single Sol/high requirements cold read against the final confirmed simplified spec, accepted Decision 0067, and coherent replacement artifacts. No second requirements cold read is run.",
+  "inspected_refs": [
+    "docs/specs/dual-coordinator-parity.md",
+    "docs/specs/strict-role-split.md",
+    "docs/product/BRIEF.md",
+    "docs/architecture/dual-coordinator-parity.md",
+    "docs/decisions/0053-interchangeable-coordinator-shared-forge-contract.md",
+    "docs/decisions/0054-native-questions-and-task-proof.md",
+    "docs/decisions/0061-host-native-human-interaction.md",
+    "docs/decisions/0064-lean-delivery-and-durable-history.md",
+    "plans/roadmap.json",
+    "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
+    ".factory/stories/FORGE-COORD-1/decomposition.json",
+    "/Users/dev/.codex/plans/symphony-forge+coord-1-combined-review-story-amendment+20260911.md",
+    "/Users/dev/.codex/plans/symphony-forge+native-foreground-combined-review+20260911.md",
+    "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-decomposition.json",
+    "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-lean-delivery-graph-postimage.json"
+  ],
+  "current_flow": "Record this requirements pass, finish exact graph/hash alignment, then run the one user-requested final cold read of the simplified plan.",
+  "citations": [
+    {
+      "finding": "There is no current authoritative downstream contract because the confirmed spec supersedes the protected older plan and decomposition.",
+      "source": "The final confirmed spec, accepted Decision 0067, and replacement plan/decomposition/graph form the current downstream contract; normal recorders replace the explicitly inoperative old artifacts before delegation."
+    },
+    {
+      "finding": "The settled combined-review reassignment is absent from the protected old plan, decomposition, task plan and D-0032 deferral.",
+      "source": "The replacement plan, graph, decomposition, and First task plan assign complete D-0032 to NATIVE-FOREGROUND-ACTIVATE; Lean consumes it without reimplementation."
+    },
+    {
+      "finding": "Review proof has incompatible selectors: the amended spec uses task reviews/selected.json while the old plan uses review-run.json and fixed paths.",
+      "source": "Decision 0067, the spec, architecture, and replacement artifacts use one task selected pointer. Fixed paths are one-time upgrade input only; review-run remains an input token."
+    },
+    {
+      "finding": "The one-time fixed-review migration has no producing Portable task contract in the protected old decomposition.",
+      "source": "Portable explicitly owns global-preflight origin=upgrade migration, including historical sealed-marker binding, before machinery replacement."
+    },
+    {
+      "finding": "Preliminary-PR requirements conflict between the amended specification, accepted Decision 0054, the old plan and Shared/Integration contracts.",
+      "source": "Decision 0067 amends Decision 0054: a draft PR is allowed only when required platform CI needs it, grants no proof, and receives formal review only after platform evidence passes."
+    },
+    {
+      "finding": "The Format/Quality requirements and Ruff-configuration ownership amendment is absent from the old plan and decomposition.",
+      "source": "The amended plan, graph and decomposition make Format commit the pinned requirements and final Ruff configuration and make Quality consume those exact bytes while owning semantic enforcement."
+    },
+    {
+      "finding": "Canon-write wording conflicts with the preserved strict-role classifier that treats ordinary docs and plans as coordinator-owned surfaces.",
+      "source": "The final spec distinguishes managed status/approval/evidence writes, which require owning commands, from in-scope Main-authored ordinary canon source. Worker writes still require admission; strict-role and classifier behavior remains coherent."
+    },
+    {
+      "finding": "Ordinary-chat eligibility conflicts with Decision 0061 when a structured tool exists but is optional-only for native approvals.",
+      "source": "Decision 0061 remains authoritative: necessary approvals use ordinary chat where host rules require it, and the owning approval/decision command binds the exact final revision."
+    },
+    {
+      "finding": "Optional non-gate structured questions cannot be represented because every captured round requires a gate.",
+      "source": "Optional non-gate questions use empty scope/input fields and cannot satisfy a gate or approval."
+    },
+    {
+      "finding": "The structured question identity does not bind the issuance artifact revision and cannot prevent revision-A answers from being rebound to revision B.",
+      "source": "Question identity is simplified to runtime, session, fresh event ID, and zero-based question index plus exact scope, current input digest, content, and answer. Approval-bound changes use the owning decision/approval; no revision map is added."
+    },
+    {
+      "finding": "Handoff wording conflicts with Decision 0053 by allowing transfer while another required question exchange is incomplete.",
+      "source": "The invented live handoff is removed. Decision 0053 allows only a between-task coordinator change after the old session stops and the completed marker and green CI reach refreshed trunk."
+    },
+    {
+      "finding": "Unanswered ordinary-chat questions have no durable collector and can disappear from handoff state.",
+      "source": "An unanswered ordinary-chat question holds its turn. Abandonment grants no authority; a later coordinator asks again. No machine handoff predicate claims to observe chat."
+    },
+    {
+      "finding": "One protected handoff snapshot is not falsifiable without a lock, generation, coherent fields and refreshed-trunk completion.",
+      "source": "There is no handoff snapshot, counter, fencing token, or live-transfer command. The new coordinator resumes through forge next at a completed task boundary."
+    },
+    {
+      "finding": "The five-row fail-closed claim overstates host behavior for nonblocking SessionStart/PreCompact failures and documented Stop fail-open failures.",
+      "source": "Existing events remain best-effort diagnostics under Decision 0017. Committed hook configuration, focused tests, and recorder-produced automated logs carry required proof and real host-blocking outcomes."
+    },
+    {
+      "finding": "The context-capacity contract has impossible read/count ordering, unknown-limit reporting and ambiguous partition launch behavior.",
+      "source": "The final spec captures each input once as immutable safe UTF-8 bytes with hash/count, requires known limits, launches only captured bytes, and partitions only under a declared ordered all-or-nothing aggregation contract."
+    },
+    {
+      "finding": "AC6 says only task-bound proof satisfies a gate and thereby invalidates legitimate global and story-scoped gate evidence.",
+      "source": "AC6 now scopes exact-task proof to task-bound gates and explicitly preserves existing global and story recorder identities."
+    },
+    {
+      "finding": "Cross-lens applicability has no coherent deterministic grammar and conflicts with unique finding records.",
+      "source": "The simplified combined review uses exact full-line lens markers, exact chunk labels, one lowercase tag, and a deterministic NFC repo-path/line/normalized-title cross-lens fingerprint; no AFFECTS protocol or extra record family exists."
+    },
+    {
+      "finding": "Mandatory retention behavior has no acceptance predicate for collision refusal, durable readback, deletion safety and legacy immutability.",
+      "source": "AC8, AC12, and Portable require immutable bundles, exact IDs/payload readback, collisions, retry, and late-event refusal while preserving legacy/history bytes."
+    },
+    {
+      "finding": "Genuine native delivery permits an inconsequential post-registration change to claim credit for a prepared capability.",
+      "source": "AC7 reuses the task binary branch diff and cites one qualifying hunk correlated to admitted write, terminal evidence, and a criterion/finding. No product-tree snapshot exists."
+    },
+    {
+      "finding": "Platform limitation wording can waive mandatory local Mac Desktop proof.",
+      "source": "The final spec makes local Mac CLI and Desktop evidence mandatory. Only unavailable Linux/Windows live CLI/Desktop runtime observations may remain accepted limitations; missing Mac evidence blocks."
+    },
+    {
+      "finding": "C1 requires undefined setup repair behavior that the capability does not specify.",
+      "source": "Setup and forge doctor choose a coordinator for one invocation by argument, environment, detection, then TTY. Init/adopt/upgrade install both adapters and persist no choice."
+    },
+    {
+      "finding": "The specification denies owning the delivery graph while independently freezing named owners and exactly eight markers.",
+      "source": "The final spec leaves the complete graph to the approved plan/decomposition while retaining only the explicitly settled First D-0032 and Portable migration owners."
+    }
+  ],
+  "input_sha256": "f978ddeddd73b644fc05071914cf70e67ae9ac794bab3dec28c06b3cfa79e6ca",
+  "recorded_at": "2026-09-11T14:47:17+00:00",
+  "commit": "1117fc0c1d39d59ad0a6712020ae9e9bc8fad011"
 }
