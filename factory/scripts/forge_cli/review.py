@@ -39,6 +39,7 @@ from .review_brief import (
 from .tasks import _git, _require_git
 
 LENSES = ("quality", "performance", "security")
+REVIEW_DATASET_REL = ".factory/review-briefs/all.md"
 # Harness bookkeeping is never the subject of a product review.
 HARNESS_PREFIXES = (".factory/", "plans/", "docs/decisions/")
 # The recorder's contract_verdicts shape: {contract_id, verdict, evidence}.
@@ -173,7 +174,7 @@ def _lens_prompt(task: dict, lens: str, base: Path | None = None) -> bytes:
              COMMON_PREAMBLE, LENS_FOCUS[lens], LEFTOVER_INSTRUCTION]
     if lens == "quality":
         lines += [QUALITY_VERDICT_FORMAT, VERDICT_INSTRUCTION, ""]
-    lines += _task_section(task, base)
+    lines += _task_section(task, None)
     return ("\n".join(lines).rstrip() + "\n").encode()
 
 
@@ -492,7 +493,8 @@ def _run_skill(skill: Path, worktree: Path, base_sha: str, prompt_rel: str,
     argv = [
         sys.executable, str(skill), "--mode", "branch", "--base", base_sha,
         "--engine", engine, "--max-priority", max_priority,
-        "--prompt-file", prompt_rel, "--json-output", str(json_out),
+        "--prompt-file", prompt_rel, "--dataset", REVIEW_DATASET_REL,
+        "--json-output", str(json_out),
     ]
     if engine == "codex":
         argv.extend([
@@ -813,6 +815,7 @@ def cmd_review(args: argparse.Namespace) -> None:
     cmd_review_brief(argparse.Namespace(
         id=None, all=True, repo=str(base), review_task=args.id,
     ))
+    dataset_body = (base / REVIEW_DATASET_REL).read_bytes()
 
     decomposition = load_json(protected_decomposition_state_path(base), default={})
     all_tasks = [t for t in decomposition.get("tasks") or [] if isinstance(t, dict)]
@@ -841,6 +844,9 @@ def cmd_review(args: argparse.Namespace) -> None:
         _require_git(base, "creating the review worktree", "worktree", "add",
                      "--detach", str(worktree), tip_sha)
         review_tip = product_only_tip(worktree, base_sha)
+        dataset_target = worktree / REVIEW_DATASET_REL
+        dataset_target.parent.mkdir(parents=True, exist_ok=True)
+        dataset_target.write_bytes(dataset_body)
         for lens in lenses:
             rel, body = prompts[lens]
             target = worktree / rel

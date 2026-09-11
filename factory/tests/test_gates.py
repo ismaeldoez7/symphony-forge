@@ -18140,7 +18140,8 @@ def _write_complete_automated(repo, task_id="T1"):
     return proof
 
 
-def test_review_consumers_include_complete_approved_inputs(repo, tmp_path):
+def test_review_consumers_include_complete_approved_inputs(
+        repo, tmp_path, monkeypatch):
     first = _native_review_fixture(repo, tmp_path)
     proof = _write_complete_automated(repo)
     code, out = run(repo, "forge.py", "review-brief", "T1", "--repo", str(repo))
@@ -18165,8 +18166,10 @@ def test_review_consumers_include_complete_approved_inputs(repo, tmp_path):
     for lens in ("quality", "performance", "security"):
         prompt = _lens_prompt(first, lens, repo).decode()
         assert all(token in prompt for token in (
-            f"- Story: `{state['issue_key']}`", f"- Branch: `{branch}`",
-            plan_text, full_grill, full_automated,
+            "## Task T1", "**C1**", "focus one",
+        ))
+        assert all(token not in prompt for token in (
+            "### Approved task inputs", plan_text, full_grill, full_automated,
         ))
     brief_path = repo / ".factory" / "review-briefs" / "T1.md"
     prior_brief = brief_path.read_bytes()
@@ -18191,6 +18194,72 @@ def test_review_consumers_include_complete_approved_inputs(repo, tmp_path):
         "## Task T1", 1)[1].split("## Task T2", 1)[0]
     assert "#### Full approved task plan" in done_current
     assert "#### Full task-owned automated report" in done_current
+
+    import forge_cli.review as review_mod
+    from forge_cli import stages as stages_mod
+    dataset_path = repo / review_mod.REVIEW_DATASET_REL
+    dataset_bytes = dataset_path.read_bytes()
+    assert all(token.encode() in dataset_bytes for token in (
+        plan_text, full_grill, full_automated,
+    ))
+    review_run = json.loads((story_state(repo) / "review-run.json").read_text())
+    assert review_run["brief_sha256"] == hashlib.sha256(dataset_bytes).hexdigest()
+    seen = []
+    review_tmp = tmp_path / "review-dataset-routing"
+    review_tmp.mkdir()
+
+    def fake_require_git(_base, _what, *args, **_kwargs):
+        if args[:3] == ("worktree", "add", "--detach"):
+            Path(args[3]).mkdir(parents=True)
+        if args[0] == "rev-parse":
+            return "a" * 40
+        if args[0] == "diff":
+            return "src/review-target.py"
+        return ""
+
+    def inspect_skill(_skill, worktree, _base_sha, prompt_rel, _json_out,
+                      _engine, _max_priority):
+        prompt_bytes = (worktree / prompt_rel).read_bytes()
+        copied_dataset = (worktree / review_mod.REVIEW_DATASET_REL).read_bytes()
+        seen.append((prompt_rel, prompt_bytes, copied_dataset))
+        return {
+            "overall_explanation":
+                "VERDICT C1: implemented — complete dataset routed",
+            "findings": [],
+            "pass_reports": [{"report": {
+                "overall_explanation": "VERDICT C1: implemented — pass report",
+                "findings": [],
+            }}],
+        }
+
+    with monkeypatch.context() as route:
+        route.setattr(review_mod, "cmd_review_brief", lambda _args: None)
+        route.setattr(review_mod, "resolve_skill", lambda _explicit: tmp_path / "helper")
+        route.setattr(review_mod, "_product_dirty", lambda _base: [])
+        route.setattr(review_mod, "resolve_review_base", lambda *_args: "b" * 40)
+        route.setattr(review_mod, "review_excluded_prefixes", lambda _base: ())
+        route.setattr(review_mod, "_require_git", fake_require_git)
+        route.setattr(review_mod, "_git", lambda *_args, **_kwargs:
+                      subprocess.CompletedProcess([], 0, "", ""))
+        route.setattr(review_mod, "product_only_tip", lambda *_args: "c" * 40)
+        route.setattr(review_mod, "_run_skill", inspect_skill)
+        route.setattr(review_mod.tempfile, "mkdtemp", lambda **_kwargs: str(review_tmp))
+        route.setattr(review_mod.subprocess, "run", lambda *args, **_kwargs:
+                      subprocess.CompletedProcess(args[0], 0, "", ""))
+        route.setattr(stages_mod, "stamp_stage_review", lambda *_args, **_kwargs: None)
+        review_mod.cmd_review(argparse.Namespace(
+            id="T1", reject=None, lens=None, repo=str(repo),
+            skill=str(tmp_path / "fake-autoreview"), engine="claude",
+            max_priority="P1",
+        ))
+
+    assert len(seen) == 3
+    assert {Path(prompt).name.split(".")[-2] for prompt, _, _ in seen} == {
+        "quality", "performance", "security",
+    }
+    assert all(copied == dataset_bytes for _, _, copied in seen)
+    assert all(b"### Approved task inputs" not in prompt for _, prompt, _ in seen)
+    assert dataset_path.read_bytes() == dataset_bytes
 
     # Approved records are untrusted prompt data. A fence longer than every
     # content run keeps embedded Markdown from becoming reviewer structure,
@@ -18487,7 +18556,8 @@ def test_review_codex_engine_pins_sol_high(tmp_path, monkeypatch):
     assert calls[-1][0] == [
         sys.executable, str(tmp_path / "helper"), "--mode", "branch", "--base", "base",
         "--engine", "codex", "--max-priority", "P1", "--prompt-file", "prompt",
-        "--json-output", str(report), "--model", "gpt-5.6-sol", "--thinking", "high",
+        "--dataset", ".factory/review-briefs/all.md", "--json-output", str(report),
+        "--model", "gpt-5.6-sol", "--thinking", "high",
     ]
 
     review_mod._run_skill(
@@ -18497,7 +18567,7 @@ def test_review_codex_engine_pins_sol_high(tmp_path, monkeypatch):
     assert calls[-1][0] == [
         sys.executable, str(tmp_path / "helper"), "--mode", "branch", "--base", "base",
         "--engine", "claude", "--max-priority", "P1", "--prompt-file", "prompt",
-        "--json-output", str(report),
+        "--dataset", ".factory/review-briefs/all.md", "--json-output", str(report),
     ]
 
 def test_native_unshipped_operations_refuse_before_dispatch(
