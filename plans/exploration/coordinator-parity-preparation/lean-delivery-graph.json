@@ -219,6 +219,7 @@
         "AC2",
         "AC3",
         "AC4",
+        "AC5",
         "AC10"
       ],
       "replaces_old_rows": [
@@ -282,7 +283,7 @@
         "Preserve/reconstruct task_id/branch/base_main_sha and verified owner on resume; never downgrade task-proof mode",
         "Preserve complete stage seal fields; read-only next must not destructively rebuild state",
         "Resolve exact approved plan/story before auto-selection and reload state after valid pointer recovery",
-        "Pending required questions pause only the addressed or causally dependent work. Coordinator changes occur only between completed tasks after the old session stops, refreshed trunk contains the marker and green CI, and no worker or partial structured question remains; the new coordinator resumes through forge next.",
+        "Pending required questions pause only the addressed or causally dependent work. Coordinator changes occur only between completed tasks after the old session stops, refreshed trunk contains the marker and green CI, and no worker or synchronous question call remains active; the new coordinator resumes through forge next.",
         "Committed Claude/Codex hook matchers, check_dual_runtime.py, focused behavior tests and the recorder-produced automated report prove adapter delivery and real host blocking capability; best-effort timeline events remain diagnostic only"
       ],
       "planning_surfaces": [
@@ -3060,9 +3061,9 @@
     "content": [
       "question",
       "ordered options",
-      "exact submitted nonblank answer"
+      "exact submitted nonblank label or free-form answer"
     ],
-    "rule": "The installed runtime/session and recorder-created fresh lowercase 32-hex event ID identify a successful call; a zero-based question index identifies each question. Consume only against exact identity, scope, current input digest, content and answer. Optional non-gate questions use empty scope/digest and cannot satisfy a gate. Replays, cancellation, missing answers, wrong binding, duplicates and legacy records lacking this identity cannot create authority. Artifact changes are recorded by the owning decision/approval and grilled at the final revision; no revision mapping is added."
+    "rule": "The installed runtime/session and recorder-created fresh lowercase 32-hex event ID identify a successful synchronous call; a zero-based question index identifies each question. Preserve any exact nonblank submitted answer, including free-form text outside offered labels. Consume only against exact identity, scope, current input digest, content and answer. Required exchanges use synchronous calls only. Async issuance is guarded optional clarification, cannot satisfy a gate/approval/required exchange, and creates no completion or pending authority record. Replays, cancellation, missing answers, wrong binding, duplicates and legacy records lacking this identity cannot create authority. Artifact changes are recorded by the owning decision/approval and grilled at the final revision; no revision mapping is added."
   },
   "standing_authorization_contract": {
     "pause": "Accepted0064 narrows0057 pause-all to addressed/causally dependent work; separately owned dependency-ready unaffected work continues; missing/canceled answer grants no authority.",
@@ -3145,7 +3146,7 @@
   "question_coordinator_change_contract": {
     "authority": "0053-interchangeable-coordinator-shared-forge-contract, 0061-host-native-human-interaction, 0067-combined-review-generation and the confirmed dual-coordinator specification",
     "native_grill": "After Shared ships, zero rounds require one ledgered empty-frontier cold read; a human frontier cites an eligible structured answer or the exact accepted decision/approval that owns the choice. No synthesis.",
-    "coordinator_change": "Only between completed tasks after the old session stops, refreshed trunk contains the task marker and green CI, and no active worker or partial structured question remains. The receiver runs forge next. No live transfer command, snapshot, fencing token, coordinator registry or concurrent coordinator ownership is added.",
+    "coordinator_change": "Only between completed tasks after the marker and green CI reach refreshed trunk, no worker remains, no synchronous question call is executing, and the old session stops. Required structured exchanges use synchronous calls only; return completes them and cancellation grants no authority. Async issuance is optional clarification only and creates no handoff obligation. The receiver runs forge next. No pending-question ledger, live transfer command, snapshot, fencing token, coordinator registry or concurrent coordinator ownership is added.",
     "hook_proof": "Committed matchers, check_dual_runtime.py, focused hook tests and the recorder-produced automated report prove delivery and host capability. Timeline events remain best-effort diagnostics and are never mandatory task proof."
   },
   "setup_selection_contract": {
@@ -3155,12 +3156,12 @@
       "forge doctor [--fix]"
     ],
     "order": [
-      "explicit --coordinator",
-      "FORGE_COORDINATOR",
-      "one unambiguous detected host",
-      "interactive TTY choice"
+      "one valid explicit --coordinator value",
+      "otherwise one valid FORGE_COORDINATOR value",
+      "otherwise exactly one detected host",
+      "otherwise interactive TTY choice"
     ],
-    "rule": "Resolve claude or codex for this invocation only. Conflict, invalid input, cancellation, EOF or unattended absence refuses before repair. Do not persist selection. Init, adopt and upgrade install and preserve both adapters."
+    "rule": "The first applicable tier chooses claude or codex for this invocation only and suppresses lower-tier disagreement. Multiple explicit values, invalid selected value, cancellation, EOF or missing interactive answer refuse before repair. Detecting both or neither host reaches TTY; unattended then refuses. Do not persist selection. Init, adopt and upgrade install and preserve both adapters."
   },
   "inherited_main_baseline": {
     "origin_main_commit": "c9a705bc315d4677309815eb03b58e61e7957e50",
