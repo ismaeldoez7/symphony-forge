@@ -3,148 +3,135 @@
   "gate": "spec",
   "verdict": "pass",
   "gaps": [
-    "The settled D-0032 answer is not applied to the protected execution contracts.",
-    "The removed preliminary-PR protocol remains authoritative in Decision 0054, the protected plan, and Shared contract.",
-    "Formatter requirements and Ruff configuration ownership disagrees between the specification, protected plan, and decomposition.",
-    "The AC crosswalk uses AC6 and AC12 for different obligations in specification and plan.",
-    "C10 migration proof has no producing Portable owner in the protected plan or current task plan.",
-    "The specification creates a second task graph while saying plan and decomposition own the graph.",
-    "The degraded writer exception is silently removed by the ordinary-writer wording.",
-    "Handoff depends on required question state but captured question content has no required-versus-optional field.",
-    "Question binding lacks canonical empty values and the handoff story/gate/task predicate is ambiguous.",
-    "Free-text structured answers and ordinary-chat authority are underspecified.",
-    "Context-capacity refusal does not define a common measurement unit or effective-limit rule.",
-    "Cross-lens acknowledgement has no observable representation in the review artifact.",
-    "Adapter event outcomes are labels rather than falsifiable state and artifact assertions.",
-    "Setup selection precedence and safe workspace attachment/refusal behavior are incomplete.",
-    "The Product Brief, strict-role specification, and architecture handover conflict with or omit the current capability.",
-    "Genuine native contribution and developer-journey criteria lack exact freshness, attribution, and refusal rules.",
-    "The plan cites an absent native-question test and the current grill-round schema cannot hold the promised identity."
+    "The draft prohibits a preliminary draft PR while accepted Decision 0054 permits one before unavailable platform observations and the old plan requires a checkpoint.",
+    "The draft permits coordinator transfer with a different-task required round open while Decision 0053 prohibits transfer during any partially completed question exchange.",
+    "The specification says it avoids duplicating the delivery graph while assigning most of that graph beyond the two declared ownership constraints.",
+    "Native grill passage is undefined between optional structured questions, ordinary chat, the current one-round floor, and the intended no-forced-question outcome.",
+    "The new artifact_digest identity cannot follow the grill flow because questions bind revision A while the recorded grill binds amended revision B, and composite digest sources are undefined.",
+    "Ordinary-chat authority claims exact answer records that current approval and decision artifacts do not independently contain.",
+    "The handoff double-read cannot prove a coherent snapshot, permits ABA changes, and omits marker-on-refreshed-trunk and green-CI ownership completion.",
+    "Cross-lens finding identity lacks deterministic normalization, exact applicability grammar, remediation ownership, and acceptance coverage.",
+    "Context partitioning proves byte coverage without semantic aggregation and does not bind one immutable external-file snapshot.",
+    "Active-task review migration demands marker and seal provenance that an active unsealed task cannot have, and global preflight before first mutation is unstated.",
+    "Genuine native contribution remains self-attested because existing measurement proves changed bytes but not that the delta implements the cited criterion or review fix.",
+    "Retention acceptance omits exact filename/payload ID equality and content-identical durable readback before deletion.",
+    "Review lifecycle cardinality is ambiguous between one operation, one helper invocation, post-fix assessments, and another fresh formal review.",
+    "Hook failure evidence has no named producer, record family, reader, or gate consequence, and Stop currently fails open without proof.",
+    "The final no-evidence-schema-or-review-protocol claim is too broad because the body extends structured-round and selected-review evidence families."
   ],
   "contradictions": [],
   "resolutions": [
-    "The amended story plan, ownership graph, decomposition, and First task plan assign the complete D-0032 protocol to NATIVE-FOREGROUND-ACTIVATE, remove its prior exclusion, and remain inoperative until saved/grilled/approved/recorded before implementation.",
-    "The amended story/decomposition delete the preliminary checkpoint. Decision 0054 permits but does not mandate it; the later explicit user amendment selects the ordinary path: required platform evidence, fresh formal review, readiness/seal, then PR/CI. A PR body is never gate authority.",
-    "The amended graph/decomposition/plan make FORMAT-SOURCES commit the exact pins and final Ruff configuration before formatting and make QUALITY-BASELINE consume them unchanged while owning Pyright and semantic enforcement.",
-    "The story crosswalk now matches the specification: AC6 is honest evidence, while AC12 includes full quality, required platform evidence, dogfood, and authorized rollout proof.",
-    "The story C10 row and Portable decomposition criterion name PORTABLE-DELIVERY-MIGRATION as the one-time upgrade migration owner. Its JIT task plan is required at that future task boundary; no absent current Portable plan is claimed.",
-    "The specification removes its embedded eight-task table and declares the approved story plan/decomposition to be the sole delivery graph; it states only the D-0032 ownership amendment needed to make those artifacts coherent.",
-    "The write boundary now preserves the existing ledgered five-file forge mode degraded outage valve and distinguishes it from the ordinary delegated-writer path.",
-    "New structured rounds include required true/false fixed by the issuing gate before display; adapters cannot infer or change it, and handoff reads that protected value.",
-    "The spec requires a nonempty exact gate, empty story/task for global gates, exact story plus empty task for requirements/plan, and exact story/task for task. Handoff blocks only current-story empty-task or exact transferring-task required rounds; other-task optional state does not block.",
-    "The spec accepts one offered option or exact nonblank free text without coercion and says free text is not approval unless the existing digest-bound approval record captures explicit approval and developer identity. Ordinary chat gets authority only through that same existing record.",
-    "All preflight values are UTF-8 bytes. Required bytes include complete primary/context/framing; effective available bytes are the minimum installed enforced byte limit and local allocation safeguard. Unknown unit refuses unpartitioned launch; validated lossless partitions must cover every byte and complete.",
-    "Each materially affected lens must name the same normalized finding fingerprint and blocking state in its own delimited overall_explanation assessment block, which each projection preserves and the validator can observe without a schema field.",
-    "The event table now specifies the exact installed owner and observable outcome for SessionStart, PreCompact, PreToolUse, PostToolUse, and Stop. Both shipped adapters expose all rows; missing rows/tools or incorrect owner mapping fails.",
-    "Setup precedence is explicit argument, then exactly one unambiguous environment/detected value, then interactive TTY; conflict, unattended missing, invalid, cancel, or EOF refuses before mutation. Workspace attachment requires one clean registered path, exact branch/common-dir/story/task/decomposition, no Forge owner, and real dependency markers; PR/CI/messages do not count.",
-    "Main committed the current Product Brief alignment and docs/architecture/dual-coordinator-parity.md before plan approval. The strict-role capability was re-grilled and confirmed with coordinator-neutral wording while preserving delegated-writer/degraded boundaries.",
-    "AC7 now binds contribution to recorded base, admitted launch/session, exact in-scope post-registration changes, commit, and terminal row while excluding prepared bytes. AC11 requires matching protected digests/owner tuple, byte-identical or freshly validated retry, stale/ambiguous refusal, and a board derived from the same snapshot.",
-    "The story plan now cites existing focused test_ask_gate.py, test_one_grill.py, and test_gates.py seams. SHARED-COORDINATOR-JOURNEY explicitly owns additive grill-round schema, capture, eligibility, consumption, and tests before the eight-part identity can be claimed."
+    "Accepted Decision 0054 remains active. The selected structured answer makes one draft PR CI transport only when a required platform row cannot run otherwise; it creates no preliminary formal review or proof. After the report passes, one fresh formal generation runs, the task seals, and the same draft is promoted. The amended plan deletes the mandatory preliminary-inspection block.",
+    "The selected structured answer preserves accepted Decision 0053. Dependency-ready unaffected work may continue, but coordinator transfer waits until every required exchange for the story is answered or cancelled without authority.",
+    "The final body removes task names for workflow, native lifecycle, question, Format, Quality and Integration responsibilities. Only the user-set First D-0032 and Portable one-time migration constraints remain; plan and decomposition own the complete graph.",
+    "The final body states the transition explicitly: incumbent floors remain until the question-provenance task ships; afterward a ledgered native cold read may use zero rounds only for a fully mapped empty frontier, while a human frontier cites an eligible structured round or accepted decision/approval record and event without synthesis.",
+    "The identity now carries question_input_digest from issuance revision A. The final grill separately binds amended revision B plus the resolution mapping, and every gate reuses its canonical brief/recorder digest producer.",
+    "The final body defines the owning command as authority. Approval records the boolean against exact digest and developer identity; decision acceptance uses the decision revision plus its same-operation event. Free-text/multi-option choices require an eligible gate round or accepted decision body/event; chat is not a second ledger.",
+    "The final body requires refreshed trunk plus one protected-state lock shared by all relevant mutators, a monotonic generation, safe exact byte identities, the task marker on refreshed trunk, green CI for that commit, seal, no worker and all required exchanges closed. Any drift or unsafe state refuses before transfer.",
+    "The final body fixes one remediation-owning lens tag, RFC 8785 canonical JSON, NFC normalization, safe repository-relative slash paths, integer/null line, lowercase category, Unicode White_Space collapse, unique finding records, exact AFFECTS fingerprint BLOCKING or NONBLOCKING lines, material-effect meaning and focused normalization/applicability tests.",
+    "The final body opens each input once without unsafe links, captures immutable UTF-8 bytes plus hash/count, requires known byte limits, launches only captured bytes, and permits partitions only for a declared ordered all-or-nothing aggregation contract.",
+    "The final body requires one global preflight before any target write and distinguishes exact active-unsealed bindings with no marker/seal from sealed bindings with committed marker/seal/commit. Mixed state and any invalid member refuse without mutation.",
+    "The final body binds a registration-time product-tree before/after delta to a criterion or review finding and requires the selected independent review generation to verify that exact contribution. Comments, formatting-only changes and proof metadata do not qualify.",
+    "The final body requires filename stem equal validated event ID, preserves the parsed payload, and compares deterministic compact UTF-8 canonical payload content-identically with the just-read durable entry before source deletion.",
+    "The final body defines one task review lifecycle with immutable generations. Each initial or post-fix default run invokes the helper once; a blocking generation publishes and revokes clean state, and only the selected clean generation certifies proof.",
+    "The final body uses the existing event family for adapter-event-result records binding runtime, row, owner, outcome, host blocking capability and task/session identity. The adapter hook produces them and shared task proof consumes them; an unrecordable failure cannot pass, and documented Stop fail-open never becomes successful continuation proof.",
+    "The final sentence now permits additive fields and task-scoped selection within existing question, event and review evidence families while forbidding a parallel permission source, second registry or separate review procedure."
   ],
   "open_items": [],
   "rounds": [
     {
-      "question": "Dual-coordinator review migration: should Forge remove ongoing fixed-path review compatibility and use one Portable-owned upgrade migration into canonical task-scoped selected review sets?",
+      "question": "When CI requires a PR, which delivery rule should Forge use?",
       "options": [
-        "Use one-time upgrade migration (Recommended)",
-        "Keep ongoing fixed-path fallback"
+        "CI transport only (Recommended)",
+        "Full checkpoint"
       ],
-      "chosen": "Use one-time upgrade migration (Recommended)",
+      "chosen": "CI transport only (Recommended)",
       "frontier_empty": true
     }
   ],
   "frontier_empty": true,
   "questions_asked": 1,
-  "input_sha256": "fa63297a731fffb2449aa6695a256d27ff925d8359bdc5103ff57b5269789250",
-  "summary": "Resolution of all 17 findings from the genuine Sol/high material-shape reread launch-0b4b137bb6c74529afc0c441d7983685, session 01a0904d-aada-7780-98fb-52c1efd7ba3e. The concrete amendment removes fixed-path review support, binds one Portable upgrade migration, aligns current product/role/architecture canon, and prepares coherent story/task artifacts. No second read or implementation proof is claimed.",
+  "summary": "Resolved all two human-frontier and 13 repository-answerable findings from the genuine Sol/high change-scoped spec read session 01a0907b-08f8-79a0-a8b8-e92a04ef9b36. The structured answer preserves Decision 0054 as CI transport only and removes the duplicate preliminary formal review.",
   "inspected_refs": [
     "docs/specs/dual-coordinator-parity.md",
-    "docs/specs/strict-role-split.md",
-    "docs/product/BRIEF.md",
-    "docs/architecture/dual-coordinator-parity.md",
-    "docs/degraded-mode.md",
-    "docs/decisions/0037-strict-role-split.md",
     "docs/decisions/0053-interchangeable-coordinator-shared-forge-contract.md",
     "docs/decisions/0054-native-questions-and-task-proof.md",
-    "docs/decisions/0059-task-owned-jit-workspaces.md",
-    "factory/schemas/grill-round.json",
-    "factory/schemas/review.json",
+    "docs/decisions/0061-host-native-human-interaction.md",
+    "docs/decisions/0064-lean-delivery-and-durable-history.md",
+    "docs/architecture/dual-coordinator-parity.md",
+    "factory/scripts/grill_gates.py",
+    "factory/prompts/griller.md",
+    "factory/scripts/stop_continue.py",
+    "factory/scripts/forge_cli/plans.py",
+    "factory/scripts/forge_cli/decisions.py",
     "/Users/dev/.codex/plans/symphony-forge+coord-1-combined-review-story-amendment+20260911.md",
-    "/Users/dev/.codex/plans/symphony-forge+native-foreground-combined-review+20260911.md",
     "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-decomposition.json",
     "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-lean-delivery-graph-postimage.json"
   ],
-  "current_flow": "Main records and confirms this exact amended specification, versions the ownership graph, then runs requirements/plan/task gates and approval recorders before a registered First worker changes review code.",
+  "current_flow": "Record and confirm this final specification, update the exact graph and plan hashes, then record the already-completed requirements frontier before the plan gate.",
   "citations": [
     {
-      "finding": "The settled D-0032 answer is not applied to the protected execution contracts.",
-      "source": "The amended story plan, ownership graph, decomposition, and First task plan assign the complete D-0032 protocol to NATIVE-FOREGROUND-ACTIVATE, remove its prior exclusion, and remain inoperative until saved/grilled/approved/recorded before implementation."
+      "finding": "The draft prohibits a preliminary draft PR while accepted Decision 0054 permits one before unavailable platform observations and the old plan requires a checkpoint.",
+      "source": "Accepted Decision 0054 remains active. The selected structured answer makes one draft PR CI transport only when a required platform row cannot run otherwise; it creates no preliminary formal review or proof. After the report passes, one fresh formal generation runs, the task seals, and the same draft is promoted. The amended plan deletes the mandatory preliminary-inspection block."
     },
     {
-      "finding": "The removed preliminary-PR protocol remains authoritative in Decision 0054, the protected plan, and Shared contract.",
-      "source": "The amended story/decomposition delete the preliminary checkpoint. Decision 0054 permits but does not mandate it; the later explicit user amendment selects the ordinary path: required platform evidence, fresh formal review, readiness/seal, then PR/CI. A PR body is never gate authority."
+      "finding": "The draft permits coordinator transfer with a different-task required round open while Decision 0053 prohibits transfer during any partially completed question exchange.",
+      "source": "The selected structured answer preserves accepted Decision 0053. Dependency-ready unaffected work may continue, but coordinator transfer waits until every required exchange for the story is answered or cancelled without authority."
     },
     {
-      "finding": "Formatter requirements and Ruff configuration ownership disagrees between the specification, protected plan, and decomposition.",
-      "source": "The amended graph/decomposition/plan make FORMAT-SOURCES commit the exact pins and final Ruff configuration before formatting and make QUALITY-BASELINE consume them unchanged while owning Pyright and semantic enforcement."
+      "finding": "The specification says it avoids duplicating the delivery graph while assigning most of that graph beyond the two declared ownership constraints.",
+      "source": "The final body removes task names for workflow, native lifecycle, question, Format, Quality and Integration responsibilities. Only the user-set First D-0032 and Portable one-time migration constraints remain; plan and decomposition own the complete graph."
     },
     {
-      "finding": "The AC crosswalk uses AC6 and AC12 for different obligations in specification and plan.",
-      "source": "The story crosswalk now matches the specification: AC6 is honest evidence, while AC12 includes full quality, required platform evidence, dogfood, and authorized rollout proof."
+      "finding": "Native grill passage is undefined between optional structured questions, ordinary chat, the current one-round floor, and the intended no-forced-question outcome.",
+      "source": "The final body states the transition explicitly: incumbent floors remain until the question-provenance task ships; afterward a ledgered native cold read may use zero rounds only for a fully mapped empty frontier, while a human frontier cites an eligible structured round or accepted decision/approval record and event without synthesis."
     },
     {
-      "finding": "C10 migration proof has no producing Portable owner in the protected plan or current task plan.",
-      "source": "The story C10 row and Portable decomposition criterion name PORTABLE-DELIVERY-MIGRATION as the one-time upgrade migration owner. Its JIT task plan is required at that future task boundary; no absent current Portable plan is claimed."
+      "finding": "The new artifact_digest identity cannot follow the grill flow because questions bind revision A while the recorded grill binds amended revision B, and composite digest sources are undefined.",
+      "source": "The identity now carries question_input_digest from issuance revision A. The final grill separately binds amended revision B plus the resolution mapping, and every gate reuses its canonical brief/recorder digest producer."
     },
     {
-      "finding": "The specification creates a second task graph while saying plan and decomposition own the graph.",
-      "source": "The specification removes its embedded eight-task table and declares the approved story plan/decomposition to be the sole delivery graph; it states only the D-0032 ownership amendment needed to make those artifacts coherent."
+      "finding": "Ordinary-chat authority claims exact answer records that current approval and decision artifacts do not independently contain.",
+      "source": "The final body defines the owning command as authority. Approval records the boolean against exact digest and developer identity; decision acceptance uses the decision revision plus its same-operation event. Free-text/multi-option choices require an eligible gate round or accepted decision body/event; chat is not a second ledger."
     },
     {
-      "finding": "The degraded writer exception is silently removed by the ordinary-writer wording.",
-      "source": "The write boundary now preserves the existing ledgered five-file forge mode degraded outage valve and distinguishes it from the ordinary delegated-writer path."
+      "finding": "The handoff double-read cannot prove a coherent snapshot, permits ABA changes, and omits marker-on-refreshed-trunk and green-CI ownership completion.",
+      "source": "The final body requires refreshed trunk plus one protected-state lock shared by all relevant mutators, a monotonic generation, safe exact byte identities, the task marker on refreshed trunk, green CI for that commit, seal, no worker and all required exchanges closed. Any drift or unsafe state refuses before transfer."
     },
     {
-      "finding": "Handoff depends on required question state but captured question content has no required-versus-optional field.",
-      "source": "New structured rounds include required true/false fixed by the issuing gate before display; adapters cannot infer or change it, and handoff reads that protected value."
+      "finding": "Cross-lens finding identity lacks deterministic normalization, exact applicability grammar, remediation ownership, and acceptance coverage.",
+      "source": "The final body fixes one remediation-owning lens tag, RFC 8785 canonical JSON, NFC normalization, safe repository-relative slash paths, integer/null line, lowercase category, Unicode White_Space collapse, unique finding records, exact AFFECTS fingerprint BLOCKING or NONBLOCKING lines, material-effect meaning and focused normalization/applicability tests."
     },
     {
-      "finding": "Question binding lacks canonical empty values and the handoff story/gate/task predicate is ambiguous.",
-      "source": "The spec requires a nonempty exact gate, empty story/task for global gates, exact story plus empty task for requirements/plan, and exact story/task for task. Handoff blocks only current-story empty-task or exact transferring-task required rounds; other-task optional state does not block."
+      "finding": "Context partitioning proves byte coverage without semantic aggregation and does not bind one immutable external-file snapshot.",
+      "source": "The final body opens each input once without unsafe links, captures immutable UTF-8 bytes plus hash/count, requires known byte limits, launches only captured bytes, and permits partitions only for a declared ordered all-or-nothing aggregation contract."
     },
     {
-      "finding": "Free-text structured answers and ordinary-chat authority are underspecified.",
-      "source": "The spec accepts one offered option or exact nonblank free text without coercion and says free text is not approval unless the existing digest-bound approval record captures explicit approval and developer identity. Ordinary chat gets authority only through that same existing record."
+      "finding": "Active-task review migration demands marker and seal provenance that an active unsealed task cannot have, and global preflight before first mutation is unstated.",
+      "source": "The final body requires one global preflight before any target write and distinguishes exact active-unsealed bindings with no marker/seal from sealed bindings with committed marker/seal/commit. Mixed state and any invalid member refuse without mutation."
     },
     {
-      "finding": "Context-capacity refusal does not define a common measurement unit or effective-limit rule.",
-      "source": "All preflight values are UTF-8 bytes. Required bytes include complete primary/context/framing; effective available bytes are the minimum installed enforced byte limit and local allocation safeguard. Unknown unit refuses unpartitioned launch; validated lossless partitions must cover every byte and complete."
+      "finding": "Genuine native contribution remains self-attested because existing measurement proves changed bytes but not that the delta implements the cited criterion or review fix.",
+      "source": "The final body binds a registration-time product-tree before/after delta to a criterion or review finding and requires the selected independent review generation to verify that exact contribution. Comments, formatting-only changes and proof metadata do not qualify."
     },
     {
-      "finding": "Cross-lens acknowledgement has no observable representation in the review artifact.",
-      "source": "Each materially affected lens must name the same normalized finding fingerprint and blocking state in its own delimited overall_explanation assessment block, which each projection preserves and the validator can observe without a schema field."
+      "finding": "Retention acceptance omits exact filename/payload ID equality and content-identical durable readback before deletion.",
+      "source": "The final body requires filename stem equal validated event ID, preserves the parsed payload, and compares deterministic compact UTF-8 canonical payload content-identically with the just-read durable entry before source deletion."
     },
     {
-      "finding": "Adapter event outcomes are labels rather than falsifiable state and artifact assertions.",
-      "source": "The event table now specifies the exact installed owner and observable outcome for SessionStart, PreCompact, PreToolUse, PostToolUse, and Stop. Both shipped adapters expose all rows; missing rows/tools or incorrect owner mapping fails."
+      "finding": "Review lifecycle cardinality is ambiguous between one operation, one helper invocation, post-fix assessments, and another fresh formal review.",
+      "source": "The final body defines one task review lifecycle with immutable generations. Each initial or post-fix default run invokes the helper once; a blocking generation publishes and revokes clean state, and only the selected clean generation certifies proof."
     },
     {
-      "finding": "Setup selection precedence and safe workspace attachment/refusal behavior are incomplete.",
-      "source": "Setup precedence is explicit argument, then exactly one unambiguous environment/detected value, then interactive TTY; conflict, unattended missing, invalid, cancel, or EOF refuses before mutation. Workspace attachment requires one clean registered path, exact branch/common-dir/story/task/decomposition, no Forge owner, and real dependency markers; PR/CI/messages do not count."
+      "finding": "Hook failure evidence has no named producer, record family, reader, or gate consequence, and Stop currently fails open without proof.",
+      "source": "The final body uses the existing event family for adapter-event-result records binding runtime, row, owner, outcome, host blocking capability and task/session identity. The adapter hook produces them and shared task proof consumes them; an unrecordable failure cannot pass, and documented Stop fail-open never becomes successful continuation proof."
     },
     {
-      "finding": "The Product Brief, strict-role specification, and architecture handover conflict with or omit the current capability.",
-      "source": "Main committed the current Product Brief alignment and docs/architecture/dual-coordinator-parity.md before plan approval. The strict-role capability was re-grilled and confirmed with coordinator-neutral wording while preserving delegated-writer/degraded boundaries."
-    },
-    {
-      "finding": "Genuine native contribution and developer-journey criteria lack exact freshness, attribution, and refusal rules.",
-      "source": "AC7 now binds contribution to recorded base, admitted launch/session, exact in-scope post-registration changes, commit, and terminal row while excluding prepared bytes. AC11 requires matching protected digests/owner tuple, byte-identical or freshly validated retry, stale/ambiguous refusal, and a board derived from the same snapshot."
-    },
-    {
-      "finding": "The plan cites an absent native-question test and the current grill-round schema cannot hold the promised identity.",
-      "source": "The story plan now cites existing focused test_ask_gate.py, test_one_grill.py, and test_gates.py seams. SHARED-COORDINATOR-JOURNEY explicitly owns additive grill-round schema, capture, eligibility, consumption, and tests before the eight-part identity can be claimed."
+      "finding": "The final no-evidence-schema-or-review-protocol claim is too broad because the body extends structured-round and selected-review evidence families.",
+      "source": "The final sentence now permits additive fields and task-scoped selection within existing question, event and review evidence families while forbidding a parallel permission source, second registry or separate review procedure."
     }
   ],
-  "recorded_at": "2026-09-11T12:20:31+00:00",
-  "commit": "bdd7e89a6d9a13ac998f7927d4ef4931e5f93bf3"
+  "input_sha256": "d83004f320842a1052994581c9c001af5d1edf93afd29b04dc95c92053350830",
+  "recorded_at": "2026-09-11T13:35:57+00:00",
+  "commit": "8e52a2597923edfe780997c64168438716fbee91"
 }
