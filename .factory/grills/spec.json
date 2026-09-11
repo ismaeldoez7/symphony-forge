@@ -3,135 +3,151 @@
   "gate": "spec",
   "verdict": "pass",
   "gaps": [
-    "The draft prohibits a preliminary draft PR while accepted Decision 0054 permits one before unavailable platform observations and the old plan requires a checkpoint.",
-    "The draft permits coordinator transfer with a different-task required round open while Decision 0053 prohibits transfer during any partially completed question exchange.",
-    "The specification says it avoids duplicating the delivery graph while assigning most of that graph beyond the two declared ownership constraints.",
-    "Native grill passage is undefined between optional structured questions, ordinary chat, the current one-round floor, and the intended no-forced-question outcome.",
-    "The new artifact_digest identity cannot follow the grill flow because questions bind revision A while the recorded grill binds amended revision B, and composite digest sources are undefined.",
-    "Ordinary-chat authority claims exact answer records that current approval and decision artifacts do not independently contain.",
-    "The handoff double-read cannot prove a coherent snapshot, permits ABA changes, and omits marker-on-refreshed-trunk and green-CI ownership completion.",
-    "Cross-lens finding identity lacks deterministic normalization, exact applicability grammar, remediation ownership, and acceptance coverage.",
-    "Context partitioning proves byte coverage without semantic aggregation and does not bind one immutable external-file snapshot.",
-    "Active-task review migration demands marker and seal provenance that an active unsealed task cannot have, and global preflight before first mutation is unstated.",
-    "Genuine native contribution remains self-attested because existing measurement proves changed bytes but not that the delta implements the cited criterion or review fix.",
-    "Retention acceptance omits exact filename/payload ID equality and content-identical durable readback before deletion.",
-    "Review lifecycle cardinality is ambiguous between one operation, one helper invocation, post-fix assessments, and another fresh formal review.",
-    "Hook failure evidence has no named producer, record family, reader, or gate consequence, and Stop currently fails open without proof.",
-    "The final no-evidence-schema-or-review-protocol claim is too broad because the body extends structured-round and selected-review evidence families."
+    "Decision 0064 requires the existing three review artifacts and forbids another registry, contradicting the one-generation plus selected-pointer design.",
+    "The draft incorrectly attributes CI-transport-only preliminary PR behavior to Decision 0054, which permits a draft for review and green CI.",
+    "A pointer created by a later upgrade cannot exist in an already sealed historical marker commit.",
+    "Citation-based finding rejection has no immutable generation origin and would falsely claim a changed projection came from unchanged helper output.",
+    "Combined-review section parsing and cross-lens duplicate normalization are not deterministic.",
+    "Ordinary-chat questions have no durable open state, so the claimed handoff precondition cannot observe them.",
+    "The handoff design has no exclusive coordinator ownership or fencing and could allow split-brain coordination.",
+    "The nine-part question identity has no exact issuance sources, missing-field rules, or final resolution schema.",
+    "Mandatory adapter-event task proof conflicts with the existing best-effort event family and schema.",
+    "The event matrix does not name the exact structured-question and mutation tools covered per runtime.",
+    "The governing-decision list omits active decisions and acceptance does not preserve Decision 0059 dependency fallback or Decision 0060 signal behavior.",
+    "The Product Brief still describes review-before-commit, one autoreview pass, and only one planning-lock escape.",
+    "Genuine-contribution acceptance invents a product-tree snapshot despite the one branch-diff digest boundary.",
+    "Required metrics and trace integration have no acceptance proof.",
+    "Workspace-first planning conflicts with the existing pre-worktree grill test and the legacy stage-start trunk route, while safe attach is undefined.",
+    "Setup selection does not name public commands or say whether a coordinator choice persists.",
+    "Immutable event retention does not define what happens when a late eligible event appears.",
+    "The protected plan and decomposition still assign D-0032 and fixed-review migration inconsistently with the amended specification."
   ],
   "contradictions": [],
   "resolutions": [
-    "Accepted Decision 0054 remains active. The selected structured answer makes one draft PR CI transport only when a required platform row cannot run otherwise; it creates no preliminary formal review or proof. After the report passes, one fresh formal generation runs, the task seals, and the same draft is promoted. The amended plan deletes the mandatory preliminary-inspection block.",
-    "The selected structured answer preserves accepted Decision 0053. Dependency-ready unaffected work may continue, but coordinator transfer waits until every required exchange for the story is answered or cancelled without authority.",
-    "The final body removes task names for workflow, native lifecycle, question, Format, Quality and Integration responsibilities. Only the user-set First D-0032 and Portable one-time migration constraints remain; plan and decomposition own the complete graph.",
-    "The final body states the transition explicitly: incumbent floors remain until the question-provenance task ships; afterward a ledgered native cold read may use zero rounds only for a fully mapped empty frontier, while a human frontier cites an eligible structured round or accepted decision/approval record and event without synthesis.",
-    "The identity now carries question_input_digest from issuance revision A. The final grill separately binds amended revision B plus the resolution mapping, and every gate reuses its canonical brief/recorder digest producer.",
-    "The final body defines the owning command as authority. Approval records the boolean against exact digest and developer identity; decision acceptance uses the decision revision plus its same-operation event. Free-text/multi-option choices require an eligible gate round or accepted decision body/event; chat is not a second ledger.",
-    "The final body requires refreshed trunk plus one protected-state lock shared by all relevant mutators, a monotonic generation, safe exact byte identities, the task marker on refreshed trunk, green CI for that commit, seal, no worker and all required exchanges closed. Any drift or unsafe state refuses before transfer.",
-    "The final body fixes one remediation-owning lens tag, RFC 8785 canonical JSON, NFC normalization, safe repository-relative slash paths, integer/null line, lowercase category, Unicode White_Space collapse, unique finding records, exact AFFECTS fingerprint BLOCKING or NONBLOCKING lines, material-effect meaning and focused normalization/applicability tests.",
-    "The final body opens each input once without unsafe links, captures immutable UTF-8 bytes plus hash/count, requires known byte limits, launches only captured bytes, and permits partitions only for a declared ordered all-or-nothing aggregation contract.",
-    "The final body requires one global preflight before any target write and distinguishes exact active-unsealed bindings with no marker/seal from sealed bindings with committed marker/seal/commit. Mixed state and any invalid member refuse without mutation.",
-    "The final body binds a registration-time product-tree before/after delta to a criterion or review finding and requires the selected independent review generation to verify that exact contribution. Comments, formatting-only changes and proof metadata do not qualify.",
-    "The final body requires filename stem equal validated event ID, preserves the parsed payload, and compares deterministic compact UTF-8 canonical payload content-identically with the just-read durable entry before source deletion.",
-    "The final body defines one task review lifecycle with immutable generations. Each initial or post-fix default run invokes the helper once; a blocking generation publishes and revokes clean state, and only the selected clean generation certifies proof.",
-    "The final body uses the existing event family for adapter-event-result records binding runtime, row, owner, outcome, host blocking capability and task/session identity. The adapter hook produces them and shared task proof consumes them; an unrecordable failure cannot pass, and documented Stop fail-open never becomes successful continuation proof.",
-    "The final sentence now permits additive fields and task-scoped selection within existing question, event and review evidence families while forbidding a parallel permission source, second registry or separate review procedure."
+    "Accepted Decision 0067 now amends only Decision 0064's physical publication shape to one task-local immutable generation and one selected pointer, while retaining genuine three-lens proof and the ban on independent authority.",
+    "Accepted Decision 0067 now narrows Decision 0054 only for this story: an early draft exists solely when required platform CI cannot run otherwise and grants no review or proof authority.",
+    "The migration contract now makes the upgrade generation bind the immutable historical marker and exact fixed bytes; sealed readers accept the later pointer only on an exact sealed-commit match.",
+    "The review schema now includes origin=rejection. Rejection creates an immutable successor with source hash, exact finding, reason, citation, and actor while preserving raw output and unaffected lenses.",
+    "Architecture now fixes exact full-line lens markers, chunk labels, one lowercase tag, and one NFC repo-path/line/normalized-title fingerprint for cross-lens duplicate refusal.",
+    "The spec removes machine claims about open ordinary chat: the current turn blocks, abandonment grants no authority, and a later coordinator asks again.",
+    "The live handoff protocol is removed. Decision 0053's simpler between-task switch remains: old session stops, the completed marker and CI are on trunk, and the new session resumes through forge next.",
+    "Structured identity is reduced to runtime, session, fresh event filename ID, and zero-based question index, with exact scope/input/content/answer fields; approval-bound changes use the existing decision or approval record rather than a new revision map.",
+    "Timeline events remain best-effort diagnostics under Decision 0017. Committed configuration, focused hook tests, and recorder-produced automated reports are the required proof.",
+    "Architecture now lists the literal Claude and Codex hook/tool matchers; asynchronous question issuance is guarded but is not completion evidence, and newly exposed tools require mapping before parity is claimed.",
+    "The spec binds every accepted decision returned by forge decision list --active and explicitly preserves empty-dependency predecessor fallback plus Decision 0060 signal-mask and truthful failure rules.",
+    "The Brief now states implementation/tests/verification before the review-fix loop, one lifecycle with three assessments, and the approved-plan, quickfix, Lite, and degraded boundaries.",
+    "Contribution proof now cites one qualifying hunk inside the existing binary branch diff and correlates it with admitted write and terminal evidence; no second digest exists.",
+    "Lifecycle acceptance now requires one sanitized correlated error, one bounded forge_native_unexpected_errors_total increment, trace joining by error ID, redaction, and nonzero propagation tests.",
+    "The contract makes task start create or safely attach the worktree before JIT planning, defines exact clean attach predicates and dependency semantics, removes the redundant old test, and excludes the legacy trunk route from parity acceptance.",
+    "Setup and forge doctor select a coordinator only for one invocation using argument, environment, detection, then TTY; init/adopt/upgrade install both adapters and persist no coordinator choice.",
+    "The first bundle stays immutable; any later eligible event makes preview/apply refuse and remain loose. Retry deletes only already represented identical events and V1 has no successor shards.",
+    "The replacement plan, external decomposition, and ownership graph assign complete D-0032 to NATIVE-FOREGROUND-ACTIVATE and one-time fixed-review migration to PORTABLE-DELIVERY-MIGRATION before protected replacement."
   ],
   "open_items": [],
   "rounds": [
     {
-      "question": "When CI requires a PR, which delivery rule should Forge use?",
+      "question": "Spec amendment for FORGE-COORD-1: should the already-approved 2026-09-11 change move the complete one-call combined review into NATIVE-FOREGROUND-ACTIVATE now, while the 17 repository-answerable cold-read findings are corrected in the resolved draft?",
       "options": [
-        "CI transport only (Recommended)",
-        "Full checkpoint"
+        "Move it now (Recommended)",
+        "Keep it in LEAN-WORKFLOW"
       ],
-      "chosen": "CI transport only (Recommended)",
+      "chosen": "Move it now (Recommended)",
       "frontier_empty": true
     }
   ],
-  "frontier_empty": true,
   "questions_asked": 1,
-  "summary": "Resolved all two human-frontier and 13 repository-answerable findings from the genuine Sol/high change-scoped spec read session 01a0907b-08f8-79a0-a8b8-e92a04ef9b36. The structured answer preserves Decision 0054 as CI transport only and removes the duplicate preliminary formal review.",
+  "summary": "Resolved all 18 findings from the single user-requested simplified-spec reread. Decision 0067 carries the only new human choice; repository facts and accepted decisions resolve the rest. No second spec reread is run.",
   "inspected_refs": [
     "docs/specs/dual-coordinator-parity.md",
     "docs/decisions/0053-interchangeable-coordinator-shared-forge-contract.md",
     "docs/decisions/0054-native-questions-and-task-proof.md",
+    "docs/decisions/0059-task-owned-jit-workspaces.md",
+    "docs/decisions/0060-child-signal-mask-restoration.md",
     "docs/decisions/0061-host-native-human-interaction.md",
     "docs/decisions/0064-lean-delivery-and-durable-history.md",
+    "docs/decisions/0067-combined-review-generation.md",
     "docs/architecture/dual-coordinator-parity.md",
-    "factory/scripts/grill_gates.py",
-    "factory/prompts/griller.md",
-    "factory/scripts/stop_continue.py",
-    "factory/scripts/forge_cli/plans.py",
-    "factory/scripts/forge_cli/decisions.py",
+    "docs/product/BRIEF.md",
     "/Users/dev/.codex/plans/symphony-forge+coord-1-combined-review-story-amendment+20260911.md",
     "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-decomposition.json",
     "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-lean-delivery-graph-postimage.json"
   ],
-  "current_flow": "Record and confirm this final specification, update the exact graph and plan hashes, then record the already-completed requirements frontier before the plan gate.",
+  "current_flow": "Record this pass against the amended draft, confirm the spec, synchronize graph hashes, then run the one requested final plan grill.",
   "citations": [
     {
-      "finding": "The draft prohibits a preliminary draft PR while accepted Decision 0054 permits one before unavailable platform observations and the old plan requires a checkpoint.",
-      "source": "Accepted Decision 0054 remains active. The selected structured answer makes one draft PR CI transport only when a required platform row cannot run otherwise; it creates no preliminary formal review or proof. After the report passes, one fresh formal generation runs, the task seals, and the same draft is promoted. The amended plan deletes the mandatory preliminary-inspection block."
+      "finding": "Decision 0064 requires the existing three review artifacts and forbids another registry, contradicting the one-generation plus selected-pointer design.",
+      "source": "Accepted Decision 0067 now amends only Decision 0064's physical publication shape to one task-local immutable generation and one selected pointer, while retaining genuine three-lens proof and the ban on independent authority."
     },
     {
-      "finding": "The draft permits coordinator transfer with a different-task required round open while Decision 0053 prohibits transfer during any partially completed question exchange.",
-      "source": "The selected structured answer preserves accepted Decision 0053. Dependency-ready unaffected work may continue, but coordinator transfer waits until every required exchange for the story is answered or cancelled without authority."
+      "finding": "The draft incorrectly attributes CI-transport-only preliminary PR behavior to Decision 0054, which permits a draft for review and green CI.",
+      "source": "Accepted Decision 0067 now narrows Decision 0054 only for this story: an early draft exists solely when required platform CI cannot run otherwise and grants no review or proof authority."
     },
     {
-      "finding": "The specification says it avoids duplicating the delivery graph while assigning most of that graph beyond the two declared ownership constraints.",
-      "source": "The final body removes task names for workflow, native lifecycle, question, Format, Quality and Integration responsibilities. Only the user-set First D-0032 and Portable one-time migration constraints remain; plan and decomposition own the complete graph."
+      "finding": "A pointer created by a later upgrade cannot exist in an already sealed historical marker commit.",
+      "source": "The migration contract now makes the upgrade generation bind the immutable historical marker and exact fixed bytes; sealed readers accept the later pointer only on an exact sealed-commit match."
     },
     {
-      "finding": "Native grill passage is undefined between optional structured questions, ordinary chat, the current one-round floor, and the intended no-forced-question outcome.",
-      "source": "The final body states the transition explicitly: incumbent floors remain until the question-provenance task ships; afterward a ledgered native cold read may use zero rounds only for a fully mapped empty frontier, while a human frontier cites an eligible structured round or accepted decision/approval record and event without synthesis."
+      "finding": "Citation-based finding rejection has no immutable generation origin and would falsely claim a changed projection came from unchanged helper output.",
+      "source": "The review schema now includes origin=rejection. Rejection creates an immutable successor with source hash, exact finding, reason, citation, and actor while preserving raw output and unaffected lenses."
     },
     {
-      "finding": "The new artifact_digest identity cannot follow the grill flow because questions bind revision A while the recorded grill binds amended revision B, and composite digest sources are undefined.",
-      "source": "The identity now carries question_input_digest from issuance revision A. The final grill separately binds amended revision B plus the resolution mapping, and every gate reuses its canonical brief/recorder digest producer."
+      "finding": "Combined-review section parsing and cross-lens duplicate normalization are not deterministic.",
+      "source": "Architecture now fixes exact full-line lens markers, chunk labels, one lowercase tag, and one NFC repo-path/line/normalized-title fingerprint for cross-lens duplicate refusal."
     },
     {
-      "finding": "Ordinary-chat authority claims exact answer records that current approval and decision artifacts do not independently contain.",
-      "source": "The final body defines the owning command as authority. Approval records the boolean against exact digest and developer identity; decision acceptance uses the decision revision plus its same-operation event. Free-text/multi-option choices require an eligible gate round or accepted decision body/event; chat is not a second ledger."
+      "finding": "Ordinary-chat questions have no durable open state, so the claimed handoff precondition cannot observe them.",
+      "source": "The spec removes machine claims about open ordinary chat: the current turn blocks, abandonment grants no authority, and a later coordinator asks again."
     },
     {
-      "finding": "The handoff double-read cannot prove a coherent snapshot, permits ABA changes, and omits marker-on-refreshed-trunk and green-CI ownership completion.",
-      "source": "The final body requires refreshed trunk plus one protected-state lock shared by all relevant mutators, a monotonic generation, safe exact byte identities, the task marker on refreshed trunk, green CI for that commit, seal, no worker and all required exchanges closed. Any drift or unsafe state refuses before transfer."
+      "finding": "The handoff design has no exclusive coordinator ownership or fencing and could allow split-brain coordination.",
+      "source": "The live handoff protocol is removed. Decision 0053's simpler between-task switch remains: old session stops, the completed marker and CI are on trunk, and the new session resumes through forge next."
     },
     {
-      "finding": "Cross-lens finding identity lacks deterministic normalization, exact applicability grammar, remediation ownership, and acceptance coverage.",
-      "source": "The final body fixes one remediation-owning lens tag, RFC 8785 canonical JSON, NFC normalization, safe repository-relative slash paths, integer/null line, lowercase category, Unicode White_Space collapse, unique finding records, exact AFFECTS fingerprint BLOCKING or NONBLOCKING lines, material-effect meaning and focused normalization/applicability tests."
+      "finding": "The nine-part question identity has no exact issuance sources, missing-field rules, or final resolution schema.",
+      "source": "Structured identity is reduced to runtime, session, fresh event filename ID, and zero-based question index, with exact scope/input/content/answer fields; approval-bound changes use the existing decision or approval record rather than a new revision map."
     },
     {
-      "finding": "Context partitioning proves byte coverage without semantic aggregation and does not bind one immutable external-file snapshot.",
-      "source": "The final body opens each input once without unsafe links, captures immutable UTF-8 bytes plus hash/count, requires known byte limits, launches only captured bytes, and permits partitions only for a declared ordered all-or-nothing aggregation contract."
+      "finding": "Mandatory adapter-event task proof conflicts with the existing best-effort event family and schema.",
+      "source": "Timeline events remain best-effort diagnostics under Decision 0017. Committed configuration, focused hook tests, and recorder-produced automated reports are the required proof."
     },
     {
-      "finding": "Active-task review migration demands marker and seal provenance that an active unsealed task cannot have, and global preflight before first mutation is unstated.",
-      "source": "The final body requires one global preflight before any target write and distinguishes exact active-unsealed bindings with no marker/seal from sealed bindings with committed marker/seal/commit. Mixed state and any invalid member refuse without mutation."
+      "finding": "The event matrix does not name the exact structured-question and mutation tools covered per runtime.",
+      "source": "Architecture now lists the literal Claude and Codex hook/tool matchers; asynchronous question issuance is guarded but is not completion evidence, and newly exposed tools require mapping before parity is claimed."
     },
     {
-      "finding": "Genuine native contribution remains self-attested because existing measurement proves changed bytes but not that the delta implements the cited criterion or review fix.",
-      "source": "The final body binds a registration-time product-tree before/after delta to a criterion or review finding and requires the selected independent review generation to verify that exact contribution. Comments, formatting-only changes and proof metadata do not qualify."
+      "finding": "The governing-decision list omits active decisions and acceptance does not preserve Decision 0059 dependency fallback or Decision 0060 signal behavior.",
+      "source": "The spec binds every accepted decision returned by forge decision list --active and explicitly preserves empty-dependency predecessor fallback plus Decision 0060 signal-mask and truthful failure rules."
     },
     {
-      "finding": "Retention acceptance omits exact filename/payload ID equality and content-identical durable readback before deletion.",
-      "source": "The final body requires filename stem equal validated event ID, preserves the parsed payload, and compares deterministic compact UTF-8 canonical payload content-identically with the just-read durable entry before source deletion."
+      "finding": "The Product Brief still describes review-before-commit, one autoreview pass, and only one planning-lock escape.",
+      "source": "The Brief now states implementation/tests/verification before the review-fix loop, one lifecycle with three assessments, and the approved-plan, quickfix, Lite, and degraded boundaries."
     },
     {
-      "finding": "Review lifecycle cardinality is ambiguous between one operation, one helper invocation, post-fix assessments, and another fresh formal review.",
-      "source": "The final body defines one task review lifecycle with immutable generations. Each initial or post-fix default run invokes the helper once; a blocking generation publishes and revokes clean state, and only the selected clean generation certifies proof."
+      "finding": "Genuine-contribution acceptance invents a product-tree snapshot despite the one branch-diff digest boundary.",
+      "source": "Contribution proof now cites one qualifying hunk inside the existing binary branch diff and correlates it with admitted write and terminal evidence; no second digest exists."
     },
     {
-      "finding": "Hook failure evidence has no named producer, record family, reader, or gate consequence, and Stop currently fails open without proof.",
-      "source": "The final body uses the existing event family for adapter-event-result records binding runtime, row, owner, outcome, host blocking capability and task/session identity. The adapter hook produces them and shared task proof consumes them; an unrecordable failure cannot pass, and documented Stop fail-open never becomes successful continuation proof."
+      "finding": "Required metrics and trace integration have no acceptance proof.",
+      "source": "Lifecycle acceptance now requires one sanitized correlated error, one bounded forge_native_unexpected_errors_total increment, trace joining by error ID, redaction, and nonzero propagation tests."
     },
     {
-      "finding": "The final no-evidence-schema-or-review-protocol claim is too broad because the body extends structured-round and selected-review evidence families.",
-      "source": "The final sentence now permits additive fields and task-scoped selection within existing question, event and review evidence families while forbidding a parallel permission source, second registry or separate review procedure."
+      "finding": "Workspace-first planning conflicts with the existing pre-worktree grill test and the legacy stage-start trunk route, while safe attach is undefined.",
+      "source": "The contract makes task start create or safely attach the worktree before JIT planning, defines exact clean attach predicates and dependency semantics, removes the redundant old test, and excludes the legacy trunk route from parity acceptance."
+    },
+    {
+      "finding": "Setup selection does not name public commands or say whether a coordinator choice persists.",
+      "source": "Setup and forge doctor select a coordinator only for one invocation using argument, environment, detection, then TTY; init/adopt/upgrade install both adapters and persist no coordinator choice."
+    },
+    {
+      "finding": "Immutable event retention does not define what happens when a late eligible event appears.",
+      "source": "The first bundle stays immutable; any later eligible event makes preview/apply refuse and remain loose. Retry deletes only already represented identical events and V1 has no successor shards."
+    },
+    {
+      "finding": "The protected plan and decomposition still assign D-0032 and fixed-review migration inconsistently with the amended specification.",
+      "source": "The replacement plan, external decomposition, and ownership graph assign complete D-0032 to NATIVE-FOREGROUND-ACTIVATE and one-time fixed-review migration to PORTABLE-DELIVERY-MIGRATION before protected replacement."
     }
   ],
-  "input_sha256": "d83004f320842a1052994581c9c001af5d1edf93afd29b04dc95c92053350830",
-  "recorded_at": "2026-09-11T13:35:57+00:00",
-  "commit": "8e52a2597923edfe780997c64168438716fbee91"
+  "input_sha256": "42d84ac7a45338cbfe05912994494643692ac1b406857385b0c55d37932c7031",
+  "recorded_at": "2026-09-11T14:45:50+00:00",
+  "commit": "10befe4cf377a1226f32a3f16e1667fc3e54277d"
 }

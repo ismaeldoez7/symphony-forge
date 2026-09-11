@@ -1,7 +1,7 @@
 ---
 slug: dual-coordinator-parity
 title: Either Claude or Codex can coordinate the same Forge workflow
-status: draft
+status: confirmed
 saved: 2026-09-11T14:43:55+00:00
 ---
 
