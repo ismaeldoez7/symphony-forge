@@ -168,7 +168,9 @@ findings are a design signal, not a fix queue.
 
 The harness is a graph of improvement loops, and a graph of loops fails in
 its own way: circularly, every advisory green while nothing touches reality.
-Two rules keep it grounded:
+The rules below keep it grounded. Every active phase also follows
+[`docs/QUALITY.md` bounded recovery](docs/QUALITY.md#bounded-recovery): repeated
+unchanged failures require a diagnosed and tested fix before another model run.
 
 - **The audit loop** (decision `loop-health-audit`): `./forge audit` checks
   the improvement loops themselves — RECURRING classes that keep shipping
@@ -411,13 +413,13 @@ sequence a JIT contract loop for every pending task:
 1. enter plan mode (decision 0029; `factory/prompts/planner.md`) and author the
    next task's full contract against the approved plan and the real repository
    state left by completed dependencies
-2. re-record the decomposition with that contract
-3. run `factory/prompts/griller.md` with `--gate task`, resolve its findings,
-   and record the pass for that id; the recorder derives the current grounding
-   digest: `record_grill_from_json.py --gate task --task <id>`
-4. save the plan-mode result at
-   `.factory/stories/<KEY>/task-plans/<id>.md`, then record the human task-plan
-   approval; editing that artifact requires approval again
+2. re-record the decomposition with that contract, then save the plan-mode
+   result at `.factory/stories/<KEY>/task-plans/<id>.md`
+3. run `factory/prompts/griller.md` with `--gate task` against that saved
+   revision, resolve its findings, and record the pass for that id:
+   `record_grill_from_json.py --gate task --task <id>`
+4. record the human task-plan approval against the same saved revision;
+   changed approval-bound content follows the existing amendment route
 5. `forge stage start <id>` (strictly order-enforced; task-level `--parallel`
    is refused)
 6. `forge delegate <id>` composes the task brief and launches the installed
@@ -426,8 +428,9 @@ sequence a JIT contract loop for every pending task:
 7. the orchestrator inspects the diff and rejects overbuilt code
 8. that stage's assumption rows are validated (`forge assumptions list --open`)
 9. smallest relevant checks run
-10. commit, then **`forge review <id>`** — ONE three-lens autoreview of the
-   task's own delta, run by Codex with the settled contracts in the brief. A
+10. commit product changes, run deterministic verify and record the task's
+   automated tests, then **`forge review <id>`** — ONE three-lens autoreview of
+   the task's own delta, run by Codex with the settled contracts in the brief. A
    run with no blocking (P0/P1) finding STAMPS the stage, bound to that tree;
    non-blocking findings are recorded follow-ups. A blocking finding is ALWAYS
    fixed by re-delegating to Codex (`forge delegate <id>` — the stage is still
@@ -457,8 +460,8 @@ sequence a JIT contract loop for every pending task:
    review, stage done.
 
 `forge next` derives this frontier from the same readiness gate and reports
-exactly one of author contract, task grill, stage start, delegate, or
-`await-merge`. **Per-task PRs are the standard:** after a task's review
+the next action from contract authoring through implementation, task proof,
+review, stage closure and `await-merge`. **Per-task PRs are the standard:** after a task's review
 and `forge stage done`, ship it as its OWN PR — `forge task pr-ready <id>` (writes
 the marker, pushes, opens the PR, poll CI to green) — and let it merge to the
 trunk before the next task starts, never batching a whole story into one PR.
@@ -476,8 +479,8 @@ its marker to the trunk (via the reconcile PR) and the frontier advances. This
 is a reconcile, not a shortcut: it refuses when the work is not genuinely on the
 trunk, so it can never fabricate a ship.
 
-There is ONE review per task. `forge review` produces `.factory/stories/<KEY>/
-reviews/*` and the stage's review stamp in the same run (decision 0001 D6:
+There is ONE review per task. `forge review` produces
+`.factory/stories/<KEY>/tasks/<id>/reviews/*` and the stage's review stamp in the same run (decision 0001 D6:
 the recorded review is the only review gate); no separate stage-local review
 loop exists, and `record_review_from_json.py --aspect stage-local` remains
 only as a manual fallback. `pr_ready.py` refuses while any stage is not done
@@ -507,10 +510,11 @@ stalls on "should I do this or hand it to Codex?":
   compose briefs, delegate, run the checks / `verify.py` / required tests, run
   the branch autoreview, record evidence via the `record_*` scripts, commit,
   and — when the story reaches a PR — review that PR.
-- **Commit is not a human gate.** A clean local autoreview plus green checks IS
-  the permission to commit (conduct §7 autonomy above); the coordinator commits
-  and moves to the next stage without pausing for a human "ok to commit?". This
-  is what lets an unattended overnight run finish instead of stalling.
+- **Commit is not a human gate.** After inspecting the bounded diff and green
+  focused checks, the coordinator commits the product changes. Deterministic
+  verify, task test recording and `forge review <id>` follow that commit;
+  clean proof permits stage closure and publication (conduct §7 autonomy).
+  Continue without asking for another permission to commit.
 - **The one exception — a logged host-exception.** When a required product
   change is PROVABLY impossible in the companion's environment (a sandbox with
   no network, database, or Docker that the change or its verification needs),

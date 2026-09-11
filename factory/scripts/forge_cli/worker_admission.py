@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 
 from factory_lib import (
@@ -267,6 +268,81 @@ def live_worker_admission(base: Path) -> tuple[dict | None, str]:
     if worker_admission_revoked(base, launch_id):
         return _deny("the protected launch authority was revoked")
     return contract, reason
+
+
+def live_native_read_only_grill(base: Path) -> tuple[dict | None, str]:
+    """Authenticate the live native child for one ledgered read-only grill."""
+    token = os.environ.get("FORGE_PROCESS_TOKEN", "")
+    launch_id = os.environ.get("FORGE_LAUNCH_ID", "")
+    if not token and not launch_id:
+        return None, ""
+    if not token or not launch_id:
+        return _deny("native read-only grills require both launch selectors")
+    if worker_admission_revoked(base, launch_id):
+        return _deny("the protected launch authority was revoked")
+    rows, error = _bound_rows(base, launch_id)
+    if error:
+        return _deny(error)
+    record = rows[-1]
+
+    label = record.get("task")
+    gate = ""
+    task_id = ""
+    if isinstance(label, str):
+        from grill_gates import gate_names
+        for candidate in gate_names():
+            if candidate == "task" and label.startswith("grill-task-"):
+                prefix = "grill-task-"
+                possible = label.removeprefix(prefix)
+                if SAFE_TASK_ID.fullmatch(possible):
+                    gate, task_id = candidate, possible
+                break
+            if candidate != "task" and label == f"grill-{candidate}":
+                gate = candidate
+                break
+    if not gate:
+        return _deny("the protected read-only launch is not a grill")
+    expected = base / ".factory" / (
+        f"grill-brief-{gate}" + (f"-{task_id}" if task_id else "") + ".md")
+    digest = record.get("task_sha256")
+    if (
+        record.get("transport") != "native"
+        or record.get("write") is not False
+        or record.get("mode")
+        or record.get("process_token") != token
+        or not isinstance(digest, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", digest)
+        or record.get("argv_sha256") != argv_digest(record.get("argv") or [])
+    ):
+        return _deny("the protected read-only grill binding is invalid")
+    try:
+        from .codex_runtime import native_argv_valid
+        argv_valid = native_argv_valid(record, base, [])
+    except (ImportError, OSError, TypeError, ValueError):
+        argv_valid = False
+    if not argv_valid:
+        return _deny("the protected native read-only argv is invalid")
+    if (
+        expected.is_symlink()
+        or not expected.is_file()
+        or record.get("brief_path") != expected.relative_to(base).as_posix()
+        or record.get("brief_sha256") != sha256_of(expected)
+    ):
+        return _deny("the protected grill brief changed after launch")
+    pid, identity = record.get("pid"), record.get("pid_started")
+    if not isinstance(pid, int) or not isinstance(identity, str):
+        return _deny("the running grill row has no process identity")
+    try:
+        current_identity = _process_start_identity(pid)
+    except (OSError, RuntimeError):
+        current_identity = None
+    if current_identity is None or str(current_identity) != identity:
+        return _deny("the registered grill process is no longer live")
+    if not _current_process_descends_from(pid, identity):
+        return _deny("the hook caller is outside the registered grill process tree")
+    if worker_admission_revoked(base, launch_id):
+        return _deny("the protected launch authority was revoked")
+    return record, ""
 
 
 def path_in_scope(path: str, scope: list[str]) -> bool:

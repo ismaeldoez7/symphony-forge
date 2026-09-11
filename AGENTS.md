@@ -103,6 +103,7 @@ Closeout never re-verifies. Story proof is only `outcome.json`
 - Do not decompose by document file or arbitrary file count, nor bypass `verify.py` with ad hoc validation commands.
 - Evidence enters `.factory/` only via schema-validated recorders (pinned `generated_by`), never by hand.
 - Narration budget (conduct §8): one line per state change; findings and refusals always in full; process chatter never.
+- Follow [bounded recovery](docs/QUALITY.md#bounded-recovery) in every phase; repeated unchanged failures need a diagnosed, tested fix before another model run.
 - Review = ONE three-lens pass PER TASK via `./forge review <id>`, run by Codex, looped until clean (review → delegate fixes → re-review) and recorded before `pr-ready` (0011, 0049); never nested reviewers.
 - One worktree/story; sequential tasks; dependency-ready stories may parallelize (0002). Delegation/proof commands are trusted inputs; observed descendant cleanup is not hostile-code containment.
 - Keep the template repo independent of any client-specific source repo.

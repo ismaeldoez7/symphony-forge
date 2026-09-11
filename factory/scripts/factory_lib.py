@@ -2161,8 +2161,9 @@ def require_closeout_order(root: Path) -> list[str]:
     if open_stages:
         problems.append(
             f"stage completion: {', '.join(open_stages)} not done — work each "
-            "stage (forge stage start → local autoreview until clean → commit → "
-            "forge stage done; WORKFLOW.md Stage Loop)"
+            "stage (forge stage start → implement/test → commit → verify and "
+            "record task tests → forge review → forge stage done; WORKFLOW.md "
+            "Stage Loop)"
         )
 
     # WHICH proof closes a story depends on how its work reached the trunk.
@@ -3290,7 +3291,129 @@ def _task_action_state(root: Path, key: str, task: dict, stage: dict) -> str:
         return "grill"
     if plan_state != "approved":
         return plan_state
-    return "delegate" if stage.get("status") == "active" else "stage-start"
+    if stage.get("status") != "active":
+        return "stage-start"
+
+    # Once this exact stage has a handoff, the next action comes from that
+    # handoff and the task-owned proof. Treating every active stage as a fresh
+    # delegation request relaunched live work and repeated completed work.
+    from forge_cli.delegate import current_delegation, load_delegations
+    started_at = str(stage.get("started_at") or "")
+    digest = task_digest(task)
+    try:
+        terminal = current_delegation(
+            root, str(task_id), stage_started_at=started_at,
+            task_sha256=digest, ignore_lock=True,
+        )
+        ledger = load_delegations(root)
+    except (Exception, SystemExit):
+        return "inspect-delegate"
+    if terminal and terminal.get("story") != key:
+        terminal = None
+    if terminal:
+        if terminal.get("launch_status") != "succeeded":
+            return "inspect-delegate"
+        from forge_cli.review import _product_dirty
+        if _product_dirty(root):
+            return "commit"
+
+        verify = load_json(
+            task_evidence_path(root, key, str(task_id), "verify.json"), default={})
+        tests = load_json(
+            task_evidence_path(root, key, str(task_id), "tests.json"), default={})
+        automated = tests.get("automated") if isinstance(tests, dict) else None
+        from forge_cli.readiness import review_passed, tests_passed, verify_passed
+        current_head = head_sha(root)
+        if (verify and verify.get("commit") == current_head
+                and not verify_passed(verify)):
+            return "fix-verify"
+        if (tests.get("commit") == current_head
+                and isinstance(automated, dict)
+                and not tests_passed(automated)):
+            return "fix-tests"
+        functional = tests.get("functional") if isinstance(tests, dict) else None
+        if (tests.get("commit") == current_head
+                and isinstance(functional, dict)
+                and not tests_passed(functional, functional=True)):
+            return "fix-functional"
+        current_review_digest = ""
+        for lens in _PROOF_LENSES:
+            review = load_json(
+                task_evidence_path(
+                    root, key, str(task_id), f"reviews/{lens}.json"),
+                default={},
+            )
+            if review and not review_passed(review):
+                if review.get("commit") == current_head:
+                    return "fix-review"
+                if not current_review_digest:
+                    try:
+                        current_review_digest = branch_diff_digest(root)
+                    except (Exception, SystemExit):
+                        return "inspect-proof"
+                if review.get("branch_diff_digest") == current_review_digest:
+                    return "fix-review"
+
+        problems = task_proof_problems(root, key, task, preseal=True)
+        if not problems:
+            return "stage-done"
+        first = problems[0]
+        prefix = f"{task_id}: "
+        if first.startswith((
+            prefix + "no passing verify",
+            prefix + "verify proof",
+            prefix + "product content changed after verify proof",
+        )):
+            return "verify"
+        if first.startswith((
+            prefix + "no passing automated tests",
+            prefix + "tests proof",
+            prefix + "product content changed after tests proof",
+        )):
+            return "tests"
+        if first.startswith((
+            prefix + "user_facing, so a functional check is required",
+            prefix + "functional check must be passed",
+        )):
+            return "functional"
+        review_prefixes = tuple(
+            prefix + value
+            for lens in _PROOF_LENSES
+            for value in (
+                f"no {lens} review", f"{lens} review",
+                f"reviews.{lens} proof",
+                f"product content changed after reviews.{lens} proof",
+            )
+        )
+        if first.startswith(review_prefixes + (
+            prefix + "review brief",
+            prefix + "saved review brief",
+            prefix + "tests.json review input",
+            prefix + "cannot render the complete approved-input section",
+            "quality, performance, and security reviews",
+            "review_run_id",
+            "branch review is stale",
+        )):
+            return "review"
+        return "inspect-proof"
+
+    rows = [
+        row for row in ledger
+        if row.get("task") == task_id
+        and row.get("story") == key
+        and row.get("write") is True
+        and row.get("stage_started_at") == started_at
+        and row.get("task_sha256") == digest
+    ]
+    if not rows:
+        return "delegate"
+    latest = rows[-1]
+    if latest.get("launch_status") not in {"starting", "running"}:
+        return "inspect-delegate"
+    from forge_cli.codex_status import dead_launches
+    dead = {row.get("launch_id") for row in dead_launches(root)}
+    return ("inspect-delegate" if latest.get("launch_id") in dead
+            else "watch-delegate")
 
 
 INTERRUPT_REFUSAL = (

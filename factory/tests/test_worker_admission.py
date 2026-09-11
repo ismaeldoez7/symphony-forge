@@ -109,7 +109,8 @@ def _worker_script(tmp_path: Path) -> Path:
 
 
 def _start_worker(repo: Path, tmp_path: Path, *, launch_id: str = "launch-test",
-                  task_id: str = "T1", without_launch_id: bool = False):
+                  task_id: str = "T1", without_launch_id: bool = False,
+                  hook_name: str = "pre_tool_use.py"):
     control = _control(repo)
     lock = control / f"locks/task/{task_id}.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
@@ -120,7 +121,7 @@ def _start_worker(repo: Path, tmp_path: Path, *, launch_id: str = "launch-test",
         "FORGE_LAUNCH_ID": launch_id,
     }
     argv = [sys.executable, str(_worker_script(tmp_path)), str(lock),
-            str(repo / "factory/scripts/pre_tool_use.py"), str(repo)]
+            str(repo / "factory/scripts" / hook_name), str(repo)]
     if without_launch_id:
         argv.append("legacy")
     proc = subprocess.Popen(
@@ -631,3 +632,109 @@ def test_malformed_or_outside_apply_patch_fails_closed(repo, header):
         "tool_input": {"command": f"*** Begin Patch\n{header}\n*** End Patch"},
     })
     assert "deny" in output and "malformed" in output
+
+
+@pytest.mark.parametrize("transport", ["native", "companion"])
+def test_lean_stop_allows_authenticated_registered_worker_handoff(
+        repo, tmp_path, transport):
+    brief, digest = _seed_contract(repo)
+    proc, token, launch_id = _start_worker(
+        repo, tmp_path, without_launch_id=transport == "companion",
+        hook_name="stop_continue.py",
+    )
+    _record_launch(repo, proc, token, launch_id, brief, digest,
+                   transport=transport)
+    output = _invoke_worker(proc, {"handoff": "blocked or complete"})
+    assert json.loads(output) == {"continue": True}
+
+
+def _record_readonly_grill(repo: Path, proc: subprocess.Popen[str],
+                           token: str, launch_id: str, *, task_id="grill-task-T1",
+                           mutate=None) -> Path:
+    brief = repo / ".factory/grill-brief-task-T1.md"
+    brief.write_text("# Protected task grill\n", encoding="utf-8")
+    executable = str(Path(sys.executable).resolve())
+    argv = native_argv(executable, repo, "gpt-test", "medium", False)
+    base = {
+        "generated_by": "orchestrator", "at": "2026-09-07T00:00:00Z",
+        "launch_id": launch_id, "task": task_id,
+        "brief_sha256": hashlib.sha256(brief.read_bytes()).hexdigest(),
+        "task_sha256": hashlib.sha256(b"task plan").hexdigest(),
+        "write": False, "model": "gpt-test", "effort": "medium",
+        "argv": argv,
+        "argv_sha256": hashlib.sha256(
+            json.dumps(argv, separators=(",", ":")).encode()).hexdigest(),
+        "launch_status": "starting", "process_token": token,
+        "transport": "native", "executable_path": executable,
+        "brief_path": brief.relative_to(repo).as_posix(),
+        "output_path": str(_control(repo) / "native-runs/grill.jsonl"),
+        "stderr_path": str(_control(repo) / "native-runs/grill.stderr"),
+        "story": "STORY-1",
+    }
+    running = {
+        **base, "launch_status": "running", "pid": proc.pid, "pgid": proc.pid,
+        "pid_started": str(psutil.Process(proc.pid).create_time()),
+    }
+    if mutate:
+        mutate(base, running, brief)
+    (_control(repo) / "delegations.jsonl").write_text(
+        json.dumps(base) + "\n" + json.dumps(running) + "\n", encoding="utf-8")
+    return brief
+
+
+def test_lean_stop_allows_authenticated_live_native_read_only_grill(repo, tmp_path):
+    _seed_contract(repo)
+    proc, token, launch_id = _start_worker(
+        repo, tmp_path, task_id="grill-task-T1", hook_name="stop_continue.py")
+    _record_readonly_grill(repo, proc, token, launch_id)
+    output = _invoke_worker(proc, {"handoff": "grill findings"})
+    assert json.loads(output) == {"continue": True}
+
+
+@pytest.mark.parametrize("case", [
+    "missing-launch-selector", "unknown-launch", "non-grill", "changed-binding",
+    "write-launch", "bad-argv", "changed-brief", "symlink-brief",
+    "dead-identity", "revoked",
+])
+def test_lean_stop_does_not_exempt_untrusted_or_non_grill_launch(
+        repo, tmp_path, case):
+    _seed_contract(repo)
+    proc, token, launch_id = _start_worker(
+        repo, tmp_path, task_id="grill-task-T1", hook_name="stop_continue.py",
+        without_launch_id=case == "missing-launch-selector")
+
+    def mutate(starting, running, brief):
+        if case == "non-grill":
+            starting["task"] = running["task"] = "T1"
+        elif case == "unknown-launch":
+            starting["launch_id"] = running["launch_id"] = "other-launch"
+        elif case == "changed-binding":
+            running["task_sha256"] = "0" * 64
+        elif case == "write-launch":
+            argv = native_argv(str(Path(sys.executable).resolve()), repo,
+                               "gpt-test", "medium", True)
+            for row in (starting, running):
+                row["write"] = True
+                row["argv"] = argv
+                row["argv_sha256"] = hashlib.sha256(
+                    json.dumps(argv, separators=(",", ":")).encode()).hexdigest()
+        elif case == "bad-argv":
+            starting["argv_sha256"] = running["argv_sha256"] = "0" * 64
+        elif case == "changed-brief":
+            brief.write_text("changed after launch\n", encoding="utf-8")
+        elif case == "symlink-brief":
+            target = brief.with_name("untrusted.md")
+            target.write_text("# Protected task grill\n", encoding="utf-8")
+            brief.unlink()
+            brief.symlink_to(target)
+        elif case == "dead-identity":
+            running["pid_started"] = "0"
+
+    _record_readonly_grill(repo, proc, token, launch_id, mutate=mutate)
+    if case == "revoked":
+        marker = _control(repo) / "revoked-launches" / f"{launch_id}.json"
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text("{}", encoding="utf-8")
+    output = _invoke_worker(proc, {"handoff": "untrusted"})
+    result = json.loads(output)
+    assert result.get("decision") == "block" and "Do not stop here" in result["reason"]

@@ -138,16 +138,20 @@ Immediately before the next pending leaf, enter plan mode per
 `factory/prompts/planner.md` and author its execution contract against the
 state left by completed tasks: write scope, exact acceptance criteria, verify
 commands, required tests, and reviewer focus. Re-record the decomposition,
-pass the digest-bound task grill, save the plan-mode result at
-`.factory/stories/<KEY>/task-plans/<id>.md`, record its human approval, run
+save the plan-mode result at `.factory/stories/<KEY>/task-plans/<id>.md`,
+then pass the digest-bound task grill and record its human approval. Run
 `forge stage start <id>`, then `forge delegate <id>`. Do not guess later-task
 execution detail. `forge next` routes this loop one action at a time.
 
-Each stage closes in this order: implement and test, local autoreview of the
-uncommitted diff, commit, then `forge stage done <id>`. After every stage is
-done, close out the story in this order: one branch autoreview, deterministic
-verify, functional check when `user_facing`, outcome recording, then
-`pr_ready.py`.
+Each task closes in this order: implement and run focused tests, commit the
+product changes, run deterministic verify and record the task's automated
+tests, then `forge review <id>`. Resolve blocking findings in one fix batch,
+commit and refresh the affected proof before re-review. Run the functional
+check when `user_facing`, then `forge stage done <id>` and
+`forge task pr-ready <id>`. Wait for that PR's CI and merge before starting
+the next task. Once every task marker and its proof are on trunk, record the
+story outcome and run `pr_ready.py`; no second story review or verify is
+required. Follow `docs/QUALITY.md` bounded recovery when progress stalls.
 
 Store the decomposition in `.factory/decomposition.json` — that artifact is
 canonical. Mirroring into a tracker (Linear, GitHub Issues, Jira) is optional.

@@ -21084,3 +21084,340 @@ def test_the_gate_graph_has_no_cycles(repo):
     lib = (HARNESS / "factory" / "scripts" / "factory_lib.py").read_text(
         encoding="utf-8")
     assert "def require_closeout_order" in lib
+# anti-loop correction tests are appended below to preserve pinned fixture lines
+
+
+def test_active_task_frontier_routes_current_handoff_and_proof(tmp_path, monkeypatch):
+    """An open stage advances from its bound handoff instead of relaunching."""
+    import factory_lib as lib
+    from forge_cli import codex_status, delegate, review
+
+    task = dict(STAGE_TASK)
+    stage = {"status": "active", "started_at": "stage-now"}
+    digest = lib.task_digest(task)
+    monkeypatch.setattr(lib, "evidence_path", lambda root, key, rel: root / rel)
+    monkeypatch.setattr(
+        lib, "task_evidence_path",
+        lambda root, key, task_id, rel: root / rel,
+    )
+    monkeypatch.setattr(lib, "_task_plan_state", lambda *_a: "approved")
+    monkeypatch.setattr(lib, "_task_grill_fresh", lambda *_a: True)
+    monkeypatch.setattr(lib, "head_sha", lambda _root: "HEAD")
+    monkeypatch.setattr(lib, "branch_diff_digest", lambda _root: "CURRENT-DIFF")
+    monkeypatch.setattr(review, "_product_dirty", lambda _root: [])
+
+    current_rows = [{
+        "launch_id": "current", "task": "T1", "write": True,
+        "story": "STORY",
+        "stage_started_at": "stage-now", "task_sha256": digest,
+        "launch_status": "running",
+    }]
+    monkeypatch.setattr(delegate, "load_delegations", lambda _root: current_rows)
+    monkeypatch.setattr(delegate, "current_delegation", lambda *_a, **_k: None)
+    monkeypatch.setattr(codex_status, "dead_launches", lambda _root: [])
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "watch-delegate"
+    monkeypatch.setattr(codex_status, "dead_launches", lambda _root: current_rows)
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "inspect-delegate"
+    monkeypatch.setattr(codex_status, "dead_launches", lambda _root: [])
+
+    current_rows[0]["launch_status"] = "failed"
+    monkeypatch.setattr(
+        delegate, "current_delegation",
+        lambda *_a, **_k: {**current_rows[0], "exit_code": 1},
+    )
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "inspect-delegate"
+
+    terminal = {**current_rows[0], "launch_status": "succeeded", "exit_code": 0}
+    monkeypatch.setattr(delegate, "current_delegation", lambda *_a, **_k: terminal)
+    monkeypatch.setattr(review, "_product_dirty", lambda _root: ["src/change.py"])
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "commit"
+    monkeypatch.setattr(review, "_product_dirty", lambda _root: [])
+
+    (tmp_path / "verify.json").write_text(
+        '{"ok": false, "commit": "HEAD"}', encoding="utf-8")
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "fix-verify"
+    (tmp_path / "verify.json").unlink()
+    (tmp_path / "tests.json").write_text(
+        '{"commit": "HEAD", "automated": {"status": "failed"}}',
+        encoding="utf-8")
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "fix-tests"
+    (tmp_path / "tests.json").unlink()
+    (tmp_path / "tests.json").write_text(
+        '{"commit": "HEAD", "automated": {"status": "passed"}, '
+        '"functional": {"status": "failed", "score": 4}}', encoding="utf-8")
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "fix-functional"
+    (tmp_path / "tests.json").unlink()
+    reviews = tmp_path / "reviews"
+    reviews.mkdir()
+    (reviews / "quality.json").write_text(
+        '{"commit": "HEAD", "score": 4, '
+        '"blocking_findings": ["broken"]}', encoding="utf-8")
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "fix-review"
+    (reviews / "quality.json").unlink()
+
+    proof = {"problems": ["T1: no passing verify"]}
+    def proof_problems(*_args, **kwargs):
+        assert kwargs == {"preseal": True}
+        return proof["problems"]
+    monkeypatch.setattr(lib, "task_proof_problems", proof_problems)
+
+    (tmp_path / "verify.json").write_text(
+        '{"ok": false, "commit": "OLD"}', encoding="utf-8")
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "verify"
+    (tmp_path / "verify.json").unlink()
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "verify"
+    proof["problems"] = ["T1: no passing automated tests"]
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "tests"
+    proof["problems"] = [
+        "T1: product content changed after verify proof was recorded"]
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "verify"
+    proof["problems"] = lib._proof_commit_problems(
+        tmp_path, "T1", [("verify", {"commit": "OLD"})],
+        expected_head="HEAD",
+    )
+    assert proof["problems"] == [
+        "T1: verify proof is stamped at 'OLD', not HEAD"]
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "verify"
+    proof["problems"] = [
+        "T1: product content changed after tests proof was recorded"]
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "tests"
+    proof["problems"] = lib._proof_commit_problems(
+        tmp_path, "T1", [("tests", {"commit": "OLD"})],
+        expected_head="HEAD",
+    )
+    assert proof["problems"] == [
+        "T1: tests proof is stamped at 'OLD', not HEAD"]
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "tests"
+    proof["problems"] = ["T1: user_facing, so a functional check is required"]
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "functional"
+    proof["problems"] = ["T1: tests.json review input is stale"]
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "review"
+    (reviews / "quality.json").write_text(
+        '{"commit": "OLD", "score": 4, '
+        '"branch_diff_digest": "CURRENT-DIFF", '
+        '"blocking_findings": ["fixed"]}', encoding="utf-8")
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "fix-review"
+    (reviews / "quality.json").write_text(
+        '{"commit": "OLD", "score": 4, '
+        '"branch_diff_digest": "STALE-DIFF", '
+        '"blocking_findings": ["fixed"]}', encoding="utf-8")
+    proof["problems"] = ["T1: quality review is stale"]
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "review"
+    (reviews / "quality.json").unlink()
+    proof["problems"] = ["T1: quality review is missing"]
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "review"
+    proof["problems"] = ["T1: current task grill has an unknown provenance gap"]
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "inspect-proof"
+    proof["problems"] = []
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "stage-done"
+
+    # A row from another story, stage, or task is not this stage's handoff.
+    monkeypatch.setattr(
+        delegate, "current_delegation",
+        lambda *_a, **_k: {**terminal, "story": "OTHER"},
+    )
+    current_rows[:] = [{**current_rows[0], "story": "OTHER"}]
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "delegate"
+    monkeypatch.setattr(delegate, "current_delegation", lambda *_a, **_k: None)
+    current_rows[:] = [{**current_rows[0], "task": "T2", "stage_started_at": "old"}]
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "delegate"
+
+
+def test_next_prose_reconciles_handoffs_without_blind_retry():
+    source = (HARNESS / "factory/scripts/forge_cli/phase.py").read_text()
+    dead = source[source.index("from .codex_status import dead_launches"):
+                  source.index("open_sigs = open_signals")]
+    signals = source[source.index("if open_sigs:"):
+                     source.index("active_window = load_active")]
+    delegate_route = source[source.index('elif frontier == "delegate":'):
+                            source.index('elif frontier == "await-merge":')]
+    assert "durable output" in dead and "re-run `./forge delegate" not in dead
+    assert "It CRASHED" not in dead and "nothing is coming" not in dead
+    assert "paused worker" not in signals and "resume the rescue" not in signals
+    assert "inspect the current handoff" in signals
+    assert "still `pending`" not in delegate_route
+    assert 'elif frontier == "watch-delegate":' in source
+    assert 'elif frontier == "inspect-delegate":' in source
+    assert 'elif frontier == "inspect-proof":' in source
+
+
+def test_next_early_grill_guidance_uses_gate_floor_and_stops_native(repo, tmp_path):
+    draft = tmp_path / "notes.md"
+    draft.write_text("Early capability notes.\n", encoding="utf-8")
+    code, output = run(
+        repo, "forge.py", "spec", "save", "early", "--from", str(draft))
+    assert code == 0, output
+
+    code, claude = run(
+        repo, "forge.py", "next", env={"FORGE_COORDINATOR": "claude"})
+    assert code == 0, claude
+    assert f"at least {GATES['spec'].min_rounds} ledger-matched" in claude
+    assert "at least 2 real rounds" not in claude
+
+    code, native = run(
+        repo, "forge.py", "next", env={"FORGE_COORDINATOR": "codex"})
+    assert code == 0, native
+    assert "unavailable" in native and "STOP" in native
+    assert "LEAN-WORKFLOW" in native
+    assert "AskUserQuestion" not in native and "request_user_input" not in native
+
+
+def test_next_only_offers_signoff_grill_for_complete_inputs(repo):
+    (repo / ".factory/grills/signoff.json").unlink(missing_ok=True)
+    code, incomplete = run(
+        repo, "forge.py", "next", env={"FORGE_COORDINATOR": "claude"})
+    assert code == 0, incomplete
+    assert "Before sign-off: grill the handover" not in incomplete
+
+    seed_signoff_inputs(repo)
+    brief = repo / "docs/product/BRIEF.md"
+    brief.write_text(
+        "# Product brief\n\n" + "\n\n".join(
+            f"## {heading}\n\nComplete {heading.lower()}."
+            for heading in REQUIRED_BRIEF_HEADINGS
+        ) + "\n",
+        encoding="utf-8",
+    )
+    from record_signoff import workflow_input_problems
+    assert workflow_input_problems(repo) == []
+    code, ready = run(
+        repo, "forge.py", "next", env={"FORGE_COORDINATOR": "claude"})
+    assert code == 0, ready
+    assert "Before sign-off: grill the handover" in ready
+
+
+def test_next_native_requirements_question_stops_at_unsupported_delivery(
+        repo, tmp_path):
+    sign_off(repo)
+    intake(repo)
+    code, output = run(
+        repo, "forge.py", "next", env={"FORGE_COORDINATOR": "codex"})
+    assert code == 0, output
+    assert "requirements grill question delivery is unavailable" in output
+    assert "STOP" in output and "LEAN-WORKFLOW" in output
+    assert "AskUserQuestion" not in output and "request_user_input" not in output
+
+
+def task_pr_retry_env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
+    bin_dir = tmp_path / "task-pr-retry-bin"
+    bin_dir.mkdir()
+    calls = tmp_path / "gh-calls.txt"
+    pushes = tmp_path / "git-pushes.txt"
+    gh = bin_dir / "gh"
+    gh.write_text(
+        "#!/bin/sh\n"
+        "printf '%s\\n' \"$*\" >> \"$GH_CALLS_FILE\"\n"
+        "if [ \"$1 $2\" = 'pr create' ]; then\n"
+        "  printf '%s\\n' \"${GH_CREATE_OUTPUT:-https://example.test/pr/1}\"\n"
+        "  exit \"${GH_CREATE_EXIT:-0}\"\n"
+        "fi\n"
+        "if [ -n \"${GH_VIEW_URL:-}\" ]; then printf '%s\\n' \"$GH_VIEW_URL\"; exit 0; fi\n"
+        "exit 1\n",
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+    git_wrapper = bin_dir / "git"
+    git_wrapper.write_text(
+        "#!/bin/sh\n"
+        "if [ \"$1\" = push ]; then printf '%s\\n' \"$*\" >> \"$PUSH_LOG_FILE\"; fi\n"
+        "exec \"$REAL_GIT_PATH\" \"$@\"\n",
+        encoding="utf-8",
+    )
+    git_wrapper.chmod(0o755)
+    return {
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}",
+        "GH_CALLS_FILE": str(calls),
+        "PUSH_LOG_FILE": str(pushes),
+        "REAL_GIT_PATH": shutil.which("git") or "git",
+    }, calls, pushes
+
+
+def test_task_pr_ready_retry_reuses_unchanged_committed_marker(repo, tmp_path):
+    git(repo, "checkout", "-qb", "feat/task-pr-retry")
+    marker = prepare_task_pr_ready(repo, tmp_path)
+    finish_task_for_pr_ready(repo)
+    proof = write_task_proof(repo, "T1", publish_review=True)
+    git(repo, "add", proof.relative_to(repo).as_posix(), ".factory/review-briefs/all.md")
+    git(repo, "commit", "-qm", "record T1 proof")
+    sealed_head = head(repo)
+    env, calls, pushes = task_pr_retry_env(tmp_path)
+
+    failed_env = {
+        **env,
+        "GH_CREATE_EXIT": "1",
+        "GH_CREATE_OUTPUT": "GraphQL: API rate limit exceeded",
+    }
+    code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=failed_env)
+    assert code != 0 and "API rate limit exceeded" in out, out
+    generic_failure = out
+    marker_head = head(repo)
+    marker_bytes = marker.read_bytes()
+    assert marker_head != sealed_head
+
+    auth_env = {
+        **env,
+        "GH_CREATE_EXIT": "1",
+        "GH_CREATE_OUTPUT": "HTTP 401: authentication failed",
+    }
+    code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=auth_env)
+    assert code != 0 and "gh auth login" in out, out
+    assert head(repo) == marker_head
+    assert marker.read_bytes() == marker_bytes
+
+    code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=env)
+    assert code == 0, out
+    assert head(repo) == marker_head
+    assert marker.read_bytes() == marker_bytes
+    assert len(pushes.read_text().splitlines()) == 3
+    assert sum(line.startswith("pr create ") for line in calls.read_text().splitlines()) == 3
+    assert "gh auth login" not in generic_failure
+
+
+def test_task_pr_ready_changed_evidence_reseals_instead_of_reusing_marker(
+        repo, tmp_path):
+    git(repo, "checkout", "-qb", "feat/task-pr-reseal")
+    marker = prepare_task_pr_ready(repo, tmp_path)
+    finish_task_for_pr_ready(repo)
+    proof = write_task_proof(repo, "T1", publish_review=True)
+    git(repo, "add", proof.relative_to(repo).as_posix(), ".factory/review-briefs/all.md")
+    git(repo, "commit", "-qm", "record T1 proof")
+    env, _, _ = task_pr_retry_env(tmp_path)
+    code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=env)
+    assert code == 0, out
+    first_marker_head = head(repo)
+
+    tests_path = proof / "tests.json"
+    tests = json.loads(tests_path.read_text())
+    tests["automated"]["summary"] = "passing proof clarified after first PR attempt"
+    tests_path.write_text(json.dumps(tests))
+    git(repo, "add", tests_path.relative_to(repo).as_posix())
+    git(repo, "commit", "-qm", "clarify passing evidence")
+    changed_evidence_head = head(repo)
+
+    code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=env)
+    assert code == 0, out
+    assert json.loads(marker.read_text())["commit"] == changed_evidence_head
+    assert head(repo) not in (first_marker_head, changed_evidence_head)
+
+
+def test_task_pr_ready_marker_commit_preserves_unrelated_index(repo, tmp_path):
+    git(repo, "checkout", "-qb", "feat/task-pr-index")
+    marker = prepare_task_pr_ready(repo, tmp_path)
+    finish_task_for_pr_ready(repo)
+    proof = write_task_proof(repo, "T1", publish_review=True)
+    git(repo, "add", proof.relative_to(repo).as_posix(), ".factory/review-briefs/all.md")
+    git(repo, "commit", "-qm", "record T1 proof")
+    unrelated = repo / ".factory" / "unrelated-index.txt"
+    unrelated.write_text("keep staged\n")
+    git(repo, "add", unrelated.relative_to(repo).as_posix())
+    env, _, _ = task_pr_retry_env(tmp_path)
+
+    code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=env)
+    assert code == 0, out
+    assert marker.relative_to(repo).as_posix() in git(
+        repo, "show", "--name-only", "--format=", "HEAD"
+    )
+    assert unrelated.relative_to(repo).as_posix() not in git(
+        repo, "show", "--name-only", "--format=", "HEAD"
+    )
+    assert git(repo, "diff", "--cached", "--name-only") == unrelated.relative_to(repo).as_posix()

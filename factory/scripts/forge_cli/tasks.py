@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from factory_lib import (
+    _committed_task_marker,
     clean_git_env, default_trunk_branch, dump_json, evidence_path,
     git_control_dir, load_json, now_iso,
     plan_digest_without_assumptions, repo_root, require_approved_plan_digest,
@@ -529,29 +530,45 @@ def cmd_task_pr_ready(args: argparse.Namespace) -> None:
             f"origin/{default_branch}", "HEAD",
         )
 
-    commit = _require_git(
-        base, "resolving task HEAD", "rev-parse", "--verify", "HEAD^{commit}",
-    )
     marker = task_marker_path(key, args.id)
-    payload = {
-        "task_id": args.id,
-        "branch": branch,
-        "base_main_sha": base_main_sha,
-        "commit": commit,
-        "sealed_at": now_iso(),
-    }
-    if any(not isinstance(value, str) or not value.strip() for value in payload.values()):
-        fail("task PR marker fields must all be non-empty strings")
-    dump_json(base / marker, payload)
-
-    # The marker is committed and pushed by this command (an evidence-only commit
-    # the command owns) so it rides the branch onto the PR; AC2's advance signal
-    # is that marker landing on origin/main at merge (task 8's cat-file gate).
-    _require_git(base, "staging the task PR marker", "add", "--", marker.as_posix())
-    _require_git(
-        base, "committing the task PR marker",
-        "commit", "-m", f"{key} {args.id}: task PR marker",
+    try:
+        existing = load_json(base / marker, default=None)
+    except json.JSONDecodeError:
+        existing = None
+    reusable, _ = _committed_task_marker(base, key, args.id, existing, None)
+    same_seal = bool(
+        reusable
+        and reusable["branch"] == branch
+        and reusable["base_main_sha"] == base_main_sha
+        and _git(
+            base, "diff", "--quiet", reusable["commit"], "HEAD", "--", ".",
+            f":(exclude){marker.as_posix()}",
+        ).returncode == 0
     )
+    if same_seal:
+        commit = reusable["commit"]
+    else:
+        commit = _require_git(
+            base, "resolving task HEAD", "rev-parse", "--verify", "HEAD^{commit}",
+        )
+        payload = {
+            "task_id": args.id,
+            "branch": branch,
+            "base_main_sha": base_main_sha,
+            "commit": commit,
+            "sealed_at": now_iso(),
+        }
+        if any(not isinstance(value, str) or not value.strip() for value in payload.values()):
+            fail("task PR marker fields must all be non-empty strings")
+        dump_json(base / marker, payload)
+
+        # Commit only the marker path so an unrelated pre-existing index is not
+        # swept into the evidence commit that this command owns.
+        _require_git(base, "staging the task PR marker", "add", "--", marker.as_posix())
+        _require_git(
+            base, "committing the task PR marker", "commit", "--only", "-m",
+            f"{key} {args.id}: task PR marker", "--", marker.as_posix(),
+        )
     _require_git(base, "pushing the task branch", "push", "-u", "origin", branch)
 
     if shutil.which("gh", path=os.environ.get("PATH")) is None:
@@ -595,10 +612,19 @@ def cmd_task_pr_ready(args: argparse.Namespace) -> None:
             print(f"Task {args.id} PR ready: {marker.as_posix()}")
             print(f"PR already open for {branch}: {url}")
             return
+        auth_guidance = (
+            "Run `gh auth login`, then retry."
+            if re.search(
+                r"(?i)authentication failed|not authenticated|not logged (?:in|into)|"
+                r"bad credentials|http 401|gh auth login",
+                detail,
+            )
+            else "Inspect the GitHub CLI failure, fix that exact cause, then retry."
+        )
         fail(
             f"task {args.id} is sealed at {marker.as_posix()}, but opening the PR "
             f"to {default_branch} failed{f': {detail}' if detail else ''}. "
-            "Run `gh auth login`, then retry."
+            f"{auth_guidance}"
         )
     print(f"Task {args.id} PR ready: {marker.as_posix()}")
     if proc.stdout.strip():

@@ -53,20 +53,47 @@ recorded for this task on the current diff with nothing blocking.
 
 ## Review findings are not a menu
 
-A finding the review just raised is work, and work goes to Codex. Delegate the
-fix and re-review; loop until clean. Do not put it to the human as a choice
-between fixing now, shipping and deferring, or fixing it yourself — that asks
-them to arbitrate something already settled.
+Blocking findings go back to Codex as one fix batch, followed by fresh proof
+and review of the changed code. Do not ask the human to choose whether to fix
+a blocker; readiness already requires it. Apply the bounded recovery rule
+below when a retry makes no progress.
 
 - **Blocking findings** cannot be deferred or shipped past: readiness refuses
   them, so two of those three options never existed.
-- **Non-blocking findings** default to the same fix loop. Defer one only when it
-  is genuinely outside the task's scope, with a reason and a revisit trigger.
+- **Non-blocking findings** are recorded follow-ups. Resolve them within the
+  current fix batch or explicitly defer them with a reason and revisit trigger.
+  Do not start another full review solely to remove an unchanged, recorded
+  non-blocking follow-up; it does not block the seal.
 - **Host-side fixing** is the single exception, and only when the defect cannot
   be reproduced or fixed inside the Codex sandbox. Open a ledgered degraded
   window and state why. A window that closes with at most five files, all
   inside the task's write scope, is accepted by `stage done` as the stage's
   write launch and recorded on the stage.
+
+## Bounded recovery
+
+Apply this rule in every phase, including hooks, planning, approval, tests,
+review, task closure and PR/CI. After the same action fails twice with the
+same inputs and cause, stop launching model retries. Keep the failure and
+current artifacts; identify the cause with the smallest reproducible check,
+fix it, and show that check passing before retrying the expensive action.
+A pending external job is a wait, not a failure: inspect its identity and
+status with backoff, and resume only the job that is actually still live.
+When a worker finishes or is blocked, it returns control to its coordinator;
+it must not take over orchestration to satisfy a story-level Stop hook.
+
+Keep the approved contract stable while fixing implementation details inside
+its scope. Record outcomes, scope or acceptance changes through the existing
+amendment and approval route. A new patch hash or a verification log is not
+a new contract. Keep one current plan and report; archive superseded versions
+and reference them rather than appending their full contents. Reviews still
+receive the complete current approved plan and task proof.
+
+For PR/CI recovery, inspect the exact failing command or check before retrying.
+Do not rerun completed checks, reseal unchanged proof, or push an empty commit
+to restart CI. Change the failing input or recover the external dependency
+first. If progress requires a human decision or unavailable external access,
+report that concrete blocker; do not manufacture another review cycle.
 
 ## Testing
 
