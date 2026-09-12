@@ -987,7 +987,7 @@
         "A named set of generated forge invocations in next-step text parses against the real command grammar"
       ],
       "order": 47,
-      "status": "pending",
+      "status": "active",
       "epic": "accountable-engineering",
       "skill": "backend",
       "kind": "refactor",
@@ -996,7 +996,7 @@
     }
   ],
   "generated_by": "human",
-  "updated_at": "2026-09-11T17:37:20+00:00",
+  "updated_at": "2026-09-11T17:38:37+00:00",
   "epics": [
     {
       "id": "symphony-forge",
