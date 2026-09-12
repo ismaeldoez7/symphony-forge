@@ -3693,7 +3693,7 @@ def test_init_and_upgrade_ship_portable_hook_commands(tmp_path):
     assert len(commands(repo, ".codex/hooks.json")) == 3
     config = repo / ".codex" / "config.toml"
     assert 'sandbox_mode = "workspace-write"' in config.read_text().splitlines()
-    assert "network_access = true" in config.read_text().splitlines()  # 0067
+    assert "network_access = true" in config.read_text().splitlines()  # 0068
     assert (repo / "forge.cmd").is_file()
     attributes = repo / ".gitattributes"
     assert "forge text eol=lf" in attributes.read_text().splitlines()
@@ -3725,7 +3725,7 @@ def test_init_and_upgrade_ship_portable_hook_commands(tmp_path):
     assert len(commands(repo, ".claude/settings.json")) == 6
     assert len(commands(repo, ".codex/hooks.json")) == 3
     assert 'sandbox_mode = "workspace-write"' in config.read_text().splitlines()
-    assert "network_access = true" in config.read_text().splitlines()  # 0067
+    assert "network_access = true" in config.read_text().splitlines()  # 0068
     assert (repo / "forge.cmd").is_file()
     assert "forge text eol=lf" in attributes.read_text().splitlines()
     assert all(
@@ -15188,7 +15188,7 @@ def test_delegate_brief_carries_criteria_and_scope(repo, tmp_path):
     assert "src/" in brief                          # write scope
     assert "src/existing_helper.py" in brief        # existing modules
     assert "test_slice" in brief                    # required tests
-    assert "Before you report: run every required test" in brief  # 0067
+    assert "Before you report: run every required test" in brief  # 0068
     assert "A test you did not run is not reported as passing" in brief
     assert "the retry path" in brief                # reviewer focus
     assert "Implementer contract" in brief          # the prompt, inlined
