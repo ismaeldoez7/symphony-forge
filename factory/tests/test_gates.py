@@ -22,6 +22,7 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 import types
 import urllib.error
 import urllib.request
@@ -11790,12 +11791,16 @@ def test_codex_exec_ban_matches_invocations_not_prose(repo, monkeypatch):
                 'bash -O extglob -lc \'codex exec "x"\'',
                 'bash -Oextglob -lc \'codex exec "x"\'',
                 'bash -xO extglob -lc \'codex exec "x"\'',
+                'bash +o c -lc \'codex exec "x"\'',
+                'bash +O codex -lc \'codex exec "x"\'',
+                'bash -o -c -lc \'codex exec "x"\'',
                 'bash --rcfile /tmp/forge-test-rc -lc \'codex exec "x"\'',
                 'bash --rcfile=/tmp/forge-test-rc -lc \'codex exec "x"\'',
                 'bash --init-file /tmp/forge-test-init -lc \'codex exec "x"\'',
                 'zsh -o shwordsplit -lc \'codex exec "x"\'',
                 'zsh -oshwordsplit -lc \'codex exec "x"\'',
                 'zsh -xo shwordsplit -lc \'codex exec "x"\'',
+                'zsh +o c -lc \'codex exec "x"\'',
                 '"/opt/tools/codex" exec "x"',
                 'command "/opt/Tools With Spaces/codex" exec "x"',
                 'cd /tmp && codex exec "x"',
@@ -11807,6 +11812,7 @@ def test_codex_exec_ban_matches_invocations_not_prose(repo, monkeypatch):
     for cmd in ('cat > docs/notes.md << EOF\nthe hook denies raw codex exec always\nEOF',
                 'grep -rn "codex exec" docs/ || true',
                 'sh script.sh -c \'codex exec "argument only"\'',
+                'bash +o codex script.sh \'codex exec "argument only"\'',
                 'sh -- -c \'codex exec "argument only"\''):
         code, out = bash(cmd)
         assert "deny" not in out, cmd
@@ -19047,9 +19053,28 @@ def test_close_and_frontier_use_selected_current_delta(repo, tmp_path):
     verify_path.write_text("[]\n")
     tests_path.write_text('"not-an-object"\n')
     assert lib.task_proof_problems(repo, "ENG-1", task, preseal=True)
+    invalid_stages = load_stages(repo)
+    invalid_stages["stages"][0]["status"] = "done"
+    write_stages(repo, invalid_stages)
+    stage_paths = (authoritative_stages_path(repo), stages_path(repo))
+    invalid_stage_bytes = {path: path.read_bytes() for path in stage_paths}
+    assert lib.load_json(verify_path, default={}) == {}
+    assert lib.load_json(tests_path, default={}) == {}
+    code, out = run(repo, "forge.py", "next")
+    assert code == 0 and "Traceback" not in out
+    from forge_cli.board import aggregate_state
+    aggregate_state(repo)
+    lib.task_frontier_state(repo)
+    assert lib.require_closeout_order(repo)
+    code, out = run(repo, "forge.py", "task", "pr-ready", "T1")
+    assert code != 0 and "Traceback" not in out
+    assert {path: path.read_bytes() for path in stage_paths} == invalid_stage_bytes
     verify_path.write_bytes(verify_bytes)
     tests_path.write_bytes(tests_bytes)
     pointer_path.write_bytes(pointer_bytes)
+    restored_stages = load_stages(repo)
+    restored_stages["stages"][0]["status"] = "active"
+    write_stages(repo, restored_stages)
     caller = load_stages(repo)["stages"][0]
     assert stamp_is_fresh(repo, caller, task)
     assert "delta_id" in caller["local_review_stamp"]
@@ -19253,17 +19278,51 @@ def test_task_proof_allows_mixed_product_and_metadata_commits(
     lib = load_factory_lib(repo)
     marker_rel = marker.relative_to(repo).as_posix()
     assert lib._marker_publication_commit(repo, marker_rel) == marker_publication
+    task = next(
+        item for item in json.loads(
+            (lib.protected_decomposition_state_path(repo)).read_text()
+        )["tasks"] if item.get("id") == "T1"
+    )
+    pointer_path = proof / "reviews/selected.json"
+    combined_pointer = json.loads(pointer_path.read_text())
+    combined_path = proof / "reviews/generations" / f"{combined_pointer['generation_id']}.json"
+    upgrade = json.loads(combined_path.read_text())
+    upgrade.pop("generation_id")
+    upgrade["origin"] = "upgrade"
+    upgrade["generated_by"] = "upgrade"
+    for field in ("review_run_id", "brief_sha256", "helper", "input", "raw_result"):
+        upgrade.pop(field)
+    upgrade["upgrade"] = {
+        "inventory_digest": "c" * 64,
+        "source_kind": "sealed",
+        "legacy_artifacts": [
+            {"aspect": lens, "path": f"reviews/{lens}.json",
+             "sha256": chr(100 + index) * 64}
+            for index, lens in enumerate(("performance", "quality", "security"))
+        ],
+        "sealed_commit": seal,
+    }
+    _valid_upgrade, valid_upgrade_pointer = lib.publish_review_generation(
+        repo, "ENG-1", "T1", upgrade)
+    git(repo, "add", proof.relative_to(repo).as_posix())
+    git(repo, "commit", "-qm", "publish marker-bound sealed upgrade")
+    assert not lib.task_proof_problems(repo, "ENG-1", task)
+    assert not check_task_proof.proof_problems(repo, "ENG-1", "T1")
+    mismatched = copy.deepcopy(upgrade)
+    mismatched["upgrade"]["sealed_commit"] = metadata_commit
+    lib.publish_review_generation(repo, "ENG-1", "T1", mismatched)
+    git(repo, "add", proof.relative_to(repo).as_posix())
+    git(repo, "commit", "-qm", "publish mismatched sealed upgrade")
+    assert lib.task_proof_problems(repo, "ENG-1", task)
+    pointer_path.write_bytes(lib.review_generation_bytes(valid_upgrade_pointer))
+    git(repo, "add", pointer_path.relative_to(repo).as_posix())
+    git(repo, "commit", "-qm", "restore marker-bound sealed upgrade")
     marker_payload = json.loads(marker.read_text())
     marker_payload["sealed_at"] = "2026-09-12T01:00:00+00:00"
     marker.write_text(json.dumps(marker_payload))
     git(repo, "add", marker_rel)
     git(repo, "commit", "-qm", "rewrite marker metadata")
     assert lib._marker_publication_commit(repo, marker_rel) == marker_publication
-    task = next(
-        item for item in json.loads(
-            (lib.protected_decomposition_state_path(repo)).read_text()
-        )["tasks"] if item.get("id") == "T1"
-    )
     assert not check_task_proof.proof_problems(repo, "ENG-1", "T1")
     digest_calls = []
     product_digest = lib.product_tree_digest
@@ -21893,14 +21952,72 @@ def test_task_pr_ready_marker_commit_preserves_unrelated_index(repo, tmp_path):
     unrelated.write_text("keep staged\n")
     git(repo, "add", unrelated.relative_to(repo).as_posix())
     env, _, _ = task_pr_retry_env(tmp_path)
-
-    code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=env)
-    assert code == 0, out
+    selected_path = proof / "reviews/selected.json"
+    selected_before = selected_path.read_bytes()
+    selected = json.loads(selected_before)
+    generation_path = proof / "reviews/generations" / f"{selected['generation_id']}.json"
+    upgrade = json.loads(generation_path.read_text())
+    upgrade.pop("generation_id")
+    upgrade["origin"] = "upgrade"
+    upgrade["generated_by"] = "upgrade"
+    for field in ("review_run_id", "brief_sha256", "helper", "input", "raw_result"):
+        upgrade.pop(field)
+    upgrade["upgrade"] = {
+        "inventory_digest": "c" * 64, "source_kind": "sealed",
+        "legacy_artifacts": [
+            {"aspect": lens, "path": f"reviews/{lens}.json",
+             "sha256": chr(100 + index) * 64}
+            for index, lens in enumerate(("performance", "quality", "security"))
+        ],
+        "sealed_commit": head(repo),
+    }
+    candidate = tmp_path / "upgrade.json"
+    candidate.write_text(json.dumps(upgrade))
+    paused, release = tmp_path / "seal-paused", tmp_path / "seal-release"
+    hook = repo / ".git/hooks/pre-commit"
+    hook.write_text(
+        "#!/bin/sh\n: > \"$SEAL_PAUSED\"\n"
+        "while test ! -e \"$SEAL_RELEASE\"; do sleep 0.05; done\n")
+    hook.chmod(0o755)
+    process_env = {**os.environ, **env, "SEAL_PAUSED": str(paused),
+                   "SEAL_RELEASE": str(release)}
+    seal = subprocess.Popen(
+        [sys.executable, str(repo / "factory/scripts/forge.py"), "task", "pr-ready", "T1"],
+        cwd=repo, env=process_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, encoding="utf-8",
+    )
+    deadline = time.monotonic() + 10
+    while not paused.exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert paused.exists() and seal.poll() is None
+    publisher_code = (
+        "import json,sys; from pathlib import Path; "
+        "root=Path(sys.argv[1]); sys.path.insert(0,str(root/'factory/scripts')); "
+        "from factory_lib import publish_review_generation; "
+        "publish_review_generation(root,'ENG-1','T1',json.loads(Path(sys.argv[2]).read_text()))"
+    )
+    publisher = subprocess.Popen(
+        [sys.executable, "-c", publisher_code, str(repo), str(candidate)], cwd=repo,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
+    )
+    time.sleep(0.3)
+    assert publisher.poll() is None and selected_path.read_bytes() == selected_before
+    release.write_text("release\n")
+    out, _ = seal.communicate(timeout=120)
+    assert seal.returncode == 0, out
+    marker_commit = head(repo)
+    publish_out, _ = publisher.communicate(timeout=120)
+    assert publisher.returncode == 0, publish_out
+    assert selected_path.read_bytes() != selected_before
+    task = next(item for item in json.loads(
+        (story_state(repo) / "decomposition.json").read_text())["tasks"]
+                if item["id"] == "T1")
+    assert not load_factory_lib(repo).task_proof_problems(repo, "ENG-1", task)
     assert marker.relative_to(repo).as_posix() in git(
-        repo, "show", "--name-only", "--format=", "HEAD"
+        repo, "show", "--name-only", "--format=", marker_commit
     )
     assert unrelated.relative_to(repo).as_posix() not in git(
-        repo, "show", "--name-only", "--format=", "HEAD"
+        repo, "show", "--name-only", "--format=", marker_commit
     )
     assert git(repo, "diff", "--cached", "--name-only") == unrelated.relative_to(repo).as_posix()
 

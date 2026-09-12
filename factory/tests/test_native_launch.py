@@ -203,6 +203,7 @@ def test_native_launch_registers_before_stdin_and_records_terminal_identity(
     )
     real_popen = delegate.subprocess.Popen
     stdin_snapshots = []
+    popen_options = {}
 
     class StdinProxy:
         def __init__(self, stream):
@@ -221,6 +222,7 @@ def test_native_launch_registers_before_stdin_and_records_terminal_identity(
             return getattr(self.stream, name)
 
     def popen(*args, **kwargs):
+        popen_options.update(kwargs)
         process = real_popen(*args, **kwargs)
         if args[0][0] == str(executable):
             process.stdin = StdinProxy(process.stdin)
@@ -231,7 +233,7 @@ def test_native_launch_registers_before_stdin_and_records_terminal_identity(
     terminal = launch_companion(
         native_repo,
         task_id="T1",
-        text="fixture prompt",
+        text="fixture prompt — नमस्ते",
         path=brief,
         task_sha256_value="task-digest",
         model="model-pin",
@@ -250,7 +252,9 @@ def test_native_launch_registers_before_stdin_and_records_terminal_identity(
     assert terminal["brief_path"] == ".factory/briefs/T1.md"
     assert Path(terminal["output_path"]).is_file()
     assert Path(terminal["stderr_path"]).is_file()
-    assert capture["prompt"] == "fixture prompt"
+    assert capture["prompt"] == "fixture prompt — नमस्ते"
+    assert popen_options["encoding"] == "utf-8"
+    assert popen_options["errors"] == "strict"
     assert capture["token"] == terminal["process_token"]
     assert capture["launch_id"] == terminal["launch_id"]
     assert capture["argv"][-1] == "-"

@@ -606,7 +606,8 @@ def delegation_exclusion(base: Path, task_id: str, *,
                          namespace: str = "task"):
     owner_id = uuid.uuid4().hex
     handle = _acquire_delegation_lock(
-        base, task_id, owner_id, wait=kind == "stage-state",
+        base, task_id, owner_id,
+        wait=kind in {"stage-state", "review-selection"},
         namespace=namespace)
     if kind != "delegation":
         _update_delegation_lock(handle, owner_id, os.getpid(), kind=kind)
@@ -1345,7 +1346,8 @@ def launch_companion(
                 proc = subprocess.Popen(
                     argv, cwd=base, stdout=stdout_log, stderr=stderr_log,
                     stdin=subprocess.PIPE if runtime == "codex" else None,
-                    text=True, env=process_env, **spawn_options,
+                    text=True, encoding="utf-8", errors="strict",
+                    env=process_env, **spawn_options,
                 )
                 process_identity = _capture_spawn_identity(proc)
                 record.update({

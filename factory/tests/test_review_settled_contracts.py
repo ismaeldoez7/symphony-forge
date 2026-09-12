@@ -196,6 +196,57 @@ def test_reject_republishes_one_complete_pointer_selected_set(repo, tmp_path):
          "summary": "remembered hardFloor lookup 2"},
     ]
     root, first_pointer = _publish(repo, blockers)
+    pointer_path = repo / ".factory/stories/ENG-1/tasks/T2/reviews/selected.json"
+
+    def refused(match, cite="T1-AC1"):
+        before = pointer_path.read_bytes()
+        code, output = run(
+            repo, "forge.py", "review", "T2", "--reject", match,
+            "--lens", "security", "--reason", "settled contract",
+            "--cite", cite, "--by", "autoreview",
+        )
+        assert code != 0 and pointer_path.read_bytes() == before
+        return output
+
+    assert "no blocking" in refused("does not exist")
+    assert "narrow it" in refused("lookup")
+    plan = next((repo / "plans/active").glob("ENG-1-*.md"))
+    plan_before = plan.read_bytes()
+    plan.write_text(plan.read_text() + "\n## Cabbages\nleafy vegetable contract\n")
+    assert "shares no substantive term" in refused("lookup 1", "Cabbages")
+    plan.write_bytes(plan_before)
+    valid_pointer = pointer_path.read_bytes()
+    copied = json.loads(valid_pointer)
+    copied["task_id"] = "COPIED"
+    pointer_path.write_text(json.dumps(copied))
+    assert "copied" in refused("lookup 1")
+    pointer_path.write_bytes(valid_pointer)
+    stale = json.loads(valid_pointer)
+    stale["delta_id"] = "f" * 64
+    pointer_path.write_text(json.dumps(stale))
+    assert "stale" in refused("lookup 1")
+    pointer_path.write_bytes(valid_pointer)
+    pointer_path.write_text(json.dumps(root["lenses"]["security"]))
+    assert "selected proof" in refused("lookup 1")
+    pointer_path.write_bytes(valid_pointer)
+    upgrade = copy.deepcopy(root)
+    upgrade.pop("generation_id")
+    upgrade["origin"] = "upgrade"
+    upgrade["generated_by"] = "upgrade"
+    for field in ("review_run_id", "brief_sha256", "helper", "input", "raw_result"):
+        upgrade.pop(field)
+    upgrade["upgrade"] = {
+        "inventory_digest": "c" * 64, "source_kind": "sealed",
+        "legacy_artifacts": [
+            {"aspect": name, "path": f"reviews/{name}.json",
+             "sha256": chr(100 + index) * 64}
+            for index, name in enumerate(sorted(LENSES))
+        ],
+        "sealed_commit": "f" * 40,
+    }
+    publish_review_generation(repo, "ENG-1", "T2", upgrade)
+    assert "selected proof" in refused("lookup 1")
+    pointer_path.write_bytes(valid_pointer)
     raw = root["raw_result"]
     quality = root["lenses"]["quality"]
     code, out = run(repo, "forge.py", "review", "T2", "--reject", "lookup 1",
@@ -206,6 +257,13 @@ def test_reject_republishes_one_complete_pointer_selected_set(repo, tmp_path):
     first_rejection, first_rejection_pointer, problems = read_selected_review_generation(
         repo, "ENG-1", "T2")
     assert not problems and first_rejection["origin"] == "rejection"
+    assert "no blocking" in refused("lookup 1")
+    root_path = repo / ".factory/stories/ENG-1/tasks/T2/reviews/generations" / (
+        root["generation_id"] + ".json")
+    hidden_root = root_path.with_suffix(".missing")
+    root_path.rename(hidden_root)
+    assert "source is invalid" in refused("lookup 2")
+    hidden_root.rename(root_path)
     code, out = run(repo, "forge.py", "review", "T2", "--reject", "lookup 2",
                     "--lens", "security", "--reason", "remembered hardFloor contract",
                     "--cite", "T1-AC1", "--by", "autoreview")
@@ -222,6 +280,10 @@ def test_reject_republishes_one_complete_pointer_selected_set(repo, tmp_path):
         lesson = repo / entry["lesson_path"]
         assert lesson.is_file()
         assert hashlib.sha256(lesson.read_bytes()).hexdigest() == entry["lesson_sha256"]
+    assert [entry["finding_fingerprint"] for entry in selected["rejection"]["history"]] == [
+        review_finding_fingerprint(finding)
+        for finding in root["lenses"]["security"]["blocking_findings"]
+    ]
     lineage = {path.as_posix() for path in review_lineage_paths(repo, "ENG-1", "T2")}
     assert {
         f".factory/stories/ENG-1/tasks/T2/reviews/generations/{generation_id}.json"
@@ -235,6 +297,12 @@ def test_reject_republishes_one_complete_pointer_selected_set(repo, tmp_path):
     assert selected["raw_result"] == raw and selected["lenses"]["quality"] == quality
     assert pointer["generation_id"] != first_pointer["generation_id"]
     assert "lookup 1" in rejected_findings_report(repo, "ENG-1", "T2")
+    stages = load_stages(repo)
+    next(item for item in stages["stages"] if item["id"] == "T2")["status"] = "done"
+    write_stages(repo, stages)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "seal two-rejection lineage")
+    assert not git(repo, "status", "--porcelain")
 
 
 def test_selected_upgrade_generation_requires_exact_sealed_binding(repo, tmp_path):

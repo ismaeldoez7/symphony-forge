@@ -708,10 +708,19 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def _proof_object_or_default(path: Path | str, data: Any, default: Any) -> Any:
+    """Treat valid non-object verify/test JSON as malformed proof."""
+    parts = Path(path).parts
+    if ".factory" in parts and Path(path).name in {"verify.json", "tests.json"}:
+        return data if isinstance(data, dict) else default
+    return data
+
+
 def load_json(path: Path, default: Any = None) -> Any:
     if not path.exists():
         return default
     data = json.loads(path.read_text(encoding="utf-8"))
+    data = _proof_object_or_default(path, data, default)
     run_root = _RUN_STATE_ROOTS.get(path)
     if run_root is not None and isinstance(data, dict):
         data = {**data, "phase": derive_phase(run_root, data)}
@@ -1493,7 +1502,7 @@ def _read_git_json(root: Path, path: str, treeish: str) -> dict | None:
         raise SystemExit(
             f"{path} at {treeish} is not valid JSON: {exc}"
         ) from exc
-    return value if isinstance(value, dict) else None
+    return _proof_object_or_default(path, value, None)
 
 
 def _read_git_bytes(root: Path, path: str, treeish: str) -> bytes | None:
@@ -1937,6 +1946,7 @@ def _modern_task_proof_problems(
     selected_reader: Callable[[str], dict | None] | None = None,
     selected_bytes_reader: Callable[[str], bytes | None] | None = None,
     sealed_commit: str = "",
+    selected_upgrade_after_marker: bool = False,
 ) -> list[str]:
     """The fail-closed proof predicate for a task-owned bundle."""
     from forge_cli.readiness import tests_passed, verify_passed
@@ -1990,6 +2000,8 @@ def _modern_task_proof_problems(
     )
     if marker_publication_commit:
         for name in _PROOF_NAMES:
+            if name == "reviews/selected.json" and selected_upgrade_after_marker:
+                continue
             path = f".factory/stories/{key}/tasks/{task_id}/{name}"
             changed = _marker_publication_commit(root, path)
             if changed and not _git_is_ancestor(
@@ -2254,6 +2266,7 @@ def task_proof_problems(
 
     selected_reader = reader
     selected_bytes_reader = None
+    selected_upgrade_after_marker = False
     expected_review_delta = ""
     sealed_review_commit = ""
     if marker_context is not None:
@@ -2265,6 +2278,37 @@ def task_proof_problems(
         selected_bytes_reader = lambda path, treeish=selected_treeish: _read_git_bytes(
             root, path, treeish
         )
+        _generation_rel, selection_rel = _review_relpaths(key, task_id)
+        marker_selection = selected_reader(selection_rel)
+        try:
+            current_selection = (
+                reader(selection_rel) if reader is not None else
+                load_json(root / selection_rel, default=None)
+            )
+        except (json.JSONDecodeError, SystemExit) as exc:
+            return [f"{task_id}: selected review pointer is invalid: {exc}"]
+        if current_selection != marker_selection:
+            current_bytes_reader = (
+                (lambda path: _read_git_bytes(root, path, "HEAD"))
+                if reader is not None else None
+            )
+            current_generation, _current_pointer, current_problems = (
+                read_selected_review_generation(
+                    root, key, task_id, reader=reader,
+                    bytes_reader=current_bytes_reader,
+                    sealed_commit=sealed_review_commit,
+                )
+            )
+            if (current_problems or not isinstance(current_generation, dict)
+                    or current_generation.get("origin") != "upgrade"):
+                return [
+                    f"{task_id}: selected review pointer changed after task marker "
+                    "without a valid marker-bound sealed upgrade",
+                    *current_problems,
+                ]
+            selected_reader = reader
+            selected_bytes_reader = current_bytes_reader
+            selected_upgrade_after_marker = True
     elif reader is not None:
         selected_bytes_reader = lambda path: _read_git_bytes(root, path, "HEAD")
     elif proof_base:
@@ -2289,6 +2333,7 @@ def task_proof_problems(
             selected_reader=selected_reader,
             selected_bytes_reader=selected_bytes_reader,
             sealed_commit=sealed_review_commit,
+            selected_upgrade_after_marker=selected_upgrade_after_marker,
         )
     if marker_context is not None:
         if legacy_reader is None:
