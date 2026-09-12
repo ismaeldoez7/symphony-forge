@@ -2,82 +2,133 @@
   "generated_by": "griller",
   "gate": "spec",
   "verdict": "pass",
-  "issue": "GATES-1",
-  "summary": "Requirements cold read of the harness simplification spec returned six findings. Four were resolved by making the manifest, the decision rule, the single freshness predicate and the ledger terminal states concrete; two were owner choices, settled as legacy passes keeping old behaviour with no backfill, and round reuse narrowed to the same gate and story.",
+  "issue": "FORGE-COORD-1",
+  "summary": "Resolved all 15 findings from the single permitted Sol/high specification cold read, launch-ad584d65712a44709702bf89fe967a07. Decision 0073 records the user's same-gate reuse choice and supersedes the contradictory 0071 wording; the amended specification and architecture make every remaining repository-owned contract explicit.",
   "gaps": [
-    "The input-manifest contract was not implementable: no declaration mechanism, no path normalisation, no handling for dirty, untracked or deleted inputs, and no recorder-side validation, so an implementation could omit a source the reader used and keep the pass fresh.",
-    "'Active decisions applicable to the gate' had no deterministic selection rule, so it would either recreate global staleness or let a newly applicable decision bypass the gate.",
-    "The spec did not reconcile existing freshness consumers: the requirements gate hashes the confirmed spec plus the whole product tree and has a regression expecting an arbitrary new product file to stale a pass, the inverse of the new rule, and task grounding folds in the product tree before stage start.",
-    "Legacy records had no migration policy, leaving existing client and historical passes undefined.",
-    "Reusable rounds conflicted with accepted decision 0051's 'no round reused across grills', which the recorder enforces by consuming rounds from previous grill records.",
-    "'Completes and returns a verdict' is not represented in the launch ledger: a successful launcher records exit status only, the cap counts launches regardless of terminal failure, and the repeat-read guard treats any non-failed row as a cold read."
+    "The settled Wait for all answer was not honored and its scope conflicted with dependency-ready execution.",
+    "Coordinator transfer did not cover unresolved required ordinary-chat questions.",
+    "Accepted Decisions 0067 and 0071 gave incompatible answers about same-gate round reuse.",
+    "The structured-question contract did not explicitly preserve valid free-form answers.",
+    "Zero-round cold-read proof had no falsifiable one-to-one finding-resolution map.",
+    "Context partitioning could violate the one-cold-read-per-grill-gate contract.",
+    "Cross-lens blocking semantics from the prior confirmed specification disappeared.",
+    "The no-truncation rule conflicted with the helper's bounded synthesized chunk projection.",
+    "Failed review attempts had contradictory generation-persistence requirements.",
+    "Rejection lineage in the specification disagreed with the architecture.",
+    "The Quality task's unchanged-byte boundary incorrectly included source files it must repair.",
+    "The early-draft exception was broader than Decision 0072 permits.",
+    "Client preservation had regressed to an undefined generic state promise.",
+    "Developer-journey acceptance lost its exact snapshot and retry guarantees.",
+    "Toolshed's D-0033 deferral made the story closeout meaning of resolved ambiguous."
   ],
-  "contradictions": [
-    "Reusable rounds contradicted accepted decision 0051, which forbids reusing a round across grills."
-  ],
+  "contradictions": [],
   "resolutions": [
-    "The manifest is now an ordered list of repo-relative POSIX path plus SHA-256 of that path's bytes at record time, with an explicit null digest for an absent input so its later appearance stales the pass. The recorder refuses a manifest that omits the gate's artifact and recomputes every digest against the tree, so a manifest cannot claim a state the repository does not have.",
-    "Applicable is defined as every decision accepted at record time, listed by id and digest, which needs no judgement from the recorder. A decision that becomes accepted afterwards stales the pass, because the corpus it was ground on no longer holds.",
-    "The spec now requires ONE manifest-freshness predicate used by all six gates, the board and the next-step text. The requirements gate stops hashing the product tree, and its existing regression at factory/tests/test_gates.py:8583 is named for replacement by one asserting the opposite.",
-    "Owner ruled: a pass without a manifest keeps today's tree-based freshness and only later passes get the new rule, so nothing in flight breaks here or mid-vendor. Manifests are never backfilled, since inferring what a reader read would fabricate evidence.",
-    "Owner ruled the narrowest relaxation: rounds may be reused only when re-recording the SAME gate for the SAME story, never across gates, stories or tasks. 0051's intent that every gate is ledger-matched survives, because the only relaxed case is re-recording a gate already answered.",
-    "The launch ledger gains a terminal state per row. Only an 'answered' row \u2014 launcher exit zero AND a captured verdict \u2014 spends an allowance; 'failed' and 'interrupted' rows, which is what the upstream compaction fault produces, consume nothing and are ignored by the repeat-read guard."
+    "The specification now states that Wait for all governs coordinator transfer only, while Decision 0064 still permits separately owned dependency-ready work unaffected by the pending answer.",
+    "Transfer now refuses while any required structured or ordinary-chat exchange for the story is unresolved, and cancellation grants no authority.",
+    "Accepted Decision 0073 supersedes Decision 0071, preserves its future empty-frontier exception, and leaves Decision 0067 as the sole same-gate/story/task reuse rule.",
+    "The specification now accepts any nonblank free-form answer outside the labels and preserves labels and free-form answers exactly without normalization.",
+    "The future empty-frontier result now requires an ordered exact finding-resolution-source object for every finding, with no extras or duplicates; only a truly empty read permits an empty map.",
+    "forge grill run now refuses any oversized complete framed input and never partitions a grill artifact or context; future partitioning requires a separate capability and cannot satisfy a grill gate.",
+    "The specification and architecture again require every materially affected lens to name the shared fingerprint and blocking state, and forbid an affected blocking lens from reporting clean.",
+    "Raw helper output and provider findings remain lossless; only the helper-owned synthesized top-level chunk body may use its declared 2,000-character bound.",
+    "A generation is published only after complete raw output and all three lenses validate; failed pre-publication attempts retain ordinary diagnostics but publish no generation or pointer.",
+    "Both specification and architecture allow a rejection successor only from the selected combined or rejection generation and preserve the immediate-source and combined-root lineage.",
+    "Quality consumes only the committed requirements and Ruff configuration byte-for-byte and may change source bytes to fix semantic diagnostics.",
+    "Only QUALITY-BASELINE may use Decision 0072's CI-transport draft, after all predecessors close under incumbent CI, and that draft grants no proof or readiness authority.",
+    "Acceptance now names client settings, client-added agents, CI, history, hotfixes, and dirty state as preservation classes.",
+    "Acceptance now requires one digest-matched protected story/task snapshot, the exact owner/worktree/base/stage tuple, byte-identical or freshly validated retry, and board agreement.",
+    "Toolshed counts as resolved only while the explicit zero-mutation D-0033 identity-and-authorization trigger remains unfired, or after a later authorized rollout resolves it."
   ],
-  "open_items": [
-    "The 93 pre-existing test failures on main are unrelated and are pinned by count and identity so this change is neither credited nor blamed for them."
-  ],
-  "questions_asked": 2,
+  "open_items": [],
+  "questions_asked": 1,
   "rounds": [
     {
-      "question": "Decision 0051 says no round is reused across grills. Dropping the per-recording question needs that relaxed. How far?",
+      "question": "Spec amendment for FORGE-COORD-1: should the already-approved 2026-09-11 change move the complete one-call combined review into NATIVE-FOREGROUND-ACTIVATE now, while the 17 repository-answerable cold-read findings are corrected in the resolved draft?",
       "options": [
-        "Same gate and story only (Recommended)",
-        "Reuse freely within a story",
-        "Keep 0051 as is"
+        "Move it now (Recommended)",
+        "Keep it in LEAN-WORKFLOW"
       ],
-      "chosen": "Same gate and story only (Recommended)",
+      "chosen": "Move it now (Recommended)",
       "frontier_empty": true
     }
   ],
   "inspected_refs": [
-    "docs/specs/gates-stale-only-on-what-they-read.md",
-    "docs/decisions/0051-every-grill-gate-is-ledger-matched.md",
-    "docs/decisions/0066-closeout-binds-to-the-diff.md",
-    "factory/schemas/grill.json",
-    "factory/scripts/grill_gates.py",
-    "factory/scripts/record_grill_from_json.py",
-    "factory/scripts/factory_lib.py",
-    "factory/scripts/forge_cli/plans.py",
-    "factory/scripts/forge_cli/grill.py",
-    "factory/tests/test_gates.py"
+    "docs/specs/dual-coordinator-parity.md",
+    "docs/architecture/dual-coordinator-parity.md",
+    "docs/decisions/0054-native-questions-and-task-proof.md",
+    "docs/decisions/0064-lean-delivery-and-durable-history.md",
+    "docs/decisions/0067-rounds-rebind-to-their-gate.md",
+    "docs/decisions/0070-sol-specialized-workflow-models.md",
+    "docs/decisions/0071-empty-frontier-grill-proof.md",
+    "docs/decisions/0072-staged-platform-proof.md",
+    "docs/decisions/0073-grill-round-reuse-and-empty-frontier-coexist.md",
+    "factory/prompts/griller.md",
+    "factory/scripts/forge_cli/review.py",
+    "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md"
   ],
   "citations": [
     {
-      "finding": "The input-manifest contract was not implementable: no declaration mechanism, no path normalisation, no handling for dirty, untracked or deleted inputs, and no recorder-side validation, so an implementation could omit a source the reader used and keep the pass fresh.",
-      "ref": "factory/schemas/grill.json"
+      "finding": "Wait for all scope",
+      "ref": "docs/specs/dual-coordinator-parity.md:30"
     },
     {
-      "finding": "'Active decisions applicable to the gate' had no deterministic selection rule, so it would either recreate global staleness or let a newly applicable decision bypass the gate.",
-      "ref": "docs/specs/gates-stale-only-on-what-they-read.md"
+      "finding": "ordinary-chat transfer",
+      "ref": "docs/specs/dual-coordinator-parity.md:44"
     },
     {
-      "finding": "The spec did not reconcile existing freshness consumers: the requirements gate hashes the confirmed spec plus the whole product tree and has a regression expecting an arbitrary new product file to stale a pass, the inverse of the new rule, and task grounding folds in the product tree before stage start.",
-      "ref": "factory/scripts/forge_cli/plans.py"
+      "finding": "same-gate reuse",
+      "ref": "docs/decisions/0073-grill-round-reuse-and-empty-frontier-coexist.md"
     },
     {
-      "finding": "Legacy records had no migration policy, leaving existing client and historical passes undefined.",
-      "ref": "factory/schemas/grill.json"
+      "finding": "free-form answers",
+      "ref": "docs/specs/dual-coordinator-parity.md:38"
     },
     {
-      "finding": "Reusable rounds conflicted with accepted decision 0051's 'no round reused across grills', which the recorder enforces by consuming rounds from previous grill records.",
-      "ref": "docs/decisions/0051-every-grill-gate-is-ledger-matched.md"
+      "finding": "finding-resolution map",
+      "ref": "docs/specs/dual-coordinator-parity.md:42"
     },
     {
-      "finding": "'Completes and returns a verdict' is not represented in the launch ledger: a successful launcher records exit status only, the cap counts launches regardless of terminal failure, and the repeat-read guard treats any non-failed row as a cold read.",
-      "ref": "factory/scripts/forge_cli/grill.py"
+      "finding": "grill partition refusal",
+      "ref": "docs/specs/dual-coordinator-parity.md:76"
+    },
+    {
+      "finding": "cross-lens blocking",
+      "ref": "docs/specs/dual-coordinator-parity.md:84"
+    },
+    {
+      "finding": "lossless raw versus bounded synthesis",
+      "ref": "docs/specs/dual-coordinator-parity.md:84"
+    },
+    {
+      "finding": "failed attempts",
+      "ref": "docs/specs/dual-coordinator-parity.md:80"
+    },
+    {
+      "finding": "rejection lineage",
+      "ref": "docs/architecture/dual-coordinator-parity.md:62"
+    },
+    {
+      "finding": "Quality byte boundary",
+      "ref": "docs/specs/dual-coordinator-parity.md:104"
+    },
+    {
+      "finding": "draft scope",
+      "ref": "docs/specs/dual-coordinator-parity.md:94"
+    },
+    {
+      "finding": "client preservation",
+      "ref": "docs/specs/dual-coordinator-parity.md:119"
+    },
+    {
+      "finding": "snapshot guarantees",
+      "ref": "docs/specs/dual-coordinator-parity.md:122"
+    },
+    {
+      "finding": "Toolshed closeout",
+      "ref": "docs/specs/dual-coordinator-parity.md:138"
     }
   ],
-  "input_sha256": "ed4febd0f0b2f9c11669a82121ebda3d6b776ec68e975563cf7b74326d1ad474",
-  "recorded_at": "2026-09-11T17:50:38+00:00",
-  "commit": "498be61d9241008cd47e6fb877200a4e0af2d8fb"
+  "input_sha256": "677b050cc3f40c2fe7ff771f70338886610d438c5df1dae2157b8e1be3f9d2ad",
+  "recorded_at": "2026-09-12T21:09:57+00:00",
+  "commit": "051c9d36de0ca81d4ec045b2f216cb4c84197bd1"
 }
