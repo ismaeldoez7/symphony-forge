@@ -2011,14 +2011,17 @@ def _modern_task_proof_problems(
                 expected_head=expected_head or head_sha(root) or "",
             )
         )
+    review_delta = (
+        expected_branch_diff_digest
+        if expected_branch_diff_digest is not None
+        else expected_review_delta
+        or (str(generation.get("delta_id") or "") if sealed_commit
+            and isinstance(generation, dict) else None)
+    )
     problems.extend(
         _proof_review_problems(
             root, task_id, reviews, strict=True,
-            expected_branch_diff_digest=(
-                expected_branch_diff_digest
-                if expected_branch_diff_digest is not None
-                else expected_review_delta or None
-            ),
+            expected_branch_diff_digest=review_delta,
         )
     )
     problems.extend(
@@ -2230,9 +2233,7 @@ def task_proof_problems(
         review_base = str(marker_context.get("review_base_sha") or "")
         expected_branch_diff_digest = (
             product_delta_digest(root, review_base, sealed_commit)
-            if review_base else _historical_branch_diff_digest(
-                root, str(marker_context["base_main_sha"]), sealed_commit,
-            )
+            if review_base else None
         )
         allow_legacy = True
 

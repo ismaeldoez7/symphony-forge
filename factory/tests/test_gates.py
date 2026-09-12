@@ -12545,6 +12545,7 @@ def test_task_pr_ready_refuses_unsealed_then_writes_marker_and_opens_pr(
         "task_id": "T1",
         "branch": git(repo, "symbolic-ref", "--short", "HEAD"),
         "base_main_sha": pointer["base_main_sha"],
+        "review_base_sha": payload["review_base_sha"],
         "commit": expected_head,
         "sealed_at": payload["sealed_at"],
     }
@@ -18986,7 +18987,7 @@ def test_close_and_frontier_use_selected_current_delta(repo, tmp_path):
     assert lib.task_proof_problems(repo, "ENG-1", task, preseal=True)
 
 
-def test_task_proof_ci_uses_sealed_legacy_t1_not_later_t2_singleton(
+def test_task_proof_ci_uses_sealed_selected_t1_not_later_t2_singleton(
         repo, tmp_path):
     sign_off(repo)
     intake(repo)
