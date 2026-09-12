@@ -48,51 +48,60 @@ def _validate_round_provenance(
             + FLOOR_IS_NOT_A_TARGET
         )
 
-    scopes = ([story] if get_gate(gate).story_scoped and story else []) + [None]
+    # Only the ACTIVE story's rounds are ever read, plus the global ones, so a
+    # round asked during a DIFFERENT story is already unreachable here. An
+    # earlier draft narrowed this further for non-story-scoped gates and broke
+    # the ordinary flow: spec, signoff and epics are recorded while a story IS
+    # active, so their rounds live in that story's directory.
     ledger_rounds: list[dict] = []
-    directories = tuple(
-        evidence_path(root, scope, "grill-rounds") for scope in scopes
+    directories = (
+        evidence_path(root, story, "grill-rounds"),
+        evidence_path(root, None, "grill-rounds"),
     )
-    for directory in directories:
+    for directory in dict.fromkeys(directories):
         if not directory.is_dir():
             continue
         for record_path in sorted(directory.glob("*.json")):
             record = load_json(record_path, default={})
             ledger_rounds.extend(
-                {**entry, "_scope": directory}
-                for entry in record.get("questions", [])
+                entry for entry in record.get("questions", [])
                 if isinstance(entry, dict)
             )
 
     current_name = get_gate(gate).evidence_name(task_id)
     current_story = story if get_gate(gate).story_scoped else ""
     current_path = evidence_path(root, current_story, current_name)
-    grill_directories = tuple(
-        evidence_path(root, scope, "grills") for scope in scopes
+    grill_directories = (
+        evidence_path(root, story, "grills"),
+        evidence_path(root, None, "grills"),
     )
     used_rounds: list[dict] = []
-    for directory, ledger_directory in zip(grill_directories, directories):
+    for directory in dict.fromkeys(grill_directories):
         if not directory.is_dir():
             continue
         paths = [*directory.glob("*.json"), *directory.glob("tasks/*.json")]
         for grill_path in paths:
             saved = load_json(grill_path, default={})
             saved_rounds = saved.get("rounds")
+            # A pass never spends the rounds recorded at its OWN evidence path,
+            # whatever they now contain. That path is unique per gate, story and
+            # task, so this is exactly "reusable at THAT gate for THAT story"
+            # (decision 0067) and nothing wider: every OTHER pass still spends
+            # them. The old condition also required the stored rounds to be
+            # byte-identical to the ones being submitted, so editing a round made
+            # a pass start consuming its own history and demand a new question.
             if grill_path == current_path:
                 continue
             if isinstance(saved_rounds, list):
                 used_rounds.extend(
-                    {**entry, "_scope": ledger_directory}
-                    for entry in saved_rounds
-                    if isinstance(entry, dict)
+                    entry for entry in saved_rounds if isinstance(entry, dict)
                 )
 
     available = list(ledger_rounds)
     for used in used_rounds:
         claimed = next((
             logged for logged in available
-            if logged["_scope"] == used["_scope"]
-            and logged.get("question") == used.get("question")
+            if logged.get("question") == used.get("question")
             and logged.get("options") == used.get("options")
             and (
                 logged.get("chosen") is None

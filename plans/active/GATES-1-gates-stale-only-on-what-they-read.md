@@ -173,11 +173,17 @@ gate, story and task. So the rule follows from location: in
 `record_grill_from_json.py`, a pass stops treating the rounds of its OWN evidence
 path as spent, which is what makes re-recording free, while every other pass
 still spends them, which is what refuses a round at a different gate, story or
-task. A gate that is not story-scoped reads only globally asked rounds, closing
-0051's accidental hole where a globally recorded gate could consume a round asked
-during another story. This is decision 0067 (accepted), which supersedes 0051.
-No round, round schema or hook changes, so there is no legacy class and no
-migration.
+task. That is the WHOLE change — one condition. This is decision 0067 (accepted),
+which supersedes 0051. No round, round schema or hook changes, so there is no
+legacy class and no migration.
+
+0051 was thought to leave a hole where a globally recorded gate could consume a
+round asked during another story. It does not: the recorder reads only the ACTIVE
+story's rounds plus the global ones, so another story's rounds were never
+reachable. Narrowing non-story-scoped gates to global rounds only, which an
+earlier draft of this plan required, breaks the ordinary flow instead — spec,
+signoff and epics are recorded while a story IS active, so their rounds live in
+that story's directory. The gate tests caught it. Those gates are unchanged.
 
 **The ledger learns what happened.** Launch rows gain a terminal state:
 `answered` for exit zero with a captured verdict, `failed` for a non-zero exit,

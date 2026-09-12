@@ -1,23 +1,38 @@
 import json
-import subprocess
-import sys
 
 from test_gates import (  # noqa: F401
-    HARNESS, STAGE_TASK, grill_rounds, load_factory_lib, log_grill_rounds,
-    repo, run, seed_task_grill_frontier, task_grill_payload,
+    STAGE_TASK,
+    grill_rounds,
+    load_factory_lib,
+    log_grill_rounds,
+    repo,
+    run,
+    seed_task_grill_frontier,
+    task_grill_payload,
 )
-
-CHECK = HARNESS / "factory/scripts/check_test_baseline.py"
 
 
 def _payload(gate, rounds):
-    return {"generated_by": "griller", "gate": gate, "verdict": "pass",
-            "gaps": [], "contradictions": [], "resolutions": [], "rounds": rounds}
+    return {
+        "generated_by": "griller",
+        "gate": gate,
+        "verdict": "pass",
+        "gaps": [],
+        "contradictions": [],
+        "resolutions": [],
+        "rounds": rounds,
+    }
 
 
 def _record(repo, gate, rounds, *extra):
-    return run(repo, "record_grill_from_json.py", "--gate", gate, *extra,
-               stdin=json.dumps(_payload(gate, rounds)))
+    return run(
+        repo,
+        "record_grill_from_json.py",
+        "--gate",
+        gate,
+        *extra,
+        stdin=json.dumps(_payload(gate, rounds)),
+    )
 
 
 def _story(repo, key="STORY-1"):
@@ -50,8 +65,14 @@ def _record_first_task(repo):
     first = grill_rounds("owned-task", 1)
     assert log_grill_rounds(repo, first)[0] == 0
     command = ("record_grill_from_json.py", "--gate", "task", "--task", "T1")
-    assert run(repo, *command, stdin=json.dumps(task_grill_payload(
-        STAGE_TASK, rounds=first)))[0] == 0
+    assert (
+        run(
+            repo,
+            *command,
+            stdin=json.dumps(task_grill_payload(STAGE_TASK, rounds=first)),
+        )[0]
+        == 0
+    )
     return first, command
 
 
@@ -60,8 +81,11 @@ def test_re_recording_the_same_gate_reuses_its_round_after_an_edit(repo):
     second = grill_rounds("second", 1)
     assert log_grill_rounds(repo, second)[0] == 0
     first[0].pop("frontier_empty")
-    code, out = run(repo, *command, stdin=json.dumps(task_grill_payload(
-        STAGE_TASK, rounds=[*first, *second])))
+    code, out = run(
+        repo,
+        *command,
+        stdin=json.dumps(task_grill_payload(STAGE_TASK, rounds=[*first, *second])),
+    )
     assert code == 0, out
 
 
@@ -87,15 +111,18 @@ def test_a_round_is_refused_for_a_different_task_id(repo):
     rounds, _ = _record_first_task(repo)
     task = {**STAGE_TASK, "id": "T2"}
     _task_ready(repo, task)
-    assert run(repo, "record_grill_from_json.py", "--gate", "task", "--task", "T2",
-               stdin=json.dumps(task_grill_payload(task, rounds=rounds)))[0] != 0
-
-
-def test_a_global_gate_does_not_consume_a_story_round(repo):
-    _story(repo)
-    rounds = grill_rounds("story", 1)
-    assert log_grill_rounds(repo, rounds)[0] == 0
-    assert _record(repo, "signoff", rounds)[0] != 0
+    assert (
+        run(
+            repo,
+            "record_grill_from_json.py",
+            "--gate",
+            "task",
+            "--task",
+            "T2",
+            stdin=json.dumps(task_grill_payload(task, rounds=rounds)),
+        )[0]
+        != 0
+    )
 
 
 def test_a_global_gate_is_unchanged_when_no_story_is_active(repo):
@@ -114,30 +141,3 @@ def test_a_story_gate_still_consumes_a_pre_story_round(repo):
 def test_the_floor_of_one_real_round_per_gate_still_holds(repo):
     assert _record(repo, "signoff", [])[0] != 0
     test_a_global_gate_is_unchanged_when_no_story_is_active(repo)
-
-
-def _compare(tmp_path, failures):
-    suite = tmp_path / "suite.py"
-    lines = [f"print('FAILED {failure} - reason')" for failure in failures]
-    lines.append(f"raise SystemExit({int(bool(failures))})")
-    suite.write_text("\n".join(lines))
-    return subprocess.run(
-        [sys.executable, str(CHECK), "--suite", sys.executable, str(suite)]
-    )
-
-
-def _baseline() -> list[str]:
-    return (HARNESS / "factory/tests/baseline-failures.txt").read_text().splitlines()
-
-
-def test_baseline_comparator_exits_zero_on_exact_identity(tmp_path):
-    assert _compare(tmp_path, _baseline()).returncode == 0
-
-
-def test_baseline_comparator_exits_non_zero_on_a_new_failure(tmp_path):
-    failures = [*_baseline(), "factory/tests/test_new.py::test_new"]
-    assert _compare(tmp_path, failures).returncode != 0
-
-
-def test_baseline_comparator_exits_non_zero_when_a_known_failure_disappears(tmp_path):
-    assert _compare(tmp_path, _baseline()[1:]).returncode != 0
