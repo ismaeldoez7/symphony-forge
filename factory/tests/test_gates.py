@@ -15188,6 +15188,8 @@ def test_delegate_brief_carries_criteria_and_scope(repo, tmp_path):
     assert "src/" in brief                          # write scope
     assert "src/existing_helper.py" in brief        # existing modules
     assert "test_slice" in brief                    # required tests
+    assert "Before you report: run every required test" in brief  # 0067
+    assert "A test you did not run is not reported as passing" in brief
     assert "the retry path" in brief                # reviewer focus
     assert "Implementer contract" in brief          # the prompt, inlined
     assert "Then return." in brief
