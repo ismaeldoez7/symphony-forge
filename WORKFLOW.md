@@ -435,9 +435,9 @@ sequence a JIT contract loop for every pending task:
     window or assumption; derives the product delta (`delta_id`, the hash of
     `base..HEAD` on product paths); runs the declared verify commands and
     required tests; and runs the ONE three-lens review only when no review
-    stamp already covers that exact delta. The three lenses run together, one
-    Codex process each, and join at the end; `--sequential` runs them one at a
-    time. Before closing the stage, `close` requires complete task-owned
+    stamp already covers that exact delta. One Codex helper call publishes one
+    immutable raw-plus-three-lens generation, then selects its task-scoped
+    pointer last. Before closing the stage, `close` requires complete task-owned
     automated proof and conditional functional proof.
 
     A run with no blocking (P0/P1) finding stamps the stage; non-blocking

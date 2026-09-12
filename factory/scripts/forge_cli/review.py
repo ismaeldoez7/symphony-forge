@@ -299,12 +299,6 @@ def _pass_sections(report: dict) -> tuple[dict[str, str], list[str]]:
         sections[lens] = body
     if positions != sorted(positions):
         fail("combined review lens sections are not in quality, performance, security order")
-    bounds = [(lines.index(begin), lines.index(end))
-              for _lens, begin, end in SECTION_MARKERS]
-    if (bounds[0][0] != 0 or bounds[-1][1] != len(lines) - 1
-            or any(left[1] + 1 != right[0]
-                   for left, right in zip(bounds, bounds[1:]))):
-        fail("combined review lens sections must be contiguous and cover the explanation")
     if len(set(sections.values())) != len(LENSES):
         fail("combined review copied one lens assessment into another lens")
     return sections, lines

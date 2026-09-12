@@ -712,15 +712,25 @@ def _wrapped_codex_exec(tokens: list[str]) -> bool:
                 shlex.join(tokens[index:])):
             return True
         if Path(token).name in {"sh", "bash", "dash", "ksh", "zsh"}:
-            try:
-                command_index = tokens.index("-c", index + 1)
-                nested = tokens[command_index + 1]
-                nested_tokens = shlex.split(nested)
-            except (ValueError, IndexError):
-                continue
-            if (CODEX_EXEC_INVOCATION.search(nested)
-                    or _wrapped_codex_exec(nested_tokens)):
-                return True
+            position = index + 1
+            while position < len(tokens):
+                option = tokens[position]
+                if option == "--" or not option.startswith("-"):
+                    return False
+                if option == "-o":
+                    position += 2
+                    continue
+                if not option.startswith("--") and "c" in option[1:]:
+                    try:
+                        nested = tokens[position + 1]
+                        nested_tokens = shlex.split(nested)
+                    except (ValueError, IndexError):
+                        break
+                    if (CODEX_EXEC_INVOCATION.search(nested)
+                            or _wrapped_codex_exec(nested_tokens)):
+                        return True
+                    return False
+                position += 1
     return False
 
 check_bypass = ["pnpm test", "pnpm lint", "pnpm typecheck", "pnpm check:all"]

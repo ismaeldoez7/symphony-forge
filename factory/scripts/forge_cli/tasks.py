@@ -366,36 +366,59 @@ def cmd_task_start(args: argparse.Namespace) -> None:
         base, "creating task worktree", "worktree", "add", str(worktree),
         "-b", branch, base_main_sha,
     )
-    # A fetched trunk can contain this task's earlier approval record. Keep it
-    # in Git history, but remove it from the fresh task workspace so the target
-    # must be grilled and approved for its own plan and task identity.
-    from .scaffold import assert_target_file_destination
-    target_grill = assert_target_file_destination(
-        worktree,
-        worktree / ".factory" / "stories" / key / "grills" / "tasks"
-        / f"{args.id}.json",
-    )
-    if target_grill.exists() or target_grill.is_symlink():
-        target_grill.unlink()
-    for relative, content in payloads.items():
-        destination = assert_target_file_destination(worktree, worktree / relative)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(content)
-    control = git_control_dir(worktree)
-    control.mkdir(parents=True, exist_ok=True)
-    (control / "decomposition.json").write_bytes(decomposition_bytes)
-    (control / "stages.json").write_bytes(stages_bytes)
-    dump_json(control / "run.json", {
-        **state,
-        "issue_key": key,
-        "story": key,
-        "task_id": args.id,
-        "branch": branch,
-        "base_main_sha": base_main_sha,
-        "approved_plan_sha256": approved_plan_sha256,
-        "decomposition_plan_sha256": decomposition.get("plan_sha256"),
-        "task_sha256": task_digest(task),
-    })
+    try:
+        # Preflight every destination before deleting inherited approval or
+        # writing any hydration payload into the newly allocated worktree.
+        from .scaffold import assert_target_file_destination
+        target_grill = assert_target_file_destination(
+            worktree,
+            worktree / ".factory" / "stories" / key / "grills" / "tasks"
+            / f"{args.id}.json",
+        )
+        destinations = {
+            relative: assert_target_file_destination(worktree, worktree / relative)
+            for relative in payloads
+        }
+        control = git_control_dir(worktree)
+        control_destinations = {
+            name: assert_target_file_destination(control, control / name)
+            for name in ("decomposition.json", "stages.json", "run.json")
+        }
+
+        # A fetched trunk can contain this task's earlier approval record. Keep
+        # it in Git history, but require a fresh target grill and approval.
+        if target_grill.exists() or target_grill.is_symlink():
+            target_grill.unlink()
+        for relative, content in payloads.items():
+            destination = destinations[relative]
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(content)
+        control.mkdir(parents=True, exist_ok=True)
+        control_destinations["decomposition.json"].write_bytes(decomposition_bytes)
+        control_destinations["stages.json"].write_bytes(stages_bytes)
+        dump_json(control_destinations["run.json"], {
+            **state,
+            "issue_key": key,
+            "story": key,
+            "task_id": args.id,
+            "branch": branch,
+            "base_main_sha": base_main_sha,
+            "approved_plan_sha256": approved_plan_sha256,
+            "decomposition_plan_sha256": decomposition.get("plan_sha256"),
+            "task_sha256": task_digest(task),
+        })
+    except BaseException:
+        removed = _git(base, "worktree", "remove", "--force", str(worktree))
+        if removed.returncode:
+            detail = removed.stderr.strip() or removed.stdout.strip()
+            fail("task start hydration refused and cleanup failed"
+                 + (f": {detail}" if detail else ""))
+        deleted = _git(base, "branch", "-D", branch)
+        if deleted.returncode:
+            detail = deleted.stderr.strip() or deleted.stdout.strip()
+            fail("task start hydration refused and cleanup failed"
+                 + (f": {detail}" if detail else ""))
+        raise
     print(f"Started task {args.id}: {branch} at {worktree} ({base_main_sha})")
 
 

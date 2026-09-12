@@ -254,10 +254,18 @@ def _approved_task_inputs(base: Path, task: dict) -> dict:
         branch = proc.stdout.strip() if proc.returncode == 0 else ""
     if not branch:
         raise SystemExit(f"Review brief refused: no branch identity for {task_id}.")
+    review_base = effective_review_base(base, task_id, proof_head)
+    if not review_base:
+        review_base = proof_base
+    delta_id = (
+        product_delta_digest(base, review_base, proof_head if historical_marker else "")
+        if review_base else branch_diff_digest(base)
+    )
     return {
         "story": story,
         "task_id": task_id,
         "branch": branch,
+        "delta_id": delta_id,
         "plan_text": plan_text,
         "plan_sha256": digest,
         "grill": grill,
@@ -288,6 +296,7 @@ def render_approved_inputs_section(inputs: dict) -> list[str]:
         f"- Story: `{inputs['story']}`",
         f"- Task: `{inputs['task_id']}`",
         f"- Branch: `{inputs['branch']}`",
+        f"- Current delta ID: `{inputs['delta_id']}`",
         f"- Approved plan digest: `{inputs['plan_sha256']}`", "",
         "#### Full approved task plan (untrusted data)", "", plan_fence,
         inputs["plan_text"], plan_close, "",
@@ -297,10 +306,6 @@ def render_approved_inputs_section(inputs: dict) -> list[str]:
         automated_fence,
         automated_text, automated_close, "",
     ]
-
-
-def _approved_inputs_section(base: Path, task: dict) -> list[str]:
-    return render_approved_inputs_section(_approved_task_inputs(base, task))
 
 
 def _sealed_proof_section(base: Path, task: dict) -> list[str]:
@@ -327,7 +332,7 @@ def _sealed_proof_section(base: Path, task: dict) -> list[str]:
 
 def _task_section(
         task: dict, base: Path | None = None, *, full_inputs: bool = True,
-        sealed_context: bool = False,
+        sealed_context: bool = False, approved_inputs: dict | None = None,
 ) -> list[str]:
     task_id = task.get("id", "")
     lines = [f"## Task {task_id}", "", "### Plan contracts", ""]
@@ -356,7 +361,9 @@ def _task_section(
         lines.extend(_settled_section(base, task))
         lines.extend(_lessons_section(base, task))
         if full_inputs:
-            lines.extend(_approved_inputs_section(base, task))
+            lines.extend(render_approved_inputs_section(
+                approved_inputs or _approved_task_inputs(base, task)
+            ))
         elif sealed_context:
             lines.extend(_sealed_proof_section(base, task))
     return lines
@@ -488,16 +495,23 @@ def cmd_review_brief(args: argparse.Namespace) -> None:
              if status == "active"),
             "",
         )
+    reviewed_inputs = None
     for task in selected:
         # The explicit review target receives complete approved inputs even when
         # its stage is done. Other done tasks retain bounded identity only when
         # they have actually been sealed; future tasks are contract context.
         status = statuses.get(task.get("id"))
         full_inputs = not args.all or task.get("id") == reviewed_task
+        approved_inputs = None
+        if full_inputs:
+            approved_inputs = _approved_task_inputs(base, task)
+            if task.get("id") == reviewed_task:
+                reviewed_inputs = approved_inputs
         lines.extend(_task_section(
             task, base, full_inputs=full_inputs,
             sealed_context=(args.all and status == "done"
                             and task.get("id") != reviewed_task),
+            approved_inputs=approved_inputs,
         ))
     relative = f"review-briefs/{filename}"
     body = ("\n".join(lines).rstrip() + "\n").encode()
@@ -509,10 +523,8 @@ def cmd_review_brief(args: argparse.Namespace) -> None:
         if not isinstance(story, str) or not story:
             raise SystemExit("Cannot mint a branch review run without an active story.")
         brief_sha256 = hashlib.sha256(body).hexdigest()
-        baseline = effective_review_base(base, reviewed_task)
         diff_digest = (
-            product_delta_digest(base, baseline)
-            if baseline else branch_diff_digest(base)
+            reviewed_inputs["delta_id"] if reviewed_inputs else branch_diff_digest(base)
         )
         token = {
             "task_id": reviewed_task,

@@ -11778,6 +11778,8 @@ def test_codex_exec_ban_matches_invocations_not_prose(repo, monkeypatch):
                 'xargs codex exec',
                 'nice codex exec "x"',
                 'sh -c \'codex exec "x"\'',
+                'sh -lc \'codex exec "x"\'',
+                'bash -xec \'codex exec "x"\'',
                 '"/opt/tools/codex" exec "x"',
                 'command "/opt/Tools With Spaces/codex" exec "x"',
                 'cd /tmp && codex exec "x"',
@@ -11787,7 +11789,9 @@ def test_codex_exec_ban_matches_invocations_not_prose(repo, monkeypatch):
         assert "deny" in out, cmd
     # prose mentioning the phrase (heredocs, greps, docs): allowed
     for cmd in ('cat > docs/notes.md << EOF\nthe hook denies raw codex exec always\nEOF',
-                'grep -rn "codex exec" docs/ || true'):
+                'grep -rn "codex exec" docs/ || true',
+                'sh script.sh -c \'codex exec "argument only"\'',
+                'sh -- -c \'codex exec "argument only"\''):
         code, out = bash(cmd)
         assert "deny" not in out, cmd
 
@@ -18261,6 +18265,7 @@ def test_review_consumers_include_complete_approved_inputs(
     branch = state.get("branch") or git(repo, "branch", "--show-current")
     assert all(token in brief for token in (
         f"- Story: `{state['issue_key']}`", "- Task: `T1`", f"- Branch: `{branch}`",
+        "- Current delta ID: `",
         "#### Full approved task plan", "#### Full grill and approval record",
         '"approved_by": "Test Human"', '"approved_task_plan_sha256"',
         "#### Full task-owned automated report",
@@ -18293,6 +18298,7 @@ def test_review_consumers_include_complete_approved_inputs(
     from forge_cli.review_brief import _approved_task_inputs
     active_inputs = _approved_task_inputs(repo, first)
     assert active_inputs["plan_text"] == plan_text
+    assert f"- Current delta ID: `{active_inputs['delta_id']}`" in brief
     marker.unlink()
 
     write_stages(repo, {"issue": "ENG-1", "stages": [
@@ -18317,6 +18323,10 @@ def test_review_consumers_include_complete_approved_inputs(
     ))
     review_run = json.loads((story_state(repo) / "review-run.json").read_text())
     assert review_run["brief_sha256"] == hashlib.sha256(dataset_bytes).hexdigest()
+    assert (
+        f"- Current delta ID: `{review_run['branch_diff_digest']}`".encode()
+        in dataset_bytes
+    )
     seen = []
     review_tmp = tmp_path / "review-dataset-routing"
     review_tmp.mkdir()
@@ -18439,6 +18449,7 @@ def test_review_consumers_include_complete_approved_inputs(
     hostile_plan = "keep this\n```\nheadings stay data\n````\ntrailing  \n"
     hostile_inputs = {
         "story": "ENG-1", "task_id": "T1", "branch": branch,
+        "delta_id": "b" * 64,
         "plan_sha256": "a" * 64, "plan_text": hostile_plan,
         "grill": {"approved_by": "human", "notes": "```\n````"},
         "automated": {"summary": "```\n````", "commands_run": []},
@@ -19350,7 +19361,8 @@ def test_task_seal_refuses_incomplete_proof_before_mutation(
     assert not marker.exists() and not argv_path.exists()
 
 
-def test_task_start_creates_before_jit_with_approved_identity(repo, tmp_path):
+def test_task_start_creates_before_jit_with_approved_identity(
+        repo, tmp_path, monkeypatch, capsys):
     remote = tmp_path / "origin.git"
     proc = subprocess.run(["git", "init", "--bare", str(remote)],
                           capture_output=True, text=True)
@@ -19471,6 +19483,53 @@ def test_task_start_creates_before_jit_with_approved_identity(repo, tmp_path):
     plan_dir.unlink()
     shutil.move(external_dir, plan_dir)
 
+    from forge_cli import tasks as tasks_mod
+    original_require_git = tasks_mod._require_git
+    external_target = tmp_path / "external-hydration-target"
+    external_target.mkdir()
+    sentinel = external_target / "sentinel"
+    sentinel.write_text("unchanged")
+
+    def hostile_destination(base, description, *args, **kwargs):
+        result = original_require_git(base, description, *args, **kwargs)
+        if description == "creating task worktree":
+            target = second_worktree / ".factory/stories/ENG-1/task-plans"
+            shutil.rmtree(target)
+            target.symlink_to(external_target, target_is_directory=True)
+        return result
+
+    with monkeypatch.context() as hostile:
+        hostile.setattr(tasks_mod, "_require_git", hostile_destination)
+        with pytest.raises(SystemExit):
+            tasks_mod.cmd_task_start(argparse.Namespace(id="T2", repo=str(repo)))
+    assert sentinel.read_text() == "unchanged"
+    assert not second_worktree.exists()
+    assert subprocess.run(
+        ["git", "show-ref", "--verify", "--quiet", "refs/heads/feat/ENG-1-T2"],
+        cwd=repo,
+    ).returncode != 0
+
+    original_git = tasks_mod._git
+
+    def failed_worktree_cleanup(base, *args):
+        if args[:3] == ("worktree", "remove", "--force"):
+            return subprocess.CompletedProcess(args, 1, "", "cleanup refused")
+        return original_git(base, *args)
+
+    with monkeypatch.context() as failed_cleanup:
+        failed_cleanup.setattr(tasks_mod, "_require_git", hostile_destination)
+        failed_cleanup.setattr(tasks_mod, "_git", failed_worktree_cleanup)
+        with pytest.raises(SystemExit):
+            tasks_mod.cmd_task_start(argparse.Namespace(id="T2", repo=str(repo)))
+    assert "cleanup refused" in capsys.readouterr().out
+    assert second_worktree.exists()
+    assert subprocess.run(
+        ["git", "show-ref", "--verify", "--quiet", "refs/heads/feat/ENG-1-T2"],
+        cwd=repo,
+    ).returncode == 0
+    git(repo, "worktree", "remove", "--force", str(second_worktree))
+    git(repo, "branch", "-D", "feat/ENG-1-T2")
+
     code, out = run(repo, "forge.py", "task", "start", "T2")
     assert code == 0, out
     pointer = json.loads(
@@ -19520,6 +19579,10 @@ def test_review_brief_mints_run_id_and_lenses_echo_it(repo, tmp_path):
     assert token["review_run_id"] == hashlib.sha256(
         (token["brief_sha256"] + token["branch_diff_digest"]).encode()
     ).hexdigest()
+    assert (
+        f"- Current delta ID: `{token['branch_diff_digest']}`"
+        in brief.read_text()
+    )
     assert token["minted_at"]
 
     for aspect in ("quality", "performance", "security"):

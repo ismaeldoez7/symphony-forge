@@ -1777,6 +1777,7 @@ def _current_task_review_inputs(
     *,
     reader: Callable[[str], dict | None] | None = None,
     branch: str = "",
+    delta_id: str = "",
 ) -> tuple[dict | None, list[str]]:
     """Read the current task inputs in the same shape review-brief uses.
 
@@ -1840,6 +1841,7 @@ def _current_task_review_inputs(
         "story": key,
         "task_id": task_id,
         "branch": branch,
+        "delta_id": delta_id,
         "plan_text": plan_text,
         "plan_sha256": _plan_body_digest_bytes(raw_plan),
         "grill": grill,
@@ -1858,6 +1860,7 @@ def _review_input_problems(
     brief_treeish: str = "",
     brief_fallback_treeish: str = "",
     branch: str = "",
+    delta_id: str = "",
 ) -> list[str]:
     """Bind clean review artifacts to the exact complete approved inputs.
 
@@ -1898,6 +1901,7 @@ def _review_input_problems(
 
     inputs, input_problems = _current_task_review_inputs(
         root, key, task_id, task, reader=reader, branch=branch,
+        delta_id=delta_id,
     )
     if input_problems:
         return problems + input_problems
@@ -2033,6 +2037,7 @@ def _modern_task_proof_problems(
             brief_treeish=brief_treeish,
             brief_fallback_treeish=brief_fallback_treeish,
             branch=review_branch,
+            delta_id=review_delta or "",
         )
     )
     return problems
