@@ -47,6 +47,6 @@
     "docs/decisions/0066-closeout-binds-to-the-diff.md:40"
   ],
   "input_sha256": "dfc90288f57e4fe418e7aa29de20af84a7c6d6e31a71292a492f0f026a7cc888",
-  "recorded_at": "2026-09-12T06:10:53+00:00",
-  "commit": "d3f001e923be1e69716040764024cf450da0aba9"
+  "recorded_at": "2026-09-12T06:11:54+00:00",
+  "commit": "ec07e34c2d159cd435c8541a3aa17588b29cd81e"
 }

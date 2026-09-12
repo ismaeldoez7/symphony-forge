@@ -113,3 +113,56 @@ flowchart TD
 zero only when the failing set matches the recorded baseline by identity; the new
 round-reuse suite; `./forge doctor`; and per decision 0055, Ruff format, Ruff lint
 and Pyright over the changed Python.
+
+<!-- forge:contract -->
+## Contract (recorded)
+
+Rendered by the harness from the recorded decomposition; edit the decomposition, not this block. It is excluded from the plan's approval and grill digests, so a re-render never stales either.
+
+**Objective.** A pass stops treating its own recorded rounds as spent, so re-recording the same gate for the same story and task reuses them and needs no invented question, while every other pass still spends them so a round never crosses to a different gate, story or task. A gate that is not story-scoped no longer reads the active story's rounds, closing 0051's hole. Provenance is read from where evidence already lives, so no round, schema or hook changes. Implements decision 0067.
+
+**Acceptance criteria**
+
+- Re-recording the same gate for the same story and task consumes its own existing round and requires no new question, including when the submitted round set differs from the one already stored
+- A round already consumed by a pass at a different gate is refused
+- A round already consumed by a pass for a different story is refused
+- A round already consumed by a pass for a different task id is refused
+- A gate that is not story-scoped does not consume a round asked while a story was active
+- A gate that is not story-scoped behaves exactly as it does today when no story is active
+- A story-scoped gate still consumes rounds asked before any story existed
+- The floor of at least one real round per gate still holds, asserted both ways
+- No round record, schema or hook changes, asserted by the existing ledger round shape test still passing untouched
+- The failing baseline is committed data, one pytest node id per line, and the comparator takes an injectable suite command so its own tests never invoke the suite that contains them
+- check_test_baseline.py exits zero on exact set equality with the baseline, non-zero when a new failure appears, and non-zero when a known failure disappears
+
+**Write scope** (what `stage done` measures the diff against)
+
+- factory/scripts/record_grill_from_json.py
+- factory/scripts/check_test_baseline.py
+- factory/tests/baseline-failures.txt
+- factory/tests/test_round_provenance.py
+
+**Required tests** (run by `stage done`)
+
+- `test_re_recording_the_same_gate_reuses_its_round_after_an_edit` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
+- `test_a_round_is_refused_at_a_different_gate` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
+- `test_a_round_is_refused_for_a_different_story` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
+- `test_a_round_is_refused_for_a_different_task_id` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
+- `test_a_global_gate_does_not_consume_a_story_round` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
+- `test_a_global_gate_is_unchanged_when_no_story_is_active` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
+- `test_a_story_gate_still_consumes_a_pre_story_round` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
+- `test_the_floor_of_one_real_round_per_gate_still_holds` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
+- `test_baseline_comparator_exits_zero_on_exact_identity` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
+- `test_baseline_comparator_exits_non_zero_on_a_new_failure` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
+- `test_baseline_comparator_exits_non_zero_when_a_known_failure_disappears` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
+
+**Verify commands**
+
+- `python3 factory/scripts/check_test_baseline.py`
+- `uvx --with ruff ruff format --check factory/scripts factory/tests`
+- `uvx --with ruff ruff check factory/scripts factory/tests`
+- `uvx --with pyright pyright factory/scripts`
+- `./forge doctor`
+
+**Review budget.** 4 files / 300 lines -- Two conditions in the recorder's consumption walk, a baseline comparator the stage cannot close without, its committed baseline data, and one new suite. Scope FELL from seven files after a fourth read showed the session carrier three drafts had been designing was unnecessary: provenance is already recorded in where evidence lives.
+<!-- /forge:contract -->
