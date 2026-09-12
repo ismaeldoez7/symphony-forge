@@ -18,7 +18,7 @@ personality = "pragmatic"
 sandbox_mode = "workspace-write"
 web_search = "cached"
 
-# The commands the worker runs may reach the network (decision 0067): the
+# The commands the worker runs may reach the network (decision 0068): the
 # package registry and the local database, so a task can install what it
 # declares and run the tests it writes. Writes stay confined to the worktree.
 # On Windows this is what routes each command to the CodexSandboxOnline

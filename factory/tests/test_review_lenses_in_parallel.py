@@ -23,7 +23,8 @@ from test_gates import (  # noqa: F401
 
 sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
 from forge_cli.review import (  # noqa: E402
-    LENSES, codex_runs_path, review_log_path, review_task,
+    LENSES, codex_runs_path, lenses_may_run_together, review_log_path,
+    review_task,
 )
 from forge_cli.stages import load_stages  # noqa: E402
 
@@ -149,3 +150,78 @@ def test_one_crashing_lens_reaps_the_others_and_names_itself(repo, tmp_path, mon
         assert not lib.proof_path(
             repo, "ENG-1", f"reviews/{lens}.json", task_id="T1").is_file()
     assert _stamp(repo) is None
+
+
+# The installed skill scans each outgoing pack with TruffleHog. These are the
+# two shapes of that call the guard has to tell apart, embedded in a fake
+# skill that otherwise behaves like FAKE_LENS.
+SCAN_WITH_UPDATE = """
+# scan_outgoing_review_pack:
+#     result = run([
+#         trufflehog_bin,
+#         "filesystem",
+#         str(pack_path),
+#         "--json",
+#         "--fail-on-scan-errors",
+#     ], Path(tempdir), check=False)
+"""
+SCAN_WITHOUT_UPDATE = SCAN_WITH_UPDATE.replace(
+    '#         "--json",\n', '#         "--json",\n#         "--no-update",\n')
+
+
+def _fake_skill_with_scan(tmp_path: Path, scan: str) -> Path:
+    path = tmp_path / "fake-autoreview-scanning.py"
+    path.write_text(FAKE_LENS + scan, encoding="utf-8")
+    return path
+
+
+def test_the_guard_reads_the_scan_call_in_the_installed_skill(tmp_path):
+    plain = _fake_skill(tmp_path)
+    assert lenses_may_run_together(plain) == (
+        True, "the review skill runs no scanner that could collide")
+    updating = _fake_skill_with_scan(tmp_path, SCAN_WITH_UPDATE)
+    ok, why = lenses_may_run_together(updating)
+    assert ok is False and "--no-update" in why and str(updating) in why
+    fixed = _fake_skill_with_scan(tmp_path, SCAN_WITHOUT_UPDATE)
+    assert lenses_may_run_together(fixed) == (
+        True, "the review skill runs TruffleHog with --no-update")
+    # A flag elsewhere in the file is not the flag on the scan.
+    elsewhere = tmp_path / "fake-autoreview-elsewhere.py"
+    elsewhere.write_text(
+        FAKE_LENS + SCAN_WITH_UPDATE + '\nUNRELATED = "--no-update"\n',
+        encoding="utf-8")
+    assert lenses_may_run_together(elsewhere)[0] is False
+    missing = tmp_path / "nope"
+    ok, why = lenses_may_run_together(missing)
+    assert ok is False and "cannot read the review skill" in why
+
+
+def test_a_self_updating_scanner_forces_the_lenses_one_at_a_time(
+        repo, tmp_path, monkeypatch, capsys):
+    """Asked to run together, with a skill whose scanner would collide, the
+    review runs the lenses one after another and says why once."""
+    _built(repo, tmp_path)
+    monkeypatch.setenv("FAKE_LENS_SLEEP", "2")
+    skill = _fake_skill_with_scan(tmp_path, SCAN_WITH_UPDATE)
+    started = time.monotonic()
+    outcome = review_task(repo, "T1", skill=str(skill), parallel=True)
+    took = time.monotonic() - started
+    assert took >= 6, f"lenses still ran together: {took:.1f}s"
+    assert outcome["stamped"] is True
+    out = capsys.readouterr().out
+    assert out.count("lenses run one at a time:") == 1
+    assert "--no-update" in out
+
+
+def test_a_scanner_with_no_update_keeps_the_lenses_together(
+        repo, tmp_path, monkeypatch, capsys):
+    """The mechanism, not the clock: the run announces one shape or the
+    other, and the timing test above already pins how long together takes."""
+    _built(repo, tmp_path)
+    monkeypatch.setenv("FAKE_LENS_SLEEP", "1")
+    skill = _fake_skill_with_scan(tmp_path, SCAN_WITHOUT_UPDATE)
+    outcome = review_task(repo, "T1", skill=str(skill), parallel=True)
+    assert outcome["stamped"] is True
+    out = capsys.readouterr().out
+    assert "lenses running together:" in out
+    assert "lenses run one at a time" not in out

@@ -970,7 +970,7 @@ PONYTAIL_BRIEF = (
 )
 
 
-# The worker can run its own tests (decision 0067); nothing asked it to. It
+# The worker can run its own tests (decision 0068); nothing asked it to. It
 # reported "host verification remains required" in 22 of 31 runs and the
 # fix loop paid a round trip per finding.
 BEFORE_YOU_REPORT = (

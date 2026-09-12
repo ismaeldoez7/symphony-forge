@@ -563,6 +563,44 @@ def _run_skill(skill: Path, worktree: Path, base_sha: str, prompt_rel: str,
     return json.loads(json_out.read_text(encoding="utf-8"))
 
 
+def lenses_may_run_together(skill: Path) -> tuple[bool, str]:
+    """Whether three copies of the review skill can start at once.
+
+    The skill scans every outgoing review pack with TruffleHog, and TruffleHog
+    checks for a newer release on every start and swaps its own binary in
+    place. Three lenses launched together are three scanners starting within
+    the same second: on Windows the second and third find the binary locked,
+    exit non-zero, and the skill's `--fail-on-scan-errors` turns that into
+    "could not complete the scan" -- the lens dies and the close with it (two
+    closes on WF-1 T3, 2026-09-12). Upstream fixed it twice: `--no-update`
+    on the scanner (2026-08-27), then no scanner at all (2026-09-08). A copy
+    installed before that still collides, so it is read here rather than
+    assumed: until `forge doctor --fix` refreshes it, the lenses run one at
+    a time -- slow, but never a dead close.
+    """
+    try:
+        text = skill.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        return False, f"cannot read the review skill at {skill}: {exc}"
+    if "trufflehog" not in text.lower():
+        return True, "the review skill runs no scanner that could collide"
+    # The scan is one argv list starting at the resolved binary; the update
+    # flag has to sit inside that same call, not anywhere in the file.
+    start = text.find("trufflehog_bin,")
+    if start < 0:
+        start = text.lower().find("trufflehog")
+    window = text[start:start + 2500]
+    end = window.find("]")
+    call = window[:end] if end > 0 else window
+    if "--no-update" in call:
+        return True, "the review skill runs TruffleHog with --no-update"
+    return False, ("the installed review skill lets TruffleHog self-update on "
+                   "every start, and three scanners starting together collide "
+                   "on its binary; `forge doctor --fix` refreshes the skill "
+                   "(upstream passed --no-update on 2026-08-27 and dropped the "
+                   f"scanner on 2026-09-08); the scan call is in {skill}"),
+
+
 def review_log_dir(base: Path, task_id: str) -> Path:
     """Where each lens's streamed output lands when lenses run together.
 
@@ -1023,6 +1061,10 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
         # time (an account that rate-limits three sessions, or a debug run).
         together = (parallel if parallel is not None
                     else not os.environ.get("FORGE_REVIEW_SEQUENTIAL"))
+        if together and len(lenses) > 1:
+            together, why = lenses_may_run_together(skill)
+            if not together:
+                print(f"lenses run one at a time: {why}", flush=True)
         for lens in lenses:
             print(f"== {lens} lens: releasing Codex over {len(scope)} path(s) "
                   f"({base_sha[:7]}..{review_tip[:7]}, task tip {tip_sha[:7]})"
