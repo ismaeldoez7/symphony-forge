@@ -132,7 +132,7 @@ def test_a_global_gate_is_unchanged_when_no_story_is_active(repo):
 
 
 def test_a_story_gate_still_consumes_a_pre_story_round(repo):
-    rounds = grill_rounds("legacy", 1)
+    rounds = grill_rounds("prestory", 1)
     assert log_grill_rounds(repo, rounds)[0] == 0
     _story(repo)
     assert _record_plan(repo, rounds)[0] == 0
