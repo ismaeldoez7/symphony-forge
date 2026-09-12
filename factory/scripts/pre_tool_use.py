@@ -712,24 +712,37 @@ def _wrapped_codex_exec(tokens: list[str]) -> bool:
                 shlex.join(tokens[index:])):
             return True
         if Path(token).name in {"sh", "bash", "dash", "ksh", "zsh"}:
+            shell = Path(token).name
             position = index + 1
             while position < len(tokens):
                 option = tokens[position]
-                if option == "--" or not option.startswith("-"):
+                if option == "--" or not option.startswith(("-", "+")):
                     return False
-                if option == "-o":
+                if shell == "bash" and option.startswith(
+                        ("--rcfile=", "--init-file=")):
+                    position += 1
+                    continue
+                if shell == "bash" and option in {"--rcfile", "--init-file"}:
                     position += 2
                     continue
-                if not option.startswith("--") and "c" in option[1:]:
-                    try:
-                        nested = tokens[position + 1]
-                        nested_tokens = shlex.split(nested)
-                    except (ValueError, IndexError):
-                        break
-                    if (CODEX_EXEC_INVOCATION.search(nested)
-                            or _wrapped_codex_exec(nested_tokens)):
-                        return True
-                    return False
+                if not option.startswith("--"):
+                    operand_letters = {"o"} | ({"O"} if shell == "bash" else set())
+                    consumed_operand = False
+                    for offset, letter in enumerate(option[1:]):
+                        if letter in operand_letters:
+                            position += 1 if option[offset + 2:] else 2
+                            consumed_operand = True
+                            break
+                        if option.startswith("-") and letter == "c":
+                            try:
+                                nested = tokens[position + 1]
+                                nested_tokens = shlex.split(nested)
+                            except (ValueError, IndexError):
+                                return False
+                            return bool(CODEX_EXEC_INVOCATION.search(nested)
+                                        or _wrapped_codex_exec(nested_tokens))
+                    if consumed_operand:
+                        continue
                 position += 1
     return False
 

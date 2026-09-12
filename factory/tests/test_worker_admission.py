@@ -500,6 +500,41 @@ def test_contract_mutation_and_out_of_scope_move_are_denied(repo, tmp_path):
     assert "deny" in output and "contract changed" in output
 
 
+def test_scope_classification_is_bound_to_the_immutable_baseline(repo):
+    from factory_lib import classify_scope_entries
+    from forge_cli.worker_admission import path_in_scope
+
+    (repo / "scope-tree").mkdir()
+    (repo / "scope-tree/child.txt").write_text("tree\n")
+    (repo / "scope-blob").write_text("blob\n")
+    (repo / "scope-link").symlink_to("scope-blob")
+    git(repo, "add", "scope-tree", "scope-blob", "scope-link")
+    git(repo, "commit", "-qm", "scope baseline shapes")
+    baseline = git(repo, "rev-parse", "HEAD").strip()
+
+    classified = classify_scope_entries(
+        repo, ["scope-tree", "scope-blob", "scope-link", "absent", "explicit/"],
+        baseline,
+    )
+    assert classified == [
+        "scope-tree/", "scope-blob", "scope-link", "absent", "explicit/",
+    ]
+    assert all(path_in_scope(path, classified) for path in (
+        "scope-tree", "scope-tree/new.txt", "scope-blob", "scope-link",
+        "absent", "explicit/new.txt",
+    ))
+    assert not any(path_in_scope(path, classified) for path in (
+        "scope-blob/new.txt", "scope-link/new.txt", "absent/new.txt",
+    ))
+
+    (repo / "scope-blob").unlink()
+    (repo / "scope-blob").mkdir()
+    assert not path_in_scope(
+        "scope-blob/new.txt",
+        classify_scope_entries(repo, ["scope-blob"], baseline),
+    )
+
+
 def test_midstage_task_amendment_requires_a_fresh_launch_without_rebaseline(
         repo, tmp_path):
     brief, started_digest = _seed_contract(repo)

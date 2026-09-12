@@ -321,9 +321,20 @@ def _actual_passes(report: dict) -> list[tuple[str, dict]]:
     return passes
 
 
-def _tagged_finding(finding: dict) -> tuple[str, dict, tuple[str, int, int, str]]:
+def _helper_bounded_field(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    suffix = "\n\n[truncated]"
+    return text[:max(0, limit - len(suffix))] + suffix
+
+
+def _tagged_finding(finding: dict) -> tuple[
+    str, dict, tuple[str, int, int, str], tuple[str, int, str, str]
+]:
     if not isinstance(finding, dict):
         fail("combined review findings must be objects")
+    if "source_attribution" in finding:
+        fail("combined review plain-source findings cannot use source_attribution")
     title = finding.get("title")
     matches = [lens for lens, tag in zip(LENSES, LENS_TAGS)
                if isinstance(title, str) and title.startswith(tag)]
@@ -343,12 +354,17 @@ def _tagged_finding(finding: dict) -> tuple[str, dict, tuple[str, int, int, str]
             ) or not isinstance(line, int) or isinstance(line, bool) or line < 1):
         fail("combined review finding location must be a repository-relative POSIX path and line")
     normalized_path = unicodedata.normalize("NFC", PurePosixPath(raw_path).as_posix())
-    normalized_title = " ".join(
-        unicodedata.normalize("NFC", clean_title).split()).casefold()
+    display_title = " ".join(unicodedata.normalize("NFC", clean_title).split())
+    normalized_title = display_title.casefold()
+    tagged_title = " ".join(
+        unicodedata.normalize("NFC", title).split()).casefold()
     projected = copy.deepcopy(finding)
-    projected["title"] = clean_title.strip()
+    projected["title"] = display_title
     projected["code_location"] = {"file_path": normalized_path, "line": line}
-    return lens, projected, (normalized_path, line, line, normalized_title)
+    return (
+        lens, projected, (normalized_path, line, line, normalized_title),
+        (normalized_path, line, str(finding.get("category")), tagged_title),
+    )
 
 
 def _project_combined_report(
@@ -361,35 +377,40 @@ def _project_combined_report(
     passes = _actual_passes(report)
     sections = [_pass_sections(provider)[0] for _, provider in passes]
     pass_findings: list[dict[str, list[dict]]] = []
-    pass_fingerprints: list[tuple[str, int, int, str]] = []
-    pass_ordered_findings: list[tuple[str, dict]] = []
-    for _label, provider in passes:
+    fingerprint_lenses: dict[tuple[str, int, int, str], str] = {}
+    retained: list[tuple[str, dict]] = []
+    retained_raw: list[dict] = []
+    seen_merge_keys: set[tuple[str, int, str, str]] = set()
+    for label, provider in passes:
         if not isinstance(provider.get("findings", []), list):
             fail("combined review pass findings must be a list")
         by_lens: dict[str, list[dict]] = {lens: [] for lens in LENSES}
         for finding in provider.get("findings", []):
-            lens, clean, fingerprint = _tagged_finding(finding)
-            if fingerprint in pass_fingerprints:
-                fail("combined review contains a duplicate normalized finding")
-            pass_fingerprints.append(fingerprint)
-            pass_ordered_findings.append((lens, clean))
+            lens, clean, fingerprint, merge_key = _tagged_finding(finding)
+            prior_lens = fingerprint_lenses.setdefault(fingerprint, lens)
+            if prior_lens != lens:
+                fail("combined review contains a cross-lens duplicate normalized finding")
+            if merge_key not in seen_merge_keys:
+                seen_merge_keys.add(merge_key)
+                retained.append((lens, clean))
+                merged = copy.deepcopy(finding)
+                if "pass_reports" in report:
+                    merged["body"] = _helper_bounded_field(
+                        f"{label}:\n\n{merged['body']}", 2000,
+                    )
+                retained_raw.append(merged)
             by_lens[lens].append(clean)
         pass_findings.append(by_lens)
     findings = report.get("findings", [])
     if not isinstance(findings, list):
         fail("combined review findings must be a list")
-    projected: dict[str, list[dict]] = {lens: [] for lens in LENSES}
-    fingerprints: set[tuple[str, int, int, str]] = set()
-    ordered_findings: list[tuple[str, dict]] = []
     for finding in findings:
-        lens, clean, fingerprint = _tagged_finding(finding)
-        if fingerprint in fingerprints:
-            fail("combined review contains a duplicate normalized finding")
-        fingerprints.add(fingerprint)
-        ordered_findings.append((lens, clean))
-        projected[lens].append(clean)
-    if "pass_reports" in report and ordered_findings != pass_ordered_findings:
+        _tagged_finding(finding)
+    if findings != retained_raw:
         fail("combined review merged findings do not match its ordered provider passes")
+    projected: dict[str, list[dict]] = {lens: [] for lens in LENSES}
+    for lens, clean in retained:
+        projected[lens].append(clean)
     artifacts: dict[str, dict] = {}
     for lens in LENSES:
         lens_report = {
@@ -521,6 +542,9 @@ def _structured(finding: dict) -> dict:
         "category": str(finding.get("category", "maintainability")),
         "area": _area(str(location.get("file_path", ""))),
         "summary": summary,
+        "file_path": str(location.get("file_path", "")),
+        "line": location.get("line"),
+        "title": str(finding.get("title", "")).strip(),
     }
 
 
@@ -865,11 +889,10 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
     in the artifact under `rejected_findings` with the reason, so the record
     shows what was raised and why it did not block."""
     from factory_lib import (
-        append_ledger_record, effective_review_base, now_iso, product_delta_digest,
+        effective_review_base, now_iso, product_delta_digest,
         publish_review_generation, read_selected_review_generation,
         review_finding_fingerprint,
     )
-    from .lessons import lessons_path, load_lessons
 
     if lens not in LENSES:
         fail(f"--lens must be one of {', '.join(LENSES)}")
@@ -896,8 +919,8 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
         fail("cannot reject from selected proof: " + "; ".join(
             problems or ["no selected complete review generation"]
         ))
-    if generation.get("origin") != "combined":
-        fail("review rejection requires the selected combined generation")
+    if generation.get("origin") not in {"combined", "rejection"}:
+        fail("review rejection requires the selected combined or rejection generation")
     artifact = generation["lenses"][lens]
     needle = match.strip().lower()
     hits = [f for f in artifact.get("blocking_findings") or []
@@ -916,10 +939,35 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
     at = now_iso()
     candidate = copy.deepcopy(generation)
     candidate.pop("generation_id")
-    history = [{
+    area = str(finding.get("area", "")).strip() if isinstance(finding, dict) else ""
+    if not area:
+        applies_to = ["**"]
+    elif "." in area.rsplit("/", 1)[-1]:
+        applies_to = [area]
+    else:
+        applies_to = [f"{area}/**"]
+    summary = (str(finding.get("summary", ""))[:160] if isinstance(finding, dict)
+               else str(finding)[:160])
+    lesson = {
+        "topic": f"rejected-review-finding-{lens}",
+        "lesson": f"Not a defect ({cite.strip()}): {reason.strip()} — raised as "
+                  f"\"{summary}\"",
+        "source": f"review reject {task_id} {lens}",
+        "applies_to": applies_to,
+        "severity": "medium",
+        "generated_by": by.strip(),
+    }
+    lesson_body = (json.dumps(
+        lesson, indent=2, sort_keys=True, ensure_ascii=False,
+    ) + "\n").encode("utf-8")
+    lesson_sha = hashlib.sha256(lesson_body).hexdigest()
+    lesson_rel = f"plans/lessons/review-rejection-{lesson_sha}.json"
+    history = copy.deepcopy((generation.get("rejection") or {}).get("history") or [])
+    history.append({
         "finding_fingerprint": review_finding_fingerprint(finding),
         "reason": reason.strip(), "citation": cite.strip(), "actor": by.strip(),
-    }]
+        "lesson_path": lesson_rel, "lesson_sha256": lesson_sha,
+    })
     candidate.pop("rejection", None)
     candidate.pop("upgrade", None)
     candidate["origin"] = "rejection"
@@ -927,7 +975,8 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
     candidate["rejection"] = {
         "source_generation_id": generation["generation_id"],
         "source_generation_sha256": selection["generation_sha256"],
-        "root_generation_id": generation["generation_id"],
+        "root_generation_id": (generation.get("rejection") or {}).get(
+            "root_generation_id", generation["generation_id"]),
         "history": history,
     }
     updated = candidate["lenses"][lens]
@@ -944,33 +993,8 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
     publish_review_generation(
         base, story, task_id, candidate,
         expected_source_id=generation["generation_id"], update_stamp=True,
+        lesson_records=[(lesson_rel, lesson_body)],
     )
-    area = str(finding.get("area", "")).strip() if isinstance(finding, dict) else ""
-    # `area` is a directory for structured findings; a file-shaped value (an
-    # extension in its last segment) is kept as the file itself.
-    if not area:
-        applies_to = ["**"]
-    elif "." in area.rsplit("/", 1)[-1]:
-        applies_to = [area]
-    else:
-        applies_to = [f"{area}/**"]
-    summary = (str(finding.get("summary", ""))[:160] if isinstance(finding, dict)
-               else str(finding)[:160])
-    lesson = {
-        "topic": f"rejected-review-finding-{lens}",
-        "lesson": f"Not a defect ({cite.strip()}): {reason.strip()} — raised as "
-                  f"\"{summary}\"",
-        "source": f"review reject {task_id} {lens} at {at}",
-        "applies_to": applies_to,
-        "severity": "medium",
-        "generated_by": by.strip(),
-        "added_at": at,
-    }
-    existing = load_lessons(base)
-    if not any(l.get("lesson", "").strip().lower() == lesson["lesson"].lower()
-               for l in existing):
-        record_id = f"{at.replace(':', '').replace('-', '')}-{lesson['topic']}"
-        append_ledger_record(lessons_path(base), lesson, record_id)
     print(f"Rejected {lens} finding: {summary}\n  reason: {reason.strip()}\n  "
           f"cite: {resolved} (shared terms: {', '.join(shared[:4])})\n  "
           f"ledgered as a lesson for {', '.join(applies_to)}")
@@ -1315,7 +1339,9 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
         proc = subprocess.run(
             [sys.executable, str(recorder), "--set", "--task", args.id,
              "--input", str(payload)], cwd=base, capture_output=True, text=True,
-            encoding="utf-8", env={**os.environ, "PYTHONUTF8": "1"},
+            encoding="utf-8", env={
+                **os.environ, "PYTHONUTF8": "1", "AUTOREVIEW": str(skill.resolve()),
+            },
         )
         if proc.returncode != 0:
             fail(f"recording the combined review generation failed:\n"

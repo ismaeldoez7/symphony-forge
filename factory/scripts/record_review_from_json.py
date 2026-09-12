@@ -128,7 +128,18 @@ if args.set:
             raise SystemExit(f"review generation {field} does not match review-run.json")
     if payload.get("inspected_commit") != head_sha(root):
         raise SystemExit("review generation inspected_commit is not current HEAD")
-    from forge_cli.review import rederive_combined_lenses
+    from forge_cli.review import (
+        _combined_prompt, _helper_identity, rederive_combined_lenses, resolve_skill,
+    )
+    expected_helper, _helper_file = _helper_identity(resolve_skill(None))
+    if payload.get("helper") != expected_helper:
+        raise SystemExit("review generation helper does not match the installed helper")
+    prompt = _combined_prompt(task)
+    expected_input = {
+        "sha256": hashlib.sha256(prompt).hexdigest(), "bytes": len(prompt),
+    }
+    if payload.get("input") != expected_input:
+        raise SystemExit("review generation input does not match the current combined prompt")
     if payload.get("lenses") != rederive_combined_lenses(root, payload):
         raise SystemExit("review generation lenses do not match the raw helper result")
     generation, selection = publish_review_generation(

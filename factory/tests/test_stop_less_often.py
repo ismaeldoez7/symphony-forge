@@ -148,32 +148,15 @@ def test_forge_next_repeats_the_split_where_it_is_needed():
 
 # ------------------------------------------------------- reachable escalation
 def test_the_effort_escalation_harness_yaml_documents_is_reachable(repo: Path):
-    """harness.yaml named an escalation the parser could not perform.
+    """Decision 0068 pins ordinary implementation to Sol/medium."""
+    from forge_cli.delegate import pinned_run_config
 
-        reasoning: "medium (escalate effort to high for migrations/
-                    cross-domain/security-sensitive)"
-
-    The parser takes the first word, so the parenthetical was unreachable
-    prose, and no flag existed either. A task that qualified on all three
-    counts — migrations, two module boundaries and access control — ran at
-    medium regardless. A rule with no mechanism, like the round floors and the
-    board review before it.
-    """
-    forge = (HARNESS / "factory" / "scripts" / "forge.py").read_text(
-        encoding="utf-8")
-    assert '"--effort"' in forge, "delegate has no way to raise the effort"
-
-    delegate = (HARNESS / "factory" / "scripts" / "forge_cli" / "delegate.py"
-                ).read_text(encoding="utf-8")
-    assert "ALLOWED_EFFORTS" in delegate
-    assert "override" in delegate
-
-    # And the pin no longer pretends the parenthetical does the work.
-    harness = (HARNESS / "harness.yaml").read_text(encoding="utf-8")
-    assert "escalate effort to high for migrations" not in harness.split(
-        "reasoning:")[-1].split("\n")[0]
-    assert "--effort high" in harness, (
-        "the pin must name the command that raises it")
+    assert pinned_run_config(HARNESS) == ("gpt-5.6-sol", "medium")
+    for effort in ("low", "high", "xhigh"):
+        code, out = run(repo, "forge.py", "delegate", "T1", "--effort", effort)
+        assert code != 0 and "invalid choice" in out
+    code, out = run(repo, "forge.py", "delegate", "T1", "--effort", "medium")
+    assert code != 0 and "invalid choice" not in out
 
 
 def test_an_unknown_effort_is_refused(repo: Path, tmp_path):

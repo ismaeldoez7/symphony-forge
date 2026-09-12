@@ -586,44 +586,46 @@ def seal_task(base: Path, task_id: str) -> None:
         print(f"Task {args.id} already sealed at {commit[:12]}; the product "
               "and proof have not moved since. Marker committed.")
     else:
-        from factory_lib import read_selected_review_generation
-        generation, selection, review_problems = read_selected_review_generation(
-            base, key, args.id,
-        )
-        if review_problems or not isinstance(generation, dict) \
-                or not isinstance(selection, dict):
-            fail("task PR marker requires one valid selected review generation: "
-                 + "; ".join(review_problems or ["selection is missing"]))
-        payload = {
-            "task_id": args.id,
-            "branch": branch,
-            "base_main_sha": base_main_sha,
-            "review_base_sha": effective_review_base(base, args.id, commit),
-            "commit": commit,
-            "sealed_at": now_iso(),
-        }
-        if any(not isinstance(value, str) or not value.strip() for value in payload.values()):
-            fail("task PR marker fields must all be non-empty strings")
-        generation_path = marker.parent / "reviews" / "generations" / (
-            f"{generation['generation_id']}.json"
-        )
-        selection_path = marker.parent / "reviews" / "selected.json"
-        brief_path = Path(".factory/review-briefs/all.md")
-        selected_paths = [generation_path, selection_path, brief_path]
-        if any(not (base / path).is_file() for path in selected_paths):
-            fail("task PR marker requires the selected generation and saved review brief")
-        dump_json(base / marker, payload)
-        proof_paths = [marker, *selected_paths]
-        # The pointer and its generation must exist in the marker publication
-        # commit. Commit only these exact proof paths so an unrelated index is
-        # not swept into the evidence commit this command owns.
-        _require_git(base, "staging the task PR marker and selected review", "add", "--",
-                     *(path.as_posix() for path in proof_paths))
-        _require_git(
-            base, "committing the task PR marker", "commit", "--only", "-m",
-            f"{key} {args.id}: task PR marker", "--",
-            *(path.as_posix() for path in proof_paths),
-        )
+        from factory_lib import read_selected_review_generation, review_lineage_paths
+        from .delegate import delegation_exclusion
+        with delegation_exclusion(base, args.id, kind="review-selection"):
+            task = require_task_sealed(base, args.id)
+            generation, selection, review_problems = read_selected_review_generation(
+                base, key, args.id,
+            )
+            if review_problems or not isinstance(generation, dict) \
+                    or not isinstance(selection, dict):
+                fail("task PR marker requires one valid selected review generation: "
+                     + "; ".join(review_problems or ["selection is missing"]))
+            payload = {
+                "task_id": args.id,
+                "branch": branch,
+                "base_main_sha": base_main_sha,
+                "review_base_sha": effective_review_base(base, args.id, commit),
+                "commit": commit,
+                "sealed_at": now_iso(),
+            }
+            if any(not isinstance(value, str) or not value.strip()
+                   for value in payload.values()):
+                fail("task PR marker fields must all be non-empty strings")
+            selection_path = marker.parent / "reviews" / "selected.json"
+            brief_path = Path(".factory/review-briefs/all.md")
+            selected_paths = [
+                selection_path, *review_lineage_paths(base, key, args.id), brief_path,
+            ]
+            if any(not (base / path).is_file() for path in selected_paths):
+                fail("task PR marker requires the complete review lineage and saved brief")
+            dump_json(base / marker, payload)
+            proof_paths = [marker, *selected_paths]
+            # Exclusion keeps the selected pointer and its complete lineage fixed
+            # from proof validation through the marker commit.
+            _require_git(base, "staging the task PR marker and selected review", "add", "--",
+                         *(path.as_posix() for path in proof_paths))
+            _require_git(
+                base, "committing the task PR marker", "commit", "--only", "-m",
+                f"{key} {args.id}: task PR marker", "--",
+                *(path.as_posix() for path in proof_paths),
+            )
     _require_git(base, "pushing the task branch", "push", "-u", "origin", branch)
 
     if shutil.which("gh", path=os.environ.get("PATH")) is None:

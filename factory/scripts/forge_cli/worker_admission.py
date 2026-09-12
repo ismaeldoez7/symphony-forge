@@ -7,7 +7,8 @@ import re
 from pathlib import Path
 
 from factory_lib import (
-    git_control_dir, load_json, now_iso, run_state_path, sha256_of, task_digest,
+    classify_scope_entries, git_control_dir, load_json, now_iso, run_state_path,
+    sha256_of, task_digest,
 )
 
 from .delegate import (
@@ -185,7 +186,11 @@ def _stage_contract(base: Path, record: dict) -> tuple[dict | None, str]:
     if not scope or any(not isinstance(item, str) or not item.strip()
                         for item in scope):
         return _deny("the protected task has no valid write scope")
-    return {"kind": "stage", "scope": scope}, ""
+    from .stages import stage_baseline
+    return {
+        "kind": "stage",
+        "scope": classify_scope_entries(base, scope, stage_baseline(base, stage)),
+    }, ""
 
 
 def live_worker_admission(base: Path) -> tuple[dict | None, str]:
@@ -349,6 +354,7 @@ def live_native_read_only_grill(base: Path) -> tuple[dict | None, str]:
 def path_in_scope(path: str, scope: list[str]) -> bool:
     return any(
         bool(prefix := entry.strip().rstrip("/"))
-        and (path == prefix or path.startswith(prefix + "/"))
+        and (path == prefix or (entry.strip().endswith("/")
+                               and path.startswith(prefix + "/")))
         for entry in scope
     )

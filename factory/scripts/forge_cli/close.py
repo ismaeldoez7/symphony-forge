@@ -93,6 +93,17 @@ def cmd_task_close(args: argparse.Namespace) -> None:
 
         # 6. Review only if no stamp covers THIS delta.
         if not stamp_is_fresh(base, stage, task):
+            from factory_lib import selected_review_problems
+            if story and not selected_review_problems(base, story, task_id, delta_id):
+                from .stages import stamp_stage_review
+                with delegation_exclusion(base, task_id, kind="review-selection"):
+                    if selected_review_problems(base, story, task_id, delta_id):
+                        fail("selected review changed before its stamp could be restored")
+                    stamp_stage_review(
+                        base, task_id, lenses=("quality", "performance", "security"),
+                    )
+                stage = _find(load_stages(base), task_id)
+        if not stamp_is_fresh(base, stage, task):
             outcome = review_task(
                 base, task_id, engine=getattr(args, "engine", "codex"),
                 max_priority=getattr(args, "max_priority", "P2"),

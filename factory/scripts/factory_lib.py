@@ -1946,7 +1946,7 @@ def _modern_task_proof_problems(
         return ["task proof requires a non-empty task identity"]
     problems: list[str] = []
     verify = read("verify.json")
-    if not verify_passed(verify):
+    if not isinstance(verify, dict) or not verify_passed(verify):
         problems.append(
             f"{task_id}: no passing verify — from its worktree run "
             "`python3 factory/scripts/verify.py`")
@@ -1962,7 +1962,7 @@ def _modern_task_proof_problems(
             "--input <json>`")
     if bool(task.get("user_facing")):
         functional = tests.get("functional") if isinstance(tests, dict) else None
-        if not functional:
+        if not isinstance(functional, dict):
             problems.append(
                 f"{task_id}: user_facing, so a functional check is required — run "
                 "the functional-checker, then record with "
@@ -2561,43 +2561,49 @@ def validate_review_document(
     if document.get("format") == REVIEW_SELECTION_FORMAT:
         _review_set_fail(problems)
         return
+    origin = document.get("origin")
     if document.get("generated_by") not in schema.get("generated_by", []):
         problems.append("generated_by is not pinned for review-set artifacts")
+    if ((origin in {"combined", "rejection"} and document.get("generated_by") != "autoreview")
+            or (origin == "upgrade" and document.get("generated_by") != "upgrade")):
+        problems.append("generated_by does not match review generation origin")
     helper = document.get("helper")
-    if not isinstance(helper, dict) or set(helper) != {"path", "version", "sha256"}:
-        problems.append("helper needs exactly path, version, sha256")
-    else:
-        if any(not isinstance(helper[key], str) or not helper[key].strip()
-               for key in ("path", "version")):
-            problems.append("helper path and version must be non-empty strings")
-        if not _LOWER_SHA256.fullmatch(str(helper.get("sha256", ""))):
-            problems.append("helper sha256 must be a lowercase SHA256")
     review_input = document.get("input")
-    if not isinstance(review_input, dict) or set(review_input) != {"sha256", "bytes"}:
-        problems.append("input needs exactly sha256 and bytes")
-    elif (not _LOWER_SHA256.fullmatch(str(review_input.get("sha256", "")))
-          or not isinstance(review_input.get("bytes"), int)
-          or isinstance(review_input.get("bytes"), bool)
-          or review_input["bytes"] < 0):
-        problems.append("input needs a lowercase SHA256 and non-negative byte count")
     raw = document.get("raw_result")
     decoded = b""
-    if not isinstance(raw, dict) or set(raw) != {"encoding", "sha256", "bytes", "data"}:
-        problems.append("raw_result needs exactly encoding, sha256, bytes, data")
-    else:
-        try:
-            decoded = base64.b64decode(raw.get("data", ""), validate=True)
-        except (TypeError, ValueError):
-            problems.append("raw_result data must be RFC4648 base64")
-        if raw.get("encoding") != "base64":
-            problems.append("raw_result encoding must be base64")
-        if (not isinstance(raw.get("bytes"), int) or isinstance(raw.get("bytes"), bool)
-                or raw.get("bytes") != len(decoded)):
-            problems.append("raw_result bytes must equal the decoded byte count")
-        if raw.get("sha256") != hashlib.sha256(decoded).hexdigest():
-            problems.append("raw_result sha256 does not match the decoded bytes")
-        if isinstance(raw.get("data"), str) and base64.b64encode(decoded).decode("ascii") != raw["data"]:
-            problems.append("raw_result data is not canonical RFC4648 base64")
+    if origin in {"combined", "rejection"}:
+        if not isinstance(helper, dict) or set(helper) != {"path", "version", "sha256"}:
+            problems.append("helper needs exactly path, version, sha256")
+        else:
+            if any(not isinstance(helper[key], str) or not helper[key].strip()
+                   for key in ("path", "version")):
+                problems.append("helper path and version must be non-empty strings")
+            if not _LOWER_SHA256.fullmatch(str(helper.get("sha256", ""))):
+                problems.append("helper sha256 must be a lowercase SHA256")
+        if not isinstance(review_input, dict) or set(review_input) != {"sha256", "bytes"}:
+            problems.append("input needs exactly sha256 and bytes")
+        elif (not _LOWER_SHA256.fullmatch(str(review_input.get("sha256", "")))
+              or not isinstance(review_input.get("bytes"), int)
+              or isinstance(review_input.get("bytes"), bool)
+              or review_input["bytes"] < 0):
+            problems.append("input needs a lowercase SHA256 and non-negative byte count")
+        if not isinstance(raw, dict) or set(raw) != {"encoding", "sha256", "bytes", "data"}:
+            problems.append("raw_result needs exactly encoding, sha256, bytes, data")
+        else:
+            try:
+                decoded = base64.b64decode(raw.get("data", ""), validate=True)
+            except (TypeError, ValueError):
+                problems.append("raw_result data must be RFC4648 base64")
+            if raw.get("encoding") != "base64":
+                problems.append("raw_result encoding must be base64")
+            if (not isinstance(raw.get("bytes"), int) or isinstance(raw.get("bytes"), bool)
+                    or raw.get("bytes") != len(decoded)):
+                problems.append("raw_result bytes must equal the decoded byte count")
+            if raw.get("sha256") != hashlib.sha256(decoded).hexdigest():
+                problems.append("raw_result sha256 does not match the decoded bytes")
+            if (isinstance(raw.get("data"), str)
+                    and base64.b64encode(decoded).decode("ascii") != raw["data"]):
+                problems.append("raw_result data is not canonical RFC4648 base64")
     lenses = document.get("lenses")
     if not isinstance(lenses, dict) or set(lenses) != {
         "quality", "performance", "security",
@@ -2613,17 +2619,18 @@ def validate_review_document(
                 problems.append(f"{lens} lens is not owned by {document.get('task_id')}")
             if not isinstance(payload, dict):
                 continue
-            for lens_field, generation_field in (
-                ("review_run_id", "review_run_id"),
-                ("brief_sha256", "brief_sha256"),
-                ("branch_diff_digest", "delta_id"),
-                ("commit", "inspected_commit"),
-            ):
-                if payload.get(lens_field) != document.get(generation_field):
-                    problems.append(
-                        f"{lens} lens {lens_field} does not match generation "
-                        f"{generation_field}"
-                    )
+            if origin in {"combined", "rejection"}:
+                for lens_field, generation_field in (
+                    ("review_run_id", "review_run_id"),
+                    ("brief_sha256", "brief_sha256"),
+                    ("branch_diff_digest", "delta_id"),
+                    ("commit", "inspected_commit"),
+                ):
+                    if payload.get(lens_field) != document.get(generation_field):
+                        problems.append(
+                            f"{lens} lens {lens_field} does not match generation "
+                            f"{generation_field}"
+                        )
             blocking = payload.get("blocking_findings")
             non_blocking = payload.get("non_blocking_findings", [])
             if isinstance(blocking, list) and isinstance(non_blocking, list):
@@ -2639,7 +2646,6 @@ def validate_review_document(
                     problems.append(
                         f"{lens} lens recommendation does not match its findings"
                     )
-    origin = document.get("origin")
     if origin == "rejection":
         rejection = document.get("rejection")
         if not isinstance(rejection, dict) or set(rejection) != {
@@ -2652,15 +2658,22 @@ def validate_review_document(
                 if not _LOWER_SHA256.fullmatch(str(rejection.get(field, ""))):
                     problems.append(f"rejection {field} must be a lowercase SHA256")
             history = rejection.get("history")
-            if not isinstance(history, list) or len(history) != 1:
-                problems.append("rejection history must contain exactly one entry")
+            if not isinstance(history, list) or not history:
+                problems.append("rejection history must be non-empty")
             else:
                 for index, entry in enumerate(history, 1):
                     if (not isinstance(entry, dict) or set(entry) != {
                         "finding_fingerprint", "reason", "citation", "actor",
+                        "lesson_path", "lesson_sha256",
                     } or any(not isinstance(value, str) or not value.strip()
                              for value in entry.values())):
                         problems.append(f"rejection history[{index}] has an invalid shape")
+                    elif (not _LOWER_SHA256.fullmatch(entry["finding_fingerprint"])
+                          or not _LOWER_SHA256.fullmatch(entry["lesson_sha256"])
+                          or Path(entry["lesson_path"]).is_absolute()
+                          or any(part in {"", ".", ".."}
+                                 for part in Path(entry["lesson_path"]).parts)):
+                        problems.append(f"rejection history[{index}] has invalid identities")
     elif origin == "upgrade":
         upgrade = document.get("upgrade")
         if not isinstance(upgrade, dict) or set(upgrade) != {
@@ -2670,12 +2683,10 @@ def validate_review_document(
         else:
             if not _LOWER_SHA256.fullmatch(str(upgrade.get("inventory_digest", ""))):
                 problems.append("upgrade inventory_digest must be a lowercase SHA256")
-            if upgrade.get("source_kind") not in {"active", "sealed"}:
-                problems.append("upgrade source_kind must be active or sealed")
+            if upgrade.get("source_kind") != "sealed":
+                problems.append("upgrade source_kind must be sealed")
             sealed = upgrade.get("sealed_commit")
-            if not isinstance(sealed, str) or (upgrade.get("source_kind") == "active" and sealed):
-                problems.append("active upgrade sealed_commit must be empty")
-            if upgrade.get("source_kind") == "sealed" and not str(sealed).strip():
+            if not isinstance(sealed, str) or not sealed.strip():
                 problems.append("sealed upgrade needs sealed_commit")
             artifacts = upgrade.get("legacy_artifacts")
             if not isinstance(artifacts, list) or len(artifacts) != 3:
@@ -2726,18 +2737,46 @@ def review_generation_bytes(document: dict) -> bytes:
 
 
 def review_finding_fingerprint(finding: object) -> str:
+    if not isinstance(finding, dict):
+        raise SystemExit("review finding identity must be an object")
+    identity = {field: finding.get(field) for field in ("file_path", "line", "title")}
+    if (not isinstance(identity["file_path"], str) or not identity["file_path"]
+            or not isinstance(identity["line"], int) or isinstance(identity["line"], bool)
+            or identity["line"] < 1 or not isinstance(identity["title"], str)
+            or not identity["title"]):
+        raise SystemExit("review finding identity needs file_path, line, and title")
     canonical = json.dumps(
-        finding, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        identity, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
     ).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
+
+
+def classify_scope_entries(root: Path, scope: list[str], revision: str) -> list[str]:
+    """Preserve exact entries; mark only explicit or baseline Git trees as dirs."""
+    classified: list[str] = []
+    for entry in scope:
+        raw = entry.strip()
+        if not raw:
+            continue
+        path = raw.rstrip("/")
+        is_directory = raw.endswith("/")
+        if not is_directory and revision:
+            result = subprocess.run(
+                ["git", "cat-file", "-t", f"{revision}:{path}"], cwd=root,
+                capture_output=True, text=True, env=clean_git_env(), encoding="utf-8",
+                errors="surrogateescape",
+            )
+            is_directory = result.returncode == 0 and result.stdout.strip() == "tree"
+        classified.append(path + ("/" if is_directory else ""))
+    return classified
 
 
 def _rejection_successor_problems(
     candidate: dict, source: dict, source_sha256: str,
 ) -> list[str]:
     problems: list[str] = []
-    if source.get("origin") != "combined":
-        return ["rejection source must be a combined generation"]
+    if source.get("origin") not in {"combined", "rejection"}:
+        return ["rejection source must be a combined or rejection generation"]
     for field in (
         "format", "generated_by", "story", "task_id", "review_run_id",
         "brief_sha256", "inspected_commit", "delta_id", "helper", "input",
@@ -2750,13 +2789,17 @@ def _rejection_successor_problems(
         problems.append("rejection source_generation_id does not name its source")
     if rejection.get("source_generation_sha256") != source_sha256:
         problems.append("rejection source_generation_sha256 does not hash its source file")
-    if rejection.get("root_generation_id") != source.get("generation_id"):
+    expected_root = (source.get("rejection") or {}).get(
+        "root_generation_id", source.get("generation_id"))
+    if rejection.get("root_generation_id") != expected_root:
         problems.append("rejection root_generation_id does not name the combined root")
     history = rejection.get("history")
-    if not isinstance(history, list) or len(history) != 1:
-        problems.append("rejection history must contain exactly one entry")
+    source_history = ((source.get("rejection") or {}).get("history") or [])
+    if (not isinstance(history, list) or history[:-1] != source_history
+            or len(history) != len(source_history) + 1):
+        problems.append("rejection history must append exactly one source entry")
         return problems
-    entry = history[0]
+    entry = history[-1]
     source_lenses = source.get("lenses") or {}
     candidate_lenses = candidate.get("lenses") or {}
     changed = [lens for lens in ("quality", "performance", "security")
@@ -2928,8 +2971,50 @@ def read_selected_review_generation(
             if lineage:
                 problems.extend(f"{task_id}: {problem}" for problem in lineage)
                 break
+            lesson = descendant["rejection"]["history"][-1]
+            lesson_rel = lesson["lesson_path"]
+            try:
+                lesson_bytes = (
+                    _read_review_bytes(root, root / lesson_rel)
+                    if reader is None else
+                    (bytes_reader(lesson_rel) if bytes_reader else None)
+                )
+                if lesson_bytes is None:
+                    raise ValueError("lesson is missing")
+            except (OSError, ValueError, SystemExit) as exc:
+                problems.append(f"{task_id}: rejection lesson is invalid: {exc}")
+                break
+            if hashlib.sha256(lesson_bytes).hexdigest() != lesson["lesson_sha256"]:
+                problems.append(f"{task_id}: rejection lesson hash does not match")
+                break
             descendant = source
     return generation, selection, problems
+
+
+def review_lineage_paths(root: Path, key: str, task_id: str) -> list[Path]:
+    """Return every immutable generation and lesson needed to seal selection."""
+    generation, _selection, problems = read_selected_review_generation(root, key, task_id)
+    if problems or not isinstance(generation, dict):
+        raise SystemExit("invalid selected review lineage: " + "; ".join(
+            problems or ["selected generation is missing"]
+        ))
+    paths: list[Path] = []
+    seen_lessons: set[str] = set()
+    current = generation
+    while True:
+        generation_rel, _ = _review_relpaths(key, task_id, current["generation_id"])
+        paths.append(Path(generation_rel))
+        if current.get("origin") != "rejection":
+            break
+        for entry in current["rejection"]["history"]:
+            lesson = entry["lesson_path"]
+            if lesson not in seen_lessons:
+                seen_lessons.add(lesson)
+                paths.append(Path(lesson))
+        source_rel, _ = _review_relpaths(
+            key, task_id, current["rejection"]["source_generation_id"])
+        current = json.loads(_read_review_bytes(root, root / source_rel))
+    return paths
 
 
 def selected_review_problems(
@@ -3041,6 +3126,7 @@ def _replace_review_selection(root: Path, destination: Path, selection: dict) ->
 def publish_review_generation(
     root: Path, key: str, task_id: str, candidate: dict, *,
     expected_source_id: str = "", update_stamp: bool = False,
+    lesson_records: list[tuple[str, bytes]] = (),
 ) -> tuple[dict, dict]:
     """Publish generation first and selected.json last under one protected lock."""
     validate_review_document(root, candidate, allow_missing_generation_id=True)
@@ -3089,6 +3175,34 @@ def publish_review_generation(
                 generation, source, hashlib.sha256(source_bytes).hexdigest(),
             )
             _review_set_fail(lineage)
+            selected_source, _selected_pointer, source_problems = (
+                read_selected_review_generation(
+                    root, key, task_id, expected_delta_id=generation["delta_id"],
+                )
+            )
+            if (source_problems or not isinstance(selected_source, dict)
+                    or selected_source.get("generation_id") != source.get("generation_id")):
+                raise SystemExit(
+                    "selected rejection source lineage is invalid: "
+                    + "; ".join(source_problems or ["wrong selected source"])
+                )
+        if generation.get("origin") in {"combined", "rejection"}:
+            live_head = head_sha(root) or ""
+            if generation.get("inspected_commit") != live_head:
+                raise SystemExit("review generation inspected_commit is no longer current HEAD")
+            live_delta = product_delta_digest(
+                root, effective_review_base(root, task_id, live_head),
+            )
+            if generation.get("delta_id") != live_delta:
+                raise SystemExit("review generation delta_id is stale at publication")
+        for lesson_rel, lesson_body in lesson_records:
+            lesson_path = root / lesson_rel
+            _publish_immutable_review_file(root, lesson_path, lesson_body)
+        if generation.get("origin") == "rejection":
+            newest = generation["rejection"]["history"][-1]
+            lesson_bytes = _read_review_bytes(root, root / newest["lesson_path"])
+            if hashlib.sha256(lesson_bytes).hexdigest() != newest["lesson_sha256"]:
+                raise SystemExit("rejection lesson hash does not match before publication")
         _publish_immutable_review_file(root, root / generation_rel, generation_body)
         if current and current.get("generation_id") == generation["generation_id"] \
                 and current.get("generation_sha256") == generation_sha:

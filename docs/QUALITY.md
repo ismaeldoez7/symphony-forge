@@ -26,7 +26,9 @@ Contract: `factory/prompts/reviewer.md`. A single autoreview run in Codex
 one helper call. The recorder validates `factory/schemas/review-set.json`,
 publishes one immutable generation containing the exact raw helper bytes and
 three `factory/schemas/review.json` lens records, then replaces the task's
-`selected.json` pointer last. Every record uses `generated_by: autoreview`:
+`selected.json` pointer last. Combined and rejection records use
+`generated_by: autoreview`; sealed-only legacy migration uses
+`generated_by: upgrade` without invented helper provenance:
 
 - **quality** — correctness, regressions, maintainability-as-risk, test
   gaps, contract drift, over-engineering (constitution-mandated structure
@@ -50,8 +52,10 @@ what is settled (the story plan's decisions and rulings, the contracts of
 tasks already sealed, the lessons in force); a finding that contradicts
 settled text is rejected on the record with `forge review <id> --reject`,
 which requires a citation that resolves to a decision, a plan section or a
-sealed contract, ledgers it as a lesson, and publishes an immutable successor
-to the selected combined generation. A diagnostic `--lens` run
+sealed contract, records its deterministic lesson before selection, and
+publishes an immutable successor to the selected combined or rejection
+generation. Sealing validates and commits the complete generation-and-lesson
+lineage. A diagnostic `--lens` run
 cannot select proof, stamp a stage, or revoke an earlier selection.
 
 ## Review findings are not a menu

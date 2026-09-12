@@ -29,7 +29,7 @@ from factory_lib import (  # noqa: E402
     effective_review_base, load_json, product_delta_digest,
     protected_decomposition_state_path,
     publish_review_generation, read_selected_review_generation,
-    review_finding_fingerprint,
+    review_finding_fingerprint, review_lineage_paths,
 )
 from forge_cli.findings import _finding_rows  # noqa: E402
 from forge_cli.review import (  # noqa: E402
@@ -189,8 +189,12 @@ def test_reject_republishes_one_complete_pointer_selected_set(repo, tmp_path):
     _publish(repo)
     from forge_cli.review import _review_set_problem
     assert _review_set_problem(repo, "ENG-1", "T2") == ""
-    blockers = [{"category": "security", "area": "src/runtime",
-                 "summary": "remembered hardFloor lookup 1"}]
+    blockers = [
+        {"category": "security", "area": "src/runtime",
+         "summary": "remembered hardFloor lookup 1"},
+        {"category": "security", "area": "src/runtime",
+         "summary": "remembered hardFloor lookup 2"},
+    ]
     root, first_pointer = _publish(repo, blockers)
     raw = root["raw_result"]
     quality = root["lenses"]["quality"]
@@ -198,14 +202,36 @@ def test_reject_republishes_one_complete_pointer_selected_set(repo, tmp_path):
                     "--lens", "security", "--reason", "remembered hardFloor contract",
                     "--cite", "T1-AC1", "--by", "autoreview")
     assert code == 0, out
-    assert "review stamp recorded" in out
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "lookup 1",
+    assert "1 blocking security finding(s) remain" in out
+    first_rejection, first_rejection_pointer, problems = read_selected_review_generation(
+        repo, "ENG-1", "T2")
+    assert not problems and first_rejection["origin"] == "rejection"
+    code, out = run(repo, "forge.py", "review", "T2", "--reject", "lookup 2",
                     "--lens", "security", "--reason", "remembered hardFloor contract",
                     "--cite", "T1-AC1", "--by", "autoreview")
-    assert code != 0 and "selected combined generation" in out
+    assert code == 0, out
+    assert "review stamp recorded" in out
     selected, pointer, problems = read_selected_review_generation(repo, "ENG-1", "T2")
     assert not problems and selected["origin"] == "rejection"
-    assert len(selected["rejection"]["history"]) == 1
+    assert len(selected["rejection"]["history"]) == 2
+    assert selected["rejection"]["source_generation_id"] == first_rejection["generation_id"]
+    assert selected["rejection"]["source_generation_sha256"] == (
+        first_rejection_pointer["generation_sha256"])
+    assert selected["rejection"]["root_generation_id"] == root["generation_id"]
+    for entry in selected["rejection"]["history"]:
+        lesson = repo / entry["lesson_path"]
+        assert lesson.is_file()
+        assert hashlib.sha256(lesson.read_bytes()).hexdigest() == entry["lesson_sha256"]
+    lineage = {path.as_posix() for path in review_lineage_paths(repo, "ENG-1", "T2")}
+    assert {
+        f".factory/stories/ENG-1/tasks/T2/reviews/generations/{generation_id}.json"
+        for generation_id in (
+            root["generation_id"], first_rejection["generation_id"],
+            selected["generation_id"],
+        )
+    }.issubset(lineage)
+    assert {entry["lesson_path"] for entry in selected["rejection"]["history"]}.issubset(
+        lineage)
     assert selected["raw_result"] == raw and selected["lenses"]["quality"] == quality
     assert pointer["generation_id"] != first_pointer["generation_id"]
     assert "lookup 1" in rejected_findings_report(repo, "ENG-1", "T2")
@@ -217,6 +243,9 @@ def test_selected_upgrade_generation_requires_exact_sealed_binding(repo, tmp_pat
     upgrade = copy.deepcopy(combined)
     upgrade.pop("generation_id")
     upgrade["origin"] = "upgrade"
+    upgrade["generated_by"] = "upgrade"
+    for field in ("review_run_id", "brief_sha256", "helper", "input", "raw_result"):
+        upgrade.pop(field)
     upgrade["upgrade"] = {"inventory_digest": "c" * 64, "source_kind": "sealed",
         "legacy_artifacts": [{"aspect": lens, "path": f"reviews/{lens}.json",
                               "sha256": chr(100 + index) * 64}
@@ -229,7 +258,10 @@ def test_selected_upgrade_generation_requires_exact_sealed_binding(repo, tmp_pat
         repo, "ENG-1", "T2", sealed_commit="e" * 40)[2][0]
 
 
-def test_rejection_compare_and_swap_refuses_interleaved_selection(repo, tmp_path):
+def test_rejection_compare_and_swap_refuses_interleaved_selection(
+        repo, tmp_path, monkeypatch):
+    import factory_lib as lib
+
     _story(repo, tmp_path)
     blocker = {"category": "security", "area": "src", "summary": "hardFloor lookup"}
     source, pointer = _publish(repo, [blocker])
@@ -237,20 +269,45 @@ def test_rejection_compare_and_swap_refuses_interleaved_selection(repo, tmp_path
     successor.pop("generation_id")
     successor["origin"] = "rejection"
     successor["recorded_at"] = "2026-09-11T02:00:00+00:00"
-    entry = {"finding_fingerprint": review_finding_fingerprint(blocker), "reason": "r",
-             "citation": "T1-AC1", "actor": "autoreview"}
+    source_finding = source["lenses"]["security"]["blocking_findings"][0]
+    lesson_body = b'{"lesson":"settled"}\n'
+    lesson_sha = hashlib.sha256(lesson_body).hexdigest()
+    lesson_path = f"plans/lessons/review-rejection-{lesson_sha}.json"
+    entry = {"finding_fingerprint": review_finding_fingerprint(source_finding), "reason": "r",
+             "citation": "T1-AC1", "actor": "autoreview",
+             "lesson_path": lesson_path, "lesson_sha256": lesson_sha}
     successor["rejection"] = {"source_generation_id": source["generation_id"],
         "source_generation_sha256": pointer["generation_sha256"],
         "root_generation_id": source["generation_id"], "history": [entry]}
     lens = successor["lenses"]["security"]
     lens["blocking_findings"] = []
     lens["score"], lens["recommendation"] = 10, "approve"
-    lens["rejected_findings"] = [{"finding": blocker, "reason": "r", "cite": "T1-AC1",
+    lens["rejected_findings"] = [{"finding": source_finding, "reason": "r", "cite": "T1-AC1",
         "rejected_at": successor["recorded_at"], "rejected_by": "autoreview", "task_id": "T2"}]
-    _publish(repo, [blocker], recorded_at="2026-09-11T03:00:00+00:00")
+    pointer_path = repo / ".factory/stories/ENG-1/tasks/T2/reviews/selected.json"
+    before = pointer_path.read_bytes()
+    real_publish = lib._publish_immutable_review_file
+    def fail_lesson(root, destination, body):
+        if destination == repo / lesson_path:
+            raise SystemExit("lesson write failed")
+        return real_publish(root, destination, body)
+    monkeypatch.setattr(lib, "_publish_immutable_review_file", fail_lesson)
+    with pytest.raises(SystemExit, match="lesson write failed"):
+        lib.publish_review_generation(
+            repo, "ENG-1", "T2", successor,
+            expected_source_id=source["generation_id"],
+            lesson_records=[(lesson_path, lesson_body)],
+        )
+    assert pointer_path.read_bytes() == before
+    monkeypatch.setattr(lib, "_publish_immutable_review_file", real_publish)
+    lib.publish_review_generation(
+        repo, "ENG-1", "T2", successor,
+        expected_source_id=source["generation_id"],
+        lesson_records=[(lesson_path, lesson_body)],
+    )
     with pytest.raises(SystemExit, match="selection changed"):
-        publish_review_generation(repo, "ENG-1", "T2", successor,
-                                  expected_source_id=source["generation_id"])
+        lib.publish_review_generation(repo, "ENG-1", "T2", successor,
+                                      expected_source_id=source["generation_id"])
 
 
 def test_rejected_findings_cluster_in_patterns_flagged():

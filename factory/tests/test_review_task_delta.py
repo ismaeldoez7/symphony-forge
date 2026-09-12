@@ -56,11 +56,18 @@ def test_combined_review_projects_tagged_lenses_and_preserves_ordered_pass_verdi
     second = {
         "overall_explanation": _combined_explanation(
             "VERDICT T1-C1: partial — src/a.py:8 race", "bounded", "isolated"),
-        "findings": [_combined_finding("security", "Validate token", "src/b.py", 9)],
+        "findings": [
+            _combined_finding("performance", "Avoid repeat work", "src/a.py", 4),
+            _combined_finding("security", "Validate token", "src/b.py", 9),
+        ],
     }
+    merged_performance = copy.deepcopy(first["findings"][0])
+    merged_performance["body"] = "chunk 1/2:\n\nevidence"
+    merged_security = copy.deepcopy(second["findings"][1])
+    merged_security["body"] = "chunk 2/2:\n\nevidence"
     report = {
         "overall_explanation": "Review passes returned.",
-        "findings": [*first["findings"], *second["findings"]],
+        "findings": [merged_performance, merged_security],
         "pass_reports": [
             {"label": "chunk 1/2", "report": first},
             {"label": "chunk 2/2", "report": second},
@@ -75,6 +82,12 @@ def test_combined_review_projects_tagged_lenses_and_preserves_ordered_pass_verdi
     }]
     assert lenses["performance"]["non_blocking_findings"][0]["summary"].startswith(
         "Avoid repeat work (src/a.py:4)")
+    assert len(lenses["performance"]["non_blocking_findings"]) == 1
+    assert lenses["performance"]["non_blocking_findings"][0] == {
+        "category": "bug", "area": "src",
+        "summary": "Avoid repeat work (src/a.py:4): evidence.",
+        "file_path": "src/a.py", "line": 4, "title": "Avoid repeat work",
+    }
     assert lenses["security"]["non_blocking_findings"][0]["summary"].startswith(
         "Validate token (src/b.py:9)")
 
@@ -109,6 +122,7 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
         lambda report: report["findings"].append(
             _combined_finding("security", "  same   ISSUE ", "src/a.py", 3)),
         lambda report: report["findings"][0].update(title="Missing lens tag"),
+        lambda report: report["findings"][0].update(source_attribution={}),
     )
     for mutate in mutators:
         report = {
@@ -149,9 +163,19 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
 
 def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(repo, tmp_path):
     from test_review_settled_contracts import _publish, _story
+    from factory_lib import protected_decomposition_state_path
+    from forge_cli.review import _combined_prompt, _helper_identity, resolve_skill
     _story(repo, tmp_path)
     generation, _pointer = _publish(repo)
     candidate = {key: value for key, value in generation.items() if key != "generation_id"}
+    task = next(item for item in json.loads(
+        protected_decomposition_state_path(repo).read_text())["tasks"]
+        if item["id"] == "T2")
+    prompt = _combined_prompt(task)
+    candidate["helper"] = _helper_identity(resolve_skill(None))[0]
+    candidate["input"] = {
+        "sha256": hashlib.sha256(prompt).hexdigest(), "bytes": len(prompt),
+    }
     malformed = copy.deepcopy(candidate)
     malformed["raw_result"]["bytes"] += 1
     code, out = run(repo, "record_review_from_json.py", "--set", "--task", "T2",
@@ -164,7 +188,9 @@ def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(repo,
         "source_generation_sha256": _pointer["generation_sha256"],
         "root_generation_id": generation["generation_id"],
         "history": [{"finding_fingerprint": "f" * 64, "reason": "reason",
-                     "citation": "T1-AC1", "actor": "autoreview"}],
+                     "citation": "T1-AC1", "actor": "autoreview",
+                     "lesson_path": "plans/lessons/review-rejection-test.json",
+                     "lesson_sha256": "a" * 64}],
     }
     code, out = run(repo, "record_review_from_json.py", "--set", "--task", "T2",
                     stdin=json.dumps(malformed))
@@ -174,6 +200,17 @@ def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(repo,
     code, out = run(repo, "record_review_from_json.py", "--set", "--task", "T2",
                     stdin=json.dumps(fabricated))
     assert code != 0 and "do not match the raw helper result" in out
+
+    wrong_helper = copy.deepcopy(candidate)
+    wrong_helper["helper"]["sha256"] = "0" * 64
+    code, out = run(repo, "record_review_from_json.py", "--set", "--task", "T2",
+                    stdin=json.dumps(wrong_helper))
+    assert code != 0 and "installed helper" in out
+    wrong_input = copy.deepcopy(candidate)
+    wrong_input["input"]["sha256"] = "0" * 64
+    code, out = run(repo, "record_review_from_json.py", "--set", "--task", "T2",
+                    stdin=json.dumps(wrong_input))
+    assert code != 0 and "current combined prompt" in out
 
     stale = copy.deepcopy(candidate)
     token_path = repo / ".factory/stories/ENG-1/review-run.json"

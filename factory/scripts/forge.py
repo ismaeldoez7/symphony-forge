@@ -638,10 +638,8 @@ def main() -> None:
                        help="print the argv without launching or recording evidence")
     p_del.add_argument(
         "--effort", default="",
-        choices=["", "low", "medium", "high", "xhigh"],
-        help="raise the reasoning effort above the harness.yaml floor for this "
-             "run — harness.yaml names migrations, cross-domain work and "
-             "security-sensitive changes as the cases that warrant it")
+        choices=["", "medium"],
+        help="compatibility no-op; implementation is pinned to medium")
     p_del.add_argument("--repo")
     p_del.set_defaults(func=delegate_mod.cmd_delegate)
 

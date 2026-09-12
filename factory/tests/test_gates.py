@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import ast
 import base64
+import copy
 import hashlib
 import importlib.util
 import json
@@ -11780,6 +11781,19 @@ def test_codex_exec_ban_matches_invocations_not_prose(repo, monkeypatch):
                 'sh -c \'codex exec "x"\'',
                 'sh -lc \'codex exec "x"\'',
                 'bash -xec \'codex exec "x"\'',
+                'bash -o pipefail -lc \'codex exec "x"\'',
+                'bash -opipefail -lc \'codex exec "x"\'',
+                'bash -xo pipefail -lc \'codex exec "x"\'',
+                'bash -xopipefail -lc \'codex exec "x"\'',
+                'bash -O extglob -lc \'codex exec "x"\'',
+                'bash -Oextglob -lc \'codex exec "x"\'',
+                'bash -xO extglob -lc \'codex exec "x"\'',
+                'bash --rcfile /tmp/forge-test-rc -lc \'codex exec "x"\'',
+                'bash --rcfile=/tmp/forge-test-rc -lc \'codex exec "x"\'',
+                'bash --init-file /tmp/forge-test-init -lc \'codex exec "x"\'',
+                'zsh -o shwordsplit -lc \'codex exec "x"\'',
+                'zsh -oshwordsplit -lc \'codex exec "x"\'',
+                'zsh -xo shwordsplit -lc \'codex exec "x"\'',
                 '"/opt/tools/codex" exec "x"',
                 'command "/opt/Tools With Spaces/codex" exec "x"',
                 'cd /tmp && codex exec "x"',
@@ -12948,25 +12962,25 @@ def test_scope_amendment_breaks_the_seal_deadlock_without_touching_the_contract(
 
     task = {
         "id": "T3",
-        "write_scope": ["src/api"],
+        "write_scope": ["src/api/"],
         "required_tests": [{"id": "t1", "path": "t/a.spec.ts", "command": "x"}],
         "verify_commands": ["pnpm verify"],
         "acceptance_criteria": ["it works"],
     }
     before = lib.task_digest(task)
     # What the refusal used to instruct: widen the scope in the contract.
-    corrected = {**task, "write_scope": ["src/api", "src/db"]}
+    corrected = {**task, "write_scope": ["src/api/", "src/db/y.ts"]}
     assert lib.task_digest(corrected) != before, (
         "expected a contract correction to break the launch binding")
 
     # The amendment records the same measured truth ALONGSIDE the contract.
     lib.dump_json(scope_amendments_path(repo), {"tasks": {"T3": {
-        "added_paths": ["src/db"],
-        "amendments": [{"reason": "measured", "added_paths": ["src/db"]}],
+        "added_paths": ["src/db/y.ts"],
+        "amendments": [{"reason": "measured", "added_paths": ["src/db/y.ts"]}],
     }}})
-    assert amended_scope_paths(repo, "T3") == ["src/db"]
+    assert amended_scope_paths(repo, "T3") == ["src/db/y.ts"]
     effective = effective_scope(repo, "T3", task["write_scope"])
-    assert effective == ["src/api", "src/db"]
+    assert effective == ["src/api/", "src/db/y.ts"]
 
     # The contract is untouched, so both bindings still hold.
     assert lib.task_digest(task) == before
@@ -18385,7 +18399,7 @@ def test_review_consumers_include_complete_approved_inputs(
         review_mod.cmd_review(argparse.Namespace(
             id="T1", reject=None, lens=None, repo=str(repo),
             skill=str(tmp_path / "fake-autoreview"), engine="claude",
-            max_priority="P1", sequential=True,
+            max_priority="P1",
         ))
 
     assert len(seen) == 1
@@ -18930,8 +18944,17 @@ def test_combined_review_publication_is_pointer_last_and_failure_atomic(
     def interrupted(*_args, **_kwargs):
         raise SystemExit("interrupted before pointer commit")
 
+    replace = lib._replace_review_selection
     monkeypatch.setattr(lib, "_replace_review_selection", interrupted)
     with pytest.raises(SystemExit, match="interrupted"):
+        lib.publish_review_generation(repo, "ENG-1", "T1", candidate)
+    assert pointer_path.read_bytes() == before
+    monkeypatch.setattr(lib, "_replace_review_selection", replace)
+    (repo / "src").mkdir(exist_ok=True)
+    (repo / "src/publication-race.py").write_text("changed = True\n")
+    git(repo, "add", "src/publication-race.py")
+    git(repo, "commit", "-qm", "move product during publication")
+    with pytest.raises(SystemExit, match="no longer current HEAD"):
         lib.publish_review_generation(repo, "ENG-1", "T1", candidate)
     assert pointer_path.read_bytes() == before
 
@@ -18991,14 +19014,41 @@ def test_review_generation_retry_and_collision_are_safe(repo, tmp_path):
 
 def test_close_and_frontier_use_selected_current_delta(repo, tmp_path):
     task, proof, lib, selected, _path, _generation = _selected_review_case(repo, tmp_path)
-    from forge_cli.stages import load_stages, stamp_is_fresh, stamp_stage_review
+    from forge_cli.stages import (
+        _legacy_stamp_binding, authoritative_stages_path, load_stages,
+        stamp_is_fresh, stamp_stage_review, stages_path,
+    )
+    pointer_path = proof / "reviews/selected.json"
+    pointer_bytes = pointer_path.read_bytes()
+    verify_path, tests_path = proof / "verify.json", proof / "tests.json"
+    verify_bytes, tests_bytes = verify_path.read_bytes(), tests_path.read_bytes()
     stamp_stage_review(repo, "T1", lenses=("quality", "performance", "security"))
     stage = load_stages(repo)["stages"][0]
     assert stamp_is_fresh(repo, stage, task)
     selected["delta_id"] = "f" * 64
-    (proof / "reviews/selected.json").write_bytes(lib.review_generation_bytes(selected))
-    assert not stamp_is_fresh(repo, load_stages(repo)["stages"][0], task)
+    pointer_path.write_bytes(lib.review_generation_bytes(selected))
+    stages = load_stages(repo)
+    stages["stages"][0]["local_review_stamp"] = _legacy_stamp_binding(
+        repo, stages["stages"][0], task,
+    )
+    write_stages(repo, stages)
+    caller = copy.deepcopy(stages["stages"][0])
+    stage_paths = (authoritative_stages_path(repo), stages_path(repo))
+    stages_bytes = {path: path.read_bytes() for path in stage_paths}
+    assert not stamp_is_fresh(repo, caller, task)
+    assert caller == stages["stages"][0]
+    assert {path: path.read_bytes() for path in stage_paths} == stages_bytes
     assert lib.task_proof_problems(repo, "ENG-1", task, preseal=True)
+
+    verify_path.write_text("[]\n")
+    tests_path.write_text('"not-an-object"\n')
+    assert lib.task_proof_problems(repo, "ENG-1", task, preseal=True)
+    verify_path.write_bytes(verify_bytes)
+    tests_path.write_bytes(tests_bytes)
+    pointer_path.write_bytes(pointer_bytes)
+    caller = load_stages(repo)["stages"][0]
+    assert stamp_is_fresh(repo, caller, task)
+    assert "delta_id" in caller["local_review_stamp"]
 
 
 def test_task_proof_ci_uses_sealed_selected_t1_not_later_t2_singleton(
@@ -19617,6 +19667,8 @@ def test_review_brief_mints_run_id_and_lenses_echo_it(repo, tmp_path):
 
 
 def test_quality_review_requires_contract_verdicts(repo, tmp_path):
+    code, out = run(repo, "forge.py", "review", "T1", "--sequential")
+    assert code != 0 and "unrecognized arguments" in out
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)

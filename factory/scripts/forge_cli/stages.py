@@ -785,7 +785,8 @@ def protected_authority_snapshot(base: Path) -> dict[str, str]:
 def _covered(path: str, scope: list[str]) -> bool:
     for entry in scope:
         prefix = entry.strip().rstrip("/")
-        if prefix and (path == prefix or path.startswith(prefix + "/")):
+        if prefix and (path == prefix or (entry.strip().endswith("/")
+                                          and path.startswith(prefix + "/"))):
             return True
     return False
 
@@ -849,7 +850,8 @@ def _overlap_scope(base: Path, task: dict, stage: dict | None = None) -> list[st
                           for test in task.get("required_tests") or [])
         if path and not _at_revision(base, revision, path)
     ]
-    return [entry.strip().rstrip("/") for entry in scope if entry and entry.strip()]
+    from factory_lib import classify_scope_entries
+    return classify_scope_entries(base, scope, revision)
 
 
 def scope_overlap(left: list[str], right: list[str]) -> list[str]:
@@ -902,11 +904,15 @@ def scope_conflicts(base: Path, task_id: str) -> list[str]:
     return conflicts
 
 
-def out_of_scope(base: Path, paths: list[str], scope: list[str]) -> list[str]:
+def out_of_scope(
+    base: Path, paths: list[str], scope: list[str], revision: str = "HEAD",
+) -> list[str]:
     """Product paths this sequential task touched but never declared."""
+    from factory_lib import classify_scope_entries
+    classified = classify_scope_entries(base, scope, revision)
     return [p for p in paths
             if not p.startswith(measure_prefixes(base))
-            and not _covered(p, scope)]
+            and not _covered(p, classified)]
 
 
 def _numstat_lines(raw: str) -> int:
@@ -1011,6 +1017,15 @@ def stamp_is_fresh(base: Path, stage: dict, task: dict) -> bool:
         legacy = _legacy_stamp_binding(base, stage, task)
         if any(stamp.get(key) != value for key, value in legacy.items()):
             return False
+        binding_ok = True
+    if not binding_ok:
+        return False
+    from factory_lib import active_story_key, selected_review_problems
+    story = active_story_key(base)
+    if not story or selected_review_problems(
+            base, story, str(stage.get("id") or ""), expected["delta_id"]):
+        return False
+    if "delta_id" not in stamp:
         from .delegate import delegation_exclusion
         with delegation_exclusion(base, "stages", kind="stage-state", namespace="state"):
             data = load_stages(base)
@@ -1020,14 +1035,7 @@ def stamp_is_fresh(base: Path, stage: dict, task: dict) -> bool:
                 current.update(expected)
                 write_stages(base, data)
         stamp.update(expected)
-        binding_ok = True
-    if not binding_ok:
-        return False
-    from factory_lib import active_story_key, selected_review_problems
-    story = active_story_key(base)
-    return bool(story) and not selected_review_problems(
-        base, story, str(stage.get("id") or ""), expected["delta_id"],
-    )
+    return True
 
 def stamp_stage_review(base: Path, stage_id: str, *, generated_by: str = "autoreview",
                        lenses: tuple[str, ...] | list[str] = ()) -> dict:
@@ -1320,7 +1328,9 @@ def _measure(base: Path, stage_id: str, stage: dict, task: dict) -> dict:
     # A recorded amendment is measured fact, not a widened permission: it
     # only ever names paths a previous measurement already found changed.
     scope = task.get("write_scope") or []
-    strays = out_of_scope(base, product, effective_scope(base, stage_id, scope))
+    strays = out_of_scope(
+        base, product, effective_scope(base, stage_id, scope), base_sha,
+    )
     try:
         max_files, max_lines, _reason = review_budget(task)
     except ValueError as exc:
@@ -2024,7 +2034,9 @@ def cmd_amend_scope(args) -> None:
                                        stage.get("dirty_at_start", {}))
         if not path.startswith(workflow_prefixes(base))
     ]
-    strays = out_of_scope(base, product, effective_scope(base, args.id, scope))
+    strays = out_of_scope(
+        base, product, effective_scope(base, args.id, scope), base_sha,
+    )
     if not strays:
         fail(f"{args.id} has no measured path outside its scope — nothing to "
              "amend. If `stage done` is refusing, it is refusing for another "

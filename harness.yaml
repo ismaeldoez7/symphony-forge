@@ -162,6 +162,8 @@ phases:
       ONE autoreview helper call reviews through three lenses (quality incl.
       over-engineering AND cyclomatic complexity, performance, security) and
       publishes one immutable raw-plus-three-lens generation, then selected.json.
+      Citation rejections append lesson-backed immutable successors; sealed-only
+      legacy upgrade copies lens proof without fabricating helper provenance.
       Diagnostic --aspect artifacts never certify task proof. The quality lens ALWAYS assesses
       cyclomatic complexity — excessively tangled control flow is a blocking
       `cyclomatic-complexity` finding. Never nest reviewers; never review inline in the
