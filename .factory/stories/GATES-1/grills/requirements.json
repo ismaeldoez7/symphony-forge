@@ -1,16 +1,17 @@
 {
   "generated_by": "griller",
-  "gate": "spec",
+  "gate": "requirements",
   "verdict": "pass",
   "issue": "GATES-1",
-  "summary": "Requirements cold read of the harness simplification spec returned six findings. Four were resolved by making the manifest, the decision rule, the single freshness predicate and the ledger terminal states concrete; two were owner choices, settled as legacy passes keeping old behaviour with no backfill, and round reuse narrowed to the same gate and story.",
+  "summary": "Requirements cold read of the harness simplification spec returned six findings. Four were resolved by making the manifest, the decision rule, the single freshness predicate and the ledger terminal states concrete; two were owner choices, settled as legacy passes keeping old behaviour with no backfill, and round reuse narrowed to the same gate and story. A later amendment added the pre-stage guard exception by owner ruling, and the work is split into four tasks shipping as four pull requests.",
   "gaps": [
     "The input-manifest contract was not implementable: no declaration mechanism, no path normalisation, no handling for dirty, untracked or deleted inputs, and no recorder-side validation, so an implementation could omit a source the reader used and keep the pass fresh.",
     "'Active decisions applicable to the gate' had no deterministic selection rule, so it would either recreate global staleness or let a newly applicable decision bypass the gate.",
     "The spec did not reconcile existing freshness consumers: the requirements gate hashes the confirmed spec plus the whole product tree and has a regression expecting an arbitrary new product file to stale a pass, the inverse of the new rule, and task grounding folds in the product tree before stage start.",
     "Legacy records had no migration policy, leaving existing client and historical passes undefined.",
     "Reusable rounds conflicted with accepted decision 0051's 'no round reused across grills', which the recorder enforces by consuming rounds from previous grill records.",
-    "'Completes and returns a verdict' is not represented in the launch ledger: a successful launcher records exit status only, the cap counts launches regardless of terminal failure, and the repeat-read guard treats any non-failed row as a cold read."
+    "'Completes and returns a verdict' is not represented in the launch ledger: a successful launcher records exit status only, the cap counts launches regardless of terminal failure, and the repeat-read guard treats any non-failed row as a cold read.",
+    "The confirmed spec said task grounding moves to manifest freshness before stage start, which contradicts the owner ruling that the pre-stage whole-tree guard is kept."
   ],
   "contradictions": [
     "Reusable rounds contradicted accepted decision 0051, which forbids reusing a round across grills."
@@ -21,21 +22,23 @@
     "The spec now requires ONE manifest-freshness predicate used by all six gates, the board and the next-step text. The requirements gate stops hashing the product tree, and its existing regression at factory/tests/test_gates.py:8583 is named for replacement by one asserting the opposite.",
     "Owner ruled: a pass without a manifest keeps today's tree-based freshness and only later passes get the new rule, so nothing in flight breaks here or mid-vendor. Manifests are never backfilled, since inferring what a reader read would fabricate evidence.",
     "Owner ruled the narrowest relaxation: rounds may be reused only when re-recording the SAME gate for the SAME story, never across gates, stories or tasks. 0051's intent that every gate is ledger-matched survives, because the only relaxed case is re-recording a gate already answered.",
-    "The launch ledger gains a terminal state per row. Only an 'answered' row \u2014 launcher exit zero AND a captured verdict \u2014 spends an allowance; 'failed' and 'interrupted' rows, which is what the upstream compaction fault produces, consume nothing and are ignored by the repeat-read guard."
+    "The launch ledger gains a terminal state per row. Only an 'answered' row \u2014 launcher exit zero AND a captured verdict \u2014 spends an allowance; 'failed' and 'interrupted' rows, which is what the upstream compaction fault produces, consume nothing and are ignored by the repeat-read guard.",
+    "The spec now states the pre-stage guard as an explicit exception, and criterion 3b requires a test that an unrelated product file still stales a pre-stage task grill. Amending the spec re-staled this very gate, which is the defect GATES-1 exists to remove."
   ],
   "open_items": [
-    "The 93 pre-existing test failures on main are unrelated and are pinned by count and identity so this change is neither credited nor blamed for them."
+    "The 93 pre-existing test failures on main are unrelated and are pinned by count and identity so this change is neither credited nor blamed for them.",
+    "Recording this plan required five extra gate records, caused by the deadlock the story fixes: the requirements gate stales on the product tree, recording the plan requires the decisions committed, and committing changes the product tree. Captured as live evidence for T3."
   ],
-  "questions_asked": 2,
+  "questions_asked": 4,
   "rounds": [
     {
-      "question": "Decision 0051 says no round is reused across grills. Dropping the per-recording question needs that relaxed. How far?",
+      "question": "Getting this plan recorded has itself cost five extra gate records. Should the two quick mechanisms jump the queue?",
       "options": [
-        "Same gate and story only (Recommended)",
-        "Reuse freely within a story",
-        "Keep 0051 as is"
+        "Follow the plan order (Recommended)",
+        "Pull the two quick ones out as a fix window",
+        "Stop after the plan and resume later"
       ],
-      "chosen": "Same gate and story only (Recommended)",
+      "chosen": "Follow the plan order (Recommended)",
       "frontier_empty": true
     }
   ],
@@ -75,9 +78,13 @@
     {
       "finding": "'Completes and returns a verdict' is not represented in the launch ledger: a successful launcher records exit status only, the cap counts launches regardless of terminal failure, and the repeat-read guard treats any non-failed row as a cold read.",
       "ref": "factory/scripts/forge_cli/grill.py"
+    },
+    {
+      "finding": "The confirmed spec said task grounding moves to manifest freshness before stage start, which contradicts the owner ruling that the pre-stage whole-tree guard is kept.",
+      "ref": "docs/specs/gates-stale-only-on-what-they-read.md"
     }
   ],
-  "input_sha256": "ed4febd0f0b2f9c11669a82121ebda3d6b776ec68e975563cf7b74326d1ad474",
-  "recorded_at": "2026-09-11T17:50:38+00:00",
-  "commit": "498be61d9241008cd47e6fb877200a4e0af2d8fb"
+  "input_sha256": "06314252db0b0a8097dd677850d5f81ef0c00283c2c5fe73b428e36dd40376e9",
+  "recorded_at": "2026-09-12T06:12:38+00:00",
+  "commit": "ec07e34c2d159cd435c8541a3aa17588b29cd81e"
 }

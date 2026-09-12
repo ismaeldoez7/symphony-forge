@@ -1,0 +1,52 @@
+{
+  "generated_by": "griller",
+  "gate": "plan",
+  "verdict": "pass",
+  "issue": "GATES-1",
+  "summary": "Re-read after T1's mechanism was replaced rather than adjusted: the session-context carrier is gone and provenance is read from where evidence already lives. The read returned four findings, all about plan-level coherence rather than that mechanism. All four are resolved in the plan: post-stage task freshness is now an explicit exception to the manifest rather than a contradiction of 0066; the manifest is derived by the recorder from the final payload and refuses an unresolvable cited input; acceptance criterion 8 is assigned to T3, which already changes the next-step text and the board; and the task order is now strict, T1 first, because T1 carries the comparator no later stage can close without.",
+  "gaps": [
+    "Acceptance criterion 8, the generated-command grammar check, appeared in the plan but no task claimed the next-step renderer and parser surface.",
+    "The manifest named only the gate artifact and the accepted decisions, so a pass could omit a record it actually relied on, validate, and stay fresh after that record changed."
+  ],
+  "contradictions": [
+    "The plan made every gate manifest-fresh after stage start while also giving T4 a non-manifest selective snapshot, which would have staled every post-stage task pass on any newly accepted decision and broken 0066's binding.",
+    "The task order declared T1 and T2 interchangeable while T1 carries the test-baseline comparator that every later stage needs to close against a 93-red suite."
+  ],
+  "resolutions": [
+    "Post-stage task freshness is an exception to the manifest, stated as such: 0066 stands and binds that gate to its objective, criteria, plan contracts, user-facing flag and plan. Superseding 0066 was rejected because 0066 is the promise this story restores.",
+    "The recorder derives the manifest from the final pass payload, resolves every cited record to a repo-relative path, and refuses the pass when a cited input cannot be resolved.",
+    "T3 owns acceptance criterion 8, since it is the task that changes the next-step text and the board.",
+    "The order is now T1, T2, T3, T4, with each later task recording the comparator among its own verify commands."
+  ],
+  "open_items": [],
+  "questions_asked": 1,
+  "rounds": [
+    {
+      "question": "Reading the recorder shows provenance can live there, with no hook or session-context changes. Take the simpler design?",
+      "options": [
+        "Yes, stamp provenance in the recorder (Recommended)",
+        "Keep the session-context design",
+        "Explore before deciding"
+      ],
+      "chosen": "Yes, stamp provenance in the recorder (Recommended)",
+      "frontier_empty": true
+    }
+  ],
+  "inspected_refs": [
+    "plans/active/GATES-1-gates-stale-only-on-what-they-read.md",
+    "docs/specs/gates-stale-only-on-what-they-read.md",
+    "docs/decisions/0066-closeout-binds-to-the-diff.md",
+    "docs/decisions/0067-rounds-rebind-to-their-gate.md",
+    "factory/scripts/record_grill_from_json.py",
+    "factory/scripts/grill_gates.py"
+  ],
+  "citations": [
+    "plans/active/GATES-1-gates-stale-only-on-what-they-read.md:137",
+    "plans/active/GATES-1-gates-stale-only-on-what-they-read.md:180",
+    "plans/active/GATES-1-gates-stale-only-on-what-they-read.md:216",
+    "docs/decisions/0066-closeout-binds-to-the-diff.md:40"
+  ],
+  "input_sha256": "dfc90288f57e4fe418e7aa29de20af84a7c6d6e31a71292a492f0f026a7cc888",
+  "recorded_at": "2026-09-12T06:11:54+00:00",
+  "commit": "ec07e34c2d159cd435c8541a3aa17588b29cd81e"
+}
