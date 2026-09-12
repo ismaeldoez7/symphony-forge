@@ -24,7 +24,7 @@ import argparse
 from pathlib import Path
 
 from factory_lib import (
-    load_json, product_delta_digest, repo_root, run_state_path,
+    load_json, repo_root, run_state_path,
     task_proof_problems, task_seal_shared_problems,
 )
 
@@ -39,7 +39,7 @@ def cmd_task_close(args: argparse.Namespace) -> None:
     from .review import _product_dirty, review_task
     from .stages import (
         _find, _finish_stage, load_stages, reopen_stage_for_review_fix,
-        run_stage_proof, stage_baseline, stamp_is_fresh, task_for,
+        run_stage_proof, stamp_is_fresh, task_for,
     )
     from .tasks import seal_task
     from .delegate import delegation_exclusion
@@ -72,7 +72,8 @@ def cmd_task_close(args: argparse.Namespace) -> None:
               "resolve them, then run close again")
 
     # 3. One identity for everything that follows.
-    delta_id = product_delta_digest(base, stage_baseline(base, stage))
+    from .stages import stage_review_binding
+    delta_id = stage_review_binding(base, stage, task)["delta_id"]
 
     # 4. A done stage whose diff moved (a post-seal fix) reopens itself. No
     #    separate verb, no hidden state flip.

@@ -965,8 +965,8 @@ def stage_review_binding(base: Path, stage: dict, task: dict) -> dict[str, str]:
     morning. The reviewer read the product diff; the stamp binds to the
     product diff.
     """
-    from factory_lib import product_delta_digest
-    base_sha = stage_baseline(base, stage)
+    from factory_lib import effective_review_base, product_delta_digest
+    base_sha = effective_review_base(base, str(stage.get("id") or ""))
     return {
         "stage_id": stage.get("id", ""),
         "base_sha": base_sha,
@@ -1915,7 +1915,7 @@ def _refuse_incomplete_against_complete_proof(base: Path, task_id: str) -> None:
     when every one of those is present -- a genuinely partial task has not got
     them, so the honest use is untouched.
     """
-    from factory_lib import load_json, product_delta_digest, selected_review_problems
+    from factory_lib import load_json, selected_review_problems
     from .readiness import verify_passed
 
     key = load_json(run_state_path(base), default={}).get("issue_key", "")
@@ -1927,7 +1927,7 @@ def _refuse_incomplete_against_complete_proof(base: Path, task_id: str) -> None:
     stage = next((item for item in load_stages(base).get("stages", [])
                   if item.get("id") == task_id), {})
     review_ok = bool(stage) and not selected_review_problems(
-        base, key, task_id, product_delta_digest(base, stage_baseline(base, stage)),
+        base, key, task_id, stage_review_binding(base, stage, {})["delta_id"],
     )
     if not (verify_ok and tests and review_ok):
         return

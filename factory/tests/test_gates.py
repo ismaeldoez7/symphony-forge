@@ -58,7 +58,7 @@ from factory_lib import (
 )
 from grill_gates import GATES
 from forge_cli.events import load_events
-from forge_cli.stages import stage_baseline, task_digest, write_stages
+from forge_cli.stages import load_stages, stage_baseline, task_digest, write_stages
 from record_signoff import REQUIRED_BRIEF_HEADINGS
 
 
@@ -639,7 +639,9 @@ def write_passing_artifacts(repo: Path, commit: str | None = None) -> None:
 def write_task_proof(repo: Path, task_id: str = "T1", *,
                      commit: str | None = None, user_facing: bool = False,
                      blocked: bool = False,
-                     publish_review: bool = False) -> Path:
+                     publish_review: bool = False,
+                     review_blocked: bool = False,
+                     preserve_existing_proof: bool = False) -> Path:
     """Write one complete task-owned proof bundle for gate fixtures."""
     lib = load_factory_lib(repo)
     key = run_state(repo).get("issue_key", "ENG-1")
@@ -647,7 +649,8 @@ def write_task_proof(repo: Path, task_id: str = "T1", *,
         repo, key, task_id, "verify.json", for_write=True).parent
     task_root.mkdir(parents=True, exist_ok=True)
     sha = commit or head(repo)
-    lib.dump_json(task_root / "verify.json", {"ok": True, "commit": sha})
+    if not preserve_existing_proof:
+        lib.dump_json(task_root / "verify.json", {"ok": True, "commit": sha})
     automated = {
         "generated_by": "implementer", "status": "passed",
         "summary": "focused task proof passed",
@@ -664,7 +667,8 @@ def write_task_proof(repo: Path, task_id: str = "T1", *,
             "generated_by": "functional-checker", "status": "passed",
             "score": 9, "blocking_findings": [],
         }
-    lib.dump_json(task_root / "tests.json", tests)
+    if not preserve_existing_proof:
+        lib.dump_json(task_root / "tests.json", tests)
     brief_sha256 = "b" * 64
     branch_digest = lib.branch_diff_digest(repo)
     review_run_id = hashlib.sha256(
@@ -685,8 +689,14 @@ def write_task_proof(repo: Path, task_id: str = "T1", *,
         brief = repo / ".factory" / "review-briefs" / "all.md"
         token = json.loads((story_state(repo, key) / "review-run.json").read_text())
         brief_sha256 = token["brief_sha256"]
-        branch_digest = token["branch_diff_digest"]
-        review_run_id = token["review_run_id"]
+        stage = next(
+            item for item in load_stages(repo).get("stages", [])
+            if item.get("id") == task_id
+        )
+        branch_digest = lib.product_delta_digest(repo, stage_baseline(repo, stage))
+        review_run_id = hashlib.sha256(
+            (brief_sha256 + branch_digest).encode()
+        ).hexdigest()
         delta_id = branch_digest
         for aspect in ("quality", "performance", "security"):
             path = task_root / "reviews" / f"{aspect}.json"
@@ -698,10 +708,20 @@ def write_task_proof(repo: Path, task_id: str = "T1", *,
                 "brief_sha256": brief_sha256,
                 "branch_diff_digest": delta_id,
             })
+            if review_blocked and aspect == "security":
+                review.update({
+                    "score": 7,
+                    "blocking_findings": ["unvalidated input"],
+                    "recommendation": "request-changes",
+                })
             path.write_text(json.dumps(review))
         raw = json.dumps({"findings": [], "overall_explanation":
-            "BEGIN QUALITY\nquality\nEND QUALITY\nBEGIN PERFORMANCE\nfast\n"
-            "END PERFORMANCE\nBEGIN SECURITY\nsafe\nEND SECURITY"},
+            "BEGIN FORGE ASSESSMENT quality\nquality\n"
+            "END FORGE ASSESSMENT quality\n"
+            "BEGIN FORGE ASSESSMENT performance\nfast\n"
+            "END FORGE ASSESSMENT performance\n"
+            "BEGIN FORGE ASSESSMENT security\nsafe\n"
+            "END FORGE ASSESSMENT security"},
             sort_keys=True).encode()
         lib.publish_review_generation(repo, key, task_id, {
             "format": "forge-review-generation/v1", "origin": "combined",
@@ -7040,7 +7060,9 @@ def test_assumptions_archive_compacts_resolved_rows(repo, tmp_path):
 # ------------------------------------------------------------- planning lock
 
 def hook(repo: Path, payload: dict) -> tuple[int, str]:
-    return run(repo, "pre_tool_use.py", stdin=json.dumps(payload))
+    return run(repo, "pre_tool_use.py", stdin=json.dumps(payload), env={
+        "FORGE_PROCESS_TOKEN": "", "FORGE_LAUNCH_ID": "",
+    })
 
 
 def post_hook(repo: Path, payload: dict) -> tuple[int, str]:
@@ -7407,6 +7429,8 @@ def test_registered_hook_path_keeps_recorder_and_lockout_armed(repo, tmp_path):
         input=json.dumps(payload),
         capture_output=True,
         text=True,
+        env={key: value for key, value in os.environ.items()
+             if key not in {"FORGE_PROCESS_TOKEN", "FORGE_LAUNCH_ID"}},
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
@@ -11326,7 +11350,7 @@ def test_recorder_holds_the_task_narrative_contract(repo, tmp_path):
     git(repo, "commit", "-qm", "stage baseline")
     code, out = record_task_grill(repo, first)
     assert code == 0, out
-    code, out = record_task_grill(repo, DECOMP["tasks"][0])
+    code, out = record_task_grill(repo, task)
     assert code == 0, out
     run(repo, "forge.py", "stage", "start", "T1", "--trunk")
     launch_fake(repo, tmp_path, "T1")
@@ -11819,14 +11843,14 @@ def test_review_product_dirty_preserves_porcelain_status_prefix(repo, monkeypatc
     import forge_cli.review as review
     import forge_cli.tasks as tasks
 
-    status = " M .factory/grills/spec.json\n"
+    status = " M .factory/grills/spec.json\0"
     monkeypatch.setattr(
-        tasks, "_git",
+        review, "_git",
         lambda *_args: subprocess.CompletedProcess([], 0, stdout=status, stderr=""),
     )
     assert review._product_dirty(repo) == []
 
-    status = " M src/product.py\n"
+    status = " M src/product.py\0"
     assert review._product_dirty(repo) == ["src/product.py"]
 
 
@@ -11920,6 +11944,10 @@ def stamp_and_commit(repo: Path, *paths: str) -> None:
     if subprocess.run(
             ["git", "diff", "--cached", "--quiet"], cwd=repo).returncode:
         git(repo, "commit", "-qm", "reviewed stage work")
+    active = [stage["id"] for stage in load_stages(repo).get("stages", [])
+              if stage.get("status") == "active"]
+    if len(active) == 1:
+        write_task_proof(repo, active[0], publish_review=True)
 
 
 def test_structured_findings_recorded_and_malformed_refused(repo, tmp_path):
@@ -12158,8 +12186,9 @@ def launch_fake(repo: Path, tmp_path: Path, stage_id: str) -> None:
     decomp = load_json(protected_decomposition_state_path(repo), default={})
     task = next(t for t in decomp.get("tasks", []) if t.get("id") == stage_id)
     record_task_grill(repo, task)
-    code, out = run(repo, "forge.py", "delegate", stage_id,
-                    env=fake_companion_env(tmp_path))
+    env = fake_companion_env(tmp_path)
+    env["PYTHONPATH"] = str(_fake_psutil_module(tmp_path))
+    code, out = run(repo, "forge.py", "delegate", stage_id, env=env)
     assert code == 0, out
 
 
@@ -12815,12 +12844,7 @@ def test_task_proof_overrides_a_clean_story_record_rather_than_joining_it(
     # Now the task records its OWN security review, and it is not clean.
     code, out = record_task_grill(repo, task)
     assert code == 0, out
-    write_task_proof(repo, "T1", publish_review=True)
-    security = lib.task_evidence_path(
-        repo, "ENG-1", "T1", "reviews/security.json", for_write=True)
-    record = json.loads(security.read_text())
-    record["blocking_findings"] = ["unvalidated input"]
-    security.write_text(json.dumps(record), encoding="utf-8")
+    write_task_proof(repo, "T1", publish_review=True, review_blocked=True)
 
     problems = lib.task_proof_problems(repo, "ENG-1", task)
     assert problems, "task proof must override the story record, not join it"
@@ -12865,10 +12889,8 @@ def test_state_audit_is_read_only_and_clean_when_nothing_disagrees(repo):
 
 def test_incomplete_is_refused_when_the_proof_says_the_work_is_done(
         repo, tmp_path):
-    # `--incomplete` is the only escape from a refusing seal, so it is the
-    # tempting move for work that IS finished -- and then the frontier and the
-    # PR gate read a completed task as unfinished. The recorded proof already
-    # answers the question.
+    # Story-only proof cannot make this task complete, so it cannot prevent an
+    # honest incomplete record for the task.
     task = task_with_plan_contracts({**DECOMP["tasks"][0], "user_facing": False})
     sign_off(repo)
     intake(repo)
@@ -12896,9 +12918,8 @@ def test_incomplete_is_refused_when_the_proof_says_the_work_is_done(
 
     code, out = run(repo, "forge.py", "stage", "done", "T1",
                     "--incomplete", "cannot seal, gate refuses")
-    assert code != 0, out
-    assert "WORK REMAINS" in out
-    assert "audit --state" in out  # it names the tool that finds the real cause
+    assert code == 0, out
+    assert "recorded INCOMPLETE and left active" in out
 
 
 def test_scope_amendment_breaks_the_seal_deadlock_without_touching_the_contract(
@@ -13494,10 +13515,7 @@ def test_stage_done_refuses_empty_diff(repo, tmp_path):
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code != 0 and "EMPTY diff" in out
     write_in_scope(repo, "src/core.py")
-    git(repo, "add", "src/core.py")
-    code, out = record_stage_local(repo)
-    assert code == 0, out
-    git(repo, "commit", "-qm", "reviewed stage work")
+    stamp_and_commit(repo, "src/core.py")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code == 0, out
 
@@ -13517,6 +13535,7 @@ def test_stage_done_refuses_without_fresh_stage_local_stamp(repo, tmp_path):
     git(repo, "add", "src/core.py")
     code, out = record_stage_local(repo)
     assert code == 0, out
+    write_task_proof(repo, "T1", publish_review=True)
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code != 0 and "uncommitted or staged PRODUCT changes" in out
 
@@ -13530,6 +13549,7 @@ def test_stage_done_refuses_without_fresh_stage_local_stamp(repo, tmp_path):
     git(repo, "add", "src/core.py")
     code, out = record_stage_local(repo)
     assert code == 0, out
+    write_task_proof(repo, "T1", publish_review=True)
     git(repo, "commit", "-qm", "exact reviewed tree")
     code, out = run(repo, "forge.py", "stage", "done", "T1")
     assert code != 0 and "no successful write launch" in out
@@ -15965,6 +15985,35 @@ def test_safe_factory_windows_helper_refuses_reparse_components(
         target, parts, os.O_WRONLY | os.O_CREAT) is None
 
 
+def test_review_generation_refuses_windows_reparse_ancestor(tmp_path, monkeypatch):
+    factory_lib = load_factory_lib(HARNESS)
+    root = tmp_path / "repo"
+    reviews = root / "reviews"
+    root.mkdir()
+    reviews.mkdir()
+    destination = reviews / "generation.json"
+    real_lstat = factory_lib.os.lstat
+    reparse_flag = 0x400
+    monkeypatch.setattr(
+        factory_lib.stat, "FILE_ATTRIBUTE_REPARSE_POINT", reparse_flag,
+        raising=False,
+    )
+
+    def lstat(path):
+        info = real_lstat(path)
+        if os.fspath(path) == os.fspath(reviews):
+            return types.SimpleNamespace(
+                st_mode=info.st_mode, st_nlink=info.st_nlink,
+                st_file_attributes=reparse_flag,
+            )
+        return info
+
+    monkeypatch.setattr(factory_lib.os, "lstat", lstat)
+    assert not factory_lib._safe_review_leaf(
+        root, destination, required=False, create_parents=True,
+    )
+
+
 def test_delegate_mirror_symlink_is_ignored(repo, tmp_path):
     start_stage(repo, tmp_path, STAGE_TASK, launch=False)
     victim = repo / "victim.txt"
@@ -18273,9 +18322,13 @@ def test_review_consumers_include_complete_approved_inputs(
         seen.append((prompt_rel, prompt_bytes, copied_dataset))
         report = {
             "overall_explanation":
-                "BEGIN QUALITY\nVERDICT C1: implemented — complete dataset routed\n"
-                "END QUALITY\nBEGIN PERFORMANCE\nfast\nEND PERFORMANCE\n"
-                "BEGIN SECURITY\nsafe\nEND SECURITY",
+                "BEGIN FORGE ASSESSMENT quality\n"
+                "VERDICT C1: implemented — complete dataset routed\n"
+                "END FORGE ASSESSMENT quality\n"
+                "BEGIN FORGE ASSESSMENT performance\nfast\n"
+                "END FORGE ASSESSMENT performance\n"
+                "BEGIN FORGE ASSESSMENT security\nsafe\n"
+                "END FORGE ASSESSMENT security",
             "findings": [],
         }
         return report, json.dumps(report).encode()
@@ -18284,6 +18337,11 @@ def test_review_consumers_include_complete_approved_inputs(
         route.setattr(review_mod, "cmd_review_brief", lambda _args: None)
         route.setattr(review_mod, "resolve_skill", lambda _explicit: tmp_path / "helper")
         route.setattr(review_mod, "_product_dirty", lambda _base: [])
+        route.setattr(review_mod, "head_sha", lambda _base: "a" * 40)
+        route.setattr(
+            review_mod, "product_delta_digest",
+            lambda *_args: review_run["branch_diff_digest"],
+        )
         route.setattr(review_mod, "resolve_review_base", lambda *_args: "b" * 40)
         route.setattr(review_mod, "review_excluded_prefixes", lambda _base: ())
         route.setattr(review_mod, "_require_git", fake_require_git)
@@ -18783,12 +18841,15 @@ def test_task_proof_consumers_share_complete_predicate(repo, tmp_path):
         {**DECOMP["tasks"][0], "id": "T1", "user_facing": True}, "C"
     )
     record_skeleton_then_frontier(repo, [task])
+    baseline = head(repo)
     write_stages(repo, {"issue": "ENG-1", "stages": [
-        {"id": "T1", "title": task["title"], "status": "active"}]})
+        {"id": "T1", "title": task["title"], "status": "active",
+         "base_sha": baseline}]})
     code, out = record_task_grill(repo, task)
     assert code == 0, out
     write_stages(repo, {"issue": "ENG-1", "stages": [
-        {"id": "T1", "title": task["title"], "status": "done"}]})
+        {"id": "T1", "title": task["title"], "status": "done",
+         "base_sha": baseline}]})
     proof = write_task_proof(repo, "T1", user_facing=True, publish_review=True)
     lib = load_factory_lib(repo)
     from forge_cli.board import aggregate_state
@@ -18887,6 +18948,13 @@ def test_review_generation_retry_and_collision_are_safe(repo, tmp_path):
     assert retried["generation_id"] == selected["generation_id"]
     assert pointer["generation_id"] == selected["generation_id"]
     assert (proof / "reviews/selected.json").read_bytes() == before
+    interrupted = generation_path.with_name(
+        f".{generation_path.name}.{os.getpid()}.tmp"
+    )
+    os.link(generation_path, interrupted)
+    retried, _pointer = lib.publish_review_generation(repo, "ENG-1", "T1", candidate)
+    assert retried["generation_id"] == selected["generation_id"]
+    assert not interrupted.exists() and generation_path.stat().st_nlink == 1
     generation_path.write_bytes(generation_path.read_bytes() + b" ")
     with pytest.raises(SystemExit, match="collision with unequal bytes"):
         lib.publish_review_generation(repo, "ENG-1", "T1", candidate)
@@ -19010,12 +19078,15 @@ def test_task_proof_ci_seal_and_later_mutation(repo, tmp_path):
         {**DECOMP["tasks"][0], "id": "T1", "user_facing": False}, "C"
     )
     record_skeleton_then_frontier(repo, [task])
+    baseline = head(repo)
     write_stages(repo, {"issue": "ENG-1", "stages": [
-        {"id": "T1", "title": task["title"], "status": "active"}]})
+        {"id": "T1", "title": task["title"], "status": "active",
+         "base_sha": baseline}]})
     code, out = record_task_grill(repo, task)
     assert code == 0, out
     write_stages(repo, {"issue": "ENG-1", "stages": [
-        {"id": "T1", "title": task["title"], "status": "done"}]})
+        {"id": "T1", "title": task["title"], "status": "done",
+         "base_sha": baseline}]})
     base = git(repo, "rev-parse", "origin/main")
     proof = write_task_proof(repo, "T1", publish_review=True)
     git(repo, "add", proof.relative_to(repo).as_posix(), ".factory/review-briefs/all.md")
@@ -19071,21 +19142,13 @@ def test_task_proof_allows_mixed_product_and_metadata_commits(
     metadata_commit = head(repo)
     assert metadata_commit != product_commit
 
-    code, out = run(repo, "forge.py", "review-brief", "--all", "--repo", str(repo))
-    assert code == 0, out
-    token = json.loads(
-        (story_state(repo) / "review-run.json").read_text()
+    write_task_proof(
+        repo, "T1", commit=metadata_commit, publish_review=True,
+        preserve_existing_proof=True,
     )
-    (proof / "reviews").mkdir(parents=True, exist_ok=True)
-    for aspect in ("quality", "performance", "security"):
-        (proof / "reviews" / f"{aspect}.json").write_text(json.dumps({
-            "task_id": "T1", "score": 9, "blocking_findings": [],
-            "generated_by": "autoreview", "commit": metadata_commit,
-            **token,
-        }))
     git(repo, "add", ".factory/review-briefs/all.md",
-        ".factory/stories/ENG-1/review-run.json",
-        ".factory/stories/ENG-1/tasks/T1/reviews")
+            ".factory/stories/ENG-1/review-run.json",
+            ".factory/stories/ENG-1/tasks/T1/reviews")
     git(repo, "commit", "-qm", "proof N")
     seal = head(repo)
     assert seal != metadata_commit
@@ -19158,14 +19221,19 @@ def test_task_proof_sealed_t1_survives_t2_product(repo, tmp_path):
           "acceptance_criteria": ["future works"], "dependencies": ["T1"],
           "user_facing": False}
     record_skeleton_then_frontier(repo, [t1, t2])
+    baseline = head(repo)
     write_stages(repo, {"issue": "ENG-1", "stages": [
-        {"id": "T1", "title": t1["title"], "status": "active"},
-        {"id": "T2", "title": t2["title"], "status": "pending"}]})
+        {"id": "T1", "title": t1["title"], "status": "active",
+         "base_sha": baseline},
+        {"id": "T2", "title": t2["title"], "status": "pending",
+         "base_sha": baseline}]})
     code, out = record_task_grill(repo, t1)
     assert code == 0, out
     write_stages(repo, {"issue": "ENG-1", "stages": [
-        {"id": "T1", "title": t1["title"], "status": "done"},
-        {"id": "T2", "title": t2["title"], "status": "pending"}]})
+        {"id": "T1", "title": t1["title"], "status": "done",
+         "base_sha": baseline},
+        {"id": "T2", "title": t2["title"], "status": "pending",
+         "base_sha": baseline}]})
     base = git(repo, "rev-parse", "origin/main")
     proof = write_task_proof(repo, "T1", publish_review=True)
     git(repo, "add", proof.relative_to(repo).as_posix(), ".factory/review-briefs/all.md")
@@ -19205,9 +19273,25 @@ def test_task_proof_sealed_t1_survives_t2_product(repo, tmp_path):
     assert lib.task_proof_problems(repo, "ENG-1", t2)
 
 
-def test_task_seal_refuses_incomplete_proof_before_mutation(repo, tmp_path):
+def test_task_seal_refuses_incomplete_proof_before_mutation(
+        repo, tmp_path, monkeypatch):
     marker = prepare_task_pr_ready(repo, tmp_path)
     finish_task_for_pr_ready(repo)
+    lib = load_factory_lib(repo)
+    stages_path = delegation_ledger(repo).parent / "stages.json"
+    before_stages = stages_path.read_bytes()
+    monkeypatch.setattr(
+        lib, "task_seal_shared_problems", lambda *_args: ["shared blocker"],
+    )
+    from forge_cli import stages as stages_mod
+    monkeypatch.setattr(
+        stages_mod, "_require_reviewed_commit",
+        lambda *_args: pytest.fail("review stamp inspected before shared blockers"),
+    )
+    with pytest.raises(SystemExit, match="shared blocker"):
+        lib.require_task_sealed(repo, "T1")
+    assert stages_path.read_bytes() == before_stages
+
     gh_env, argv_path = fake_gh_env(tmp_path)
     before_head = head(repo)
     before_status = git(repo, "status", "--porcelain", "-uall")
@@ -19361,37 +19445,63 @@ def test_review_brief_mints_run_id_and_lenses_echo_it(repo, tmp_path):
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
-    record_skeleton_then_frontier(repo, DECOMP["tasks"])
+    task = task_with_plan_contracts(DECOMP["tasks"][0], "C")
+    record_skeleton_then_frontier(repo, [task])
+    baseline = head(repo)
+    write_stages(repo, {"issue": "ENG-1", "stages": [{
+        "id": "T1", "title": "core slice", "status": "active",
+        "base_sha": baseline,
+    }]})
+    code, out = record_task_grill(repo, task)
+    assert code == 0, out
     (repo / "app.py").write_text("print('reviewed branch')\n")
     git(repo, "add", "app.py")
     git(repo, "commit", "-q", "-m", "product change")
+    _write_complete_automated(repo)
 
     code, out = run(repo, "forge.py", "review-brief", "--all", "--repo", str(repo))
     assert code == 0, out
     brief = repo / ".factory" / "review-briefs" / "all.md"
     token = json.loads((story_state(repo) / "review-run.json").read_text())
+    assert token["task_id"] == "T1"
     assert token["brief_sha256"] == hashlib.sha256(brief.read_bytes()).hexdigest()
-    assert token["branch_diff_digest"] == branch_diff_digest(repo)
+    from factory_lib import effective_review_base, product_delta_digest
+    assert token["branch_diff_digest"] == product_delta_digest(
+        repo, effective_review_base(repo, "T1"),
+    )
     assert token["review_run_id"] == hashlib.sha256(
         (token["brief_sha256"] + token["branch_diff_digest"]).encode()
     ).hexdigest()
     assert token["minted_at"]
 
     for aspect in ("quality", "performance", "security"):
+        payload = review_payload()
+        if aspect == "quality":
+            payload["contract_verdicts"] = [{
+                "contract_id": "C1", "verdict": "implemented",
+                "evidence": "app.py:1",
+            }]
         code, out = run(repo, "record_review_from_json.py", "--aspect", aspect,
-                        stdin=json.dumps(review_payload()))
+                        stdin=json.dumps(payload))
         assert code == 0, out
         review = json.loads(
-            (story_state(repo) / "reviews" / f"{aspect}.json").read_text()
+            (story_state(repo) / "tasks" / "T1" / "reviews" / f"{aspect}.json").read_text()
         )
         for field in ("review_run_id", "brief_sha256", "branch_diff_digest"):
             assert review[field] == token[field]
 
+    code, out = run(repo, "record_review_from_json.py", "--aspect", "security",
+                    "--task", "T2", stdin=json.dumps(review_payload()))
+    assert code != 0 and "does not match" in out
+
     (repo / "app.py").write_text("print('changed after review run')\n")
     git(repo, "add", "app.py")
     git(repo, "commit", "-q", "-m", "change reviewed branch")
+    changed_payload = review_payload(contract_verdicts=[{
+        "contract_id": "C1", "verdict": "implemented", "evidence": "app.py:1",
+    }])
     code, out = run(repo, "record_review_from_json.py", "--aspect", "quality",
-                    stdin=json.dumps(review_payload()))
+                    stdin=json.dumps(changed_payload))
     assert code != 0 and "Branch changed after the review run" in out
 
 
@@ -19467,15 +19577,18 @@ def test_quality_review_requires_contract_verdicts(repo, tmp_path):
     ]
     for contract_verdicts, expected in refused:
         code, out = run(repo, "record_review_from_json.py", "--aspect", "quality",
+                        "--task", "T2",
                         stdin=json.dumps(review_payload(
                             contract_verdicts=contract_verdicts)))
         assert code != 0 and expected in out
 
     partial = [verdict("C1", "partial"), verdict("C2")]
     code, out = run(repo, "record_review_from_json.py", "--aspect", "quality",
+                    "--task", "T2",
                     stdin=json.dumps(review_payload(contract_verdicts=partial)))
     assert code == 0, out
-    quality = json.loads((story_state(repo) / "reviews" / "quality.json").read_text())
+    quality = json.loads((story_state(repo) / "tasks" / "T2" / "reviews" /
+                          "quality.json").read_text())
     assert quality["blocking_findings"] == [{
         "category": "plan-contract-partial",
         "area": "plan.md#first",
@@ -19483,6 +19596,7 @@ def test_quality_review_requires_contract_verdicts(repo, tmp_path):
     }]
 
     code, out = run(repo, "record_review_from_json.py", "--aspect", "performance",
+                    "--task", "T2",
                     stdin=json.dumps(review_payload()))
     assert code == 0, out
 
@@ -21292,6 +21406,9 @@ def test_active_task_frontier_routes_current_handoff_and_proof(tmp_path, monkeyp
     monkeypatch.setattr(lib, "_task_grill_fresh", lambda *_a: True)
     monkeypatch.setattr(lib, "head_sha", lambda _root: "HEAD")
     monkeypatch.setattr(lib, "branch_diff_digest", lambda _root: "CURRENT-DIFF")
+    monkeypatch.setattr(lib, "product_delta_digest", lambda *_a: "CURRENT-DIFF")
+    monkeypatch.setattr(lib, "_stage_baseline_for", lambda *_a: "BASE")
+    monkeypatch.setattr(lib, "effective_review_base", lambda *_a: "BASE")
     monkeypatch.setattr(review, "_product_dirty", lambda _root: [])
 
     current_rows = [{
@@ -21335,20 +21452,30 @@ def test_active_task_frontier_routes_current_handoff_and_proof(tmp_path, monkeyp
         '"functional": {"status": "failed", "score": 4}}', encoding="utf-8")
     assert lib._task_action_state(tmp_path, "STORY", task, stage) == "fix-functional"
     (tmp_path / "tests.json").unlink()
+    proof = {"problems": ["T1: selected review generation is missing"]}
+    def proof_problems(*_args, **kwargs):
+        assert kwargs == {"preseal": True}
+        return proof["problems"]
+    monkeypatch.setattr(lib, "task_proof_problems", proof_problems)
     reviews = tmp_path / "reviews"
     reviews.mkdir()
     (reviews / "quality.json").write_text(
         '{"commit": "HEAD", "score": 4, '
         '"blocking_findings": ["broken"]}', encoding="utf-8")
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "review"
+    selected_result = [{"lenses": {
+        "quality": {"score": 4, "blocking_findings": ["broken"]},
+        "performance": {"score": 9, "blocking_findings": []},
+        "security": {"score": 9, "blocking_findings": []},
+    }}, {}, []]
+    monkeypatch.setattr(
+        lib, "read_selected_review_generation", lambda *_a, **_k: selected_result,
+    )
     assert lib._task_action_state(tmp_path, "STORY", task, stage) == "fix-review"
+    selected_result[:] = [None, None, ["selected generation is missing"]]
     (reviews / "quality.json").unlink()
 
-    proof = {"problems": ["T1: no passing verify"]}
-    def proof_problems(*_args, **kwargs):
-        assert kwargs == {"preseal": True}
-        return proof["problems"]
-    monkeypatch.setattr(lib, "task_proof_problems", proof_problems)
-
+    proof["problems"] = ["T1: no passing verify"]
     (tmp_path / "verify.json").write_text(
         '{"ok": false, "commit": "OLD"}', encoding="utf-8")
     assert lib._task_action_state(tmp_path, "STORY", task, stage) == "verify"
@@ -21384,7 +21511,7 @@ def test_active_task_frontier_routes_current_handoff_and_proof(tmp_path, monkeyp
         '{"commit": "OLD", "score": 4, '
         '"branch_diff_digest": "CURRENT-DIFF", '
         '"blocking_findings": ["fixed"]}', encoding="utf-8")
-    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "fix-review"
+    assert lib._task_action_state(tmp_path, "STORY", task, stage) == "review"
     (reviews / "quality.json").write_text(
         '{"commit": "OLD", "score": 4, '
         '"branch_diff_digest": "STALE-DIFF", '

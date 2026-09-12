@@ -2008,7 +2008,11 @@ def _modern_task_proof_problems(
     problems.extend(
         _proof_review_problems(
             root, task_id, reviews, strict=True,
-            expected_branch_diff_digest=expected_branch_diff_digest,
+            expected_branch_diff_digest=(
+                expected_branch_diff_digest
+                if expected_branch_diff_digest is not None
+                else expected_review_delta or None
+            ),
         )
     )
     problems.extend(
@@ -2208,6 +2212,7 @@ def task_proof_problems(
     proof_seal = ""
     marker_publication_commit = ""
     expected_branch_diff_digest = None
+    review_base = ""
     if marker_context is not None:
         sealed_commit = str(marker_context["commit"])
         expected_head = sealed_commit
@@ -2216,16 +2221,20 @@ def task_proof_problems(
         marker_publication_commit = _marker_publication_commit(
             root, marker_path,
         )
-        expected_branch_diff_digest = _historical_branch_diff_digest(
-            root, str(marker_context["base_main_sha"]), sealed_commit,
+        review_base = effective_review_base(root, task_id, sealed_commit)
+        expected_branch_diff_digest = (
+            product_delta_digest(root, review_base, sealed_commit)
+            if review_base else _historical_branch_diff_digest(
+                root, str(marker_context["base_main_sha"]), sealed_commit,
+            )
         )
         allow_legacy = True
 
     if not proof_base and reader is None:
+        proof_base = _stage_baseline_for(root, task_id)
+    if not proof_base and reader is None:
         state = load_json(run_state_path(root), default={})
         proof_base = str(state.get("base_main_sha") or "")
-    if not proof_base and reader is None:
-        proof_base = _stage_baseline_for(root, task_id)
     if proof_base and expected_head and _git_commit_exists(root, proof_base):
         proof_seal = expected_head
 
@@ -2245,7 +2254,8 @@ def task_proof_problems(
     elif reader is not None:
         selected_bytes_reader = lambda path: _read_git_bytes(root, path, "HEAD")
     elif proof_base:
-        expected_review_delta = product_delta_digest(root, proof_base)
+        review_base = effective_review_base(root, task_id) or proof_base
+        expected_review_delta = product_delta_digest(root, review_base)
 
     if modern or not allow_legacy:
         return _modern_task_proof_problems(
@@ -2628,8 +2638,8 @@ def validate_review_document(
                 if not _LOWER_SHA256.fullmatch(str(rejection.get(field, ""))):
                     problems.append(f"rejection {field} must be a lowercase SHA256")
             history = rejection.get("history")
-            if not isinstance(history, list) or not history:
-                problems.append("rejection history must be a non-empty list")
+            if not isinstance(history, list) or len(history) != 1:
+                problems.append("rejection history must contain exactly one entry")
             else:
                 for index, entry in enumerate(history, 1):
                     if (not isinstance(entry, dict) or set(entry) != {
@@ -2712,8 +2722,8 @@ def _rejection_successor_problems(
     candidate: dict, source: dict, source_sha256: str,
 ) -> list[str]:
     problems: list[str] = []
-    if source.get("origin") not in {"combined", "rejection"}:
-        return ["rejection source must be a combined or rejection generation"]
+    if source.get("origin") != "combined":
+        return ["rejection source must be a combined generation"]
     for field in (
         "format", "generated_by", "story", "task_id", "review_run_id",
         "brief_sha256", "inspected_commit", "delta_id", "helper", "input",
@@ -2726,21 +2736,13 @@ def _rejection_successor_problems(
         problems.append("rejection source_generation_id does not name its source")
     if rejection.get("source_generation_sha256") != source_sha256:
         problems.append("rejection source_generation_sha256 does not hash its source file")
-    root_id = (
-        source.get("generation_id") if source.get("origin") == "combined"
-        else (source.get("rejection") or {}).get("root_generation_id")
-    )
-    if rejection.get("root_generation_id") != root_id:
+    if rejection.get("root_generation_id") != source.get("generation_id"):
         problems.append("rejection root_generation_id does not name the combined root")
-    source_history = (
-        [] if source.get("origin") == "combined"
-        else list((source.get("rejection") or {}).get("history") or [])
-    )
     history = rejection.get("history")
-    if not isinstance(history, list) or history[:-1] != source_history:
-        problems.append("rejection history is not its source history plus one entry")
+    if not isinstance(history, list) or len(history) != 1:
+        problems.append("rejection history must contain exactly one entry")
         return problems
-    entry = history[-1]
+    entry = history[0]
     source_lenses = source.get("lenses") or {}
     candidate_lenses = candidate.get("lenses") or {}
     changed = [lens for lens in ("quality", "performance", "security")
@@ -2786,27 +2788,35 @@ def _review_relpaths(key: str, task_id: str, generation_id: str = "") -> tuple[s
     return generation, f"{base}/selected.json"
 
 
-def _safe_review_leaf(root: Path, path: Path, *, required: bool) -> bool:
+def _safe_review_leaf(
+    root: Path, path: Path, *, required: bool, create_parents: bool = False,
+    links: int = 1,
+) -> bool:
     try:
         relative = path.relative_to(root)
         current = root
         root_info = current.lstat()
-        if not stat.S_ISDIR(root_info.st_mode) or current.is_symlink():
+        if (not stat.S_ISDIR(root_info.st_mode) or current.is_symlink()
+                or _windows_reparse_point(current)):
             return False
         for part in relative.parts[:-1]:
             current = current / part
             try:
                 info = current.lstat()
             except FileNotFoundError:
+                if not create_parents:
+                    return False
                 current.mkdir()
                 info = current.lstat()
-            if not stat.S_ISDIR(info.st_mode) or current.is_symlink():
+            if (not stat.S_ISDIR(info.st_mode) or current.is_symlink()
+                    or _windows_reparse_point(current)):
                 return False
         try:
             info = path.lstat()
         except FileNotFoundError:
             return not required
-        return stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_nlink == 1
+        return (stat.S_ISREG(info.st_mode) and not path.is_symlink()
+                and not _windows_reparse_point(path) and info.st_nlink == links)
     except (OSError, ValueError):
         return False
 
@@ -2924,14 +2934,22 @@ def selected_review_problems(
 
 
 def _publish_immutable_review_file(root: Path, destination: Path, body: bytes) -> None:
-    if not _safe_review_leaf(root, destination, required=False):
+    temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
+    if (_safe_review_leaf(root, destination, required=True, links=2)
+            and _safe_review_leaf(root, temporary, required=True, links=2)):
+        destination_info = destination.lstat()
+        temporary_info = temporary.lstat()
+        same_inode = ((destination_info.st_dev, destination_info.st_ino)
+                      == (temporary_info.st_dev, temporary_info.st_ino))
+        if same_inode and destination.read_bytes() == body:
+            temporary.unlink()
+    if not _safe_review_leaf(root, destination, required=False, create_parents=True):
         raise SystemExit(f"unsafe review generation destination: {destination}")
     if destination.exists():
         if _read_review_bytes(root, destination) != body:
             raise SystemExit("review generation id collision with unequal bytes")
         return
-    temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
-    if not _safe_review_leaf(root, temporary, required=False):
+    if not _safe_review_leaf(root, temporary, required=False, create_parents=True):
         raise SystemExit(f"unsafe review generation temporary path: {temporary}")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     descriptor = os.open(temporary, flags, 0o600)
@@ -2966,10 +2984,10 @@ def _publish_immutable_review_file(root: Path, destination: Path, body: bytes) -
 
 def _replace_review_selection(root: Path, destination: Path, selection: dict) -> None:
     body = review_generation_bytes(selection)
-    if not _safe_review_leaf(root, destination, required=False):
+    if not _safe_review_leaf(root, destination, required=False, create_parents=True):
         raise SystemExit(f"unsafe review selection destination: {destination}")
     temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
-    if not _safe_review_leaf(root, temporary, required=False):
+    if not _safe_review_leaf(root, temporary, required=False, create_parents=True):
         raise SystemExit(f"unsafe review selection temporary path: {temporary}")
     descriptor = os.open(
         temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600,
@@ -3561,6 +3579,7 @@ def product_delta_digest(root: Path, base_sha: str, head: str = "") -> str:
     is not attributed to the stage.
     """
     from forge_cli.stages import _git, committed_paths
+    historical = bool(head)
     head = head or head_sha(root) or ""
     empty = hashlib.sha256(b"").hexdigest()
     if not base_sha or not head:
@@ -3571,16 +3590,18 @@ def product_delta_digest(root: Path, base_sha: str, head: str = "") -> str:
     # Only add paths that differ between the current HEAD and index. Comparing
     # the index with the stage base also attributes paths brought in by a trunk
     # merge to this task, undoing committed_paths()' first-parent merge filter.
-    staged_raw = _git(root, "diff", "--cached", "--name-only", "-z", "HEAD")
-    paths = {path for path in staged_raw.split("\0") if path}
+    paths: set[str] = set()
+    if not historical:
+        staged_raw = _git(root, "diff", "--cached", "--name-only", "-z", "HEAD")
+        paths = {path for path in staged_raw.split("\0") if path}
     if base_sha != head:
         paths |= committed_paths(root, base_sha, head)
     ordered = sorted(path for path in paths if not path.startswith(excluded))
     if not ordered:
         return empty
+    range_args = [base_sha, head] if historical else ["--cached", base_sha]
     diff = subprocess.run(
-        ["git", "diff", "--binary", "--no-ext-diff", "--cached", base_sha,
-         "--", *ordered],
+        ["git", "diff", "--binary", "--no-ext-diff", *range_args, "--", *ordered],
         cwd=root, capture_output=True, env=clean_git_env(),
     )
     if diff.returncode != 0:
@@ -3828,6 +3849,18 @@ def _stage_baseline_for(root: Path, task_id: str) -> str:
     except Exception:
         # Never let a baseline lookup decide a gate by crashing it.
         return ""
+
+
+def effective_review_base(root: Path, task_id: str, tip: str = "") -> str:
+    """Resolve the task base used by both review publication and proof readers."""
+    stage = task_stage_record(root, task_id)
+    if not stage:
+        return ""
+    from forge_cli.review import resolve_review_base
+    return resolve_review_base(
+        root, stage, load_json(run_state_path(root), default={}),
+        tip or head_sha(root) or "",
+    )
 
 
 _TASK_CONTRACT_FIELDS = (
@@ -4309,8 +4342,9 @@ def _task_action_state(root: Path, key: str, task: dict, stage: dict) -> str:
                 and not tests_passed(functional, functional=True)):
             return "fix-functional"
         try:
-            current_delta = product_delta_digest(root, _stage_baseline_for(
-                root, str(task_id)))
+            current_delta = product_delta_digest(
+                root, effective_review_base(root, str(task_id)),
+            )
             generation, _selection, selected_problems = read_selected_review_generation(
                 root, key, str(task_id), expected_delta_id=current_delta,
             )
@@ -4708,13 +4742,13 @@ def require_task_sealed(root: Path, task_id: str) -> dict:
     if not stage or stage.get("status") != "done":
         raise SystemExit(f"task {task_id} is not sealed: stage status must be done")
     issue_key = state.get("issue_key") or state.get("story") or ""
+    problems = task_seal_shared_problems(root, issue_key)
+    if problems:
+        raise SystemExit("Task not PR ready:\n- " + "\n- ".join(problems))
     proof_problems = task_proof_problems(root, issue_key, task, preseal=True)
     if proof_problems:
         raise SystemExit("Task proof incomplete:\n- " + "\n- ".join(proof_problems))
     _require_reviewed_commit(root, stage, task)
-    problems = task_seal_shared_problems(root, issue_key)
-    if problems:
-        raise SystemExit("Task not PR ready:\n- " + "\n- ".join(problems))
     return task
 
 

@@ -5,8 +5,8 @@ One command replaces the hand-assembled skill invocation the coordinator used
 to get wrong: it pins the task tip in a clean detached worktree (so harness
 writes in the main tree cannot abort the run), reviews the WHOLE task diff from
 the task's recorded base (branch mode; `--mode commit` would see only the last
-commit), runs the autoreview skill once per lens with Codex as the engine,
-drops findings on harness bookkeeping paths, derives each lens artifact, parses
+commit), runs the autoreview skill once with Codex as the engine, drops findings
+on harness bookkeeping paths, derives each lens artifact, parses
 the quality verdicts from the reviewer's prose, and records all three through
 the existing schema-validated recorder. It always ends by printing the exact
 next command.
@@ -31,7 +31,7 @@ import unicodedata
 from pathlib import Path, PurePosixPath
 
 from factory_lib import (
-    branch_diff_digest, clean_git_env, load_json,
+    branch_diff_digest, clean_git_env, head_sha, load_json, product_delta_digest,
     proof_path, protected_decomposition_state_path, repo_root, run_state_path,
     safe_factory_write_bytes, schema_path,
 )
@@ -116,7 +116,8 @@ Every listed contract must get a line. Do not rename contract ids.
 """
 
 SECTION_MARKERS = tuple(
-    (lens, f"BEGIN {lens.upper()}", f"END {lens.upper()}") for lens in LENSES
+    (lens, f"BEGIN FORGE ASSESSMENT {lens}", f"END FORGE ASSESSMENT {lens}")
+    for lens in LENSES
 )
 LENS_TAGS = tuple(f"[{lens}] " for lens in LENSES)
 
@@ -231,11 +232,12 @@ def _combined_prompt(task: dict) -> bytes:
         if isinstance(contract, dict) and isinstance(contract.get("id"), str)
     ]
     minimum = [
-        "BEGIN QUALITY",
+        "BEGIN FORGE ASSESSMENT quality",
         *(f"VERDICT {contract}: implemented — file:line evidence" for contract in contracts),
-        "quality assessment", "END QUALITY", "BEGIN PERFORMANCE",
-        "performance assessment", "END PERFORMANCE", "BEGIN SECURITY",
-        "security assessment", "END SECURITY",
+        "quality assessment", "END FORGE ASSESSMENT quality",
+        "BEGIN FORGE ASSESSMENT performance", "performance assessment",
+        "END FORGE ASSESSMENT performance", "BEGIN FORGE ASSESSMENT security",
+        "security assessment", "END FORGE ASSESSMENT security",
     ]
     if len("\n".join(minimum)) > 3000:
         fail("combined review boilerplate cannot fit the helper's 3000-character "
@@ -246,9 +248,11 @@ def _combined_prompt(task: dict) -> bytes:
         "Assess quality, performance, and security in one provider pass. In every "
         "provider pass, overall_explanation must contain these exact full-line "
         "markers once, in this order, with a non-empty assessment between each pair:",
-        "", "BEGIN QUALITY", "<quality assessment>", "END QUALITY",
-        "BEGIN PERFORMANCE", "<performance assessment>", "END PERFORMANCE",
-        "BEGIN SECURITY", "<security assessment>", "END SECURITY", "",
+        "", "BEGIN FORGE ASSESSMENT quality", "<quality assessment>",
+        "END FORGE ASSESSMENT quality", "BEGIN FORGE ASSESSMENT performance",
+        "<performance assessment>", "END FORGE ASSESSMENT performance",
+        "BEGIN FORGE ASSESSMENT security", "<security assessment>",
+        "END FORGE ASSESSMENT security", "",
         "Prefix every finding title with exactly one matching token: [quality] , "
         "[performance] , or [security] .", "", LENS_FOCUS["quality"],
         QUALITY_VERDICT_FORMAT, VERDICT_INSTRUCTION, "", LENS_FOCUS["performance"],
@@ -278,6 +282,12 @@ def _pass_sections(report: dict) -> tuple[dict[str, str], list[str]]:
         sections[lens] = body
     if positions != sorted(positions):
         fail("combined review lens sections are not in quality, performance, security order")
+    bounds = [(lines.index(begin), lines.index(end))
+              for _lens, begin, end in SECTION_MARKERS]
+    if (bounds[0][0] != 0 or bounds[-1][1] != len(lines) - 1
+            or any(left[1] + 1 != right[0]
+                   for left, right in zip(bounds, bounds[1:]))):
+        fail("combined review lens sections must be contiguous and cover the explanation")
     if len(set(sections.values())) != len(LENSES):
         fail("combined review copied one lens assessment into another lens")
     return sections, lines
@@ -387,6 +397,53 @@ def _project_combined_report(
             verdict_texts=[section["quality"] for section in sections]
             if lens == "quality" else None,
         )
+    return artifacts
+
+
+def rederive_combined_lenses(base: Path, candidate: dict) -> dict[str, dict]:
+    """Project a combined candidate again from current authoritative task state."""
+    from .stages import load_stages, stage_baseline, task_for
+
+    task_id = str(candidate.get("task_id") or "")
+    task = task_for(base, task_id)
+    stages = load_stages(base).get("stages") or []
+    stage = next((item for item in stages if item.get("id") == task_id), {})
+    if not task or not stage:
+        fail("combined review generation needs its recorded task and stage")
+    tip_sha = str(candidate.get("inspected_commit") or "")
+    state = load_json(run_state_path(base), default={})
+    base_sha = resolve_review_base(base, stage, state, tip_sha)
+    excluded = review_excluded_prefixes(base)
+    scope = sorted(
+        path for path in _require_git(
+            base, "listing the task diff", "diff", "--name-only",
+            f"{base_sha}...{tip_sha}",
+        ).splitlines()
+        if path.strip() and not path.startswith(excluded)
+    )
+    decomposition = load_json(protected_decomposition_state_path(base), default={})
+    all_tasks = [item for item in decomposition.get("tasks") or []
+                 if isinstance(item, dict)]
+    started = {item.get("id"): item.get("status") for item in stages
+               if isinstance(item, dict)}
+    skills_used: list[str] = []
+    if task.get("user_facing"):
+        review_schema = json.loads(schema_path(base, "review").read_text(encoding="utf-8"))
+        skills_used = list((review_schema.get("required_skills") or {}).get(
+            "user_facing", []))
+    raw = base64.b64decode(candidate["raw_result"]["data"], validate=True)
+    report = json.loads(raw.decode("utf-8"))
+    artifacts = _project_combined_report(
+        task, report, scope, base_sha, tip_sha, skills_used, all_tasks, started,
+        excluded,
+    )
+    for artifact in artifacts.values():
+        artifact.update({
+            "review_run_id": candidate.get("review_run_id"),
+            "brief_sha256": candidate.get("brief_sha256"),
+            "branch_diff_digest": candidate.get("delta_id"),
+            "commit": tip_sha,
+        })
     return artifacts
 
 
@@ -829,8 +886,8 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
         fail("cannot reject from selected proof: " + "; ".join(
             problems or ["no selected complete review generation"]
         ))
-    if generation.get("origin") not in {"combined", "rejection"}:
-        fail("review rejection requires a selected combined or rejection generation")
+    if generation.get("origin") != "combined":
+        fail("review rejection requires the selected combined generation")
     artifact = generation["lenses"][lens]
     needle = match.strip().lower()
     hits = [f for f in artifact.get("blocking_findings") or []
@@ -849,14 +906,10 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
     at = now_iso()
     candidate = copy.deepcopy(generation)
     candidate.pop("generation_id")
-    prior_history = (
-        list((generation.get("rejection") or {}).get("history") or [])
-        if generation.get("origin") == "rejection" else []
-    )
-    prior_history.append({
+    history = [{
         "finding_fingerprint": review_finding_fingerprint(finding),
         "reason": reason.strip(), "citation": cite.strip(), "actor": by.strip(),
-    })
+    }]
     candidate.pop("rejection", None)
     candidate.pop("upgrade", None)
     candidate["origin"] = "rejection"
@@ -864,11 +917,8 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
     candidate["rejection"] = {
         "source_generation_id": generation["generation_id"],
         "source_generation_sha256": selection["generation_sha256"],
-        "root_generation_id": (
-            generation["generation_id"] if generation["origin"] == "combined"
-            else generation["rejection"]["root_generation_id"]
-        ),
-        "history": prior_history,
+        "root_generation_id": generation["generation_id"],
+        "history": history,
     }
     updated = candidate["lenses"][lens]
     updated["blocking_findings"] = [
@@ -1121,6 +1171,9 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
         id=None, all=True, repo=str(base), review_task=args.id,
     ))
     dataset_body = (base / REVIEW_DATASET_REL).read_bytes()
+    token = load_json(base / ".factory" / "stories" / story / "review-run.json", default={})
+    if token.get("task_id") != args.id:
+        fail("review-run token does not match the reviewed task")
 
     decomposition = load_json(protected_decomposition_state_path(base), default={})
     all_tasks = [t for t in decomposition.get("tasks") or [] if isinstance(t, dict)]
@@ -1188,6 +1241,10 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
         helper_after, helper_file_after = _helper_identity(skill)
         if helper_after != helper_before or helper_file_after != helper_file_before:
             fail("autoreview helper identity changed during the review; nothing published")
+        if head_sha(base) != tip_sha or _product_dirty(base) \
+                or product_delta_digest(base, base_sha) \
+                != token.get("branch_diff_digest"):
+            fail("task product changed during the review; nothing published")
     finally:
         _git(base, "worktree", "remove", "--force", str(worktree))
         _git(base, "worktree", "prune")
@@ -1210,13 +1267,12 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
                  f"{proc.stdout.strip()}\n{proc.stderr.strip()}")
         recorded = {args.lens: artifact}
     else:
-        from factory_lib import now_iso, product_delta_digest
+        from factory_lib import now_iso
         from .stages import stage_baseline
         artifacts = _project_combined_report(
             task, reviewed, scope, base_sha, tip_sha, skills_used, all_tasks,
             started, excluded,
         )
-        token = load_json(base / ".factory" / "stories" / story / "review-run.json", default={})
         for artifact in artifacts.values():
             artifact.update({
                 "review_run_id": token.get("review_run_id"),
@@ -1231,7 +1287,7 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
             "review_run_id": token.get("review_run_id"),
             "brief_sha256": token.get("brief_sha256"),
             "inspected_commit": tip_sha,
-            "delta_id": product_delta_digest(base, stage_baseline(base, stage)),
+            "delta_id": token.get("branch_diff_digest"),
             "helper": helper_before,
             "input": {"sha256": hashlib.sha256(prompt_body).hexdigest(),
                       "bytes": len(prompt_body)},

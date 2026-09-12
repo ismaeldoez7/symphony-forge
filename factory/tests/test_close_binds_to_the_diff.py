@@ -198,6 +198,7 @@ def test_legacy_stamp_converts_in_place_when_still_fresh(repo, tmp_path):
     stage["local_review_stamp"] = legacy
     from forge_cli.stages import write_stages
     write_stages(repo, data)
+    write_task_proof(repo, "T1", publish_review=True)
 
     assert stamp_is_fresh(repo, _stage(repo), task_for(repo, "T1"))
     converted = _stage(repo)["local_review_stamp"]
@@ -318,7 +319,7 @@ def test_task_close_goes_from_built_to_pr_and_is_idempotent(repo, tmp_path):
     code, out = run(repo, "forge.py", "task", "close", "T1",
                     "--skill", str(tmp_path / "no-such-autoreview"), env=env)
     assert code == 0, out
-    assert "already sealed" in out
+    assert "is closed and its review covers the current diff" in out
     assert head(repo) == sealed_head
 
 
@@ -415,9 +416,7 @@ def _record_quality_with_a_partial_contract(repo: Path) -> None:
 
 
 def test_the_review_verdict_is_counted_from_what_was_recorded(repo, tmp_path):
-    """G2. `forge review` printed blocking=0 from the composed artifact while
-    the recorder had written a blocking contract verdict into the file CI
-    reads. Two gates, one artifact, two answers."""
+    """A fixed diagnostic cannot compete with the selected generation."""
     from forge_cli.review import recorded_review_totals
     start_stage(repo, tmp_path, STAGE_TASK)
     write_in_scope(repo, "src/core.py")
@@ -426,8 +425,12 @@ def test_the_review_verdict_is_counted_from_what_was_recorded(repo, tmp_path):
     _record_quality_with_a_partial_contract(repo)
     blocking, caveats, recorded = recorded_review_totals(
         repo, "ENG-1", "T1", ("quality",))
-    assert blocking == 1 and caveats == 0
-    assert recorded["quality"]["blocking_findings"][0]["category"] == "plan-contract-partial"
+    assert blocking == 0 and caveats == 0 and recorded["quality"] == {}
+    write_task_proof(repo, "T1", publish_review=True)
+    blocking, caveats, recorded = recorded_review_totals(
+        repo, "ENG-1", "T1", ("quality",))
+    assert blocking == 0 and caveats == 0
+    assert recorded["quality"]["score"] == 10
 
 
 def test_the_delegate_brief_carries_the_recorded_findings(repo, tmp_path):

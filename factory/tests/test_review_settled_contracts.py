@@ -30,7 +30,9 @@ from factory_lib import (  # noqa: E402
     review_finding_fingerprint,
 )
 from forge_cli.findings import _finding_rows  # noqa: E402
-from forge_cli.review import LENSES, rejected_findings_report  # noqa: E402
+from forge_cli.review import (  # noqa: E402
+    LENSES, _project_combined_report, rejected_findings_report,
+)
 from forge_cli.review_brief import _plan_section_bodies, _task_section  # noqa: E402
 from forge_cli.stages import load_stages, stage_baseline, task_digest  # noqa: E402
 
@@ -124,26 +126,30 @@ def _publish(repo, blocking=(), *, recorded_at="2026-09-11T01:00:00+00:00"):
     token = load_json(repo / ".factory/stories/ENG-1/review-run.json", default={})
     stage = next(row for row in load_stages(repo)["stages"] if row["id"] == "T2")
     delta = product_delta_digest(repo, stage_baseline(repo, stage))
-    common = {"generated_by": "autoreview", "task_id": "T2",
-              "non_blocking_findings": [], "review_run_id": token["review_run_id"],
-              "brief_sha256": token["brief_sha256"], "branch_diff_digest": delta,
-              "commit": head(repo), "reviewed_scope": ["src/work.py"], "skills_used": []}
-    lenses = {}
-    for lens in LENSES:
-        found = list(blocking) if lens == "security" else []
-        lenses[lens] = {**common, "score": max(0, 10 - 3 * len(found)),
-                        "summary": lens, "blocking_findings": found,
-                        "recommendation": "request-changes" if found else "approve"}
-    lenses["quality"]["contract_verdicts"] = [
-        {"contract_id": cid, "verdict": "implemented", "evidence": "src/work.py:1"}
-        for cid in ("T1-AC1", "T2-AC1")]
-    raw_findings = [{"title": f"[security] finding {index}", "body": item["summary"],
+    raw_findings = [{"title": f"[security] {item['summary']}", "body": item["summary"],
                      "priority": "P1", "confidence": 1, "category": "security",
                      "code_location": {"file_path": "src/work.py", "line": index}}
                     for index, item in enumerate(blocking, 1)]
     raw = json.dumps({"findings": raw_findings, "overall_explanation":
-        "BEGIN QUALITY\nquality\nEND QUALITY\nBEGIN PERFORMANCE\nfast\nEND PERFORMANCE\n"
-        "BEGIN SECURITY\nsafe\nEND SECURITY"}, separators=(",", ":")).encode()
+        "BEGIN FORGE ASSESSMENT quality\n"
+        "VERDICT T2-AC1: implemented — src/work.py:1\n"
+        "END FORGE ASSESSMENT quality\n"
+        "BEGIN FORGE ASSESSMENT performance\nfast\n"
+        "END FORGE ASSESSMENT performance\n"
+        "BEGIN FORGE ASSESSMENT security\nsafe\n"
+        "END FORGE ASSESSMENT security"}, separators=(",", ":")).encode()
+    decomposition = load_json(protected_decomposition_state_path(repo), default={})
+    tasks = decomposition["tasks"]
+    task = next(item for item in tasks if item["id"] == "T2")
+    started = {item["id"]: item["status"] for item in load_stages(repo)["stages"]}
+    lenses = _project_combined_report(
+        task, json.loads(raw), ["src/work.py"], stage_baseline(repo, stage),
+        head(repo), [], tasks, started, (),
+    )
+    for artifact in lenses.values():
+        artifact.update({"review_run_id": token["review_run_id"],
+                         "brief_sha256": token["brief_sha256"],
+                         "branch_diff_digest": delta, "commit": head(repo)})
     candidate = {"format": "forge-review-generation/v1", "origin": "combined",
         "generated_by": "autoreview", "story": "ENG-1", "task_id": "T2",
         "review_run_id": token["review_run_id"], "brief_sha256": token["brief_sha256"],
@@ -163,14 +169,17 @@ def test_reject_republishes_one_complete_pointer_selected_set(repo, tmp_path):
     root, first_pointer = _publish(repo, blockers)
     raw = root["raw_result"]
     quality = root["lenses"]["quality"]
-    for number in (1, 2):
-        code, out = run(repo, "forge.py", "review", "T2", "--reject", f"lookup {number}",
-                        "--lens", "security", "--reason", "remembered hardFloor contract",
-                        "--cite", "T1-AC1", "--by", "autoreview")
-        assert code == 0, out
+    code, out = run(repo, "forge.py", "review", "T2", "--reject", "lookup 1",
+                    "--lens", "security", "--reason", "remembered hardFloor contract",
+                    "--cite", "T1-AC1", "--by", "autoreview")
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "review", "T2", "--reject", "lookup 2",
+                    "--lens", "security", "--reason", "remembered hardFloor contract",
+                    "--cite", "T1-AC1", "--by", "autoreview")
+    assert code != 0 and "selected combined generation" in out
     selected, pointer, problems = read_selected_review_generation(repo, "ENG-1", "T2")
     assert not problems and selected["origin"] == "rejection"
-    assert len(selected["rejection"]["history"]) == 2
+    assert len(selected["rejection"]["history"]) == 1
     assert selected["raw_result"] == raw and selected["lenses"]["quality"] == quality
     assert pointer["generation_id"] != first_pointer["generation_id"]
     assert "lookup 1" in rejected_findings_report(repo, "ENG-1", "T2")

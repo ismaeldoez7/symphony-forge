@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import json
 import copy
+import hashlib
+import subprocess
 
 import pytest
 
@@ -27,9 +29,10 @@ __all__ = ["repo"]
 
 def _combined_explanation(quality: str, performance: str, security: str) -> str:
     return (
-        f"BEGIN QUALITY\n{quality}\nEND QUALITY\n"
-        f"BEGIN PERFORMANCE\n{performance}\nEND PERFORMANCE\n"
-        f"BEGIN SECURITY\n{security}\nEND SECURITY"
+        f"BEGIN FORGE ASSESSMENT quality\n{quality}\nEND FORGE ASSESSMENT quality\n"
+        f"BEGIN FORGE ASSESSMENT performance\n{performance}\n"
+        f"END FORGE ASSESSMENT performance\n"
+        f"BEGIN FORGE ASSESSMENT security\n{security}\nEND FORGE ASSESSMENT security"
     )
 
 
@@ -78,8 +81,14 @@ def test_combined_review_projects_tagged_lenses_and_preserves_ordered_pass_verdi
 
 def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixed_output():
     mutators = (
+        lambda report: report.update(
+            overall_explanation="preface\n" + report["overall_explanation"]),
         lambda report: report.update(overall_explanation=report["overall_explanation"].replace(
-            "BEGIN PERFORMANCE", "BEGIN SECURITY", 1)),
+            "END FORGE ASSESSMENT quality\nBEGIN FORGE ASSESSMENT performance",
+            "END FORGE ASSESSMENT quality\nstray\nBEGIN FORGE ASSESSMENT performance")),
+        lambda report: report.update(overall_explanation=report["overall_explanation"].replace(
+            "BEGIN FORGE ASSESSMENT performance",
+            "BEGIN FORGE ASSESSMENT security", 1)),
         lambda report: report["findings"].append(
             _combined_finding("quality", "Same issue", "src/./a.py", 3)),
         lambda report: report["findings"].append(
@@ -124,9 +133,21 @@ def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(repo,
     assert code != 0 and "decoded byte count" in out
     malformed = copy.deepcopy(candidate)
     malformed["origin"] = "rejection"
+    malformed["rejection"] = {
+        "source_generation_id": generation["generation_id"],
+        "source_generation_sha256": _pointer["generation_sha256"],
+        "root_generation_id": generation["generation_id"],
+        "history": [{"finding_fingerprint": "f" * 64, "reason": "reason",
+                     "citation": "T1-AC1", "actor": "autoreview"}],
+    }
     code, out = run(repo, "record_review_from_json.py", "--set", "--task", "T2",
                     stdin=json.dumps(malformed))
-    assert code != 0 and "fields must be exactly" in out
+    assert code != 0 and "only accepts origin=combined" in out
+    fabricated = copy.deepcopy(candidate)
+    fabricated["lenses"]["security"]["summary"] = "fabricated clean proof"
+    code, out = run(repo, "record_review_from_json.py", "--set", "--task", "T2",
+                    stdin=json.dumps(fabricated))
+    assert code != 0 and "do not match the raw helper result" in out
 
 
 def _commit(repo, name: str, content: str) -> str:
@@ -159,6 +180,17 @@ def test_review_base_advances_past_a_trunk_merged_after_the_stage_began(repo):
     delta = git(repo, "diff", "--name-only", f"{advanced}...{tip}").splitlines()
     assert delta == ["src/task.py"]
     assert task_commit != tip
+    from factory_lib import product_delta_digest
+    expected = subprocess.run(
+        ["git", "diff", "--binary", "--no-ext-diff", advanced, tip,
+         "--", "src/task.py"], cwd=repo, capture_output=True, check=True,
+    ).stdout
+    historical_delta = product_delta_digest(repo, advanced, tip)
+    assert historical_delta == hashlib.sha256(expected).hexdigest()
+    (repo / "src/task.py").write_text("later unreviewed edit\n")
+    git(repo, "add", "src/task.py")
+    assert product_delta_digest(repo, advanced, tip) == historical_delta
+    git(repo, "restore", "--source", tip, "--staged", "--worktree", "src/task.py")
 
     # A trunk that moved WITHOUT being merged does not move the base.
     git(repo, "checkout", "-q", "trunk-work")

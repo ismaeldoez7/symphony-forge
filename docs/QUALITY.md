@@ -51,7 +51,7 @@ tasks already sealed, the lessons in force); a finding that contradicts
 settled text is rejected on the record with `forge review <id> --reject`,
 which requires a citation that resolves to a decision, a plan section or a
 sealed contract, ledgers it as a lesson, and publishes an immutable successor
-to the selected combined or rejection generation. A diagnostic `--lens` run
+to the selected combined generation. A diagnostic `--lens` run
 cannot select proof, stamp a stage, or revoke an earlier selection.
 
 ## Review findings are not a menu

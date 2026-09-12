@@ -27,22 +27,29 @@ dataset = pathlib.Path(args[args.index("--dataset") + 1])
 assert "### Approved task inputs" in dataset.read_text(encoding="utf-8")
 text = prompt.read_text(encoding="utf-8")
 assert all(marker in text for marker in (
-    "BEGIN QUALITY", "BEGIN PERFORMANCE", "BEGIN SECURITY",
+    "BEGIN FORGE ASSESSMENT quality", "BEGIN FORGE ASSESSMENT performance",
+    "BEGIN FORGE ASSESSMENT security",
     "[quality] ", "[performance] ", "[security] ",
 ))
 report = {
     "findings": [],
     "overall_correctness": "patch is correct",
     "overall_explanation": (
-        "BEGIN QUALITY\nVERDICT C1: implemented — src/core.py:1\nEND QUALITY\n"
-        "BEGIN PERFORMANCE\nNo repeated work.\nEND PERFORMANCE\n"
-        "BEGIN SECURITY\nNo unsafe boundary.\nEND SECURITY"
+        "BEGIN FORGE ASSESSMENT quality\n"
+        "VERDICT C1: implemented — src/core.py:1\n"
+        "END FORGE ASSESSMENT quality\n"
+        "BEGIN FORGE ASSESSMENT performance\nNo repeated work.\n"
+        "END FORGE ASSESSMENT performance\n"
+        "BEGIN FORGE ASSESSMENT security\nNo unsafe boundary.\n"
+        "END FORGE ASSESSMENT security"
     ),
     "overall_confidence": 0.9,
 }
 out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 if os.environ.get("FAKE_MUTATE_HELPER"):
     pathlib.Path(__file__).write_text(pathlib.Path(__file__).read_text() + "\n# changed\n")
+if os.environ.get("FAKE_MUTATE_PRODUCT"):
+    (pathlib.Path(os.environ["FAKE_MUTATE_PRODUCT"]) / "src/core.py").write_text("changed\n")
 sys.exit(0)
 '''
 
@@ -130,4 +137,19 @@ def test_review_helper_identity_mismatch_refuses_publication(repo, tmp_path, mon
     monkeypatch.setenv("FAKE_MUTATE_HELPER", "1")
     with pytest.raises(SystemExit):
         review_task(repo, "T1", skill=str(helper), engine="claude")
+    assert selection_path.read_bytes() == before
+
+
+def test_review_product_change_during_helper_refuses_publication(
+        repo, tmp_path, monkeypatch, capsys):
+    _built(repo, tmp_path)
+    helper = _fake_skill(tmp_path)
+    review_task(repo, "T1", skill=str(helper), engine="claude")
+    selection_path, _pointer, _generation = _selection(repo)
+    before = selection_path.read_bytes()
+
+    monkeypatch.setenv("FAKE_MUTATE_PRODUCT", str(repo))
+    with pytest.raises(SystemExit):
+        review_task(repo, "T1", skill=str(helper), engine="claude")
+    assert "product changed during the review" in capsys.readouterr().out
     assert selection_path.read_bytes() == before

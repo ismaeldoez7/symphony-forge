@@ -13,7 +13,7 @@ from factory_lib import (
     _read_git_bytes, _read_git_json, _stage_baseline_for, branch_diff_digest,
     active_task_id, head_sha, load_json, now_iso,
     plan_digest_without_assumptions, proof_path,
-    product_delta_digest,
+    effective_review_base, product_delta_digest,
     protected_decomposition_state_path, repo_root, require_task_grill,
     run_state_path, safe_factory_write_bytes, story_dir,
 )
@@ -506,12 +506,13 @@ def cmd_review_brief(args: argparse.Namespace) -> None:
         if not isinstance(story, str) or not story:
             raise SystemExit("Cannot mint a branch review run without an active story.")
         brief_sha256 = hashlib.sha256(body).hexdigest()
-        baseline = _stage_baseline_for(base, reviewed_task)
+        baseline = effective_review_base(base, reviewed_task)
         diff_digest = (
             product_delta_digest(base, baseline)
             if baseline else branch_diff_digest(base)
         )
         token = {
+            "task_id": reviewed_task,
             "review_run_id": hashlib.sha256(
                 (brief_sha256 + diff_digest).encode()
             ).hexdigest(),
