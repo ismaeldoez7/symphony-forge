@@ -1,246 +1,173 @@
 {
-  "commit": "5b745bdd914c1a6cc5842db82f130dc5f6c21ae4",
+  "commit": "c5382ee54eafa6ad361b6ebe7cec7fc5bbaa1c7f",
   "automated": {
-    "generated_by": "implementer",
-    "status": "passed",
-    "summary": "The fresh registered Sol/medium process-recovery worker completed with correlated C8 evidence, and normal full host verification passed on the current commit.",
     "blocking_findings": [],
+    "c5_bootstrap_provenance": {
+      "cases": [
+        {
+          "branch_exists_after": false,
+          "branch_exists_before": false,
+          "case": "missing-task-plan",
+          "exit_code": 1,
+          "missing_input": ".factory/stories/ENG-1/task-plans/T1.md",
+          "refusal_observed": true,
+          "stdout": "ERROR: task start hydration inputs are missing: .factory/stories/ENG-1/task-plans/T1.md\n",
+          "worktree_exists_after": false,
+          "worktree_exists_before": false
+        },
+        {
+          "branch_exists_after": false,
+          "branch_exists_before": false,
+          "case": "missing-task-grill",
+          "exit_code": 1,
+          "missing_input": ".factory/stories/ENG-1/grills/tasks/T1.json",
+          "refusal_observed": true,
+          "stdout": "ERROR: task start hydration inputs are missing: .factory/stories/ENG-1/grills/tasks/T1.json\n",
+          "worktree_exists_after": false,
+          "worktree_exists_before": false
+        }
+      ],
+      "historical_approval_observations": {
+        "source_live_record": {
+          "approved_at": "2026-09-10T08:47:29+00:00",
+          "approved_by": "User (standing in-scope approval, Codex conversation 2026-09-10)",
+          "available": true,
+          "note": "Read separately from existing live source/target records; not used to configure the archived probe.",
+          "path": "/Users/dev/Workdir/symphony-forge-native-dogfood/.factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json",
+          "recorded_at": "2026-09-10T08:47:29+00:00"
+        },
+        "target_record": {
+          "approved_at": "2026-09-10T09:14:45+00:00",
+          "approved_by": "User (standing approval and accepted0063/0064/0065)",
+          "available": true,
+          "note": "Read separately from existing live source/target records; not used to configure the archived probe.",
+          "path": "/Users/dev/Workdir/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/.factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json",
+          "recorded_at": "2026-09-10T09:14:38+00:00"
+        }
+      },
+      "method": "Two independent git clones checked out at immutable 7a462bc; each used a controlled story/decomposition/remote fixture and invoked the archived forge task-start CLI.",
+      "path": "/Users/dev/.codex/reviews/forge-lean-20260910/first-incumbent-bootstrap-probe/first-incumbent-bootstrap-probe.json",
+      "sha256": "a2bf5ddf80eebd1057bd86fdf36718f20e00a9d34acce86bb99a5b818e57d2c9",
+      "source_commit": "7a462bc2bd770a4df0ba47f40d515916438b8ac7"
+    },
     "commands_run": [
-      "Normal verify passed all 3 phases on 5b745bdd914c1a6cc5842db82f130dc5f6c21ae4; full JUnit 4176ab02e80c3910daa651780e936ec427ca9da7abc89079a68c0ef48ec24ee9: 1017 passed, 3 existing platform skips.",
-      "All 41 required selectors passed. git diff --check passed. Complete scope 156 paths/14806 lines; product scope 63 paths/7905 lines within 66 declared paths and 180/18000 budget.",
-      "Current C8 launch launch-b38deadcbf7d4b44b50ebf1002120c1e, session 01a08ead-8b42-7990-99c9-a4a07efb8a18, protected denial and terminal succeeded/0 are bound to public source hashes and line references."
-    ],
-    "tests_added_or_updated": [
-      "test_active_model_policy_has_no_forbidden_execution_surface",
-      "test_active_task_frontier_routes_current_handoff_and_proof",
-      "test_any_protected_revocation_marker_denies_admission",
-      "test_codex_exec_ban_matches_invocations_not_prose",
-      "test_codex_hook_readiness_requires_exact_enabled_trusted_source",
-      "test_current_claude_companion_token_resolves_protected_worker",
-      "test_doctor_repairs_only_exact_plugin_max_source",
-      "test_dual_runtime_checker_requires_each_session_start_source",
-      "test_foreground_cleanup_revokes_admission_before_signals",
-      "test_known_native_launch_reads_delegation_ledger_once",
-      "test_lean_stop_allows_authenticated_live_native_read_only_grill",
-      "test_lean_stop_allows_authenticated_registered_worker_handoff",
-      "test_lean_stop_does_not_exempt_untrusted_or_non_grill_launch",
-      "test_model_policy_selects_sol_work_and_luna_lite",
-      "test_native_launch_registers_before_stdin_and_records_terminal_identity",
-      "test_native_log_open_failure_releases_lock_without_lifecycle_rows",
-      "test_native_unshipped_operations_refuse_before_dispatch",
-      "test_native_worker_patch_add_update_delete_and_move_is_admitted",
-      "test_native_worker_reads_state_without_protected_write_authority",
-      "test_native_zero_exit_without_completed_turn_is_failed",
-      "test_next_early_grill_guidance_uses_gate_floor_and_stops_native",
-      "test_next_native_requirements_question_stops_at_unsupported_delivery",
-      "test_next_only_offers_signoff_grill_for_complete_inputs",
-      "test_next_prose_reconciles_handoffs_without_blind_retry",
-      "test_planning_lock_forces_plan_mode",
-      "test_project_agents_init_upgrade_and_preserve_client_additions",
-      "test_review_all_bounds_sealed_task_inputs_after_successor_product",
-      "test_review_codex_engine_pins_sol_high",
-      "test_review_codex_helper_policy_refuses_fallback_before_launch",
-      "test_review_consumers_include_complete_approved_inputs",
-      "test_review_preflight_refuses_other_task_or_story_proof",
-      "test_review_preflight_uses_active_task_proof",
-      "test_review_product_dirty_preserves_porcelain_status_prefix",
-      "test_session_start_routes_native_questions_to_main_chat",
-      "test_task_pr_ready_changed_evidence_reseals_instead_of_reusing_marker",
-      "test_task_pr_ready_marker_commit_preserves_unrelated_index",
-      "test_task_pr_ready_retry_reuses_unchanged_committed_marker",
-      "test_task_proof_ci_uses_sealed_legacy_t1_not_later_t2_singleton",
-      "test_task_proof_consumers_share_complete_predicate",
-      "test_task_seal_refuses_incomplete_proof_before_mutation",
-      "test_task_start_creates_before_jit_with_approved_identity"
-    ],
-    "pass_fail_summary": "1017 passed, 3 existing platform skips; 41/41 required selectors passed on 5b745bdd914c1a6cc5842db82f130dc5f6c21ae4.",
-    "remaining_gaps": [],
-    "reviewed_scope": [
-      ".claude/CLAUDE.md",
-      ".claude/settings.json",
-      ".codex/agents/AGENTS.md",
-      ".codex/agents/architect.toml",
-      ".codex/agents/backend.toml",
-      ".codex/agents/debugger.toml",
-      ".codex/agents/docs-decomposer.toml",
-      ".codex/agents/explorer.toml",
-      ".codex/agents/frontend.toml",
-      ".codex/agents/functional-checker.toml",
-      ".codex/agents/griller.toml",
-      ".codex/agents/lite.toml",
-      ".codex/agents/performance.toml",
-      ".codex/agents/planner-high.toml",
-      ".codex/agents/planner.toml",
-      ".codex/agents/refactorer.toml",
-      ".codex/agents/security.toml",
-      ".codex/agents/tester.toml",
-      ".codex/config.toml",
-      ".codex/explore.config.toml",
-      ".codex/hooks.json",
-      ".factory/events/031f68c7b65e4aa98301b0783c9e034b.json",
-      ".factory/events/0a8eaa8a92a84182921f96f6a493fdc5.json",
-      ".factory/events/0cf5eb80134a4433805ff1188f866dfb.json",
-      ".factory/events/12afc1465bc44567a3a742a637b23cef.json",
-      ".factory/events/1e426eb7039346399dd0f80a5ddc22db.json",
-      ".factory/events/1f4d99635cb243b8aabf9eaf2f961ca4.json",
-      ".factory/events/238ec4a28a114656b2a66230925d8c3a.json",
-      ".factory/events/28bd37fa2268414f852ad50dc16416d3.json",
-      ".factory/events/2edc97c911034ea9a9d74d0cee05b9f7.json",
-      ".factory/events/2feb9bc130564a95a3c363334a0c78a5.json",
-      ".factory/events/37fcd0b1a8f042a58e14eca62e8b92c9.json",
-      ".factory/events/386b7a8240ee4513bc7f99aa5eb914f5.json",
-      ".factory/events/3b300f17e9814ec984aedc7dc21d10d3.json",
-      ".factory/events/43ce4d7085e9499f9052521ad74c9c8e.json",
-      ".factory/events/47a15ec2372746e8b68a50e121d8d293.json",
-      ".factory/events/49454947cf064f1288908d763eabb42c.json",
-      ".factory/events/5a469938f3274e29b97411eaab69272c.json",
-      ".factory/events/6212d96c27e24b709af31a3facb494bc.json",
-      ".factory/events/6401d6a27cbe4b6290bf371ed4cf60a9.json",
-      ".factory/events/666637edb44d4d61a1995285298ef839.json",
-      ".factory/events/6dea98a8754d42aeb4fbba8e348d7432.json",
-      ".factory/events/7094267b8d5042f79bc09becc6c57aed.json",
-      ".factory/events/72522f81879c4e3e8827d4c187a41d99.json",
-      ".factory/events/767f8ea81e15456fb411e946e00264b9.json",
-      ".factory/events/8078043eb46f4a7a80cf15a618439bbd.json",
-      ".factory/events/8353b79c71eb4b97be7f75301fb75ac6.json",
-      ".factory/events/868fb8c8082a4594b35b85477801e4b1.json",
-      ".factory/events/88ae49cdc2fe438e9d627b25638f0854.json",
-      ".factory/events/8ad84841bd894315b2eda0817ff4a53c.json",
-      ".factory/events/9faa9de9f00c44a3abbb77d202913d88.json",
-      ".factory/events/a30c6a392a9549abb47c703b7f80d97b.json",
-      ".factory/events/a4f4b3440ec64553ae079c9d89a08e4a.json",
-      ".factory/events/a7be368ad8e74e4290d307830aeaed6b.json",
-      ".factory/events/a8bbc735323e42fbbfae362698f36548.json",
-      ".factory/events/a9b718d9d99c4ae1b6de686b54af2d4d.json",
-      ".factory/events/a9bdd1bee02d4190a662885a475839e2.json",
-      ".factory/events/aa3208dc1419488d93a5fd4a7af4accf.json",
-      ".factory/events/b0f27a19f5f4418599c313ad6c3308f4.json",
-      ".factory/events/b17e8119dac341e6a24885f9dbf89ec1.json",
-      ".factory/events/b7c548a87b114257900f0d55b56876f5.json",
-      ".factory/events/be3a79e934fe4299a1e2ab9d9bad014a.json",
-      ".factory/events/c26866a65041400c80902b892aad7fbf.json",
-      ".factory/events/c653c5c533e8429ab8e3b1d5b3264795.json",
-      ".factory/events/c6ec815df23d44a7a9575bd5413912cb.json",
-      ".factory/events/d50ff83f7bf740cd83ddd2da32799533.json",
-      ".factory/events/d62ec3ac679c4dbcbde21d96201c85f1.json",
-      ".factory/events/d85ebefd276a4198852c75d5891fa9a7.json",
-      ".factory/events/dc4b904a433642b4a05f95c67ec8a1f5.json",
-      ".factory/events/de196037f8a3499f954398376ded1798.json",
-      ".factory/events/e2b7be91979e470ba9cc62d1b3a31456.json",
-      ".factory/events/e5d5f3f462234bd6914d0a99f62382f6.json",
-      ".factory/events/e675f21fb72c4c95b24d572fb3b111ef.json",
-      ".factory/events/e9171b9678cf4edf80075bb3237b93b9.json",
-      ".factory/events/e94b990ba33947d89ee41c279efb4b65.json",
-      ".factory/events/eda8215552a04bb0919b354864a8e374.json",
-      ".factory/events/f3c701aacb0647818329745d6ee53abd.json",
-      ".factory/events/f9df9d0f4703453faf3a8509fa233837.json",
-      ".factory/events/fc8f7c100af94551a765b25f5af2d90c.json",
-      ".factory/grills/spec.json",
-      ".factory/review-briefs/NATIVE-FOREGROUND-ACTIVATE.performance.md",
-      ".factory/review-briefs/NATIVE-FOREGROUND-ACTIVATE.quality.md",
-      ".factory/review-briefs/NATIVE-FOREGROUND-ACTIVATE.security.md",
-      ".factory/review-briefs/all.md",
-      ".factory/signals.jsonl",
-      ".factory/stories/FORGE-COORD-1/decomposition.json",
-      ".factory/stories/FORGE-COORD-1/grills/plan.json",
-      ".factory/stories/FORGE-COORD-1/grills/requirements.json",
-      ".factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json",
-      ".factory/stories/FORGE-COORD-1/review-run.json",
-      ".factory/stories/FORGE-COORD-1/stages/NATIVE-FOREGROUND-ACTIVATE.json",
-      ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
-      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/reviews/performance.json",
-      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/reviews/quality.json",
-      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/reviews/security.json",
-      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/tests.json",
-      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/verify.json",
-      "AGENTS.md",
-      "README.md",
-      "WORKFLOW.md",
-      "docs/FACTORY.md",
-      "docs/QUALITY.md",
-      "docs/ROLES.md",
-      "docs/decisions/0062-luna-max-exploration-and-implementation.md",
-      "docs/decisions/0066-sol-specialized-workflow-models.md",
-      "docs/getting-started.md",
-      "docs/specs/dual-coordinator-parity.md",
-      "factory/prompts/griller.md",
-      "factory/prompts/implementer.md",
-      "factory/prompts/planner.md",
-      "factory/prompts/reviewer.md",
-      "factory/schemas/delegation.json",
-      "factory/scripts/check_dual_runtime.py",
-      "factory/scripts/check_encoding_hygiene.py",
-      "factory/scripts/check_task_proof.py",
-      "factory/scripts/factory_lib.py",
-      "factory/scripts/forge.py",
-      "factory/scripts/forge_cli/codex_runtime.py",
-      "factory/scripts/forge_cli/delegate.py",
-      "factory/scripts/forge_cli/doctor.py",
-      "factory/scripts/forge_cli/phase.py",
-      "factory/scripts/forge_cli/review.py",
-      "factory/scripts/forge_cli/review_brief.py",
-      "factory/scripts/forge_cli/stages.py",
-      "factory/scripts/forge_cli/tasks.py",
-      "factory/scripts/forge_cli/worker_admission.py",
-      "factory/scripts/pre_tool_use.py",
-      "factory/scripts/session_start.py",
-      "factory/scripts/stop_continue.py",
-      "factory/skills/forge.md",
-      "factory/tests/test_gate_table.py",
-      "factory/tests/test_gates.py",
-      "factory/tests/test_grill_release.py",
-      "factory/tests/test_native_launch.py",
-      "factory/tests/test_native_setup.py",
-      "factory/tests/test_review_settled_contracts.py",
-      "factory/tests/test_review_task_delta.py",
-      "factory/tests/test_worker_admission.py",
-      "harness.yaml",
-      "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-      "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
-      "plans/lessons/20260910T170240-0000-first-native-review-live-evidence-170240080494.json",
-      "plans/lessons/20260910T170240-0000-first-native-scope-correction-authorization-170240173755.json",
-      "plans/lessons/20260910T171203-0000-first-native-bootstrap-ordering-171203225790.json",
-      "plans/lessons/20260910T171335-0000-first-native-existing-launch-history-171335942263.json",
-      "plans/lessons/20260910T185756-0000-rejected-review-finding-security-185756853889.json",
-      "plans/lessons/20260910T230517-0000-rejected-review-finding-performance-230517993178.json",
-      "plans/lessons/20260911T035854-0000-runtime-specific-routing-fixtures-035854798173.json",
-      "plans/quickfixes/20260910T111309-0000-Q-0129-d7f1-open-111309454982.json",
-      "plans/quickfixes/20260910T112529-0000-Q-0129-d7f1-abandoned-112529157943.json",
-      "plans/quickfixes/20260910T185936-0000-Q-0130-305e-open-185936163716.json",
-      "plans/quickfixes/20260910T190330-0000-Q-0130-305e-abandoned-190330838293.json",
-      "plans/quickfixes/20260910T212146-0000-Q-0131-2511-open-212146926923.json",
-      "plans/quickfixes/20260910T212446-0000-Q-0131-2511-abandoned-212446027582.json",
-      "plans/quickfixes/20260910T212541-0000-Q-0132-4258-open-212541570501.json",
-      "plans/quickfixes/20260910T212910-0000-Q-0132-4258-done-212910790521.json",
-      "/Users/dev/.codex/reviews/forge-lean-20260910/process-recovery-worker-receipt.json",
-      "/Users/dev/.codex/reviews/forge-lean-20260910/process-recovery-c8-operation-transcript.json",
-      "/Users/dev/.codex/reviews/forge-lean-20260910/process-recovery-c8-source-check.json"
-    ],
-    "skills_used": [
-      "forge",
-      "ponytail"
+      "UV_CACHE_DIR=/tmp/forge-native-uv-cache UV_TOOL_DIR=/tmp/forge-native-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/check_encoding_hygiene.py -> encoding hygiene: OK",
+      "git diff --check -> clean",
+      "UV_CACHE_DIR=/tmp/forge-native-uv-cache UV_TOOL_DIR=/tmp/forge-native-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_native_launch.py factory/tests/test_native_setup.py factory/tests/test_worker_admission.py -q -p no:cacheprovider -> 72 passed in 36.11s; JUnit /tmp/forge-native-trio-final-c5382ee.xml",
+      "Validated all 62 task-plan pytest selectors as present, then ran their deduplicated union with uv/pytest -> 82 parameterized passes, 806 deselected in 280.18s; JUnit /tmp/forge-native-main-all62-c5382ee.xml",
+      "UV_CACHE_DIR=/tmp/forge-native-uv-cache UV_TOOL_DIR=/tmp/forge-native-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_task_parallelism.py -q -k \"tasks_with_disjoint_scopes_run_side_by_side_in_their_own_worktrees or required_test_counts_as_writable_until_it_is_tracked\" -p no:cacheprovider -> 2 passed in 17.83s; JUnit /tmp/forge-native-task-parallelism-fix.xml",
+      "UV_CACHE_DIR=/tmp/forge-native-uv-cache UV_TOOL_DIR=/tmp/forge-native-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py -> structural clean; scaffold clean; 1,043 passed, 3 skipped in 2,731.00s; verify completed 2026-09-12T19:37:33Z"
     ],
     "current_contract": {
       "plan": "/Users/dev/Workdir/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/.factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
-      "plan_sha256": "1ac144b770dcc0266132810fa5dabd256265f684fe662fa77c9657848d9dd1ab",
-      "report": "/tmp/forge-native-first-tests/process-recovery-automated.json",
-      "c9": "Review brief consumes the full current plan and this full current report."
+      "report": "/tmp/forge-native-authoritative-c5382ee-automated.json",
+      "commit": "c5382ee54eafa6ad361b6ebe7cec7fc5bbaa1c7f"
     },
     "current_evidence": {
+      "artifacts": {
+        "c8_source_check": {
+          "path": "/Users/dev/.codex/reviews/forge-lean-20260910/process-recovery-c8-source-check.json",
+          "sha256": "0ceb8ced77ca6408b83e393d5084bd51e607f3cb157fed80b0347aa6206e36b5"
+        },
+        "c8_transcript": {
+          "path": "/Users/dev/.codex/reviews/forge-lean-20260910/process-recovery-c8-operation-transcript.json",
+          "sha256": "85bf8a69fec368bceee2a712d57701f4d13cec99449fef0c71dc952b00a1a88b"
+        },
+        "receipt": {
+          "path": "/Users/dev/.codex/reviews/forge-lean-20260910/process-recovery-worker-receipt.json",
+          "sha256": "06882521c53180ea6f4b61a816750e58d547b339f2c1af81cb7f0d81a227ba20"
+        }
+      },
       "protected_denial": {
         "request": "const patch = \"*** Begin Patch\\n*** Update File: /Users/dev/Workdir/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/.factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md\\n@@\\n-ABSENT PROBE CONTEXT: THIS PATCH MUST NEVER EXECUTE\\n+ABSENT PROBE CONTEXT CHANGED: THIS PATCH MUST NEVER EXECUTE\\n*** End Patch\";\nconst result = await tools.apply_patch(patch);\ntext(result);\n",
         "response": "Script failed\nWall time 0.1 seconds\nOutput:\n\nScript error:\nCommand blocked by PreToolUse hook: .factory/ is recorded state, never hand-written (AGENTS.md): run.json carries plan_status, so editing it disarms the planning lock. Use the record_* scripts, `./forge note` for the scratchpad, or `./forge stage` for stage status.. Command: *** Begin Patch\n*** Update File: /Users/dev/Workdir/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/.factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md\n@@\n-ABSENT PROBE CONTEXT: THIS PATCH MUST NEVER EXECUTE\n+ABSENT PROBE CONTEXT CHANGED: THIS PATCH MUST NEVER EXECUTE\n*** End Patch"
       },
+      "record_refs": {
+        "lifecycle": [
+          {
+            "id": null,
+            "line": 1,
+            "source": "native_output",
+            "type": "thread.started"
+          },
+          {
+            "id": null,
+            "line": 3,
+            "source": "native_output",
+            "type": "turn.started"
+          },
+          {
+            "id": null,
+            "line": 59,
+            "source": "native_output",
+            "type": "turn.completed"
+          }
+        ],
+        "native": [
+          {
+            "id": "item_26",
+            "line": 40,
+            "source": "native_output",
+            "type": "file_change"
+          },
+          {
+            "id": "item_34",
+            "line": 51,
+            "source": "native_output",
+            "type": "command_execution"
+          },
+          {
+            "id": "item_29",
+            "line": 44,
+            "source": "native_output",
+            "type": "command_execution"
+          }
+        ],
+        "tool": [
+          {
+            "id": "ctc_0a08280687aa38a4016aa38106b6b887d0b5e6aa359181e6b0",
+            "line": 119,
+            "source": "runtime_session",
+            "type": "custom_tool_call"
+          },
+          {
+            "id": "ctco_01a08eb0-08d4-7fc3-859e-1b2f313f16ff",
+            "line": 121,
+            "source": "runtime_session",
+            "type": "custom_tool_call_output"
+          },
+          {
+            "id": "ctc_0a08280687aa38a4016aa380d4b03087d0945298fa402c2d23",
+            "line": 87,
+            "source": "runtime_session",
+            "type": "custom_tool_call"
+          },
+          {
+            "id": "ctco_01a08eaf-4811-72e3-b6d2-56a9822b8497",
+            "line": 90,
+            "source": "runtime_session",
+            "type": "custom_tool_call_output"
+          }
+        ]
+      },
+      "sources": {
+        "native_output": {
+          "bytes": 290594,
+          "path": "/Users/dev/Workdir/symphony-forge-native-dogfood/.git/worktrees/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/forge/native-runs/launch-b38deadcbf7d4b44b50ebf1002120c1e.jsonl",
+          "sha256": "c63407c220aff45dfaa91045ee33431bd870845a581dd345ac879770577c034f"
+        },
+        "protected_ledger_at_capture": {
+          "bytes": 124360,
+          "path": "/Users/dev/Workdir/symphony-forge-native-dogfood/.git/worktrees/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/forge/delegations.jsonl",
+          "sha256": "4f77d2ca46db82f220340c5f94efd9190b8234325ac49bc99de68587244aeea7"
+        },
+        "runtime_session": {
+          "bytes": 1525851,
+          "path": "/Users/dev/.codex/sessions/2026/09/11/rollout-2026-09-11T09-45-33-01a08ead-8b42-7990-99c9-a4a07efb8a18.jsonl",
+          "sha256": "7dbb0d49567323abbad3ecb4aaa268eeae0e2bc275e36df1971f5fa90d05e5f0"
+        }
+      },
       "terminal": {
-        "generated_by": "orchestrator",
-        "at": "2026-09-11T04:18:43+00:00",
-        "launch_id": "launch-b38deadcbf7d4b44b50ebf1002120c1e",
-        "task": "NATIVE-FOREGROUND-ACTIVATE",
-        "brief_sha256": "bc09f21e48a91b548ddb1c9964a518ef2a38ab9e6b9c38c483f7f1b553f2c7de",
-        "task_sha256": "7a65c1c25beba9fa409ba6e717965ef4aeb4c5251459b63d580be6a4317e49df",
-        "write": true,
-        "model": "gpt-5.6-sol",
-        "effort": "medium",
         "argv": [
           "/Applications/ChatGPT.app/Contents/Resources/codex",
           "exec",
@@ -298,193 +225,174 @@
           "-"
         ],
         "argv_sha256": "31745ef6f10530821dfad9c6ec066cac999bdf352859ce62e17cd44a9423d1f1",
-        "launch_status": "succeeded",
-        "process_token": "delegation-launch-b38deadcbf7d4b44b50ebf1002120c1e",
-        "transport": "native",
-        "executable_path": "/Applications/ChatGPT.app/Contents/Resources/codex",
+        "at": "2026-09-11T04:18:43+00:00",
         "brief_path": ".factory/briefs/NATIVE-FOREGROUND-ACTIVATE.md",
+        "brief_sha256": "bc09f21e48a91b548ddb1c9964a518ef2a38ab9e6b9c38c483f7f1b553f2c7de",
+        "effort": "medium",
+        "executable_path": "/Applications/ChatGPT.app/Contents/Resources/codex",
+        "exit_code": 0,
+        "generated_by": "orchestrator",
+        "launch_id": "launch-b38deadcbf7d4b44b50ebf1002120c1e",
+        "launch_status": "succeeded",
+        "model": "gpt-5.6-sol",
         "output_path": "/Users/dev/Workdir/symphony-forge-native-dogfood/.git/worktrees/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/forge/native-runs/launch-b38deadcbf7d4b44b50ebf1002120c1e.jsonl",
+        "pgid": 73452,
+        "pid": 73452,
+        "pid_started": "1789100133.155788",
+        "process_token": "delegation-launch-b38deadcbf7d4b44b50ebf1002120c1e",
+        "session_id": "01a08ead-8b42-7990-99c9-a4a07efb8a18",
+        "stage_started_at": "2026-09-10T09:12:51+00:00",
         "stderr_path": "/Users/dev/Workdir/symphony-forge-native-dogfood/.git/worktrees/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/forge/native-runs/launch-b38deadcbf7d4b44b50ebf1002120c1e.stderr.log",
         "story": "FORGE-COORD-1",
-        "stage_started_at": "2026-09-10T09:12:51+00:00",
-        "pid": 73452,
-        "pgid": 73452,
-        "pid_started": "1789100133.155788",
-        "exit_code": 0,
-        "session_id": "01a08ead-8b42-7990-99c9-a4a07efb8a18"
-      },
-      "sources": {
-        "runtime_session": {
-          "path": "/Users/dev/.codex/sessions/2026/09/11/rollout-2026-09-11T09-45-33-01a08ead-8b42-7990-99c9-a4a07efb8a18.jsonl",
-          "sha256": "7dbb0d49567323abbad3ecb4aaa268eeae0e2bc275e36df1971f5fa90d05e5f0",
-          "bytes": 1525851
-        },
-        "native_output": {
-          "path": "/Users/dev/Workdir/symphony-forge-native-dogfood/.git/worktrees/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/forge/native-runs/launch-b38deadcbf7d4b44b50ebf1002120c1e.jsonl",
-          "sha256": "c63407c220aff45dfaa91045ee33431bd870845a581dd345ac879770577c034f",
-          "bytes": 290594
-        },
-        "protected_ledger_at_capture": {
-          "path": "/Users/dev/Workdir/symphony-forge-native-dogfood/.git/worktrees/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/forge/delegations.jsonl",
-          "sha256": "4f77d2ca46db82f220340c5f94efd9190b8234325ac49bc99de68587244aeea7",
-          "bytes": 124360
-        }
-      },
-      "record_refs": {
-        "tool": [
-          {
-            "source": "runtime_session",
-            "line": 119,
-            "type": "custom_tool_call",
-            "id": "ctc_0a08280687aa38a4016aa38106b6b887d0b5e6aa359181e6b0"
-          },
-          {
-            "source": "runtime_session",
-            "line": 121,
-            "type": "custom_tool_call_output",
-            "id": "ctco_01a08eb0-08d4-7fc3-859e-1b2f313f16ff"
-          },
-          {
-            "source": "runtime_session",
-            "line": 87,
-            "type": "custom_tool_call",
-            "id": "ctc_0a08280687aa38a4016aa380d4b03087d0945298fa402c2d23"
-          },
-          {
-            "source": "runtime_session",
-            "line": 90,
-            "type": "custom_tool_call_output",
-            "id": "ctco_01a08eaf-4811-72e3-b6d2-56a9822b8497"
-          }
-        ],
-        "native": [
-          {
-            "source": "native_output",
-            "line": 40,
-            "type": "file_change",
-            "id": "item_26"
-          },
-          {
-            "source": "native_output",
-            "line": 51,
-            "type": "command_execution",
-            "id": "item_34"
-          },
-          {
-            "source": "native_output",
-            "line": 44,
-            "type": "command_execution",
-            "id": "item_29"
-          }
-        ],
-        "lifecycle": [
-          {
-            "source": "native_output",
-            "line": 1,
-            "type": "thread.started",
-            "id": null
-          },
-          {
-            "source": "native_output",
-            "line": 3,
-            "type": "turn.started",
-            "id": null
-          },
-          {
-            "source": "native_output",
-            "line": 59,
-            "type": "turn.completed",
-            "id": null
-          }
-        ]
-      },
-      "artifacts": {
-        "receipt": {
-          "path": "/Users/dev/.codex/reviews/forge-lean-20260910/process-recovery-worker-receipt.json",
-          "sha256": "06882521c53180ea6f4b61a816750e58d547b339f2c1af81cb7f0d81a227ba20"
-        },
-        "c8_transcript": {
-          "path": "/Users/dev/.codex/reviews/forge-lean-20260910/process-recovery-c8-operation-transcript.json",
-          "sha256": "85bf8a69fec368bceee2a712d57701f4d13cec99449fef0c71dc952b00a1a88b"
-        },
-        "c8_source_check": {
-          "path": "/Users/dev/.codex/reviews/forge-lean-20260910/process-recovery-c8-source-check.json",
-          "sha256": "0ceb8ced77ca6408b83e393d5084bd51e607f3cb157fed80b0347aa6206e36b5"
-        }
+        "task": "NATIVE-FOREGROUND-ACTIVATE",
+        "task_sha256": "7a65c1c25beba9fa409ba6e717965ef4aeb4c5251459b63d580be6a4317e49df",
+        "transport": "native",
+        "write": true
       }
     },
-    "full_host_proof": {
-      "verify": {
-        "path": "/Users/dev/Workdir/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/.factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/verify.json",
-        "sha256": "157236af0a005e6998e35251a83e215cab567ce7e989ac736e8bb3475d1b8823"
-      },
-      "command": {
-        "path": "/tmp/forge-native-first-tests/full-verify-final-command.json",
-        "sha256": "62367aa1c00ead1311dded945832274f3ee3b31725b0541cf8d645f35b271bdf"
-      },
-      "junit": {
-        "path": "/tmp/forge-native-first-tests/full-verify-final.xml",
-        "sha256": "4176ab02e80c3910daa651780e936ec427ca9da7abc89079a68c0ef48ec24ee9"
-      }
-    },
-    "c5_bootstrap_provenance": {
-      "path": "/Users/dev/.codex/reviews/forge-lean-20260910/first-incumbent-bootstrap-probe/first-incumbent-bootstrap-probe.json",
-      "sha256": "a2bf5ddf80eebd1057bd86fdf36718f20e00a9d34acce86bb99a5b818e57d2c9",
-      "source_commit": "7a462bc2bd770a4df0ba47f40d515916438b8ac7",
-      "method": "Two independent git clones checked out at immutable 7a462bc; each used a controlled story/decomposition/remote fixture and invoked the archived forge task-start CLI.",
-      "cases": [
-        {
-          "case": "missing-task-plan",
-          "missing_input": ".factory/stories/ENG-1/task-plans/T1.md",
-          "exit_code": 1,
-          "stdout": "ERROR: task start hydration inputs are missing: .factory/stories/ENG-1/task-plans/T1.md\n",
-          "refusal_observed": true,
-          "worktree_exists_before": false,
-          "worktree_exists_after": false,
-          "branch_exists_before": false,
-          "branch_exists_after": false
-        },
-        {
-          "case": "missing-task-grill",
-          "missing_input": ".factory/stories/ENG-1/grills/tasks/T1.json",
-          "exit_code": 1,
-          "stdout": "ERROR: task start hydration inputs are missing: .factory/stories/ENG-1/grills/tasks/T1.json\n",
-          "refusal_observed": true,
-          "worktree_exists_before": false,
-          "worktree_exists_after": false,
-          "branch_exists_before": false,
-          "branch_exists_after": false
-        }
-      ],
-      "historical_approval_observations": {
-        "source_live_record": {
-          "path": "/Users/dev/Workdir/symphony-forge-native-dogfood/.factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json",
-          "available": true,
-          "recorded_at": "2026-09-10T08:47:29+00:00",
-          "approved_at": "2026-09-10T08:47:29+00:00",
-          "approved_by": "User (standing in-scope approval, Codex conversation 2026-09-10)",
-          "note": "Read separately from existing live source/target records; not used to configure the archived probe."
-        },
-        "target_record": {
-          "path": "/Users/dev/Workdir/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/.factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json",
-          "available": true,
-          "recorded_at": "2026-09-10T09:14:38+00:00",
-          "approved_at": "2026-09-10T09:14:45+00:00",
-          "approved_by": "User (standing approval and accepted0063/0064/0065)",
-          "note": "Read separately from existing live source/target records; not used to configure the archived probe."
-        }
-      }
-    },
+    "generated_by": "implementer",
     "history_archive": {
+      "facts": "Earlier failed workers, superseded C8 proof and accepted/rejected review dispositions are historical only; use the archived source hashes without embedding them here.",
       "path": "/Users/dev/.codex/reviews/forge-lean-20260910/before-process-loop-recovery-7af551b/sources.json",
-      "sha256": "6ffaabfea27007e04350f8bad50c7f685b3b120a08ce610d6606e73e8474bfc3",
-      "facts": "Earlier failed workers, superseded C8 proof and accepted/rejected review dispositions are historical only; use the archived source hashes without embedding them here."
+      "sha256": "6ffaabfea27007e04350f8bad50c7f685b3b120a08ce610d6606e73e8474bfc3"
     },
-    "non_blocking_findings": [],
-    "residual_risks": [],
     "manual_validation_steps": [],
-    "recorded_at": "2026-09-11T08:20:41+00:00",
-    "commit": "5b745bdd914c1a6cc5842db82f130dc5f6c21ae4"
+    "non_blocking_findings": [],
+    "pass_fail_summary": "At c5382ee: structural check clean; scaffold clean; full suite 1,043 passed and 3 skipped; 62 declared selectors resolved and produced 82 parameterized passes with 806 deselected; native launch/setup/admission 72 passed; corrected task-parallelism selectors passed; encoding and diff hygiene clean.",
+    "remaining_gaps": [],
+    "residual_risks": [],
+    "reviewed_scope": [
+      ".claude/CLAUDE.md",
+      ".claude/settings.json",
+      ".codex/agents/AGENTS.md",
+      ".codex/agents/architect.toml",
+      ".codex/agents/backend.toml",
+      ".codex/agents/debugger.toml",
+      ".codex/agents/docs-decomposer.toml",
+      ".codex/agents/explorer.toml",
+      ".codex/agents/frontend.toml",
+      ".codex/agents/functional-checker.toml",
+      ".codex/agents/griller.toml",
+      ".codex/agents/lite.toml",
+      ".codex/agents/performance.toml",
+      ".codex/agents/planner-high.toml",
+      ".codex/agents/planner.toml",
+      ".codex/agents/refactorer.toml",
+      ".codex/agents/security.toml",
+      ".codex/agents/tester.toml",
+      ".codex/config.toml",
+      ".codex/explore.config.toml",
+      ".codex/hooks.json",
+      ".factory/grills/spec.json",
+      ".factory/review-briefs/NATIVE-FOREGROUND-ACTIVATE.performance.md",
+      ".factory/review-briefs/NATIVE-FOREGROUND-ACTIVATE.quality.md",
+      ".factory/review-briefs/NATIVE-FOREGROUND-ACTIVATE.security.md",
+      ".factory/review-briefs/all.md",
+      ".factory/signals.jsonl",
+      ".factory/stages.json",
+      ".factory/stories/FORGE-COORD-1/decomposition.json",
+      ".factory/stories/FORGE-COORD-1/grill-rounds/13f6cd18-c62d-4460-b42a-be49f9955fb6.json",
+      ".factory/stories/FORGE-COORD-1/grill-rounds/21dbd037-6b89-47ee-87fe-0238143108bd.json",
+      ".factory/stories/FORGE-COORD-1/grill-rounds/457f2251-df00-42cd-ac47-9644e3a43789.json",
+      ".factory/stories/FORGE-COORD-1/grill-rounds/f31c009a-7746-4eea-896a-d233829fec3a.json",
+      ".factory/stories/FORGE-COORD-1/grills/plan.json",
+      ".factory/stories/FORGE-COORD-1/grills/requirements.json",
+      ".factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json",
+      ".factory/stories/FORGE-COORD-1/review-run.json",
+      ".factory/stories/FORGE-COORD-1/stages/FORGE-COORD-1.1.json",
+      ".factory/stories/FORGE-COORD-1/stages/FORMAT-SOURCES.json",
+      ".factory/stories/FORGE-COORD-1/stages/LEAN-WORKFLOW.json",
+      ".factory/stories/FORGE-COORD-1/stages/NATIVE-FOREGROUND-ACTIVATE.json",
+      ".factory/stories/FORGE-COORD-1/stages/NATIVE-LIFECYCLE.json",
+      ".factory/stories/FORGE-COORD-1/stages/PORTABLE-DELIVERY-MIGRATION.json",
+      ".factory/stories/FORGE-COORD-1/stages/QUALITY-BASELINE.json",
+      ".factory/stories/FORGE-COORD-1/stages/SHARED-COORDINATOR-JOURNEY.json",
+      ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
+      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/reviews/performance.json",
+      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/reviews/quality.json",
+      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/reviews/security.json",
+      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/tests.json",
+      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/verify.json",
+      "AGENTS.md",
+      "README.md",
+      "WORKFLOW.md",
+      "docs/FACTORY.md",
+      "docs/QUALITY.md",
+      "docs/ROLES.md",
+      "docs/architecture/dual-coordinator-parity.md",
+      "docs/decisions/0062-luna-max-exploration-and-implementation.md",
+      "docs/decisions/0067-combined-review-generation.md",
+      "docs/decisions/0068-sol-specialized-workflow-models.md",
+      "docs/decisions/0069-empty-frontier-grill-proof.md",
+      "docs/decisions/0070-staged-platform-proof.md",
+      "docs/degraded-mode.md",
+      "docs/getting-started.md",
+      "docs/product/BRIEF.md",
+      "docs/specs/dual-coordinator-parity.md",
+      "docs/specs/strict-role-split.md",
+      "factory/prompts/griller.md",
+      "factory/prompts/implementer.md",
+      "factory/prompts/planner.md",
+      "factory/prompts/reviewer.md",
+      "factory/schemas/delegation.json",
+      "factory/schemas/review-set.json",
+      "factory/scripts/check_dual_runtime.py",
+      "factory/scripts/check_encoding_hygiene.py",
+      "factory/scripts/check_task_proof.py",
+      "factory/scripts/factory_lib.py",
+      "factory/scripts/forge.py",
+      "factory/scripts/forge_cli/close.py",
+      "factory/scripts/forge_cli/codex_runtime.py",
+      "factory/scripts/forge_cli/delegate.py",
+      "factory/scripts/forge_cli/doctor.py",
+      "factory/scripts/forge_cli/phase.py",
+      "factory/scripts/forge_cli/review.py",
+      "factory/scripts/forge_cli/review_brief.py",
+      "factory/scripts/forge_cli/stages.py",
+      "factory/scripts/forge_cli/tasks.py",
+      "factory/scripts/forge_cli/worker_admission.py",
+      "factory/scripts/pre_tool_use.py",
+      "factory/scripts/record_review_from_json.py",
+      "factory/scripts/session_start.py",
+      "factory/scripts/stop_continue.py",
+      "factory/skills/forge.md",
+      "factory/tests/test_close_binds_to_the_diff.py",
+      "factory/tests/test_gate_table.py",
+      "factory/tests/test_gates.py",
+      "factory/tests/test_grill_release.py",
+      "factory/tests/test_native_launch.py",
+      "factory/tests/test_native_setup.py",
+      "factory/tests/test_proof_read_path.py",
+      "factory/tests/test_review_lenses_in_parallel.py",
+      "factory/tests/test_review_settled_contracts.py",
+      "factory/tests/test_review_task_delta.py",
+      "factory/tests/test_stop_less_often.py",
+      "factory/tests/test_task_parallelism.py",
+      "factory/tests/test_worker_admission.py",
+      "harness.yaml",
+      "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
+      "plans/deferrals.md",
+      "plans/exploration/coordinator-parity-preparation/client-ledger-migration-inventory.json",
+      "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json"
+    ],
+    "skills_used": [
+      "forge",
+      "ponytail"
+    ],
+    "status": "passed",
+    "summary": "Authoritative proof at c5382ee passed the complete Forge verifier, all 62 declared acceptance selectors, the native launch/setup/admission suites, the two corrected task-parallelism regressions, encoding hygiene, and diff hygiene.",
+    "tests_added_or_updated": [
+      "factory/tests/test_review_settled_contracts.py",
+      "factory/tests/test_review_task_delta.py",
+      "factory/tests/test_close_binds_to_the_diff.py",
+      "factory/tests/test_gates.py",
+      "factory/tests/test_native_launch.py",
+      "factory/tests/test_native_setup.py",
+      "factory/tests/test_worker_admission.py",
+      "factory/tests/test_task_parallelism.py"
+    ],
+    "recorded_at": "2026-09-12T19:40:39+00:00",
+    "commit": "c5382ee54eafa6ad361b6ebe7cec7fc5bbaa1c7f"
   },
-  "updated_at": "2026-09-11T08:20:41+00:00"
+  "updated_at": "2026-09-12T19:40:39+00:00"
 }

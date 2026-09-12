@@ -1,0 +1,9 @@
+{
+  "delta_id": "849906a31048cd0cdc715676b6f95ba28850b6a603786b0420db3241ba9cf5ce",
+  "format": "forge-review-selection/v1",
+  "generation_id": "c09a423d94bf197c3561528306cf4d71287cd4dcedc5094778fcceebb3564f9c",
+  "generation_sha256": "b06c95b65ba7b631493a4bd769cb25451dc31e9e0d0e2c352759a3e47a02e653",
+  "selected_at": "2026-09-12T06:33:04+00:00",
+  "story": "FORGE-COORD-1",
+  "task_id": "NATIVE-FOREGROUND-ACTIVATE"
+}

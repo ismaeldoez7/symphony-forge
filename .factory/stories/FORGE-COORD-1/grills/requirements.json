@@ -3,33 +3,33 @@
   "gate": "requirements",
   "verdict": "pass",
   "gaps": [
-    "The exact active decision corpus claim is false in the protected plan.",
-    "The settled Wait for all answer is not honoured.",
-    "The D-0032 reassignment was not applied to the current task handover.",
-    "The exact task contract both requires and forbids the new review schema.",
-    "Free-text human answers remain non-falsifiable.",
-    "The PostToolUse matrix contradicts the exposed async question surface.",
-    "No partial structured-question exchange has no observable predicate.",
-    "AC5 ownership omits its actual Native-lifecycle producer.",
-    "The graph has no currently authorized route to satisfy Toolshed closure.",
-    "Setup precedence and conflict refusal are incompatible without a conflict definition.",
-    "The combined-review parsing boundary is unspecified.",
-    "Every eligible fixed set has no closed inventory."
+    "Decision 0070 is missing from the platform sequence, so the first six tasks cannot satisfy the literal platform-proof ordering.",
+    "The draft-only Wait for all answer conflicts with accepted Decision 0064's dependency-ready rule.",
+    "The normative operating docs still deny native coordination and omit workspace-first task start.",
+    "Main is undefined and appears to receive human decision authority.",
+    "Coordinator change is described as falsifiable without a persisted fencing predicate.",
+    "Setup conflict semantics disagree with the approved precedence rule.",
+    "Partial multi-question completion has no authority rule.",
+    "The optional context-file feature has no exact command entry point or usable byte-capacity contract.",
+    "Context path and partition safety omit ancestor/leaf links, replacement identity, full-input hash, byte ranges, part count, helper identity, and aggregation version.",
+    "Fixed-review migration lacks whole-inventory serialization, final revalidation, and partial-failure resume semantics.",
+    "Combined-review finding grammar does not define the helper's within-lens/chunk duplicate projection.",
+    "Platform acceptance lacks an exact pass oracle for required macOS, Ubuntu, and native Windows evidence."
   ],
   "contradictions": [],
   "resolutions": [
-    "The amended plan frontmatter attests the complete active corpus through accepted Decisions 0069 and 0070. The protected plan is explicitly transitional and will be replaced by the plan recorder immediately after this requirements pass.",
-    "The exact selected option description says other independent work may continue while coordinator handoff waits until every required exchange closes. The amended plan and Decision 0064 apply that meaning: causal work pauses, independent dependency-ready work may continue, and coordinator transfer waits.",
-    "D-0032 is resolved and the amended plan, bound graph, replacement decomposition and replacement task plan all assign the complete combined-review protocol to NATIVE-FOREGROUND-ACTIVATE. The normal recorders replace the stale protected handover before delegation.",
-    "The replacement First criteria and matching plan_contract statements introduce exactly one shared review-set schema and forbid only a second review registry or CI evidence parser. Their byte-identical criteria remove the stale contradiction.",
-    "The amended plan and Shared contract require preserving any exact nonblank submitted answer, including free-form text outside the offered labels, while a chosen label is preserved exactly. Focused recorder tests must prove both cases and malformed blank answers refuse.",
-    "PostToolUse completion coverage applies only to tools that return completed answers in the call. Required structured exchanges use synchronous request_user_input. Async issuance is PreToolUse-guarded optional clarification, has no gate or approval authority, and is neither a completed exchange nor completion evidence.",
-    "Required structured exchanges are synchronous and cannot outlive their call. A coordinator cannot change while that call executes; after return or cancellation the old coordinator stops, and cancellation grants no authority. Async clarification creates no required exchange or pending authority, so no durable pending-question ledger is needed.",
-    "The amended AC5 crosswalk now includes NATIVE-LIFECYCLE, and the bound graph adds AC5 to that task while preserving First, Shared, Portable and Integration consumers.",
-    "D-0033 makes Toolshed a zero-mutation deferral until exact identity and mutation authority are supplied. The amended plan, graph and decomposition require the three configured client proofs and retain Toolshed as an explicit nonblocking limitation.",
-    "The amended setup contract selects the first applicable tier: one valid explicit argument, else one valid environment value, else exactly one detected host, else TTY. A higher tier suppresses lower-tier disagreement; multiple explicit values, invalid selected input, cancellation, EOF or missing interactive answer refuse before repair, while both or neither detected host reaches TTY.",
-    "The amended plan parses each actual provider pass from overall_explanation, or recursively from pass_reports[*].report for exact chunk 1/N order. It treats 3,000 characters as the per-report overall_explanation maximum, validates required marker/verdict boilerplate before launch, rejects oversized output, and never treats the synthesized top-level chunk summary as an assessment.",
-    "Portable enumerates every regular unlinked task-scoped quality/performance/security triple and only story triples that exact shipped history identifies with one marker. It sorts path/story/task/hash into a whole-inventory sentinel; incomplete, multiply bound, done-but-unsealed, ambiguous or unbound archives remain display-only and any unsafe authoritative candidate refuses before mutation."
+    "Accepted Decision 0070 is now explicit in the plan's authority, task sequence, proof section, and Quality/Integration contracts: pre-Quality tasks record the unavailable new jobs as scheduled gaps; Quality creates them through a transport-only draft; final Quality and Integration require the actual results.",
+    "The later user instruction withdraws the draft-only Wait for all choice. The plan applies accepted Decision 0064: the addressed task and causal dependants pause, independently owned dependency-ready work continues, and coordinator transfer separately waits for required exchanges to finish or cancel.",
+    "First retains the already-authored coordinator-neutral canon, and every successor that changes an enduring boundary owns the matching WORKFLOW/FACTORY/QUALITY/ROLES/getting-started/architecture update in the same task and PR; task start remains workspace-first after the accepted first-task exception.",
+    "The amended plan defines Main as the one active Claude or Codex coordinator that schedules and records only authorized work. It explicitly cannot supply developer decisions, acceptance, sign-off, or approval; those remain human acts through their owning recorder.",
+    "The plan makes coordinator exclusion an explicit human-enforced operating rule rather than claiming a persisted fence: change only between completed tasks, after the old session stops and no worker or synchronous question remains; resume through forge next; add no live handoff, registry, token, or concurrent ownership.",
+    "The plan defines first-applicable-tier selection: one valid explicit argument, else one valid environment value, else exactly one detected host, else TTY. Higher tiers suppress lower disagreement; multiple explicit values, invalid selected input, cancellation, EOF, or missing TTY response refuse before repair.",
+    "The amended structured-call contract is atomic: every question must return one nonblank answer; cancellation, omission, or failure of any question records no eligible event and makes every partial answer from the call unusable.",
+    "Only ./forge grill run accepts --context-file. The fixed local allocation safeguard is 8,388,608 UTF-8 bytes; the installed component's limit must also be discoverable in UTF-8 bytes or the command refuses and names the unknown limit. Capacity includes the exact primary brief, delimiter, framing, and context bytes.",
+    "The plan rejects symlink or Windows reparse components at every ancestor and leaf, opens one no-follow/reparse-safe regular-file handle, requires pre-open/handle/post-read identity agreement, and launches one captured snapshot. Partition proof binds full-input SHA256, exact nonoverlapping ordered byte ranges, part count, helper/model identity, and aggregation version.",
+    "Portable holds the existing cross-platform exclusion lock across the whole migration, binds and revalidates the complete sorted inventory before every pointer commit, uses immutable generation plus per-task pointer-last commits, retains valid completed tasks on a later failure, and resumes only missing tasks on a byte-identical same-inventory retry; drift refuses before another commit.",
+    "The plan now mirrors the installed helper exactly: provider reports are authoritative; the synthesized list retains the first occurrence of the normalized path/line/category/tagged-title key in pass order, applies the exact chunk body prefix/bound, leaves later duplicates raw-only, and refuses mixed-source attribution. A real duplicate-across-chunks fixture is required.",
+    "The platform section names the exact six-row JSON shape, required local macOS CLI/Desktop and Ubuntu 24.04 x64/native Windows rows, tested revision and pinned Codex input, commands/interactions/logs, status derivation, permitted unobserved cells, and aggregate failure rules. Missing required rows or observed failures block."
   ],
   "open_items": [],
   "rounds": [
@@ -46,79 +46,71 @@
   "frontier_empty": true,
   "questions_asked": 1,
   "issue": "FORGE-COORD-1",
-  "summary": "Resolved all 12 findings from the refreshed Sol/high requirements cold read, native launch 7b7afb739cb946ab8263e6215d133934, session 01a091ec-91e1-7c63-89b8-07a08f713512. The amended plan, graph, decomposition and First contract are now executable and will replace the stale protected artifacts through the normal recorder sequence.",
+  "summary": "Resolved every finding from the fresh Sol/high requirements cold read, native launch launch-bee9d3016c7d40169b9469db0b3635fd. The approved migration choice remains; the later user instruction withdraws the conflicting draft-only Wait choice, and the amended story/decomposition make all repository-resolvable contracts exact without a new decision.",
   "inspected_refs": [
     "docs/specs/dual-coordinator-parity.md",
     "docs/architecture/dual-coordinator-parity.md",
-    "docs/decisions/0053-interchangeable-coordinator-shared-forge-contract.md",
-    "docs/decisions/0054-native-questions-and-task-proof.md",
+    "docs/product/BRIEF.md",
     "docs/decisions/0064-lean-delivery-and-durable-history.md",
-    "docs/decisions/0069-empty-frontier-grill-proof.md",
+    "docs/decisions/0065-ci-platform-evidence.md",
+    "docs/decisions/0066-closeout-binds-to-the-diff.md",
+    "docs/decisions/0067-combined-review-generation.md",
     "docs/decisions/0070-staged-platform-proof.md",
-    "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-    ".factory/stories/FORGE-COORD-1/decomposition.json",
-    ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
-    ".factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json",
-    "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
-    "factory/scripts/post_tool_use.py",
-    "factory/scripts/forge_cli/review.py",
-    "factory/scripts/factory_lib.py",
-    "/Users/dev/.codex/plans/symphony-forge+coord-1-combined-review-story-amendment+20260911.md",
-    "/Users/dev/.codex/plans/symphony-forge+native-foreground-combined-review+20260911.md",
-    "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-decomposition.json"
+    "/Users/dev/.codex/plans/symphony-forge+coord-1-final-recovery-amended-story-plan+20260912T194009IST.md",
+    "/Users/dev/.codex/plans/symphony-forge+native-foreground-final-recovery-amended-decomposition+20260912T194009IST.json"
   ],
-  "current_flow": "Record this pass, re-record the already completed plan pass against the final amended digest, save and bind the user's standing approval, record the matching decomposition, then replace and grill the First task plan before delegation.",
+  "current_flow": "Record this resolved requirements pass, record the already completed plan cold read against the exact amended story-plan digest, save and bind the standing human approval, then record the matching decomposition and task plan before implementation.",
   "citations": [
     {
-      "finding": "The exact active decision corpus claim is false in the protected plan.",
-      "source": "Amended plan frontmatter and accepted Decisions 0069 and 0070"
+      "finding": "Decision 0070 is missing from the platform sequence, so the first six tasks cannot satisfy the literal platform-proof ordering.",
+      "source": "Decision 0070; amended story plan authority, task sequence, and proof sections"
     },
     {
-      "finding": "The settled Wait for all answer is not honoured.",
-      "source": "Exact request_user_input option description; amended plan One brief and proportionate scrutiny"
+      "finding": "The draft-only Wait for all answer conflicts with accepted Decision 0064's dependency-ready rule.",
+      "source": "Decision 0064; amended story plan One brief and proportionate scrutiny"
     },
     {
-      "finding": "The D-0032 reassignment was not applied to the current task handover.",
-      "source": "Resolved D-0032; amended plan First boundary; replacement decomposition and task plan"
+      "finding": "The normative operating docs still deny native coordination and omit workspace-first task start.",
+      "source": "Amended story plan Changed Docs and eight-task decomposition"
     },
     {
-      "finding": "The exact task contract both requires and forbids the new review schema.",
-      "source": "Replacement decomposition NATIVE-FOREGROUND-ACTIVATE criteria and matching plan_contracts"
+      "finding": "Main is undefined and appears to receive human decision authority.",
+      "source": "Amended story plan opening authority paragraph"
     },
     {
-      "finding": "Free-text human answers remain non-falsifiable.",
-      "source": "Decision 0054 and amended plan structured-answer contract"
+      "finding": "Coordinator change is described as falsifiable without a persisted fencing predicate.",
+      "source": "Confirmed architecture coordinator boundary; amended plan structured-question flow"
     },
     {
-      "finding": "The PostToolUse matrix contradicts the exposed async question surface.",
-      "source": "Amended plan adapter proof contract and bound graph question_identity_contract"
+      "finding": "Setup conflict semantics disagree with the approved precedence rule.",
+      "source": "Amended story plan setup selection contract"
     },
     {
-      "finding": "No partial structured-question exchange has no observable predicate.",
-      "source": "Amended plan synchronous required-exchange and between-task coordinator-change contract"
+      "finding": "Partial multi-question completion has no authority rule.",
+      "source": "Amended story plan atomic structured-call contract"
     },
     {
-      "finding": "AC5 ownership omits its actual Native-lifecycle producer.",
-      "source": "Amended plan AC5 crosswalk and bound graph NATIVE-LIFECYCLE acceptance labels"
+      "finding": "The optional context-file feature has no exact command entry point or usable byte-capacity contract.",
+      "source": "Amended story plan context-file command and byte-capacity contract"
     },
     {
-      "finding": "The graph has no currently authorized route to satisfy Toolshed closure.",
-      "source": "D-0033; amended plan client table; bound graph client_rollout"
+      "finding": "Context path and partition safety omit ancestor/leaf links, replacement identity, full-input hash, byte ranges, part count, helper identity, and aggregation version.",
+      "source": "Amended story plan context path and partition identity contract"
     },
     {
-      "finding": "Setup precedence and conflict refusal are incompatible without a conflict definition.",
-      "source": "Amended plan Safe installation and bound graph setup_selection_contract"
+      "finding": "Fixed-review migration lacks whole-inventory serialization, final revalidation, and partial-failure resume semantics.",
+      "source": "Amended story plan C10 migration transaction contract"
     },
     {
-      "finding": "The combined-review parsing boundary is unspecified.",
-      "source": "Amended plan Review and measurable cleanup boundaries plus First task Combined result grammar"
+      "finding": "Combined-review finding grammar does not define the helper's within-lens/chunk duplicate projection.",
+      "source": "Amended story plan combined finding projection contract; installed autoreview helper behavior"
     },
     {
-      "finding": "Every eligible fixed set has no closed inventory.",
-      "source": "Amended plan C10 migration paragraph and bound graph review_contract.upgrade_migration"
+      "finding": "Platform acceptance lacks an exact pass oracle for required macOS, Ubuntu, and native Windows evidence.",
+      "source": "Amended story plan platform evidence and six-row validation contract"
     }
   ],
-  "input_sha256": "5fb7076e2518cfdf87ff585e757bf07730b62f020053ba96f1a2dc1a62d6a783",
-  "recorded_at": "2026-09-11T22:35:07+00:00",
-  "commit": "f5b0b180c6cbec8784da138de7a661d4e4acf4ba"
+  "input_sha256": "784a1bd53108640e96c3566da8c9b3dfddc5708c09e909727e3d22f6da48ef9f",
+  "recorded_at": "2026-09-12T14:48:08+00:00",
+  "commit": "bcc3d89999c4220b98dc776a40c00961f21f94e6"
 }
