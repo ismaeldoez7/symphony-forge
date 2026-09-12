@@ -3693,6 +3693,7 @@ def test_init_and_upgrade_ship_portable_hook_commands(tmp_path):
     assert len(commands(repo, ".codex/hooks.json")) == 3
     config = repo / ".codex" / "config.toml"
     assert 'sandbox_mode = "workspace-write"' in config.read_text().splitlines()
+    assert "network_access = true" in config.read_text().splitlines()  # 0067
     assert (repo / "forge.cmd").is_file()
     attributes = repo / ".gitattributes"
     assert "forge text eol=lf" in attributes.read_text().splitlines()
@@ -3724,6 +3725,7 @@ def test_init_and_upgrade_ship_portable_hook_commands(tmp_path):
     assert len(commands(repo, ".claude/settings.json")) == 6
     assert len(commands(repo, ".codex/hooks.json")) == 3
     assert 'sandbox_mode = "workspace-write"' in config.read_text().splitlines()
+    assert "network_access = true" in config.read_text().splitlines()  # 0067
     assert (repo / "forge.cmd").is_file()
     assert "forge text eol=lf" in attributes.read_text().splitlines()
     assert all(

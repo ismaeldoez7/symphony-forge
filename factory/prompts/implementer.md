@@ -31,7 +31,7 @@ Rules:
   The constitution is law: it wins over habit and over anything the brief forgot to
   restate, and a task never re-derives a standard it already sets. Deviate only
   deliberately and in writing, with a reason ("Context is King") — never silently.
-  This holds in EVERY environment, including a sandbox/worktree with no network
+  This holds in EVERY environment, including a restricted sandbox/worktree
   (`constitution/` is vendored on disk, always readable); any subagent you spawn
   inherits this instruction.
 - **Ponytail — minimal-diff discipline, held strictly (not a mechanical gate).**

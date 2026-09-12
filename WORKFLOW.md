@@ -437,8 +437,8 @@ sequence a JIT contract loop for every pending task:
    --lens <l> --reason ... --cite <decision|contract|section> --by <agent>`
    records the rejection, ledgers the contract as a lesson and stamps when no
    lens blocks. The ONE exception to re-delegating: a fix that genuinely
-   cannot be verified inside the companion sandbox (needs a database/network/
-   Docker it lacks) — open a bounded degraded window (`forge mode degraded
+   cannot be verified inside the companion sandbox (needs Docker, or a folder
+   its account cannot read) — open a bounded degraded window (`forge mode degraded
    start --reason ...`), make the MINIMAL host fix, log it with `forge signal
    raise --kind host-exception`, verify host-side, and resume.
 11. `forge task close <id>` — one command from a built task to its open PR.
@@ -535,8 +535,9 @@ stalls on "should I do this or hand it to Codex?":
   and moves to the next stage without pausing for a human "ok to commit?". This
   is what lets an unattended overnight run finish instead of stalling.
 - **The one exception — a logged host-exception.** When a required product
-  change is PROVABLY impossible in the companion's environment (a sandbox with
-  no network, database, or Docker that the change or its verification needs),
+  change is PROVABLY impossible in the companion's environment (no Docker, or
+  a folder its sandbox account cannot read, that the change or its verification
+  needs — the network and the local database are reachable since decision 0067),
   the coordinator may make the MINIMAL change on the host and MUST record why
   with `forge signal raise ... --kind host-exception` (resolve it once done).
   This is bounded and always ledgered — never the default, never silent.
