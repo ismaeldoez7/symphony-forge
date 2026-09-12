@@ -558,6 +558,30 @@ def test_worker_move_target_must_remain_in_scope(repo, tmp_path):
     assert "deny" in output and "outside the protected task scope" in output
 
 
+@pytest.mark.parametrize("controls", [
+    ("*** Delete File: outside-link.py",),
+    (
+        "*** Update File: src/old.py", "*** Move to: outside-link.py",
+        "@@", "-old", "+new",
+    ),
+])
+def test_worker_symlink_entry_is_denied(repo, tmp_path, controls):
+    brief, digest = _seed_contract(repo)
+    target = repo / "src" / "old.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("old\n", encoding="utf-8")
+    link = repo / "outside-link.py"
+    try:
+        link.symlink_to(Path("src") / "old.py")
+    except OSError as exc:
+        pytest.skip(f"symlink unavailable: {exc}")
+    proc, token, launch_id = _start_worker(repo, tmp_path)
+    _record_launch(repo, proc, token, launch_id, brief, digest)
+
+    output = _invoke_worker(proc, _patch(*controls))
+    assert "deny" in output and "cannot prove its write paths" in output
+
+
 @pytest.mark.parametrize("terminal", ["failed", "succeeded"])
 def test_terminal_launch_never_retains_write_admission(repo, tmp_path, terminal):
     brief, digest = _seed_contract(repo)

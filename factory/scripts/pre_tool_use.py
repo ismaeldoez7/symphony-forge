@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -553,16 +554,20 @@ def apply_patch_paths(value: str) -> list[str] | None:
 
 def normalized_patch_paths(paths: list[str], root: Path) -> list[str] | None:
     normalized: list[str] = []
+    lexical_root = Path(os.path.abspath(root))
+    resolved_root = root.resolve()
     for raw in paths:
         if "$" in raw or "`" in raw:
             return None
         candidate = Path(raw).expanduser()
         try:
-            rel = (candidate if candidate.is_absolute() else root / candidate) \
-                .resolve().relative_to(root.resolve()).as_posix()
+            absolute = candidate if candidate.is_absolute() else lexical_root / candidate
+            lexical = Path(os.path.abspath(absolute))
+            rel = lexical.relative_to(lexical_root).as_posix()
+            resolved = absolute.resolve().relative_to(resolved_root).as_posix()
         except (OSError, RuntimeError, ValueError):
             return None
-        if not rel or rel == ".":
+        if not rel or rel == "." or resolved != rel:
             return None
         normalized.append(rel)
     return normalized

@@ -1016,19 +1016,26 @@ def _review_findings_section(base: Path, task: dict, story: str) -> str:
     because its brief said nothing about them (WF-1 T2, gap G4). The recorded
     artifacts are the findings; the brief now carries them verbatim.
     """
-    from factory_lib import load_json, proof_path
+    from factory_lib import read_selected_review_generation
+    from .stages import stage_review_binding
     task_id = str(task.get("id") or "")
     if not story or not task_id:
+        return ""
+    stage = next((item for item in load_stages(base).get("stages", [])
+                  if item.get("id") == task_id), {})
+    if not stage:
+        return ""
+    generation, _selection, problems = read_selected_review_generation(
+        base, story, task_id,
+        expected_delta_id=stage_review_binding(base, stage, task)["delta_id"],
+    )
+    if problems or not isinstance(generation, dict):
         return ""
     blocking: list[tuple[str, dict]] = []
     caveats: list[tuple[str, dict]] = []
     for lens in ("quality", "performance", "security"):
-        artifact = load_json(
-            proof_path(base, story, f"reviews/{lens}.json", task_id=task_id),
-            default={})
+        artifact = (generation.get("lenses") or {}).get(lens, {})
         if not isinstance(artifact, dict):
-            continue
-        if artifact.get("task_id") not in (None, task_id):
             continue
         blocking += [(lens, f) for f in artifact.get("blocking_findings") or []
                      if isinstance(f, dict)]

@@ -433,7 +433,7 @@ def test_the_review_verdict_is_counted_from_what_was_recorded(repo, tmp_path):
     assert recorded["quality"]["score"] == 10
 
 
-def test_the_delegate_brief_carries_the_recorded_findings(repo, tmp_path):
+def test_the_delegate_brief_carries_the_selected_current_findings(repo, tmp_path):
     """G4. A fix launch used to get a brief that said nothing about the
     findings it existed to fix; one made zero edits. The recorded findings
     are the channel."""
@@ -446,11 +446,18 @@ def test_the_delegate_brief_carries_the_recorded_findings(repo, tmp_path):
     before = compose_brief(repo, task, write=True, user_facing=False, story="ENG-1")
     assert "Review findings to fix" not in before
 
-    _record_quality_with_a_partial_contract(repo)
+    write_task_proof(repo, "T1", publish_review=True, review_blocked=True)
+    legacy = story_state(repo) / "tasks" / "T1" / "reviews" / "quality.json"
+    stale = json.loads(legacy.read_text())
+    stale["blocking_findings"] = [{
+        "category": "bug", "area": "old.py", "summary": "obsolete finding",
+    }]
+    legacy.write_text(json.dumps(stale))
     after = compose_brief(repo, task, write=True, user_facing=False, story="ENG-1")
     assert "Review findings to fix" in after
     assert "BLOCKING" in after
-    assert "[quality] plan-contract-partial: C1: the slice runs green" in after
+    assert "[security] security: selected current finding" in after
+    assert "obsolete finding" not in after
 
 
 # --------------------------------------------- the porcelain parse bug

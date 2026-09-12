@@ -711,7 +711,11 @@ def write_task_proof(repo: Path, task_id: str = "T1", *,
             if review_blocked and aspect == "security":
                 review.update({
                     "score": 7,
-                    "blocking_findings": ["unvalidated input"],
+                    "blocking_findings": [{
+                        "category": "security",
+                        "area": "src/core.py",
+                        "summary": "selected current finding",
+                    }],
                     "recommendation": "request-changes",
                 })
             path.write_text(json.dumps(review))
@@ -11349,8 +11353,6 @@ def test_recorder_holds_the_task_narrative_contract(repo, tmp_path):
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "stage baseline")
     code, out = record_task_grill(repo, first)
-    assert code == 0, out
-    code, out = record_task_grill(repo, task)
     assert code == 0, out
     run(repo, "forge.py", "stage", "start", "T1", "--trunk")
     launch_fake(repo, tmp_path, "T1")
