@@ -48,48 +48,51 @@ def _validate_round_provenance(
             + FLOOR_IS_NOT_A_TARGET
         )
 
+    scopes = ([story] if get_gate(gate).story_scoped and story else []) + [None]
     ledger_rounds: list[dict] = []
-    directories = (
-        evidence_path(root, story, "grill-rounds"),
-        evidence_path(root, None, "grill-rounds"),
+    directories = tuple(
+        evidence_path(root, scope, "grill-rounds") for scope in scopes
     )
-    for directory in dict.fromkeys(directories):
+    for directory in directories:
         if not directory.is_dir():
             continue
         for record_path in sorted(directory.glob("*.json")):
             record = load_json(record_path, default={})
             ledger_rounds.extend(
-                entry for entry in record.get("questions", [])
+                {**entry, "_scope": directory}
+                for entry in record.get("questions", [])
                 if isinstance(entry, dict)
             )
 
     current_name = get_gate(gate).evidence_name(task_id)
     current_story = story if get_gate(gate).story_scoped else ""
     current_path = evidence_path(root, current_story, current_name)
-    grill_directories = (
-        evidence_path(root, story, "grills"),
-        evidence_path(root, None, "grills"),
+    grill_directories = tuple(
+        evidence_path(root, scope, "grills") for scope in scopes
     )
     used_rounds: list[dict] = []
-    for directory in dict.fromkeys(grill_directories):
+    for directory, ledger_directory in zip(grill_directories, directories):
         if not directory.is_dir():
             continue
         paths = [*directory.glob("*.json"), *directory.glob("tasks/*.json")]
         for grill_path in paths:
             saved = load_json(grill_path, default={})
             saved_rounds = saved.get("rounds")
-            if grill_path == current_path and saved_rounds == rounds:
+            if grill_path == current_path:
                 continue
             if isinstance(saved_rounds, list):
                 used_rounds.extend(
-                    entry for entry in saved_rounds if isinstance(entry, dict)
+                    {**entry, "_scope": ledger_directory}
+                    for entry in saved_rounds
+                    if isinstance(entry, dict)
                 )
 
     available = list(ledger_rounds)
     for used in used_rounds:
         claimed = next((
             logged for logged in available
-            if logged.get("question") == used.get("question")
+            if logged["_scope"] == used["_scope"]
+            and logged.get("question") == used.get("question")
             and logged.get("options") == used.get("options")
             and (
                 logged.get("chosen") is None

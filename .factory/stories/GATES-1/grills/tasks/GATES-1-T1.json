@@ -77,13 +77,13 @@
   ],
   "current_flow": "Today record_grill_from_json.py:51-63 collects ledger rounds from the active story's grill-rounds directory AND the global one for EVERY gate, then walks every recorded pass under grills/ and grills/tasks/ and treats all of their rounds as spent (:73-86). A pass skips its own record only while its stored rounds are byte-identical to the ones being submitted (:81), so editing a round makes a pass start consuming its own history and the re-record demands a brand new question. Matching is by question, options and answer alone (:88-100), with a ledger `chosen` of null acting as a wildcard. Nothing anywhere records which gate or story a question was asked for, which is why a globally recorded gate can consume a round asked during an unrelated story.",
   "task_id": "GATES-1-T1",
-  "input_sha256": "b3873b8461ed1c5b5a94dfbe64e3166f6129d24865af548bbbcf780a9cef06e1",
+  "input_sha256": "6fe15ccddcf28d869f3309580d790893551f23b7a5222fadd4878b1b386581b6",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
   "task_plan_sha256": "0c517aa15bc9de6986be34003b454ff70c66aa6ad9a4449bc1d93c8c126acc5d",
-  "recorded_at": "2026-09-12T06:15:01+00:00",
-  "commit": "ec07e34c2d159cd435c8541a3aa17588b29cd81e",
+  "recorded_at": "2026-09-12T06:49:39+00:00",
+  "commit": "85182915839fcc8ba282e9af94bc05f4e633dd74",
   "approved_task_plan_sha256": "0c517aa15bc9de6986be34003b454ff70c66aa6ad9a4449bc1d93c8c126acc5d",
   "approved_by": "Ravi",
-  "approved_at": "2026-09-12T06:15:06+00:00"
+  "approved_at": "2026-09-12T06:50:00+00:00"
 }
