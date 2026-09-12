@@ -33,7 +33,7 @@ unelevated sandbox option, and Forge does not change user-global Codex
 configuration to simulate one. Run Forge from a normal, unelevated prompt.
 
 The worker's commands run as a separate local account (`CodexSandboxOnline`
-once decision 0067 applies; `CodexSandboxOffline` before it). Codex grants
+once decision 0068 applies; `CodexSandboxOffline` before it). Codex grants
 that account read access to the whole disk, but Windows ACLs still deny it
 the user profile root (`C:\Users\<you>`) and per-user caches such as
 `%LOCALAPPDATA%\node\corepack` and `%LOCALAPPDATA%\pnpm\store`. Seen
