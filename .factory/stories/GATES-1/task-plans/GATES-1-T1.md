@@ -48,27 +48,20 @@ during an entirely different story. 0051 permitted that by accident.
    its reader, writer and reader resolving different directories, a legacy round
    colliding with a scoped one — cannot occur in a design that stores nothing.
 
-5. **Verification can actually close the stage.** The suite is 93 red on main, so
-   a bare full-suite command always exits non-zero and `stage done` rejects that,
-   meaning the stage could never close. A new `factory/scripts/check_test_baseline.py`
-   runs the suite and exits zero ONLY when the failing set matches the recorded
-   baseline by identity, not merely by count.
-
-   The baseline is DATA, not code: `factory/tests/baseline-failures.txt`, one
-   pytest node id per line, generated once from a clean run on the merge base and
-   committed. Identity means set equality, so the comparator exits non-zero on a
-   new failure AND on a known failure that disappears; a disappearing failure is a
-   fix that must update the baseline in the same commit, which is the point.
-
-   The suite command is INJECTABLE (`--suite`, defaulting to the repo's own
-   pytest invocation) for one reason: a test that exercises the comparator must
-   not invoke the full suite that contains that very test. The comparator's own
-   tests pass a tiny fake suite, so they cannot recurse.
+5. **The suite is green, so nothing special is needed to close the stage.** An
+   earlier draft of this contract carried a baseline comparator and committed
+   baseline data, because the plan said the suite was 93 red. It is not. The
+   93 came from a non-hermetic board probe — `already_serving` answered "is ANY
+   board up" rather than "is a board for THIS repo up", and `task approve`
+   starts one — and sharding under CPU contention inflated it to 99. Measured
+   sequentially and alone, `factory/tests` is 942 passed, 0 failed. The
+   comparator and its baseline file are CUT: a plain full-suite verify closes
+   this stage. The probe is fixed separately, not here.
 
 6. **Decision 0055 is not this task's to own.** 0055 wants lint, format and type
    checks configured and enforced in CI. T1 records them as its own verify
    commands, which is what the approved plan promised, but wiring them into
-   `verify.py` and CI touches the verify configuration and is out of a three-file
+   `verify.py` and CI touches the verify configuration and is out of a two-file
    scope. That gap is named here rather than left implied, and belongs with the
    T3 work that already changes the verify path.
 
@@ -105,14 +98,12 @@ flowchart TD
    it: it is refused.
 4. Record a task gate for task A, then try the same round for task B: refused.
 5. Record a global gate with no story active: it behaves exactly as it does today.
-6. Delete a line from the baseline file and run the comparator: it exits non-zero.
 
 ## Verify
 
-`python3 factory/scripts/check_test_baseline.py`, which runs the suite and exits
-zero only when the failing set matches the recorded baseline by identity; the new
-round-reuse suite; `./forge doctor`; and per decision 0055, Ruff format, Ruff lint
-and Pyright over the changed Python.
+`uv run --with pytest --with psutil python -m pytest factory/tests -q`, which is
+green; the new round-reuse suite; `./forge doctor`; and per decision 0055, Ruff
+format, Ruff lint and Pyright over the changed Python.
 
 <!-- forge:contract -->
 ## Contract (recorded)
@@ -132,14 +123,10 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 - A story-scoped gate still consumes rounds asked before any story existed
 - The floor of at least one real round per gate still holds, asserted both ways
 - No round record, schema or hook changes, asserted by the existing ledger round shape test still passing untouched
-- The failing baseline is committed data, one pytest node id per line, and the comparator takes an injectable suite command so its own tests never invoke the suite that contains them
-- check_test_baseline.py exits zero on exact set equality with the baseline, non-zero when a new failure appears, and non-zero when a known failure disappears
 
 **Write scope** (what `stage done` measures the diff against)
 
 - factory/scripts/record_grill_from_json.py
-- factory/scripts/check_test_baseline.py
-- factory/tests/baseline-failures.txt
 - factory/tests/test_round_provenance.py
 
 **Required tests** (run by `stage done`)
@@ -152,17 +139,14 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 - `test_a_global_gate_is_unchanged_when_no_story_is_active` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
 - `test_a_story_gate_still_consumes_a_pre_story_round` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
 - `test_the_floor_of_one_real_round_per_gate_still_holds` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
-- `test_baseline_comparator_exits_zero_on_exact_identity` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
-- `test_baseline_comparator_exits_non_zero_on_a_new_failure` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
-- `test_baseline_comparator_exits_non_zero_when_a_known_failure_disappears` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
 
 **Verify commands**
 
-- `python3 factory/scripts/check_test_baseline.py`
+- `uv run --with pytest --with psutil python -m pytest factory/tests -q`
 - `uvx --with ruff ruff format --check factory/scripts factory/tests`
 - `uvx --with ruff ruff check factory/scripts factory/tests`
 - `uvx --with pyright pyright factory/scripts`
 - `./forge doctor`
 
-**Review budget.** 4 files / 300 lines -- Two conditions in the recorder's consumption walk, a baseline comparator the stage cannot close without, its committed baseline data, and one new suite. Scope FELL from seven files after a fourth read showed the session carrier three drafts had been designing was unnecessary: provenance is already recorded in where evidence lives.
+**Review budget.** 2 files / 200 lines -- Two conditions in the recorder's consumption walk and one new suite. The baseline comparator and its data were CUT: the plan's 93-red premise was an artefact of parallel sharded runs plus a non-hermetic board probe. Measured sequentially the suite is 942 passed, 0 failed, so a plain full-suite verify closes the stage and a comparator would be machinery guarding nothing.
 <!-- /forge:contract -->

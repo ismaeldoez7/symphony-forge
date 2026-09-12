@@ -3,11 +3,10 @@
   "gate": "task",
   "verdict": "pass",
   "issue": "GATES-1",
-  "summary": "Four cold reads. The first three each found the contract assuming machinery the repo does not have, because the design routed provenance through a session context spanning the grill, the hook and the recorder. Reading the recorder settled it: a round is already scoped by where its evidence is written, so the mechanism is two conditions in the consumption walk and scope fell from seven files to four. The fourth read returned five findings against that design, all resolved here: the protected contract's plan_contracts were rewritten to match its criteria; the approved plan and decision 0067 were amended to the same mechanism; the baseline comparator gained committed baseline data, an injectable suite command so its own tests cannot recurse into the suite containing them, and tests for all three directions; the different-story and no-story-active boundaries gained tests; and decision 0055's CI wiring is a named non-goal belonging to T3.",
+  "summary": "Four cold reads. The first three each found the contract assuming machinery the repo does not have, because the design routed provenance through a session context spanning the grill, the hook and the recorder. Reading the recorder settled it: a round is already scoped by where its evidence is written, so the mechanism is two conditions in the consumption walk and scope fell from seven files to four. The fourth read returned five findings against that design, all resolved here: the protected contract's plan_contracts were rewritten to match its criteria; the approved plan and decision 0067 were amended to the same mechanism; the baseline comparator gained committed baseline data, an injectable suite command so its own tests cannot recurse into the suite containing them, and tests for all three directions; the different-story and no-story-active boundaries gained tests; and decision 0055's CI wiring is a named non-goal belonging to T3. After the stage started, the implementer raised a contradiction on the 93-red premise rather than recording a figure it could not justify. Measuring clean main sequentially returned 942 passed, 0 failed: the red count was a non-hermetic board probe plus sharding under CPU contention. The comparator, its baseline data and their three criteria and three tests are cut, leaving a two-file scope.",
   "gaps": [
-    "The baseline comparator named no authoritative baseline artifact, and a test invoking it would have recursively run the full suite that contains that test.",
     "Two provenance boundaries decision 0067 requires were untested: refusal across a different story, and unchanged global-gate behaviour when no story is active.",
-    "Decision 0055 wants lint, format and type checks enforced in CI, which a three-file scope cannot deliver and which the contract did not name as out of scope."
+    "The plan asserted a 93-red suite and made T1 carry a baseline comparator for it; a clean sequential run is 942 passed, 0 failed, so the comparator guarded nothing."
   ],
   "contradictions": [
     "The protected decomposition's plan_contracts still required the rejected session context, hook provenance and legacy class while its acceptance criteria described the location-derived design, so no truthful payload could have recorded.",
@@ -18,7 +17,8 @@
     "The plan's Technical Approach, Surface Impact and T1 entry, and decision 0067's mechanism, are rewritten to describe provenance as evidence location; the plan was re-read, re-recorded and re-approved against that text.",
     "The baseline is committed data at factory/tests/baseline-failures.txt, one pytest node id per line; the comparator takes an injectable suite command and its own tests pass a tiny fake suite; three tests cover exact identity, a new failure and a disappearing failure.",
     "Required tests now include a different-story refusal and a global gate with no story active.",
-    "Decision 0055's CI wiring is stated as a non-goal of this task and assigned to the T3 work that already changes the verify path."
+    "Decision 0055's CI wiring is stated as a non-goal of this task and assigned to the T3 work that already changes the verify path.",
+    "The comparator and its committed baseline are cut from this task; verify runs the plain suite; the probe bug is fixed separately in symphony-forge PR #212."
   ],
   "open_items": [],
   "questions_asked": 1,
@@ -45,16 +45,12 @@
   ],
   "citations": [
     {
-      "finding": "The baseline comparator named no authoritative baseline artifact, and a test invoking it would have recursively run the full suite that contains that test.",
-      "source": "docs/decisions/0055-enforced-static-quality-baseline.md \u2014 the quality baseline the comparator has to honour without inventing a green suite"
-    },
-    {
       "finding": "Two provenance boundaries decision 0067 requires were untested: refusal across a different story, and unchanged global-gate behaviour when no story is active.",
       "source": "docs/decisions/0067-rounds-rebind-to-their-gate.md \u2014 the boundaries the decision requires: never across a different gate, story or task"
     },
     {
-      "finding": "Decision 0055 wants lint, format and type checks enforced in CI, which a three-file scope cannot deliver and which the contract did not name as out of scope.",
-      "source": "docs/decisions/0055-enforced-static-quality-baseline.md \u2014 requires configured checks enforced in CI, which a three-file scope cannot deliver"
+      "finding": "The plan asserted a 93-red suite and made T1 carry a baseline comparator for it; a clean sequential run is 942 passed, 0 failed, so the comparator guarded nothing.",
+      "source": "factory/scripts/forge_cli/board.py:1199 \u2014 already_serving answered 'is ANY board up', so the gate suite failed whenever a board was running and the red count was an artefact"
     }
   ],
   "criteria_map": {
@@ -66,24 +62,19 @@
     "A gate that is not story-scoped behaves exactly as it does today when no story is active": "factory/scripts/record_grill_from_json.py:56 \u2014 dict.fromkeys already collapses both entries to one directory when story is empty, so the no-story path is unchanged",
     "A story-scoped gate still consumes rounds asked before any story existed": "factory/scripts/record_grill_from_json.py:52 \u2014 a story-scoped gate keeps reading the story directory AND the global one",
     "The floor of at least one real round per gate still holds, asserted both ways": "factory/scripts/record_grill_from_json.py:43 \u2014 GATE_ROUND_FLOORS check is untouched by this task",
-    "No round record, schema or hook changes, asserted by the existing ledger round shape test still passing untouched": "factory/scripts/post_tool_use.py:111 and factory/schemas/grill-round.json are outside the write scope",
-    "The failing baseline is committed data, one pytest node id per line, and the comparator takes an injectable suite command so its own tests never invoke the suite that contains them": "factory/tests/baseline-failures.txt (new data) and factory/scripts/check_test_baseline.py --suite (new)",
-    "check_test_baseline.py exits zero on exact set equality with the baseline, non-zero when a new failure appears, and non-zero when a known failure disappears": "factory/scripts/check_test_baseline.py \u2014 set equality against the baseline file, three tests in factory/tests/test_round_provenance.py"
+    "No round record, schema or hook changes, asserted by the existing ledger round shape test still passing untouched": "factory/scripts/post_tool_use.py:111 and factory/schemas/grill-round.json are outside the write scope"
   },
   "decision": "keep",
-  "new_abstractions": [
-    "factory/scripts/check_test_baseline.py \u2014 a baseline comparator, justified because a 93-red suite makes any bare full-suite verify command exit non-zero, so no stage could ever close",
-    "factory/tests/baseline-failures.txt \u2014 the committed failing set the comparator compares against, data rather than code so a fix that removes a failure must update it in the same commit"
-  ],
+  "new_abstractions": [],
   "current_flow": "Today record_grill_from_json.py:51-63 collects ledger rounds from the active story's grill-rounds directory AND the global one for EVERY gate, then walks every recorded pass under grills/ and grills/tasks/ and treats all of their rounds as spent (:73-86). A pass skips its own record only while its stored rounds are byte-identical to the ones being submitted (:81), so editing a round makes a pass start consuming its own history and the re-record demands a brand new question. Matching is by question, options and answer alone (:88-100), with a ledger `chosen` of null acting as a wildcard. Nothing anywhere records which gate or story a question was asked for, which is why a globally recorded gate can consume a round asked during an unrelated story.",
   "task_id": "GATES-1-T1",
-  "input_sha256": "6fe15ccddcf28d869f3309580d790893551f23b7a5222fadd4878b1b386581b6",
+  "input_sha256": "4e7a19c174b86f253f735cc57d817bf9e2600be1dc3e2ed562d7ccdf630838c8",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
-  "task_plan_sha256": "0c517aa15bc9de6986be34003b454ff70c66aa6ad9a4449bc1d93c8c126acc5d",
-  "recorded_at": "2026-09-12T06:49:39+00:00",
-  "commit": "85182915839fcc8ba282e9af94bc05f4e633dd74",
-  "approved_task_plan_sha256": "0c517aa15bc9de6986be34003b454ff70c66aa6ad9a4449bc1d93c8c126acc5d",
+  "task_plan_sha256": "860a57c3b7b331122feff74fa923d2b7233b5d3ef0bcb50a1ce820c65994a01e",
+  "recorded_at": "2026-09-12T08:43:58+00:00",
+  "commit": "0bc5b8e8172e576ee54f3dc60d8105ac19a84173",
+  "approved_task_plan_sha256": "860a57c3b7b331122feff74fa923d2b7233b5d3ef0bcb50a1ce820c65994a01e",
   "approved_by": "Ravi",
-  "approved_at": "2026-09-12T06:50:00+00:00"
+  "approved_at": "2026-09-12T08:44:06+00:00"
 }

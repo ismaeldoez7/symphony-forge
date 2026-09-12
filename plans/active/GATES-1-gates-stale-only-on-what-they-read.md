@@ -2,7 +2,7 @@
 issue: GATES-1
 title: Gates stale only on what they read
 status: approved
-saved: 2026-09-12T06:12:56+00:00
+saved: 2026-09-12T08:43:26+00:00
 story: GATES-1
 decisions_reviewed:
   - 0001-determinism-contract
