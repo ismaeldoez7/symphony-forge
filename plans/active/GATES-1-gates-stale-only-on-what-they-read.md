@@ -134,6 +134,15 @@ product tree), the gate table in `grill_gates.py`, the board and the next-step
 text. A record without a manifest falls through to today's behaviour, which is
 what keeps legacy passes valid.
 
+**Post-stage task freshness is an exception to the manifest, not a case of it.**
+The owner ruling above keeps 0066, and 0066 binds a post-stage task pass to its
+objective, criteria, plan contracts, user-facing flag and plan — nothing else. So
+the universal "a newly accepted decision stales a pass" rule does NOT reach the
+post-stage task gate, which would otherwise contradict 0066 by staling every task
+pass the moment any decision is accepted. T4 builds that selective snapshot and
+this is the one gate the manifest does not govern. The alternative, superseding
+0066, was rejected: 0066 is the promise this story is restoring, not revising.
+
 **The pre-stage task guard is untouched, by owner ruling.** Task grounding
 (`factory_lib.py:2304`) deliberately hashes the whole product tree BEFORE stage
 start, which is how work drifting from its contract is caught before
@@ -157,15 +166,18 @@ migration.
 **Stamps stop reading the contract.** The stamp path binds `delta_id` only, as
 0066 states. The contract digest leaves that comparison.
 
-**Rounds carry their gate and story.** Today's ledger rows hold only the
-question, options, answer and session, so the rule cannot be expressed without a
-provenance carrier: `post_tool_use.py` records the active gate and story on each
-round, and the recorder's consumption walk in `record_grill_from_json.py` matches
-on that provenance before consuming. A round with no provenance — every round
-written before this — keeps the old global-consumption behaviour, which is what
-keeps legacy records working. This is decision 0067 (accepted), which supersedes
-0051 and also closes 0051's accidental hole where a globally recorded gate could
-consume a round asked during another story.
+**Rounds are already scoped by where their evidence lives.** Nothing new is
+stamped onto a round. The hook writes a round into the ACTIVE STORY's
+`grill-rounds/` directory, and a recorded pass lands at a path already unique per
+gate, story and task. So the rule follows from location: in
+`record_grill_from_json.py`, a pass stops treating the rounds of its OWN evidence
+path as spent, which is what makes re-recording free, while every other pass
+still spends them, which is what refuses a round at a different gate, story or
+task. A gate that is not story-scoped reads only globally asked rounds, closing
+0051's accidental hole where a globally recorded gate could consume a round asked
+during another story. This is decision 0067 (accepted), which supersedes 0051.
+No round, round schema or hook changes, so there is no legacy class and no
+migration.
 
 **The ledger learns what happened.** Launch rows gain a terminal state:
 `answered` for exit zero with a captured verdict, `failed` for a non-zero exit,
@@ -173,6 +185,15 @@ consume a round asked during another story.
 compaction fault produces. The cap counts only `answered`, and the repeat-read
 guard ignores the other two. Escalation grants exactly one further read scoped to
 the gate and task, spent when that read terminates as `answered`.
+
+**The manifest is derived, never declared.** The recorder builds it from the
+FINAL pass payload rather than trusting an author to list inputs: it resolves
+every record the pass cites to a repo-relative path and refuses the pass when a
+cited input cannot be resolved or does not exist. Without that, a pass could omit
+a record it actually relied on, validate cleanly, and stay fresh after that
+record changed — which is the same blindness this story exists to remove, only
+quieter. The gate's own artifact and the accepted-decision set are always
+included, cited or not.
 
 **The command check is bounded.** A test walks a named set of generated `./forge`
 invocations from next-step text through the real parser, arguments included.
@@ -188,11 +209,11 @@ decision.
 ## Surface Impact
 
 - **Runtime / harness scripts:** the whole change. The recorder, the freshness
-  predicate, the gate table, the plans gate, the stamp path, the grill budget,
-  the launch ledger and the round provenance writer.
-- **Data:** `grill.json` gains an OPTIONAL `input_manifest`; the ledger gains gate
-  and story on rounds and a terminal state on launch rows. No migration, because
-  old records stay valid documents and fall through to old behaviour.
+  predicate, the gate table, the plans gate, the stamp path, the grill budget
+  and the launch ledger.
+- **Data:** `grill.json` gains an OPTIONAL `input_manifest`, and the ledger gains
+  a terminal state on launch rows. Round records are untouched. No migration,
+  because old records stay valid documents and fall through to old behaviour.
 - **API / MCP:** none. No tool, schema or protocol a client consumes changes.
 - **CLI:** none. No command, flag or output contract changes; next-step text is
   validated, not altered.
@@ -210,32 +231,40 @@ specify a mechanism at code level; four distinct mechanisms are involved, and
 that depth belongs in a task contract rather than here. Splitting also lets the
 two small mechanisms land while the manifest work is still being designed.
 
-- **T1 Round provenance (0067).** `post_tool_use.py` records a trusted,
-  session-bound carrier of gate, story and task id on each round; the recorder's
-  consumption walk matches on it; rounds without provenance keep global
-  consumption. Must make "never across a different task" enforceable, which
-  gate and story alone cannot do. Independent of the other three.
+- **T1 Round reuse at its own gate (0067).** The recorder's consumption walk
+  stops spending a pass's own recorded rounds, and a gate that is not
+  story-scoped stops reading the active story's rounds. Provenance is read from
+  where evidence already lives, so no hook, round or schema changes. Carries the
+  test-baseline comparator the stage cannot close without, which is why it ships
+  first: the other three cannot close a stage without it.
 - **T2 Ledger terminal states.** Launch rows move from `succeeded`/`failed` to a
   terminal state that distinguishes `answered` (exit zero WITH a captured
   verdict) from `interrupted` (exit zero, no verdict — what the upstream
   compaction fault produces) and `failed`. The cap counts only `answered`; the
   repeat-read guard ignores the rest; escalation grants one further read for that
   gate and task, spent when it terminates `answered`. Needs the verdict capture
-  the launcher does not do today. Independent of T1.
+  the launcher does not do today. Depends on T1 only for the comparator.
 - **T3 The manifest producer and freshness predicate.** ONE authoritative
   per-gate producer of manifest inputs, returning normalised repo-relative paths
   rather than the display text gate locators return today, and handling the
   composite signoff gate (BRIEF plus every spec plus the roadmap). The optional
   schema field, recorder validation, the single freshness predicate, and the
   accepted-decision set comparison. The pre-stage task guard is untouched per
-  owner ruling. Depends on nothing; T4 depends on it.
+  owner ruling. T3 also OWNS acceptance criterion 8, the generated-command
+  grammar check, because it is the task that changes the next-step text and the
+  board: it names the generated `./forge` invocations and walks them through the
+  real parser, arguments included. Depends on T1 only for the comparator; T4
+  depends on it.
 - **T4 Post-stage task freshness under 0066.** The canonical selective task
   snapshot: a file-only manifest would stale on `write_scope`, `required_tests`
   or `verify_commands`, while omitting the decomposition would miss a changed
   objective or criteria. Preserves 0066's post-stage binding rather than
   replacing it, and restores the stamp path to `delta_id` only. Depends on T3.
 
-Order: T1 and T2 in either order, then T3, then T4.
+Order: T1, then T2, then T3, then T4. T1 is first because it carries the
+test-baseline comparator, and no later task can close a stage against a suite
+that is 93 red without it. Each later task records the comparator among its own
+verify commands.
 
 ## Risks
 

@@ -39,11 +39,17 @@ A question round belongs to the gate and story it was asked for, and may be
 reused when re-recording THAT gate for THAT story. It is never reused across a
 different gate, a different story, or a different task.
 
-Rounds therefore carry their provenance: the ledger records the gate and story
-active when the question was asked, and the recorder matches on that provenance
-before consuming a round. A round with no recorded provenance, which is every
-round written before this decision, keeps 0051's behaviour and is consumed
-globally.
+Provenance is already recorded, in where the evidence lives, so nothing new is
+stamped onto a round. A ledger round is written into the active story's
+directory, and a recorded pass is written to a path already unique per gate,
+story and task. Reuse therefore follows from location: a pass does not treat its
+OWN previously recorded rounds as spent, which is what makes re-recording free,
+while any other pass still spends them, which is what keeps a round from
+crossing to a different gate, story or task. A gate that is not story-scoped
+reads only globally asked rounds, closing 0051's accidental hole.
+
+No round written before this decision changes meaning, because no round changes
+at all.
 
 The floor 0051 set is unchanged: every gate still requires at least one real
 round, and a pass still cannot be recorded against a question nobody asked.
@@ -52,8 +58,9 @@ round, and a pass still cannot be recorded against a question nobody asked.
 
 - Re-recording a gate after resolving its findings no longer manufactures a
   question, which is the only case this relaxes.
-- The ledger gains gate and story fields, and the recorder gains a provenance
-  match. Rounds written before this keep working unchanged.
+- Neither the ledger nor the round schema changes. The rule lives entirely in
+  the recorder's consumption walk, which reads provenance from where evidence is
+  already written, so there is no legacy class and no migration.
 - A global-gate recording can no longer consume a round asked during another
   story, which 0051 permitted by accident.
 - 0051 is retired. Its intent, that no gate is satisfied by a question nobody

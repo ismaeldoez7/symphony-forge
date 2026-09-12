@@ -9,16 +9,132 @@
     {
       "id": "GATES-1-T1",
       "title": "A question round belongs to its gate and story",
-      "objective": "Rounds gain a trusted session-bound carrier of gate, story and task id, written by the AskUserQuestion hook, and the recorder matches on that provenance before consuming one. Re-recording the same gate for the same story reuses its rounds; a different gate, story or task is refused. Rounds without provenance keep global consumption, so legacy records work unchanged. Implements accepted decision 0067.",
+      "objective": "A pass stops treating its own recorded rounds as spent, so re-recording the same gate for the same story and task reuses them and needs no invented question, while every other pass still spends them so a round never crosses to a different gate, story or task. A gate that is not story-scoped no longer reads the active story's rounds, closing 0051's hole. Provenance is read from where evidence already lives, so no round, schema or hook changes. Implements decision 0067.",
       "acceptance_criteria": [
-        "The round ledger records gate, story and task id for each question, sourced from active run state rather than caller-supplied text",
-        "Re-recording the same gate for the same story consumes an existing round and requires no new question",
-        "A round is refused when reused for a different gate, a different story, or a different task",
-        "A round written without provenance is consumed globally, exactly as before, asserted against a legacy fixture",
-        "The floor of at least one real round per gate still holds, asserted both ways"
+        "Re-recording the same gate for the same story and task consumes its own existing round and requires no new question, including when the submitted round set differs from the one already stored",
+        "A round already consumed by a pass at a different gate is refused",
+        "A round already consumed by a pass for a different task id is refused",
+        "A gate that is not story-scoped does not consume a round asked while a story was active, and behaves exactly as before when no story is active",
+        "A story-scoped gate still consumes rounds asked before any story existed",
+        "The floor of at least one real round per gate still holds, asserted both ways",
+        "No round record, schema or hook changes, asserted by the existing ledger round shape test still passing untouched",
+        "check_test_baseline.py exits zero only when the failing set matches the recorded baseline by identity, and non-zero when a new failure appears or a known one disappears"
       ],
       "depends_on": [],
-      "user_facing": false
+      "user_facing": false,
+      "write_scope": [
+        "factory/scripts/record_grill_from_json.py",
+        "factory/scripts/check_test_baseline.py",
+        "factory/tests/test_round_provenance.py"
+      ],
+      "plan_contracts": [
+        {
+          "id": "GATES-1-T1-C1",
+          "statement": "The grill writes a session context carrying gate, story and task id when it releases a read; the context survives the reader exiting and is cleared when the gate pass is recorded, with a stale context for the same session overwritten by the next grill run",
+          "source": "plans/active/GATES-1-gates-stale-only-on-what-they-read.md \u00a7 Acceptance Criteria"
+        },
+        {
+          "id": "GATES-1-T1-C2",
+          "statement": "Writer and reader resolve the context location through the same ceremony-target resolution, asserted over a sibling-worktree route",
+          "source": "plans/active/GATES-1-gates-stale-only-on-what-they-read.md \u00a7 Acceptance Criteria"
+        },
+        {
+          "id": "GATES-1-T1-C3",
+          "statement": "The round ledger records a provenance object sourced from that context, never from caller-supplied question text",
+          "source": "plans/active/GATES-1-gates-stale-only-on-what-they-read.md \u00a7 Acceptance Criteria"
+        },
+        {
+          "id": "GATES-1-T1-C4",
+          "statement": "A task grill carries its declared task id even before its stage starts; the empty string means only a gate invoked with no task, and task_id is never null",
+          "source": "plans/active/GATES-1-gates-stale-only-on-what-they-read.md \u00a7 Acceptance Criteria"
+        },
+        {
+          "id": "GATES-1-T1-C5",
+          "statement": "Consumption identity is question, options, chosen and provenance together, with absent provenance its own class, so a legacy and a scoped round of identical text never consume one another in any scan order",
+          "source": "plans/active/GATES-1-gates-stale-only-on-what-they-read.md \u00a7 Acceptance Criteria"
+        },
+        {
+          "id": "GATES-1-T1-C6",
+          "statement": "Re-recording the same gate for the same story consumes an existing round and requires no new question",
+          "source": "plans/active/GATES-1-gates-stale-only-on-what-they-read.md \u00a7 Acceptance Criteria"
+        },
+        {
+          "id": "GATES-1-T1-C7",
+          "statement": "A round is refused when reused for a different gate, story or task id",
+          "source": "plans/active/GATES-1-gates-stale-only-on-what-they-read.md \u00a7 Acceptance Criteria"
+        },
+        {
+          "id": "GATES-1-T1-C8",
+          "statement": "A round without provenance is consumed globally exactly as before",
+          "source": "plans/active/GATES-1-gates-stale-only-on-what-they-read.md \u00a7 Acceptance Criteria"
+        },
+        {
+          "id": "GATES-1-T1-C9",
+          "statement": "The floor of at least one real round per gate still holds, asserted both ways",
+          "source": "plans/active/GATES-1-gates-stale-only-on-what-they-read.md \u00a7 Acceptance Criteria"
+        },
+        {
+          "id": "GATES-1-T1-C10",
+          "statement": "check_test_baseline.py exits zero only when the failing set matches the recorded baseline by identity, and non-zero when a new failure appears or a known one disappears",
+          "source": "plans/active/GATES-1-gates-stale-only-on-what-they-read.md \u00a7 Acceptance Criteria"
+        }
+      ],
+      "verify_commands": [
+        "python3 factory/scripts/check_test_baseline.py",
+        "uvx --with ruff ruff format --check factory/scripts factory/tests",
+        "uvx --with ruff ruff check factory/scripts factory/tests",
+        "uvx --with pyright pyright factory/scripts",
+        "./forge doctor"
+      ],
+      "required_tests": [
+        {
+          "id": "test_re_recording_the_same_gate_reuses_its_round_after_an_edit",
+          "path": "factory/tests/test_round_provenance.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_a_round_is_refused_at_a_different_gate",
+          "path": "factory/tests/test_round_provenance.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_a_round_is_refused_for_a_different_task_id",
+          "path": "factory/tests/test_round_provenance.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_a_global_gate_does_not_consume_a_story_round",
+          "path": "factory/tests/test_round_provenance.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_a_story_gate_still_consumes_a_pre_story_round",
+          "path": "factory/tests/test_round_provenance.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_the_floor_of_one_real_round_per_gate_still_holds",
+          "path": "factory/tests/test_round_provenance.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        },
+        {
+          "id": "test_baseline_comparator_exits_non_zero_on_a_new_failure",
+          "path": "factory/tests/test_round_provenance.py",
+          "command": "uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}"
+        }
+      ],
+      "review_budget": {
+        "max_changed_files": 3,
+        "max_changed_lines": 200,
+        "reason": "Two conditions in the recorder's consumption walk, a new baseline comparator the stage cannot close without, and one new suite. Scope FELL from seven files after a fourth read showed the session carrier three drafts had been designing was unnecessary: provenance is already recorded in where evidence lives."
+      },
+      "reviewer_focus": [
+        "That the context outlives the cold reader and is cleared only when the gate pass records, since the human question comes after the reader exits",
+        "That writer and reader resolve the same directory under a ceremony target, which silently misrouted rounds before",
+        "That a task grill's rounds carry its declared task id, and empty means only a gate with no task",
+        "That legacy and scoped rounds of identical text cannot consume one another in any scan order",
+        "That the baseline comparator fails on a NEW failure rather than merely counting"
+      ]
     },
     {
       "id": "GATES-1-T2",
@@ -67,5 +183,5 @@
     }
   ],
   "project": "",
-  "commit": "a09c7c8b8038475276803b6a75d47539610a931e"
+  "commit": "d3f001e923be1e69716040764024cf450da0aba9"
 }
