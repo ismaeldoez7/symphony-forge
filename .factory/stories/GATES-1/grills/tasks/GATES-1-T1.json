@@ -3,10 +3,11 @@
   "gate": "task",
   "verdict": "pass",
   "issue": "GATES-1",
-  "summary": "Four cold reads. The first three each found the contract assuming machinery the repo does not have, because the design routed provenance through a session context spanning the grill, the hook and the recorder. Reading the recorder settled it: a round is already scoped by where its evidence is written, so the mechanism is two conditions in the consumption walk and scope fell from seven files to four. The fourth read returned five findings against that design, all resolved here: the protected contract's plan_contracts were rewritten to match its criteria; the approved plan and decision 0067 were amended to the same mechanism; the baseline comparator gained committed baseline data, an injectable suite command so its own tests cannot recurse into the suite containing them, and tests for all three directions; the different-story and no-story-active boundaries gained tests; and decision 0055's CI wiring is a named non-goal belonging to T3. After the stage started, the implementer raised a contradiction on the 93-red premise rather than recording a figure it could not justify. Measuring clean main sequentially returned 942 passed, 0 failed: the red count was a non-hermetic board probe plus sharding under CPU contention. The comparator, its baseline data and their three criteria and three tests are cut, leaving a two-file scope.",
+  "summary": "Four cold reads. The first three each found the contract assuming machinery the repo does not have, because the design routed provenance through a session context spanning the grill, the hook and the recorder. Reading the recorder settled it: a round is already scoped by where its evidence is written, so the mechanism is two conditions in the consumption walk and scope fell from seven files to four. The fourth read returned five findings against that design, all resolved here: the protected contract's plan_contracts were rewritten to match its criteria; the approved plan and decision 0067 were amended to the same mechanism; the baseline comparator gained committed baseline data, an injectable suite command so its own tests cannot recurse into the suite containing them, and tests for all three directions; the different-story and no-story-active boundaries gained tests; and decision 0055's CI wiring is a named non-goal belonging to T3. After the stage started, the implementer raised a contradiction on the 93-red premise rather than recording a figure it could not justify. Measuring clean main sequentially returned 942 passed, 0 failed: the red count was a non-hermetic board probe plus sharding under CPU contention. The comparator, its baseline data and their three criteria and three tests are cut, leaving a two-file scope. Running the full suite then cut the second condition too: narrowing global gates broke two existing gate tests, because spec, signoff and epics are recorded while a story is active. The task is now one condition, 8 criteria and 7 tests.",
   "gaps": [
     "Two provenance boundaries decision 0067 requires were untested: refusal across a different story, and unchanged global-gate behaviour when no story is active.",
-    "The plan asserted a 93-red suite and made T1 carry a baseline comparator for it; a clean sequential run is 942 passed, 0 failed, so the comparator guarded nothing."
+    "The plan asserted a 93-red suite and made T1 carry a baseline comparator for it; a clean sequential run is 942 passed, 0 failed, so the comparator guarded nothing.",
+    "An earlier draft narrowed non-story-scoped gates to global rounds to close what 0067 called 0051's hole; there is no hole, and the narrowing broke spec, signoff and epics, which are recorded while a story is active."
   ],
   "contradictions": [
     "The protected decomposition's plan_contracts still required the rejected session context, hook provenance and legacy class while its acceptance criteria described the location-derived design, so no truthful payload could have recorded.",
@@ -18,7 +19,8 @@
     "The baseline is committed data at factory/tests/baseline-failures.txt, one pytest node id per line; the comparator takes an injectable suite command and its own tests pass a tiny fake suite; three tests cover exact identity, a new failure and a disappearing failure.",
     "Required tests now include a different-story refusal and a global gate with no story active.",
     "Decision 0055's CI wiring is stated as a non-goal of this task and assigned to the T3 work that already changes the verify path.",
-    "The comparator and its committed baseline are cut from this task; verify runs the plain suite; the probe bug is fixed separately in symphony-forge PR #212."
+    "The comparator and its committed baseline are cut from this task; verify runs the plain suite; the probe bug is fixed separately in symphony-forge PR #212.",
+    "The narrowing is reverted, its criterion and test removed, and decision 0067, the plan and the contract are amended: the task changes ONE condition and global gates are untouched."
   ],
   "open_items": [],
   "questions_asked": 1,
@@ -51,6 +53,10 @@
     {
       "finding": "The plan asserted a 93-red suite and made T1 carry a baseline comparator for it; a clean sequential run is 942 passed, 0 failed, so the comparator guarded nothing.",
       "source": "factory/scripts/forge_cli/board.py:1199 \u2014 already_serving answered 'is ANY board up', so the gate suite failed whenever a board was running and the red count was an artefact"
+    },
+    {
+      "finding": "An earlier draft narrowed non-story-scoped gates to global rounds to close what 0067 called 0051's hole; there is no hole, and the narrowing broke spec, signoff and epics, which are recorded while a story is active.",
+      "source": "factory/scripts/record_grill_from_json.py:442 \u2014 the recorder reads only the ACTIVE story, so another story's rounds were never reachable; caught by test_intake_starts_discovery_before_signoff_and_planning_after and test_adhoc_capture_is_visible_debt_not_a_build_bypass"
     }
   ],
   "criteria_map": {
@@ -58,23 +64,22 @@
     "A round already consumed by a pass at a different gate is refused": "factory/scripts/record_grill_from_json.py:73 \u2014 a different gate writes to a different evidence name (grill_gates.py:171), so its rounds stay in the used set",
     "A round already consumed by a pass for a different story is refused": "factory/scripts/record_grill_from_json.py:68 \u2014 current_path resolves under the story directory for a story-scoped gate, so another story's pass is a different path",
     "A round already consumed by a pass for a different task id is refused": "factory/scripts/record_grill_from_json.py:67 \u2014 evidence_name(task_id) yields grills/tasks/<id>.json, unique per task",
-    "A gate that is not story-scoped does not consume a round asked while a story was active": "factory/scripts/record_grill_from_json.py:52 \u2014 ledger directories become global-only when Gate.story_scoped is false",
-    "A gate that is not story-scoped behaves exactly as it does today when no story is active": "factory/scripts/record_grill_from_json.py:56 \u2014 dict.fromkeys already collapses both entries to one directory when story is empty, so the no-story path is unchanged",
     "A story-scoped gate still consumes rounds asked before any story existed": "factory/scripts/record_grill_from_json.py:52 \u2014 a story-scoped gate keeps reading the story directory AND the global one",
     "The floor of at least one real round per gate still holds, asserted both ways": "factory/scripts/record_grill_from_json.py:43 \u2014 GATE_ROUND_FLOORS check is untouched by this task",
-    "No round record, schema or hook changes, asserted by the existing ledger round shape test still passing untouched": "factory/scripts/post_tool_use.py:111 and factory/schemas/grill-round.json are outside the write scope"
+    "No round record, schema or hook changes, asserted by the existing ledger round shape test still passing untouched": "factory/scripts/post_tool_use.py:111 and factory/schemas/grill-round.json are outside the write scope",
+    "A gate that is not story-scoped is unchanged: it still reads the active story's rounds as well as the global ones": "factory/scripts/record_grill_from_json.py:52 \u2014 ledger collection is unchanged for every gate: the active story's rounds plus the global ones, exactly as before"
   },
   "decision": "keep",
   "new_abstractions": [],
   "current_flow": "Today record_grill_from_json.py:51-63 collects ledger rounds from the active story's grill-rounds directory AND the global one for EVERY gate, then walks every recorded pass under grills/ and grills/tasks/ and treats all of their rounds as spent (:73-86). A pass skips its own record only while its stored rounds are byte-identical to the ones being submitted (:81), so editing a round makes a pass start consuming its own history and the re-record demands a brand new question. Matching is by question, options and answer alone (:88-100), with a ledger `chosen` of null acting as a wildcard. Nothing anywhere records which gate or story a question was asked for, which is why a globally recorded gate can consume a round asked during an unrelated story.",
   "task_id": "GATES-1-T1",
-  "input_sha256": "4e7a19c174b86f253f735cc57d817bf9e2600be1dc3e2ed562d7ccdf630838c8",
+  "input_sha256": "3c67ac45490d4083571b7e76113c90617e09bca81877c2b06e66721c92a5f098",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
-  "task_plan_sha256": "860a57c3b7b331122feff74fa923d2b7233b5d3ef0bcb50a1ce820c65994a01e",
-  "recorded_at": "2026-09-12T08:43:58+00:00",
-  "commit": "0bc5b8e8172e576ee54f3dc60d8105ac19a84173",
-  "approved_task_plan_sha256": "860a57c3b7b331122feff74fa923d2b7233b5d3ef0bcb50a1ce820c65994a01e",
+  "task_plan_sha256": "2e0d8769641cc041d6f73a00b49dc4aa0658d86d02586d13961b39e928bff762",
+  "recorded_at": "2026-09-12T10:53:28+00:00",
+  "commit": "131de5d9399975807401ed9d4c52824d6540cc1f",
+  "approved_task_plan_sha256": "2e0d8769641cc041d6f73a00b49dc4aa0658d86d02586d13961b39e928bff762",
   "approved_by": "Ravi",
-  "approved_at": "2026-09-12T08:44:06+00:00"
+  "approved_at": "2026-09-12T10:53:31+00:00"
 }
