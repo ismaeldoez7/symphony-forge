@@ -4,7 +4,7 @@ confirmed_by: "User (Codex conversation)"
 date: 2026-09-09
 stories: [FORGE-COORD-1]
 supersedes: 0003-model-tiers-terra-explore-sol-implement
-superseded_by: 0068-sol-specialized-workflow-models
+superseded_by: 0070-sol-specialized-workflow-models
 ---
 
 # Luna Max for exploration and implementation

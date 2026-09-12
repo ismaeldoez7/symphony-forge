@@ -2,152 +2,82 @@
   "generated_by": "griller",
   "gate": "spec",
   "verdict": "pass",
+  "issue": "GATES-1",
+  "summary": "Requirements cold read of the harness simplification spec returned six findings. Four were resolved by making the manifest, the decision rule, the single freshness predicate and the ledger terminal states concrete; two were owner choices, settled as legacy passes keeping old behaviour with no backfill, and round reuse narrowed to the same gate and story.",
   "gaps": [
-    "Decision 0064 requires the existing three review artifacts and forbids another registry, contradicting the one-generation plus selected-pointer design.",
-    "The draft incorrectly attributes CI-transport-only preliminary PR behavior to Decision 0054, which permits a draft for review and green CI.",
-    "A pointer created by a later upgrade cannot exist in an already sealed historical marker commit.",
-    "Citation-based finding rejection has no immutable generation origin and would falsely claim a changed projection came from unchanged helper output.",
-    "Combined-review section parsing and cross-lens duplicate normalization are not deterministic.",
-    "Ordinary-chat questions have no durable open state, so the claimed handoff precondition cannot observe them.",
-    "The handoff design has no exclusive coordinator ownership or fencing and could allow split-brain coordination.",
-    "The nine-part question identity has no exact issuance sources, missing-field rules, or final resolution schema.",
-    "Mandatory adapter-event task proof conflicts with the existing best-effort event family and schema.",
-    "The event matrix does not name the exact structured-question and mutation tools covered per runtime.",
-    "The governing-decision list omits active decisions and acceptance does not preserve Decision 0059 dependency fallback or Decision 0060 signal behavior.",
-    "The Product Brief still describes review-before-commit, one autoreview pass, and only one planning-lock escape.",
-    "Genuine-contribution acceptance invents a product-tree snapshot despite the one branch-diff digest boundary.",
-    "Required metrics and trace integration have no acceptance proof.",
-    "Workspace-first planning conflicts with the existing pre-worktree grill test and the legacy stage-start trunk route, while safe attach is undefined.",
-    "Setup selection does not name public commands or say whether a coordinator choice persists.",
-    "Immutable event retention does not define what happens when a late eligible event appears.",
-    "The protected plan and decomposition still assign D-0032 and fixed-review migration inconsistently with the amended specification."
+    "The input-manifest contract was not implementable: no declaration mechanism, no path normalisation, no handling for dirty, untracked or deleted inputs, and no recorder-side validation, so an implementation could omit a source the reader used and keep the pass fresh.",
+    "'Active decisions applicable to the gate' had no deterministic selection rule, so it would either recreate global staleness or let a newly applicable decision bypass the gate.",
+    "The spec did not reconcile existing freshness consumers: the requirements gate hashes the confirmed spec plus the whole product tree and has a regression expecting an arbitrary new product file to stale a pass, the inverse of the new rule, and task grounding folds in the product tree before stage start.",
+    "Legacy records had no migration policy, leaving existing client and historical passes undefined.",
+    "Reusable rounds conflicted with accepted decision 0051's 'no round reused across grills', which the recorder enforces by consuming rounds from previous grill records.",
+    "'Completes and returns a verdict' is not represented in the launch ledger: a successful launcher records exit status only, the cap counts launches regardless of terminal failure, and the repeat-read guard treats any non-failed row as a cold read."
   ],
-  "contradictions": [],
+  "contradictions": [
+    "Reusable rounds contradicted accepted decision 0051, which forbids reusing a round across grills."
+  ],
   "resolutions": [
-    "Accepted Decision 0067 now amends only Decision 0064's physical publication shape to one task-local immutable generation and one selected pointer, while retaining genuine three-lens proof and the ban on independent authority.",
-    "Accepted Decision 0067 now narrows Decision 0054 only for this story: an early draft exists solely when required platform CI cannot run otherwise and grants no review or proof authority.",
-    "The migration contract now makes the upgrade generation bind the immutable historical marker and exact fixed bytes; sealed readers accept the later pointer only on an exact sealed-commit match.",
-    "The review schema now includes origin=rejection. Rejection creates an immutable successor with source hash, exact finding, reason, citation, and actor while preserving raw output and unaffected lenses.",
-    "Architecture now fixes exact full-line lens markers, chunk labels, one lowercase tag, and one NFC repo-path/line/normalized-title fingerprint for cross-lens duplicate refusal.",
-    "The spec removes machine claims about open ordinary chat: the current turn blocks, abandonment grants no authority, and a later coordinator asks again.",
-    "The live handoff protocol is removed. Decision 0053's simpler between-task switch remains: old session stops, the completed marker and CI are on trunk, and the new session resumes through forge next.",
-    "Structured identity is reduced to runtime, session, fresh event filename ID, and zero-based question index, with exact scope/input/content/answer fields; approval-bound changes use the existing decision or approval record rather than a new revision map.",
-    "Timeline events remain best-effort diagnostics under Decision 0017. Committed configuration, focused hook tests, and recorder-produced automated reports are the required proof.",
-    "Architecture now lists the literal Claude and Codex hook/tool matchers; asynchronous question issuance is guarded but is not completion evidence, and newly exposed tools require mapping before parity is claimed.",
-    "The spec binds every accepted decision returned by forge decision list --active and explicitly preserves empty-dependency predecessor fallback plus Decision 0060 signal-mask and truthful failure rules.",
-    "The Brief now states implementation/tests/verification before the review-fix loop, one lifecycle with three assessments, and the approved-plan, quickfix, Lite, and degraded boundaries.",
-    "Contribution proof now cites one qualifying hunk inside the existing binary branch diff and correlates it with admitted write and terminal evidence; no second digest exists.",
-    "Lifecycle acceptance now requires one sanitized correlated error, one bounded forge_native_unexpected_errors_total increment, trace joining by error ID, redaction, and nonzero propagation tests.",
-    "The contract makes task start create or safely attach the worktree before JIT planning, defines exact clean attach predicates and dependency semantics, removes the redundant old test, and excludes the legacy trunk route from parity acceptance.",
-    "Setup and forge doctor select a coordinator only for one invocation using argument, environment, detection, then TTY; init/adopt/upgrade install both adapters and persist no coordinator choice.",
-    "The first bundle stays immutable; any later eligible event makes preview/apply refuse and remain loose. Retry deletes only already represented identical events and V1 has no successor shards.",
-    "The replacement plan, external decomposition, and ownership graph assign complete D-0032 to NATIVE-FOREGROUND-ACTIVATE and one-time fixed-review migration to PORTABLE-DELIVERY-MIGRATION before protected replacement."
+    "The manifest is now an ordered list of repo-relative POSIX path plus SHA-256 of that path's bytes at record time, with an explicit null digest for an absent input so its later appearance stales the pass. The recorder refuses a manifest that omits the gate's artifact and recomputes every digest against the tree, so a manifest cannot claim a state the repository does not have.",
+    "Applicable is defined as every decision accepted at record time, listed by id and digest, which needs no judgement from the recorder. A decision that becomes accepted afterwards stales the pass, because the corpus it was ground on no longer holds.",
+    "The spec now requires ONE manifest-freshness predicate used by all six gates, the board and the next-step text. The requirements gate stops hashing the product tree, and its existing regression at factory/tests/test_gates.py:8583 is named for replacement by one asserting the opposite.",
+    "Owner ruled: a pass without a manifest keeps today's tree-based freshness and only later passes get the new rule, so nothing in flight breaks here or mid-vendor. Manifests are never backfilled, since inferring what a reader read would fabricate evidence.",
+    "Owner ruled the narrowest relaxation: rounds may be reused only when re-recording the SAME gate for the SAME story, never across gates, stories or tasks. 0051's intent that every gate is ledger-matched survives, because the only relaxed case is re-recording a gate already answered.",
+    "The launch ledger gains a terminal state per row. Only an 'answered' row \u2014 launcher exit zero AND a captured verdict \u2014 spends an allowance; 'failed' and 'interrupted' rows, which is what the upstream compaction fault produces, consume nothing and are ignored by the repeat-read guard."
   ],
-  "open_items": [],
+  "open_items": [
+    "The 93 pre-existing test failures on main are unrelated and are pinned by count and identity so this change is neither credited nor blamed for them."
+  ],
+  "questions_asked": 2,
   "rounds": [
     {
-      "question": "Spec amendment for FORGE-COORD-1: should the already-approved 2026-09-11 change move the complete one-call combined review into NATIVE-FOREGROUND-ACTIVATE now, while the 17 repository-answerable cold-read findings are corrected in the resolved draft?",
+      "question": "Decision 0051 says no round is reused across grills. Dropping the per-recording question needs that relaxed. How far?",
       "options": [
-        "Move it now (Recommended)",
-        "Keep it in LEAN-WORKFLOW"
+        "Same gate and story only (Recommended)",
+        "Reuse freely within a story",
+        "Keep 0051 as is"
       ],
-      "chosen": "Move it now (Recommended)",
+      "chosen": "Same gate and story only (Recommended)",
       "frontier_empty": true
     }
   ],
-  "questions_asked": 1,
-  "summary": "Resolved all 18 findings from the single user-requested simplified-spec reread. Decision 0067 carries the only new human choice; repository facts and accepted decisions resolve the rest. No second spec reread is run.",
   "inspected_refs": [
-    "docs/specs/dual-coordinator-parity.md",
-    "docs/decisions/0053-interchangeable-coordinator-shared-forge-contract.md",
-    "docs/decisions/0054-native-questions-and-task-proof.md",
-    "docs/decisions/0059-task-owned-jit-workspaces.md",
-    "docs/decisions/0060-child-signal-mask-restoration.md",
-    "docs/decisions/0061-host-native-human-interaction.md",
-    "docs/decisions/0064-lean-delivery-and-durable-history.md",
-    "docs/decisions/0067-combined-review-generation.md",
-    "docs/architecture/dual-coordinator-parity.md",
-    "docs/product/BRIEF.md",
-    "/Users/dev/.codex/plans/symphony-forge+coord-1-combined-review-story-amendment+20260911.md",
-    "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-decomposition.json",
-    "/Users/dev/.codex/reviews/forge-lean-20260910/task1-combined-review-lean-delivery-graph-postimage.json"
+    "docs/specs/gates-stale-only-on-what-they-read.md",
+    "docs/decisions/0051-every-grill-gate-is-ledger-matched.md",
+    "docs/decisions/0066-closeout-binds-to-the-diff.md",
+    "factory/schemas/grill.json",
+    "factory/scripts/grill_gates.py",
+    "factory/scripts/record_grill_from_json.py",
+    "factory/scripts/factory_lib.py",
+    "factory/scripts/forge_cli/plans.py",
+    "factory/scripts/forge_cli/grill.py",
+    "factory/tests/test_gates.py"
   ],
-  "current_flow": "Record this pass against the amended draft, confirm the spec, synchronize graph hashes, then run the one requested final plan grill.",
   "citations": [
     {
-      "finding": "Decision 0064 requires the existing three review artifacts and forbids another registry, contradicting the one-generation plus selected-pointer design.",
-      "source": "Accepted Decision 0067 now amends only Decision 0064's physical publication shape to one task-local immutable generation and one selected pointer, while retaining genuine three-lens proof and the ban on independent authority."
+      "finding": "The input-manifest contract was not implementable: no declaration mechanism, no path normalisation, no handling for dirty, untracked or deleted inputs, and no recorder-side validation, so an implementation could omit a source the reader used and keep the pass fresh.",
+      "ref": "factory/schemas/grill.json"
     },
     {
-      "finding": "The draft incorrectly attributes CI-transport-only preliminary PR behavior to Decision 0054, which permits a draft for review and green CI.",
-      "source": "Accepted Decision 0067 now narrows Decision 0054 only for this story: an early draft exists solely when required platform CI cannot run otherwise and grants no review or proof authority."
+      "finding": "'Active decisions applicable to the gate' had no deterministic selection rule, so it would either recreate global staleness or let a newly applicable decision bypass the gate.",
+      "ref": "docs/specs/gates-stale-only-on-what-they-read.md"
     },
     {
-      "finding": "A pointer created by a later upgrade cannot exist in an already sealed historical marker commit.",
-      "source": "The migration contract now makes the upgrade generation bind the immutable historical marker and exact fixed bytes; sealed readers accept the later pointer only on an exact sealed-commit match."
+      "finding": "The spec did not reconcile existing freshness consumers: the requirements gate hashes the confirmed spec plus the whole product tree and has a regression expecting an arbitrary new product file to stale a pass, the inverse of the new rule, and task grounding folds in the product tree before stage start.",
+      "ref": "factory/scripts/forge_cli/plans.py"
     },
     {
-      "finding": "Citation-based finding rejection has no immutable generation origin and would falsely claim a changed projection came from unchanged helper output.",
-      "source": "The review schema now includes origin=rejection. Rejection creates an immutable successor with source hash, exact finding, reason, citation, and actor while preserving raw output and unaffected lenses."
+      "finding": "Legacy records had no migration policy, leaving existing client and historical passes undefined.",
+      "ref": "factory/schemas/grill.json"
     },
     {
-      "finding": "Combined-review section parsing and cross-lens duplicate normalization are not deterministic.",
-      "source": "Architecture now fixes exact full-line lens markers, chunk labels, one lowercase tag, and one NFC repo-path/line/normalized-title fingerprint for cross-lens duplicate refusal."
+      "finding": "Reusable rounds conflicted with accepted decision 0051's 'no round reused across grills', which the recorder enforces by consuming rounds from previous grill records.",
+      "ref": "docs/decisions/0051-every-grill-gate-is-ledger-matched.md"
     },
     {
-      "finding": "Ordinary-chat questions have no durable open state, so the claimed handoff precondition cannot observe them.",
-      "source": "The spec removes machine claims about open ordinary chat: the current turn blocks, abandonment grants no authority, and a later coordinator asks again."
-    },
-    {
-      "finding": "The handoff design has no exclusive coordinator ownership or fencing and could allow split-brain coordination.",
-      "source": "The live handoff protocol is removed. Decision 0053's simpler between-task switch remains: old session stops, the completed marker and CI are on trunk, and the new session resumes through forge next."
-    },
-    {
-      "finding": "The nine-part question identity has no exact issuance sources, missing-field rules, or final resolution schema.",
-      "source": "Structured identity is reduced to runtime, session, fresh event filename ID, and zero-based question index, with exact scope/input/content/answer fields; approval-bound changes use the existing decision or approval record rather than a new revision map."
-    },
-    {
-      "finding": "Mandatory adapter-event task proof conflicts with the existing best-effort event family and schema.",
-      "source": "Timeline events remain best-effort diagnostics under Decision 0017. Committed configuration, focused hook tests, and recorder-produced automated reports are the required proof."
-    },
-    {
-      "finding": "The event matrix does not name the exact structured-question and mutation tools covered per runtime.",
-      "source": "Architecture now lists the literal Claude and Codex hook/tool matchers; asynchronous question issuance is guarded but is not completion evidence, and newly exposed tools require mapping before parity is claimed."
-    },
-    {
-      "finding": "The governing-decision list omits active decisions and acceptance does not preserve Decision 0059 dependency fallback or Decision 0060 signal behavior.",
-      "source": "The spec binds every accepted decision returned by forge decision list --active and explicitly preserves empty-dependency predecessor fallback plus Decision 0060 signal-mask and truthful failure rules."
-    },
-    {
-      "finding": "The Product Brief still describes review-before-commit, one autoreview pass, and only one planning-lock escape.",
-      "source": "The Brief now states implementation/tests/verification before the review-fix loop, one lifecycle with three assessments, and the approved-plan, quickfix, Lite, and degraded boundaries."
-    },
-    {
-      "finding": "Genuine-contribution acceptance invents a product-tree snapshot despite the one branch-diff digest boundary.",
-      "source": "Contribution proof now cites one qualifying hunk inside the existing binary branch diff and correlates it with admitted write and terminal evidence; no second digest exists."
-    },
-    {
-      "finding": "Required metrics and trace integration have no acceptance proof.",
-      "source": "Lifecycle acceptance now requires one sanitized correlated error, one bounded forge_native_unexpected_errors_total increment, trace joining by error ID, redaction, and nonzero propagation tests."
-    },
-    {
-      "finding": "Workspace-first planning conflicts with the existing pre-worktree grill test and the legacy stage-start trunk route, while safe attach is undefined.",
-      "source": "The contract makes task start create or safely attach the worktree before JIT planning, defines exact clean attach predicates and dependency semantics, removes the redundant old test, and excludes the legacy trunk route from parity acceptance."
-    },
-    {
-      "finding": "Setup selection does not name public commands or say whether a coordinator choice persists.",
-      "source": "Setup and forge doctor select a coordinator only for one invocation using argument, environment, detection, then TTY; init/adopt/upgrade install both adapters and persist no coordinator choice."
-    },
-    {
-      "finding": "Immutable event retention does not define what happens when a late eligible event appears.",
-      "source": "The first bundle stays immutable; any later eligible event makes preview/apply refuse and remain loose. Retry deletes only already represented identical events and V1 has no successor shards."
-    },
-    {
-      "finding": "The protected plan and decomposition still assign D-0032 and fixed-review migration inconsistently with the amended specification.",
-      "source": "The replacement plan, external decomposition, and ownership graph assign complete D-0032 to NATIVE-FOREGROUND-ACTIVATE and one-time fixed-review migration to PORTABLE-DELIVERY-MIGRATION before protected replacement."
+      "finding": "'Completes and returns a verdict' is not represented in the launch ledger: a successful launcher records exit status only, the cap counts launches regardless of terminal failure, and the repeat-read guard treats any non-failed row as a cold read.",
+      "ref": "factory/scripts/forge_cli/grill.py"
     }
   ],
-  "input_sha256": "42d84ac7a45338cbfe05912994494643692ac1b406857385b0c55d37932c7031",
-  "recorded_at": "2026-09-11T14:45:50+00:00",
-  "commit": "10befe4cf377a1226f32a3f16e1667fc3e54277d"
+  "input_sha256": "ed4febd0f0b2f9c11669a82121ebda3d6b776ec68e975563cf7b74326d1ad474",
+  "recorded_at": "2026-09-11T17:50:38+00:00",
+  "commit": "498be61d9241008cd47e6fb877200a4e0af2d8fb"
 }

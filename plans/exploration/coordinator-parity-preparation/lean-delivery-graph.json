@@ -40,7 +40,7 @@
         "NATIVE-FOREGROUND-ACTIVATE"
       ],
       "owned_behavior": [
-        "Preserve the validated origin/main c9a705bc closeout, delta, task-proof, concurrent incumbent review, board and CI baseline without claiming it as First contribution; replace only review generation creation/publication as owned by Decision0067.",
+        "Preserve the validated origin/main c9a705bc closeout, delta, task-proof, concurrent incumbent review, board and CI baseline without claiming it as First contribution; replace only review generation creation/publication as owned by Decision0069.",
         "Existing complete foreground hooks/checker/readiness and process-bound admission",
         "C9 full approved plan and automated report in review inputs",
         "C10 shared complete local/committed/board proof and seal before mutation",
@@ -49,7 +49,7 @@
         "Claude clear registration and independent/both-adapter hook omission tests",
         "Explicit reviewed task proof_path preflight, never another task/story proof",
         "Actual native protected-state read and denied unauthorized mutation proof; current client reads already work, false phase wording belongs to LEAN",
-        "Additional Decision0068 model-policy overlay across owning selectors, active profiles/guidance, 15 committed team agents, init/upgrade distribution proof and exact-known same-plugin Luna/max repair; original 40 prepared hunk owners unchanged",
+        "Additional Decision0070 model-policy overlay across owning selectors, active profiles/guidance, 15 committed team agents, init/upgrade distribution proof and exact-known same-plugin Luna/max repair; original 40 prepared hunk owners unchanged",
         "Explicit user-requested D-0032 overlay: one task review lifecycle and one combined helper call per attempt; three ordered assessment sections and one lens tag per finding; one content-addressed immutable raw-plus-three-lens generation with canonical generation_id, recomputation, no-link paths, byte-identical retry and collision refusal; task-scoped selected-pointer-last publication; fixed-only refusal; single-lens diagnostics that cannot publish, stamp or revoke; and one citation-based origin=rejection successor from the selected combined generation that binds its source file SHA256 and ID and preserves raw bytes and unaffected lenses. Original prepared hunk owners remain unchanged. The accumulated 76-path envelope is measured at seal; the remaining worker edits only the exact 18-path/3,200-line subset in its task plan.",
         "One review-set schema validates one immutable raw-plus-three-lens generation and one small selected pointer; the inherited product_excluded_prefixes and product_delta_digest closeout seam supplies the one current delta identity used by review and closeout"
       ],
@@ -83,7 +83,7 @@
         "docs/ROLES.md",
         "docs/architecture/dual-coordinator-parity.md",
         "docs/decisions/0062-luna-max-exploration-and-implementation.md",
-        "docs/decisions/0068-sol-specialized-workflow-models.md",
+        "docs/decisions/0070-sol-specialized-workflow-models.md",
         "docs/degraded-mode.md",
         "docs/getting-started.md",
         "docs/product/BRIEF.md",
@@ -278,7 +278,7 @@
       "owned_behavior": [
         "Structured-question identity (runtime/session/event/question-index) with exact story/gate/task, current input digest, requiredness, question, ordered options and answer; optional non-gate encoding; native empty-frontier zero-round proof; accepted-authority references; and exact single use",
         "Main-only host-permitted decisions and exact current artifact display",
-        "Interaction and shared adapter policy under Decision0068; model selection itself is First-owned",
+        "Interaction and shared adapter policy under Decision0070; model selection itself is First-owned",
         "Workspace-first task start plus explicit safe attachment of a clean, registered, unowned same-common-directory worktree at refreshed trunk with matching branch/story/task/decomposition/dependencies; publish protected run.json ownership last",
         "Safe story resume, question ledger hydration, sealed-record immutability and sibling/trunk integration",
         "Hydrate actual consumed grill-rounds records only; plan-mode marker gate remains withdrawn",
@@ -333,7 +333,7 @@
       ],
       "owned_behavior": [
         "Per-invocation ./setup and forge doctor --coordinator selection: explicit argument, FORGE_COORDINATOR, one unambiguous detected host, then interactive TTY; conflict, invalid input, cancellation, EOF or unattended absence refuses before repair. The choice is not persisted; init/adopt/upgrade preserve both adapters.",
-        "Client rollout preserves and refreshes the Decision0068 project agent registry; the prior three-agent retirement intent is superseded",
+        "Client rollout preserves and refreshes the Decision0070 project agent registry; the prior three-agent retirement intent is superseded",
         "Only validated live attributed per-file events compact after exact scoped/legacy shipped eligibility; validated lowercase 32-hex filename stem is the authoritative ID because payloads have no ID field; parsed payload is preserved, preview inventory digest is required by apply, and root/history JSONL plus existing bundles remain immutable",
         "First event-bundle publication uses atomic no-overwrite. Retry cleans only exact loose pairs already represented; a later eligible ID remains loose and makes preview/apply refuse. V1 creates no successor shard, replacement, sidecar or retroactive marker.",
         "Before the first target write, globally preflight every eligible fixed review set. Active proof binds current state; sealed proof binds the immutable marker commit and exact fixed bytes. Only then create/read back origin=upgrade generations and selected pointers. A sealed reader accepts the later pointer only for an exact marker-commit binding; replacement, mismatch, mixed/unsafe input or ambiguity refuses. Unbound archives stay display-only and fixed files inert.",
@@ -2736,7 +2736,7 @@
       "0053-interchangeable-coordinator-shared-forge-contract",
       "0054-native-questions-and-task-proof",
       "0064-lean-delivery-and-durable-history",
-      "0067-combined-review-generation",
+      "0069-combined-review-generation",
       "0011-orchestrator-runs-autoreview"
     ],
     "non_authority": "0049 is proposed and supplies no authority",
@@ -2759,7 +2759,7 @@
     "upgrade_migration": "PORTABLE-DELIVERY-MIGRATION is the only compatibility transition. Before the first target write it globally preflights every eligible fixed set. Active proof binds current task state; sealed proof binds the immutable marker commit and exact fixed bytes. Only then may it create and read back origin=upgrade generations and pointers. A sealed reader accepts a later migration pointer only when the generation's sealed-commit binding exactly equals the marker commit; replacement, mismatch, malformed, mixed, colliding, linked or ambiguous input refuses. Byte-identical retry passes and unbound archives remain display-only.",
     "classifier": "Reuse factory_lib.product_excluded_prefixes and product_delta_digest for review scope plus current and historical branch-diff paths, and closeout delta_id. Genuine-contribution proof cites a qualifying path and hunk in that same delta and correlates it with admitted write and terminal evidence. No second classifier, branch-diff digest, product-tree snapshot or parallel identity is introduced.",
     "rejection": "Reject only from the selected origin=combined generation. Create one immutable origin=rejection successor bound to that source generation file SHA256 and ID; preserve exact decoded raw_result bytes, shared bindings, pass order and unaffected lenses; change only the cited projection and record exact finding, reason, citation and actor before pointer-last publication. Rejection, fixed-only, upgrade, unselected or unrelated sources refuse.",
-    "incumbent_baseline": "origin/main c9a705bc runs three lens helpers concurrently, accepts story proof as a task fallback in one reader, and lets task close reuse exact-delta review proof. These are inherited runtime facts, not Decision0067/C10 completion; First replaces generation creation with one helper, removes the task-to-story proof fallback, and reuses the closeout delta seam.",
+    "incumbent_baseline": "origin/main c9a705bc runs three lens helpers concurrently, accepts story proof as a task fallback in one reader, and lets task close reuse exact-delta review proof. These are inherited runtime facts, not Decision0069/C10 completion; First replaces generation creation with one helper, removes the task-to-story proof fallback, and reuses the closeout delta seam.",
     "schema_shape": "Generation shared fields are format,generation_id,origin,generated_by,story,task_id,review_run_id,brief_sha256,inspected_commit,delta_id,helper,input,raw_result,lenses,recorded_at. helper={path,version,sha256}; input={sha256,bytes}; raw_result={encoding:base64,sha256,bytes,data} stores exact pre-parse helper output bytes; lenses has exact quality/performance/security review payloads. combined forbids origin detail; rejection adds source_generation_id/source_generation_sha256/root_generation_id/history; upgrade adds inventory_digest/source_kind/sorted legacy_artifacts/sealed_commit. Selection fields are format,story,task_id,generation_id,generation_sha256,delta_id,selected_at.",
     "recorder": "record_review_from_json.py --set --task <id> --input <candidate.json> accepts only origin=combined and is mutually exclusive with diagnostic --aspect; the candidate omits generation_id, and the recorder rederives all three lenses from raw bytes and authoritative task state before publication. Citation rejection and Portable upgrade use their owned routes into the shared internal publisher.",
     "helper_identity": "Resolve one real regular helper path; capture path/file identity/version/SHA immediately before launch and re-resolve/recheck them after exit before publication. Any mismatch discards the attempt without pointer or stamp mutation.",
@@ -2957,7 +2957,7 @@
   },
   "retention_contract_source": "Confirmed docs/specs/dual-coordinator-parity.md and accepted0064; all necessary scope and proof is included here and in the bound story plan.",
   "model_policy_amendment": {
-    "authority": "Explicit user model/team-policy request; accepted Decision0068, which narrowly amends Decision0065 existing First scope and the matching scope lesson while preserving all other0065 duties",
+    "authority": "Explicit user model/team-policy request; accepted Decision0070, which narrowly amends Decision0065 existing First scope and the matching scope lesson while preserving all other0065 duties",
     "owner": "NATIVE-FOREGROUND-ACTIVATE",
     "kind": "Additional new-request overlay; it does not reassign any original prepared hunk",
     "first_declared_scope_count": 71,
@@ -3123,7 +3123,7 @@
     "owners": {
       "LEAN-WORKFLOW": "workflow, standing-authorization and context policy; consumes combined-review proof",
       "SHARED-COORDINATOR-JOURNEY": "interaction, question, resume and owner policy",
-      "NATIVE-FOREGROUND-ACTIVATE": "later explicit Decision0068 model/team overlay plus explicit 2026-09-11 complete D-0032 overlay"
+      "NATIVE-FOREGROUND-ACTIVATE": "later explicit Decision0070 model/team overlay plus explicit 2026-09-11 complete D-0032 overlay"
     },
     "closure": "Historical POLICY is closed only after all three owner proofs; this is an intentional hunk/overlay split, not duplicate implementation ownership."
   },
@@ -3151,7 +3151,7 @@
     "refusal": "No preliminary Forge review/proof record, duplicate PR, mutable-body authority, task marker or pr-ready state is created while platform rows are missing"
   },
   "question_coordinator_change_contract": {
-    "authority": "0053-interchangeable-coordinator-shared-forge-contract, 0061-host-native-human-interaction, 0067-combined-review-generation and the confirmed dual-coordinator specification",
+    "authority": "0053-interchangeable-coordinator-shared-forge-contract, 0061-host-native-human-interaction, 0069-combined-review-generation and the confirmed dual-coordinator specification",
     "native_grill": "After Shared ships, zero rounds require one ledgered empty-frontier cold read; a human frontier cites an eligible structured answer or the exact accepted decision/approval that owns the choice. No synthesis.",
     "coordinator_change": "Only between completed tasks after the marker and green CI reach refreshed trunk, no worker remains, no synchronous question call is executing, and the old session stops. Required structured exchanges use synchronous calls only; return completes them and cancellation grants no authority. Async issuance is optional clarification only and creates no handoff obligation. The receiver runs forge next. No pending-question ledger, live transfer command, snapshot, fencing token, coordinator registry or concurrent coordinator ownership is added.",
     "hook_proof": "Committed matchers, check_dual_runtime.py, focused hook tests and the recorder-produced automated report prove delivery and host capability. Timeline events remain best-effort diagnostics and are never mandatory task proof."
@@ -3185,6 +3185,6 @@
       "marker-only sealing and recorded-scope validation for native launch evidence"
     ],
     "ownership": "Inherited baseline only. NATIVE-FOREGROUND-ACTIVATE does not claim these bytes or behaviours as its contribution and reuses their seams.",
-    "transition": "The inherited three-helper runner remains the interim runtime. First owns Decision0067 one-helper generation creation, immutable raw-plus-three-lens publication, selected-pointer-last authority, strict task-owned proof reads, and current-delta closeout integration."
+    "transition": "The inherited three-helper runner remains the interim runtime. First owns Decision0069 one-helper generation creation, immutable raw-plus-three-lens publication, selected-pointer-last authority, strict task-owned proof reads, and current-delta closeout integration."
   }
 }

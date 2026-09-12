@@ -148,7 +148,7 @@ def test_forge_next_repeats_the_split_where_it_is_needed():
 
 # ------------------------------------------------------- reachable escalation
 def test_the_effort_escalation_harness_yaml_documents_is_reachable(repo: Path):
-    """Decision 0068 pins ordinary implementation to Sol/medium."""
+    """Decision 0070 pins ordinary implementation to Sol/medium."""
     from forge_cli.delegate import pinned_run_config
 
     assert pinned_run_config(HARNESS) == ("gpt-5.6-sol", "medium")

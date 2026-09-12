@@ -449,9 +449,9 @@ sequence a JIT contract loop for every pending task:
     --reject "<text>" --lens <l> --reason ... --cite
     <decision|contract|section> --by <agent>` records the rejection and the
     settled contract. The one exception to re-delegating is a fix that cannot
-    be verified inside the companion sandbox (for example, it needs a database,
-    network or Docker): use the bounded degraded route and record the host
-    exception.
+    be verified inside the companion sandbox (for example, it needs Docker or a
+    folder its account cannot read): use the bounded degraded route and record
+    the host exception.
 
     With clean proof and review, `close` measures the task, marks the stage done,
     writes the task marker, pushes, and opens the PR. It stops at the first
@@ -538,8 +538,9 @@ stalls on "should I do this or hand it to Codex?":
   clean proof permits stage closure and publication (conduct §7 autonomy).
   Continue without asking for another permission to commit.
 - **The one exception — a logged host-exception.** When a required product
-  change is PROVABLY impossible in the companion's environment (a sandbox with
-  no network, database, or Docker that the change or its verification needs),
+  change is PROVABLY impossible in the companion's environment (no Docker, or
+  a folder its sandbox account cannot read, that the change or its verification
+  needs — the network and the local database are reachable since decision 0068),
   the coordinator may make the MINIMAL change on the host and MUST record why
   with `forge signal raise ... --kind host-exception` (resolve it once done).
   This is bounded and always ledgered — never the default, never silent.

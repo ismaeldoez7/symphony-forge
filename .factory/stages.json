@@ -1,44 +1,24 @@
 {
-  "issue": "FORGE-COORD-1",
+  "issue": "GATES-1",
   "stages": [
     {
-      "id": "NATIVE-FOREGROUND-ACTIVATE",
-      "title": "Native foreground and complete first-task proof",
+      "id": "GATES-1-T1",
+      "title": "A question round belongs to its gate and story",
       "status": "pending"
     },
     {
-      "id": "LEAN-WORKFLOW",
-      "title": "One brief and one complete independent review",
+      "id": "GATES-1-T2",
+      "title": "The grill budget counts answered reads, not failures",
       "status": "pending"
     },
     {
-      "id": "NATIVE-LIFECYCLE",
-      "title": "Native detached read-only lifecycle and helpers",
+      "id": "GATES-1-T3",
+      "title": "One producer says what a gate read, and one predicate says if it is stale",
       "status": "pending"
     },
     {
-      "id": "SHARED-COORDINATOR-JOURNEY",
-      "title": "Coordinator questions, task ownership and reliable continuation",
-      "status": "pending"
-    },
-    {
-      "id": "PORTABLE-DELIVERY-MIGRATION",
-      "title": "Portable setup, durable history and existing-client migration",
-      "status": "pending"
-    },
-    {
-      "id": "FORMAT-SOURCES",
-      "title": "Complete pure mechanical Python formatting",
-      "status": "pending"
-    },
-    {
-      "id": "QUALITY-BASELINE",
-      "title": "Semantic fixes and mandatory full quality baseline",
-      "status": "pending"
-    },
-    {
-      "id": "FORGE-COORD-1.1",
-      "title": "Complete native parity and installed-client dogfood",
+      "id": "GATES-1-T4",
+      "title": "Post-stage task freshness keeps its selective binding",
       "status": "pending"
     }
   ]

@@ -1196,24 +1196,35 @@ def make_server(base: Path, port: int) -> ThreadingHTTPServer:
 DEFAULT_PORT = 8765
 
 
-def already_serving(port: int) -> bool:
-    """True when a board for this repo is already up on the port.
+def already_serving(port: int, root: Path | None = None) -> bool:
+    """True when a board for THIS repo is already up on the port.
 
     The skill is told to reuse rather than duplicate; without this a second
     `forge board` dies on 'address in use' and looks broken.
+
+    `root` is what makes the answer about this repo. Without it the probe said
+    yes to ANY board, so a board open on another checkout made `forge board`
+    hand you that other repo's board, and made `forge next` report a board for a
+    repo that had none. It also left the gate tests non-hermetic: the suite
+    failed on a developer machine purely because a board happened to be running.
     """
     import urllib.error
     import urllib.request
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/state", timeout=1) as r:
-            return json.loads(r.read()).get("root") is not None
+            served = json.loads(r.read()).get("root")
+        if served is None:
+            return False
+        if root is None:
+            return True
+        return Path(served).resolve() == Path(root).resolve()
     except (urllib.error.URLError, OSError, ValueError):
         return False
 
 
 def cmd_board(args: argparse.Namespace) -> None:
     base = Path(args.repo).resolve() if args.repo else repo_root()
-    if already_serving(args.port):
+    if already_serving(args.port, base):
         url = f"http://127.0.0.1:{args.port}/"
         print(f"Lifecycle board already running: {url}")
         webbrowser.open(url)

@@ -3815,6 +3815,7 @@ def test_init_and_upgrade_ship_portable_hook_commands(tmp_path):
     assert len(commands(repo, ".codex/hooks.json")) == 5
     config = repo / ".codex" / "config.toml"
     assert 'sandbox_mode = "workspace-write"' in config.read_text().splitlines()
+    assert "network_access = true" in config.read_text().splitlines()  # 0068
     assert (repo / "forge.cmd").is_file()
     attributes = repo / ".gitattributes"
     assert "forge text eol=lf" in attributes.read_text().splitlines()
@@ -3846,6 +3847,7 @@ def test_init_and_upgrade_ship_portable_hook_commands(tmp_path):
     assert len(commands(repo, ".claude/settings.json")) == 6
     assert len(commands(repo, ".codex/hooks.json")) == 5
     assert 'sandbox_mode = "workspace-write"' in config.read_text().splitlines()
+    assert "network_access = true" in config.read_text().splitlines()  # 0068
     assert (repo / "forge.cmd").is_file()
     assert "forge text eol=lf" in attributes.read_text().splitlines()
     assert all(
@@ -15458,6 +15460,8 @@ def test_delegate_brief_carries_criteria_and_scope(repo, tmp_path):
     assert "src/" in brief                          # write scope
     assert "src/existing_helper.py" in brief        # existing modules
     assert "test_slice" in brief                    # required tests
+    assert "Before you report: run every required test" in brief  # 0068
+    assert "A test you did not run is not reported as passing" in brief
     assert "the retry path" in brief                # reviewer focus
     assert "Implementer contract" in brief          # the prompt, inlined
     assert "Then return." in brief
@@ -21899,3 +21903,43 @@ def test_task_pr_ready_marker_commit_preserves_unrelated_index(repo, tmp_path):
         repo, "show", "--name-only", "--format=", "HEAD"
     )
     assert git(repo, "diff", "--cached", "--name-only") == unrelated.relative_to(repo).as_posix()
+
+
+def test_already_serving_only_matches_a_board_for_this_repo(tmp_path,
+                                                            monkeypatch):
+    """A board on another checkout is not this repo's board.
+
+    The probe used to answer "is ANY board up", so a board open elsewhere made
+    `forge board` hand you that other repo's board and `forge next` claim a
+    board for a repo that had none — and it left this suite failing on any
+    machine that happened to have a board running.
+    """
+    import io
+    import json as _json
+    import urllib.request
+
+    from forge_cli import board
+
+    mine = tmp_path / "mine"
+    theirs = tmp_path / "theirs"
+    mine.mkdir()
+    theirs.mkdir()
+
+    class _Resp(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def serving(root):
+        def _open(url, timeout=None):
+            return _Resp(_json.dumps({"root": str(root)}).encode())
+        return _open
+
+    monkeypatch.setattr(urllib.request, "urlopen", serving(theirs))
+    assert board.already_serving(8765, mine) is False
+    assert board.already_serving(8765, theirs) is True
+    # No root supplied keeps the old "any board" answer for callers that only
+    # want to know whether the port is taken.
+    assert board.already_serving(8765) is True
