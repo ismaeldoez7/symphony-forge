@@ -27,6 +27,5 @@
     }
   },
   "task_sha256": "d3728cec5c5340cda760ad3c5efcf2461aa125ae28a562aa57816815dd402a2a",
-  "incomplete": "Authoritative full verify at 97dc46a passed 1,041 tests with 3 skipped but exposed two stale task-parallelism expectations after immutable tree-scope classification: test_tasks_with_disjoint_scopes_run_side_by_side_in_their_own_worktrees expects src/ui without its preserved trailing slash, and test_required_test_counts_as_writable_until_it_is_tracked expects src/api without its preserved trailing slash. Update only the affected regression expectations, rerun those selectors, and return a completed write launch.",
-  "updated_at": "2026-09-12T18:27:35+00:00"
+  "incomplete": "Authoritative full verify at 97dc46a passed 1,041 tests with 3 skipped but exposed two stale task-parallelism expectations after immutable tree-scope classification: test_tasks_with_disjoint_scopes_run_side_by_side_in_their_own_worktrees expects src/ui without its preserved trailing slash, and test_required_test_counts_as_writable_until_it_is_tracked expects src/api without its preserved trailing slash. Update only the affected regression expectations, rerun those selectors, and return a completed write launch."
 }

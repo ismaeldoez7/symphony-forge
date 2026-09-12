@@ -3,27 +3,27 @@
   "gate": "plan",
   "verdict": "pass",
   "gaps": [
-    "The bound lean-delivery graph is stale and still carries an obsolete 18-path remainder.",
-    "The recovery amendment contradicts accepted Decision 0066 by deleting legacy in-place stage-stamp conversion.",
-    "The recorded Wait for all round conflicts with accepted Decision 0064's dependency-ready execution rule.",
-    "Chunked review projection lacks the helper's exact deterministic duplicate and body-prefix contract.",
-    "The immutable review-input identity does not name the canonical byte producer or distinguish helper-owned framing.",
-    "The one-time fixed-review migration cannot truthfully populate the declared combined-generation provenance.",
-    "KnackLabs ATS uses develop while the factory-scaffold and harness-health workflow triggers are unowned.",
-    "The lifecycle observability design conflicts with the constitution's exact fields and console-only logging transport.",
-    "Successor tasks that change enduring behavior do not own their required documentation updates."
+    "Automatic external-client merges lacked human authority under the unchanged manual merge policy.",
+    "The Portable migration admitted active fixed review sets even though confirmed canon requires fresh combined review for active tasks and sealed-only upgrade migration.",
+    "The ten retained client failures were promised as binding but their exact ownership rows existed only in a historical non-authoritative graph.",
+    "The Integration evidence contract required an exact ordered six-label platform report without naming those labels in an authoritative artifact.",
+    "The promised replacement decomposition and First task plan still carried stale post-integration decision identities and a nonexistent Decision 0068 model-policy path.",
+    "Lean recorded an unapproved partition capability even though the confirmed grill contract forbids partitioning.",
+    "The multi-gate design-review wording had no executable protocol for independent digest-bound publication.",
+    "A later coordinator could not recover an abandoned required ordinary-chat question from the proposed transfer state.",
+    "Adding a pull-request trigger to the write-authorized harness-health workflow would permit untrusted PR activity to push an upgrade branch or create a PR."
   ],
   "contradictions": [],
   "resolutions": [
-    "The amended plan removes the graph from binding inputs and states that it is historical exploration only. The recorded decomposition, task plans, Git patch inventory, and immutable preparation files are the sole ownership authority; the obsolete 18-path row cannot override the recorded 23-path remediation expectation.",
-    "The recovery now retains Decision 0066: selected proof validates first, invalid or stale proof leaves caller/authoritative/snapshot bytes unchanged, and a still-fresh legacy stamp converts in place only after the shared current-delta predicate passes. Portable later migrates fixed review layouts before runtime fallback removal.",
-    "The later user instruction withdraws the unaccepted draft-only Wait choice. The amended plan cites accepted Decision 0064 for causal pause plus independently owned dependency-ready continuation, while coordinator transfer separately waits. The historical round is retained only because the incumbent recorder requires its exact ledger provenance and grants no contrary authority.",
-    "The amended plan mirrors the installed helper: traverse provider passes in order, retain the first exact NFC-path/integer-line/category/normalized-tagged-title key, apply the exact chunk label and 2,000-character body bound, require the whole synthesized list, leave later duplicates raw-only, refuse source attribution on the plain-source path, and add a real duplicate-across-chunks fixture.",
-    "The canonical Forge byte producer is _combined_prompt(task). Forge writes those exact UTF-8 bytes once to the task combined brief, hashes/counts that file, and passes it as --prompt-file. Helper identity, dataset hash, commit, delta, and token separately bind other controlled inputs; helper-owned rendering is expressly outside the byte claim.",
-    "The schema uses origin-specific fields. Combined/rejection preserve real autoreview run, brief, helper, input, and raw-result provenance. Upgrade uses generated_by=upgrade, exact copied sealed lens payloads, inventory/source hashes, and marker identity, and forbids fabricated helper/prompt/raw/run/brief fields. Active fixed proof receives a fresh combined review.",
-    "QUALITY-BASELINE now owns both .github/workflows/factory-scaffold.yml and .github/workflows/harness-health.yml default-branch/pull-request triggers, plus pr-ticket-check and the shared pinned quality runner, before client rollout.",
-    "NATIVE-LIFECYCLE owns one shared codex_runtime logger with the constitution's exact JSON fields and one Local console transport. Human stderr is operator UI and task JSONL is recorder-controlled evidence, neither another logger transport; the exception boundary adds one sanitized trace and correlated metric.",
-    "The Changed Docs contract and decomposition assign Lean, Native lifecycle, Shared, Portable, Format, and Quality the relevant workflow/factory/quality/roles/getting-started/architecture updates in the same owning task and PR before each enduring boundary ships."
+    "The amended plan limits the prior one-time client authorization to branch, push, and PR creation, retains each external repository human merge gate, and starts the next client only after observing and verifying the human merge.",
+    "The amended plan excludes every active or otherwise unmarked fixed set, requires its fresh ordinary combined review against current task state, and lets Portable inventory and migrate only proof bound to immutable task markers.",
+    "The amended plan now contains the binding ten-row client-failure table with each symptom, exact owner, source seams, and acceptance obligation.",
+    "The amended plan names the exact six labels in order: native-cli-macos, native-desktop-macos, native-cli-linux-ubuntu-24.04-x64, native-desktop-linux-ubuntu-24.04-x64, native-cli-windows, and native-desktop-windows.",
+    "The transition now requires the decomposition and task-plan recorders to replace every stale identity and remove the nonexistent path before delegation; the matching candidates are corrected and will be recorded after plan approval.",
+    "The amended plan keeps one complete input and one cold read per grill gate, explicitly forbids partitioning, and assigns no partition capability to Lean; the matching decomposition candidate removes it.",
+    "The amended plan requires one complete assessment and independently digest-bound record per gate through the existing one-gate launcher.",
+    "Shared now uses the existing story-scoped .factory/signals.jsonl blocked signal before a required ordinary-chat question; session start, forge next, and pr_ready expose or block on an unresolved signal, so abandonment is recoverable without a chat ledger.",
+    "Only factory-scaffold keeps a pull-request trigger and its existing main push; harness-health receives no pull-request trigger and keeps mutation on its existing trusted main push/manual dispatch."
   ],
   "open_items": [],
   "rounds": [
@@ -48,64 +48,62 @@
   "frontier_empty": true,
   "questions_asked": 2,
   "issue": "FORGE-COORD-1",
-  "summary": "Resolved every finding from the one permitted Sol/high story-plan cold read, native launch launch-48afd54a72424f819e6cd8198bacc60a. The amended plan retains Decision 0066, withdraws the conflicting unaccepted Wait interpretation, removes the stale graph from authority, and binds exact review, migration, workflow, logging, and documentation ownership. The task cold read was then resolved in the same final artifact by removing the fabricated degraded bridge, stating the real full-task launch authority, and binding lock-safe lineage, restamp, provenance, verification ownership, and model-policy proof.",
+  "summary": "Resolved all nine findings from the single permitted Sol/high story-plan cold read, native launch launch-e4db1ff6f3f84445a7fe0cd9e571bb2b. The exact amended plan now binds manual external merges, sealed-only review migration, retained client failures, platform labels, stale-contract correction, unpartitioned grills, per-gate design assessment, durable ordinary-chat blocking, and read-safe CI triggers.",
   "inspected_refs": [
-    "/Users/dev/.codex/plans/symphony-forge+coord-1-final-recovery-amended-story-plan+20260912T194009IST.md",
-    "/Users/dev/.codex/plans/symphony-forge+native-foreground-final-recovery-amended-task-plan+20260912T194009IST.md",
-    "/Users/dev/.codex/plans/symphony-forge+native-foreground-final-recovery-amended-decomposition+20260912T194009IST.json",
+    "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
+    ".factory/stories/FORGE-COORD-1/decomposition.json",
+    ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
     "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
+    "docs/specs/dual-coordinator-parity.md",
+    "docs/architecture/dual-coordinator-parity.md",
     "docs/decisions/0064-lean-delivery-and-durable-history.md",
-    "docs/decisions/0066-closeout-binds-to-the-diff.md",
-    "docs/decisions/0067-combined-review-generation.md",
-    "docs/decisions/0070-staged-platform-proof.md",
-    "factory/scripts/forge_cli/review.py",
-    "factory/schemas/review-set.json",
+    "docs/decisions/0069-combined-review-generation.md",
     ".github/workflows/factory-scaffold.yml",
     ".github/workflows/harness-health.yml",
-    "constitution/05-logging-and-observability.md",
-    "constitution/06-logger-and-log-transports.md",
-    "constitution/07-exception-handling.md"
+    "harness.yaml",
+    "factory/scripts/forge_cli/signal.py",
+    "WORKFLOW.md"
   ],
-  "current_flow": "Record this resolved pass against the exact amended story-plan digest, save that plan and bind the standing human approval, record its matching decomposition, then save, cold-read, record, and approve the current 77-path/62-selector First task plan without restarting its active stage.",
+  "current_flow": "Record this resolved plan pass against the exact amended candidate, save the plan and bind the standing human approval, record the corrected eight-task decomposition, then save, cold-read once, resolve, and approve the corrected active First task plan before resuming its existing stage.",
   "citations": [
     {
-      "finding": "The bound lean-delivery graph is stale and still carries an obsolete 18-path remainder.",
-      "source": "Amended story plan ownership-authority paragraph and transition boundary"
+      "finding": "Automatic external-client merges lacked human authority under the unchanged manual merge policy.",
+      "source": "Amended plan Safe installation, retention and client migration paragraph; harness.yaml manual merge policy; Decision 0064."
     },
     {
-      "finding": "The recovery amendment contradicts accepted Decision 0066 by deleting legacy in-place stage-stamp conversion.",
-      "source": "Decision 0066 and amended task/story proof-before-conversion contract"
+      "finding": "The Portable migration admitted active fixed review sets even though confirmed canon requires fresh combined review for active tasks and sealed-only upgrade migration.",
+      "source": "Amended plan review migration paragraph; docs/specs/dual-coordinator-parity.md and docs/architecture/dual-coordinator-parity.md."
     },
     {
-      "finding": "The recorded Wait for all round conflicts with accepted Decision 0064's dependency-ready execution rule.",
-      "source": "Decision 0064 and amended plan withdrawn-draft wording"
+      "finding": "The ten retained client failures were promised as binding but their exact ownership rows existed only in a historical non-authoritative graph.",
+      "source": "Amended plan Binding retained client-failure ownership table."
     },
     {
-      "finding": "Chunked review projection lacks the helper's exact deterministic duplicate and body-prefix contract.",
-      "source": "Installed autoreview merge behavior and amended Combined result grammar"
+      "finding": "The Integration evidence contract required an exact ordered six-label platform report without naming those labels in an authoritative artifact.",
+      "source": "Amended plan Separate UI and platform evidence section."
     },
     {
-      "finding": "The immutable review-input identity does not name the canonical byte producer or distinguish helper-owned framing.",
-      "source": "Amended plan review input producer and task Generation binding section"
+      "finding": "The promised replacement decomposition and First task plan still carried stale post-integration decision identities and a nonexistent Decision 0068 model-policy path.",
+      "source": "Amended plan Transition before delegation; corrected decomposition and task-plan candidates."
     },
     {
-      "finding": "The one-time fixed-review migration cannot truthfully populate the declared combined-generation provenance.",
-      "source": "Amended per-origin review-set schema contract and Portable migration owner"
+      "finding": "Lean recorded an unapproved partition capability even though the confirmed grill contract forbids partitioning.",
+      "source": "Amended plan One brief and proportionate scrutiny; confirmed dual-coordinator parity specification."
     },
     {
-      "finding": "KnackLabs ATS uses develop while the factory-scaffold and harness-health workflow triggers are unowned.",
-      "source": "Amended Quality task and quality source ownership paragraph"
+      "finding": "The multi-gate design-review wording had no executable protocol for independent digest-bound publication.",
+      "source": "Amended plan design-review classification paragraph."
     },
     {
-      "finding": "The lifecycle observability design conflicts with the constitution's exact fields and console-only logging transport.",
-      "source": "Constitution 05/06/07 and amended Native lifecycle logging contract"
+      "finding": "A later coordinator could not recover an abandoned required ordinary-chat question from the proposed transfer state.",
+      "source": "Amended plan required ordinary-chat paragraph; existing .factory/signals.jsonl contract in WORKFLOW.md and forge_cli/signal.py."
     },
     {
-      "finding": "Successor tasks that change enduring behavior do not own their required documentation updates.",
-      "source": "Amended Changed Docs surface and successor task objectives"
+      "finding": "Adding a pull-request trigger to the write-authorized harness-health workflow would permit untrusted PR activity to push an upgrade branch or create a PR.",
+      "source": "Amended Quality task and Falsifiable quality activation section; .github/workflows/harness-health.yml permissions and mutation steps."
     }
   ],
-  "input_sha256": "d55cc6d67b7b998faafcf516a064c0a820e52fec7972ad099d1465951551be97",
-  "recorded_at": "2026-09-12T15:34:15+00:00",
-  "commit": "bcc3d89999c4220b98dc776a40c00961f21f94e6"
+  "input_sha256": "7bb7903fe8e991544a69fe1927d66d8f601d77dd12c6751b2698c2dce67b4c74",
+  "recorded_at": "2026-09-12T21:35:09+00:00",
+  "commit": "25e726ca62dff22090a4aa4c4144386614654b21"
 }
