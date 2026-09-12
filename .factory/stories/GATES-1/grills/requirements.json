@@ -26,18 +26,19 @@
     "The spec now states the pre-stage guard as an explicit exception, and criterion 3b requires a test that an unrelated product file still stales a pre-stage task grill. Amending the spec re-staled this very gate, which is the defect GATES-1 exists to remove."
   ],
   "open_items": [
-    "The 93 pre-existing test failures on main are unrelated and are pinned by count and identity so this change is neither credited nor blamed for them."
+    "The 93 pre-existing test failures on main are unrelated and are pinned by count and identity so this change is neither credited nor blamed for them.",
+    "Recording this plan required five extra gate records, caused by the deadlock the story fixes: the requirements gate stales on the product tree, recording the plan requires the decisions committed, and committing changes the product tree. Captured as live evidence for T3."
   ],
-  "questions_asked": 3,
+  "questions_asked": 4,
   "rounds": [
     {
-      "question": "Four tasks means four pull requests under the per-task standard. Keep that here?",
+      "question": "Getting this plan recorded has itself cost five extra gate records. Should the two quick mechanisms jump the queue?",
       "options": [
-        "Four pull requests (Recommended)",
-        "Two pull requests",
-        "One pull request at the end"
+        "Follow the plan order (Recommended)",
+        "Pull the two quick ones out as a fix window",
+        "Stop after the plan and resume later"
       ],
-      "chosen": "Four pull requests (Recommended)",
+      "chosen": "Follow the plan order (Recommended)",
       "frontier_empty": true
     }
   ],
@@ -83,7 +84,7 @@
       "ref": "docs/specs/gates-stale-only-on-what-they-read.md"
     }
   ],
-  "input_sha256": "1c109a8e47b775d3ca2192be62d8984dc33e074b2bb4e2e1dab99e4d49fee747",
-  "recorded_at": "2026-09-12T02:09:30+00:00",
-  "commit": "498be61d9241008cd47e6fb877200a4e0af2d8fb"
+  "input_sha256": "9a688dfb2f20a0909dae3fe5eb9bc9142621046b8ac69ddbca9061427077ba8a",
+  "recorded_at": "2026-09-12T03:00:24+00:00",
+  "commit": "a09c7c8b8038475276803b6a75d47539610a931e"
 }

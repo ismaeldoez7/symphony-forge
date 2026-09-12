@@ -3,13 +3,14 @@
   "gate": "plan",
   "verdict": "pass",
   "issue": "GATES-1",
-  "summary": "Two plan cold reads returned eleven findings between them. Each asked the plan to specify a mechanism at implementation depth, and four distinct mechanisms are involved, so the owner ruled the work splits into four task contracts where that depth belongs and is grilled before any code. Every finding is resolved in the plan, carried into a named task, or settled by an accepted decision.",
+  "summary": "Two plan cold reads returned eleven findings between them. Each asked the plan to specify a mechanism at implementation depth, and four distinct mechanisms are involved, so the owner ruled the work splits into four task contracts where that depth belongs and is grilled before any code. Every finding is resolved in the plan, carried into a named task, or settled by an accepted decision. Re-recorded against the saved plan file, which differs from the draft only by the frontmatter plan save stamps.",
   "gaps": [
     "The confirmed spec said task grounding moves to manifest freshness before stage start, contradicting the owner ruling that the pre-stage whole-tree guard is kept.",
     "'Manifest contains the gate artifact' was not implementable: gate locators return display text rather than declared repo paths, and signoff is a composite of the brief, every spec and the roadmap.",
     "Post-stage task freshness conflicted with decision 0066: a file-only manifest would stale on write_scope, required_tests or verify_commands, while omitting the decomposition would miss a changed objective or criteria.",
     "Gate-and-story provenance cannot enforce 0067's 'never across a different task' rule, and the hook records only question, options, answer and session, with no active-gate carrier at all.",
-    "The terminal-state and escalation design had no realisable transition protocol: launches end as succeeded or failed and no verdict is captured anywhere."
+    "The terminal-state and escalation design had no realisable transition protocol: launches end as succeeded or failed and no verdict is captured anywhere.",
+    "The manifest specified a content digest per decision without saying whether a decision's TEXT or only its acceptance state is the input, which decides whether an editorial edit stales a pass."
   ],
   "contradictions": [
     "The confirmed spec contradicted the owner's pre-stage guard ruling; it is amended."
@@ -19,13 +20,14 @@
     "Owner ruled the work splits into four tasks. T3 owns one authoritative per-gate manifest-input producer returning normalised repo-relative paths, including the composite signoff gate, rather than trusting a caller-supplied list.",
     "T4 owns a canonical SELECTIVE task snapshot that preserves 0066's post-stage binding rather than replacing it with a path manifest, and restores the stamp path to delta_id only.",
     "T1 owns a trusted session-bound carrier of gate, story and task id on each round, with provenance-less legacy rounds keeping global consumption. Decision 0067 is accepted and supersedes 0051.",
-    "T2 owns the ledger transition protocol, including the verdict capture the launcher does not do today, distinguishing answered from interrupted and failed so only an answered read spends an allowance."
+    "T2 owns the ledger transition protocol, including the verdict capture the launcher does not do today, distinguishing answered from interrupted and failed so only an answered read spends an allowance.",
+    "Owner ruled content digest: a decision's wording is what a reader judged against, so an edit to its text genuinely changes the ground under a pass. The alternative would let a decision be rewritten under a pass claiming to have read it."
   ],
   "open_items": [
     "The 93 pre-existing test failures on main are unrelated and pinned by count and identity, so this work is neither credited nor blamed for them.",
     "The parked story upgrade-preserves-doc-contracts sits in plans/debt with a note recording why; its stage never started."
   ],
-  "questions_asked": 3,
+  "questions_asked": 4,
   "rounds": [
     {
       "question": "Is a plan complete when it delegates mechanism design to its four task contracts, or must it specify all four first?",
@@ -70,9 +72,13 @@
     {
       "finding": "The terminal-state and escalation design had no realisable transition protocol: launches end as succeeded or failed and no verdict is captured anywhere.",
       "ref": "factory/scripts/forge_cli/grill.py"
+    },
+    {
+      "finding": "The manifest specified a content digest per decision without saying whether a decision's TEXT or only its acceptance state is the input, which decides whether an editorial edit stales a pass.",
+      "ref": "docs/specs/gates-stale-only-on-what-they-read.md"
     }
   ],
-  "input_sha256": "c8d05ea123e98e3548e0254cee298592ae5bbd9890bd07569e44171bcb01770b",
-  "recorded_at": "2026-09-12T02:06:34+00:00",
-  "commit": "498be61d9241008cd47e6fb877200a4e0af2d8fb"
+  "input_sha256": "e77ec0963148ef9bb0a49d0db112b481d7b84049846d1df1c0e90595dd7e83dc",
+  "recorded_at": "2026-09-12T03:31:46+00:00",
+  "commit": "a09c7c8b8038475276803b6a75d47539610a931e"
 }

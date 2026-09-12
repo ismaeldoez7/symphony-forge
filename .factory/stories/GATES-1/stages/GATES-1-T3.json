@@ -1,0 +1,5 @@
+{
+  "id": "GATES-1-T3",
+  "title": "One producer says what a gate read, and one predicate says if it is stale",
+  "status": "pending"
+}

@@ -1,0 +1,71 @@
+{
+  "generated_by": "claude-code:plan-mode",
+  "user_facing": false,
+  "story": "GATES-1",
+  "epic": "accountable-engineering",
+  "plan_file": "plans/active/GATES-1-gates-stale-only-on-what-they-read.md",
+  "plan_sha256": "e77ec0963148ef9bb0a49d0db112b481d7b84049846d1df1c0e90595dd7e83dc",
+  "tasks": [
+    {
+      "id": "GATES-1-T1",
+      "title": "A question round belongs to its gate and story",
+      "objective": "Rounds gain a trusted session-bound carrier of gate, story and task id, written by the AskUserQuestion hook, and the recorder matches on that provenance before consuming one. Re-recording the same gate for the same story reuses its rounds; a different gate, story or task is refused. Rounds without provenance keep global consumption, so legacy records work unchanged. Implements accepted decision 0067.",
+      "acceptance_criteria": [
+        "The round ledger records gate, story and task id for each question, sourced from active run state rather than caller-supplied text",
+        "Re-recording the same gate for the same story consumes an existing round and requires no new question",
+        "A round is refused when reused for a different gate, a different story, or a different task",
+        "A round written without provenance is consumed globally, exactly as before, asserted against a legacy fixture",
+        "The floor of at least one real round per gate still holds, asserted both ways"
+      ],
+      "depends_on": [],
+      "user_facing": false
+    },
+    {
+      "id": "GATES-1-T2",
+      "title": "The grill budget counts answered reads, not failures",
+      "objective": "Launch rows gain a terminal state: answered (exit zero with a captured verdict), interrupted (exit zero, no verdict, which the upstream compaction fault produces) and failed. The launcher captures the verdict it does not capture today. The cap counts only answered rows, the repeat-read guard ignores the rest, and an escalation grants one further read for that gate and task, spent when it terminates answered.",
+      "acceptance_criteria": [
+        "A launch row records a terminal state of answered, interrupted or failed, with the verdict captured for answered",
+        "Only an answered row decrements the grill allowance, asserted for all three states",
+        "The repeat-read guard ignores interrupted and failed rows",
+        "Recording an escalation grants exactly one further read scoped to that gate and task",
+        "That grant is spent when the granted read terminates answered, and not before"
+      ],
+      "depends_on": [],
+      "user_facing": false
+    },
+    {
+      "id": "GATES-1-T3",
+      "title": "One producer says what a gate read, and one predicate says if it is stale",
+      "objective": "A single authoritative per-gate producer returns normalised repo-relative manifest inputs, including the composite signoff gate, replacing the display text locators return today. grill.json gains an optional input_manifest that the recorder requires for new passes and validates against the tree. One freshness predicate answers every consumer. A newly accepted decision is detected by comparing accepted id sets. The pre-stage task guard is untouched.",
+      "acceptance_criteria": [
+        "One per-gate producer returns normalised repo-relative input paths for all six gates, including the composite signoff gate",
+        "The recorder requires a manifest for new passes, refuses one omitting the gate artifact, and refuses digests that disagree with the tree",
+        "A pass recorded without a manifest keeps tree-based freshness, asserted against a legacy fixture, and no manifest is ever backfilled",
+        "Editing a product file absent from the manifest leaves the pass valid; editing anything present stales it",
+        "A decision newly accepted or newly superseded after recording stales the pass, detected by accepted id set comparison",
+        "One predicate answers freshness for every consumer, and the pre-stage task grill still stales on an unrelated product file"
+      ],
+      "depends_on": [],
+      "user_facing": false
+    },
+    {
+      "id": "GATES-1-T4",
+      "title": "Post-stage task freshness keeps its selective binding",
+      "objective": "Post-stage task freshness uses a canonical selective snapshot rather than a path manifest, so it stales on a changed objective, criteria or plan contract without staling on write_scope, required_tests or verify_commands. The stamp path binds delta_id only, restoring what decision 0066 already requires, so a contract re-record that leaves the delta unchanged never invalidates a clean review.",
+      "acceptance_criteria": [
+        "Post-stage task freshness uses a selective snapshot preserving decision 0066's binding, not a file-only manifest",
+        "A changed objective, acceptance criterion or plan contract stales the task pass",
+        "A changed write_scope, required_tests or verify_commands does not stale it",
+        "A stage review stamp survives a contract re-record that leaves the reviewed delta unchanged",
+        "A stamp does not survive a change to the reviewed delta itself"
+      ],
+      "depends_on": [
+        "GATES-1-T3"
+      ],
+      "user_facing": false
+    }
+  ],
+  "project": "",
+  "commit": "a09c7c8b8038475276803b6a75d47539610a931e"
+}
