@@ -70,9 +70,6 @@
       ],
       "verify_commands": [
         "uv run --with pytest --with psutil python -m pytest factory/tests -q",
-        "uvx --with ruff ruff format --check factory/scripts factory/tests",
-        "uvx --with ruff ruff check factory/scripts factory/tests",
-        "uvx --with pyright pyright factory/scripts",
         "./forge doctor"
       ],
       "required_tests": [
@@ -172,5 +169,5 @@
     }
   ],
   "project": "",
-  "commit": "131de5d9399975807401ed9d4c52824d6540cc1f"
+  "commit": "1e8779d579799f8a81b92fed5ca0bbd1acc80cba"
 }

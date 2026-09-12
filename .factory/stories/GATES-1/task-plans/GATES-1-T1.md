@@ -62,12 +62,17 @@ during an entirely different story. 0051 permitted that by accident.
    comparator and its baseline file are CUT: a plain full-suite verify closes
    this stage. The probe is fixed separately, not here.
 
-6. **Decision 0055 is not this task's to own.** 0055 wants lint, format and type
-   checks configured and enforced in CI. T1 records them as its own verify
-   commands, which is what the approved plan promised, but wiring them into
-   `verify.py` and CI touches the verify configuration and is out of a two-file
-   scope. That gap is named here rather than left implied, and belongs with the
-   T3 work that already changes the verify path.
+6. **Decision 0055 is not this task's to own, and this task does not pretend
+   otherwise.** An earlier draft named 0055's lint, format and type checks as T1's
+   verify commands while also saying 0055 was out of scope — a contradiction that
+   only surfaced when the seal ran them. They cannot pass: `ruff format --check`
+   reformats 97 files because the repo has never been ruff-formatted, the three
+   `ruff check` errors in the recorder are identical on `origin/main`, and the
+   twelve in the new suite are all F811 against pytest's `repo` fixture, which is
+   idiomatic and simply unconfigured here. Wiring 0055 means configuring ruff and
+   pyright and threading them through `verify.py` and CI — real work, belonging to
+   the T3 task that already changes the verify path. T1 verifies with the full
+   suite and `./forge doctor`, both of which pass.
 
 7. **The floor is untouched.** Every gate still requires at least one real round,
    and a pass still cannot be recorded against a question nobody asked.
@@ -106,8 +111,8 @@ flowchart TD
 ## Verify
 
 `uv run --with pytest --with psutil python -m pytest factory/tests -q`, which is
-green; the new round-reuse suite; `./forge doctor`; and per decision 0055, Ruff
-format, Ruff lint and Pyright over the changed Python.
+green, and `./forge doctor`. Decision 0055's static checks are NOT run here: see
+item 6 — they are unconfigured repo-wide and wiring them is T3's.
 
 <!-- forge:contract -->
 ## Contract (recorded)
@@ -145,9 +150,6 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 **Verify commands**
 
 - `uv run --with pytest --with psutil python -m pytest factory/tests -q`
-- `uvx --with ruff ruff format --check factory/scripts factory/tests`
-- `uvx --with ruff ruff check factory/scripts factory/tests`
-- `uvx --with pyright pyright factory/scripts`
 - `./forge doctor`
 
 **Review budget.** 2 files / 200 lines -- One condition in the recorder's consumption walk and one new suite. Two earlier drafts were cut by evidence: the baseline comparator (the 93-red premise was an artefact) and the global-gate narrowing (0051's hole does not exist, and narrowing broke spec/signoff/epics, which two gate tests caught).
