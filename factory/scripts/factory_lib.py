@@ -2764,7 +2764,6 @@ def classify_scope_entries(root: Path, scope: list[str], revision: str) -> list[
             result = subprocess.run(
                 ["git", "cat-file", "-t", f"{revision}:{path}"], cwd=root,
                 capture_output=True, text=True, env=clean_git_env(), encoding="utf-8",
-                errors="surrogateescape",
             )
             is_directory = result.returncode == 0 and result.stdout.strip() == "tree"
         classified.append(path + ("/" if is_directory else ""))
