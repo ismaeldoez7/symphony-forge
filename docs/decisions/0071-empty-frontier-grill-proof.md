@@ -1,8 +1,9 @@
 ---
-status: accepted
+status: superseded
 confirmed_by: "User (all plans approved, Codex conversation 2026-09-12)"
 date: 2026-09-12
 stories: [FORGE-COORD-1]
+superseded_by: 0073-grill-round-reuse-and-empty-frontier-coexist
 ---
 
 # Empty-frontier cold reads need no forced human question

@@ -6,11 +6,11 @@ This document owns the shared technical boundaries for dual-coordinator parity. 
 
 Claude Code and native Codex adapt the same Forge phase engine. One coordinator owns the current human conversation; product writes still require an admitted task worker whose process, task, worktree, stage, brief, and scope match. The ledgered five-file degraded window remains the outage path.
 
-A coordinator changes only between completed tasks. The old session stops with no active worker or partial structured question; the new coordinator refreshes trunk and resumes with `forge next`. This story adds no live transfer command, fencing token, coordinator registry, or concurrent coordinator ownership.
+A coordinator changes only between completed tasks. The old session stops with no active worker, partial structured question, or unresolved required ordinary-chat question for the story; the new coordinator refreshes trunk and resumes with `forge next`. The recorded `Wait for all` answer governs that transfer boundary, while Decision 0064 still permits separately owned dependency-ready work that no pending answer can affect. This story adds no live transfer command, fencing token, coordinator registry, or concurrent coordinator ownership.
 
 After the Decision 0063 first-task exception, `task start` creates the worktree before task-plan save and grill. Its attach option accepts only a clean, registered, unowned worktree from the same Git common directory at the fetched trunk commit, with matching branch, story, task, decomposition, and dependency markers. Empty dependencies inherit the immediate predecessor; a nonempty list selects exactly those dependencies. `stage start --trunk` remains legacy behavior and cannot satisfy the new workspace-owned flow.
 
-`./setup` and `forge doctor [--fix]` select the coordinator for one invocation: explicit argument, `FORGE_COORDINATOR`, one unambiguous detected host, then an interactive TTY question. Failure or ambiguity refuses before repair. Init, adopt, and upgrade install both adapters and never persist a selected coordinator.
+`./setup` and `forge doctor [--fix]` select the coordinator for one invocation from the first applicable tier: exactly one valid explicit argument, one valid `FORGE_COORDINATOR`, one detected host family, then an interactive TTY question. `CODEX_THREAD_ID` or `CODEX_SHELL` detects Codex; `CLAUDECODE` detects Claude. A valid higher tier suppresses lower-tier disagreement. Both or neither detected family falls through to TTY; multiple explicit values, an invalid selected tier, cancellation, EOF, or unattended absence refuses before repair. Init, adopt, and upgrade install both adapters and never persist a selected coordinator.
 
 ## Adapter contract
 
@@ -35,7 +35,7 @@ Unexpected lifecycle exceptions reach one top-level boundary, return nonzero wit
 
 ## Human-question identity
 
-A successful structured-question hook writes one immutable event. The filename's fresh lowercase 32-hex stem is its event ID; a zero-based index identifies each question in the call. Eligibility binds runtime, session, event ID, question index, exact story/gate/task scope, current input digest, requiredness, question, ordered options, and nonblank answer. The recorder consumes an eligible question once. Historical rounds keep their old contract.
+A successful structured-question hook writes one immutable event. The filename's fresh lowercase 32-hex stem is its event ID; a zero-based index identifies each question in the call. Eligibility binds runtime, session, event ID, question index, exact story/gate/task scope, current input digest, requiredness, question, ordered options, and nonblank answer. The call is atomic for authority: every question returns one nonblank answer or no answer from that call is eligible. Labels and nonblank free-form answers are preserved exactly. One pass claims a question once; Decision 0073 permits reuse only when re-recording the same gate, story, and task. Historical rounds keep their old contract.
 
 If an answer changes an approval-bound artifact, the owning decision or approval records the changed revision and the grill covers that final revision. No revision-mapping protocol or chat collector is added. Ordinary required questions remain in the host conversation; abandonment grants no authority and a later coordinator asks again.
 
@@ -45,7 +45,7 @@ The story-level `review-run.json` remains only an input/run token. Each task sel
 
 `.factory/stories/<story>/tasks/<task>/reviews/selected.json`
 
-One default review calls the installed helper once and writes one generation below `reviews/generations/`. The generation contains the raw helper result and three schema-valid lens records. Forge validates and reads it back before atomically replacing the pointer. A blocking generation is selected and revokes clean status; only a selected clean generation certifies proof. `factory/schemas/review-set.json` distinguishes `origin=combined`, `origin=rejection`, and `origin=upgrade`.
+One default review calls the installed helper once and writes one generation below `reviews/generations/` only after the complete raw result and all three schema-valid lens records validate. Failed or interrupted pre-publication attempts retain ordinary run diagnostics but publish no generation or pointer. Forge reads a complete generation back before atomically replacing the pointer. A blocking generation is selected and revokes clean status; only a selected clean generation certifies proof. `factory/schemas/review-set.json` distinguishes `origin=combined`, `origin=rejection`, and `origin=upgrade`.
 
 Each actual provider pass has exactly three full-line blocks, in quality, performance, security order:
 
@@ -55,15 +55,15 @@ BEGIN FORGE ASSESSMENT <lens>
 END FORGE ASSESSMENT <lens>
 ```
 
-Quality carries the existing machine-parsed contract verdicts. Forge preflights their minimum size against the helper's 3,000-character explanation limit. Unchunked output is one top-level pass; chunked reports are nonempty and labelled exactly `chunk 1/N` through `chunk N/N`. Every finding has one lowercase lens tag. Cross-lens duplicate detection uses repo-relative NFC POSIX path, integer start/end lines, and the NFC, whitespace-collapsed, case-folded title after removing the tag. Projections preserve pass order and reuse the existing score, recommendation, and worst quality-verdict functions.
+Quality carries the existing machine-parsed contract verdicts. Forge preflights their minimum size against the helper's 3,000-character explanation limit. Unchunked output is one top-level pass; chunked reports are nonempty and labelled exactly `chunk 1/N` through `chunk N/N`. Raw output and provider findings remain lossless; only the helper's synthesized top-level chunk body uses its declared 2,000-character bound. Every finding has one lowercase lens tag. Cross-lens duplicate detection uses repo-relative NFC POSIX path, integer start/end lines, and the NFC, whitespace-collapsed, case-folded title after removing the tag. Every materially affected lens names the shared fingerprint and its blocking state in its assessment; an affected blocking lens cannot report clean. One projected record belongs to the remediation-owning lens, and the same projected fingerprint under multiple lenses refuses. Projections preserve pass order and reuse the existing score, recommendation, and worst quality-verdict functions.
 
 One classifier in `factory_lib.py` supplies review scope plus current and historical binary branch-diff hashing. Genuine-contribution proof cites its qualifying path and hunk in that same diff and correlates it with admitted write and terminal evidence. There is no product-tree digest.
 
-Pre-seal readers resolve the current pointer. Normal sealed readers resolve the pointer at the task marker commit. A citation-based rejection reads a selected combined generation and writes an immutable `origin=rejection` successor with source hash, exact finding, reason, citation, and actor; it preserves raw output and unaffected lenses. Fixed-only rejection refuses.
+Pre-seal readers resolve the current pointer. Normal sealed readers resolve the pointer at the task marker commit. A citation-based rejection reads a selected combined or rejection generation and writes an immutable `origin=rejection` successor bound to its immediate source and combined root; it preserves exact raw output, prior history, and unaffected lenses, then appends the exact finding, reason, citation, actor, and durable lesson identity. Upgrade, fixed-only, unselected, copied, stale, incomplete-source, unrelated, no-match, ambiguous, and already-rejected sources refuse without changing selection.
 
 ## One-time upgrade migration
 
-Upgrade preflights every eligible fixed three-lens set before any target write. Active proof binds current task state. Sealed proof binds the original marker commit and exact fixed-artifact bytes. Only after the whole inventory passes may upgrade write and read back `origin=upgrade` generations and their pointers.
+Upgrade preflights every eligible sealed fixed three-lens set before any target write. An active fixed set receives a fresh ordinary combined review and is excluded from migration. Sealed proof binds the original marker commit and exact fixed-artifact bytes. Only after the whole sealed inventory passes may upgrade write and read back `origin=upgrade` generations and their pointers.
 
 For already sealed legacy tasks, the current migration pointer is valid only when its generation's sealed-commit binding exactly equals the immutable marker. A replacement, mismatch, malformed set, mixed state, collision, linked path, or ambiguous owner refuses. Byte-identical retry is idempotent. Runtime readers never fall back to fixed paths.
 
