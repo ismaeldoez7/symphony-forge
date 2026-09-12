@@ -1,7 +1,19 @@
-# Branch-wide plan-contract review brief
+# Review brief — GATES-1-T1 — security lens
 
-For each contract, emit a verdict — implemented | partial | missing — with file:line evidence, recorded as contract_verdicts in the quality artifact. Then review the diff normally; the contract check does not replace the quality/performance/security lenses.
+You are one lens of a three-lens code review. You see ONLY the diff bundle for
+this task (no repository access), so judge what the diff shows and say so when
+something cannot be verified from it. Report every finding with its
+file_path and line. Use ONLY these categories: bug, security, regression,
+test_gap, maintainability. Priorities: P0/P1 block the task; P2/P3 must be
+resolved or explicitly deferred with a reason before it ships.
 
+LENS: SECURITY. OWASP-style trust boundaries, authentication and authorization
+(every new route/handler: who may call it, with what scope), secrets and
+credential handling, injection (SQL/command/template), data exposure and
+over-broad responses, unsafe defaults, privilege escalation, and abuse paths.
+Use category `security` for these findings.
+
+LEFTOVERS (blocking): the diff must carry no code kept only for compatibility — no wrapper or shim over its replacement, no re-export or alias kept 'for callers', no renamed-but-retained symbol, no dead branch behind a removed feature, no 'legacy'/'deprecated'/'backward' naming or comment. Report each as a BLOCKING finding with file:line and verdict the contract it belongs to as partial; a clean diff says so in one line.
 ## Task GATES-1-T1
 
 ### Plan contracts
@@ -71,138 +83,6 @@ Recorded lessons that apply to this task's paths. A finding that contradicts one
 - [high] task-grill-validator-two-gaps: record_grill_from_json._validate_task_grill: (1) rounds options are capped at 2..3 but AskUserQuestion delivers up to 4 options - change to 2 <= len(options) <= 4 or operator rounds with 4 choices refuse; (2) escalation_packet on decision 'block' accepts any non-empty dict - contract ACC2-C2 requires exactly the keys issue, evidence, recommendation, alternatives, rollback (all non-empty strings); validate them. Update/extend the two required tests accordingly.
 - [high] Promote consumer-regression tests to required_tests so the worker must run them: A delegated worker self-verifies only against the task's required_tests + verify_commands, not the full suite. A regression in an out-of-scope consumer (e.g. board/story_detail crashing on run_state_path) is invisible to it and survives repeated re-delegation. When measurement finds such a regression, add the exact failing test to the frontier task's required_tests and re-delegate: a failing required test is feedback the worker cannot skip. Four re-delegations failed to land a 3-line guard until the board test was promoted to required.
 - [high] A move-where-evidence-lives change needs an exhaustive hand-joined-read audit, and the full suite is the backstop: When a change relocates where evidence is stored, every consumer that hand-joins the old path breaks. Grepping only the paths named in known signals (grills/plan, history) missed phase.py (reads decomposition/tests/verify/reviews) and a pr_ready scratchpad gap — both surfaced only by the full gate suite after activation (S-0007). Audit by grepping EVERY hand-joined .factory/<name> read across the tree, not just the signal-named ones; and always run the full suite before committing an activation, never a targeted subset (a targeted subset hid a .gitattributes test regression for two tasks).
-
-### Recorded evidence
-
-Recorded by the harness for this story (not in the diff). Use it to verdict verification contracts; do not mark them partial for lack of execution evidence in the bundle.
-
-- verify.py: ok at b32834d61038
-  - `python3 factory/scripts/check_dual_runtime.py` -> exit 0
-  - `python3 factory/scripts/check_factory_scaffold.py` -> exit 0
-  - `uv run --with pytest --with psutil python -m pytest factory/tests -q` -> exit 0
-- automated tests: pass
-  - Seven new tests in factory/tests/test_round_provenance.py cover the one condition this task changes: a pass no longer spends the rounds recorded at its own evidence path, so re-recording the same gate for the same story and task reuses them even when the submitted round set differs from the one stored, while a different gate, story or task still refuses. The floor of one real round per gate is asserted both ways, and global gates are asserted unchanged. Three existing gate tests that an earlier draft broke (intake, adhoc capture, and the next/board route) pass again after that draft's global-gate narrowing was reverted.
-  - 3 command(s) recorded, e.g. `uv run --with pytest --with psutil python -m pytest factory/tests/test_round_provenance.py -q`
-
-## Task GATES-1-T2
-
-### Plan contracts
-
-- None declared.
-
-### Reviewer focus
-
-No task-specific reviewer focus declared.
-
-### Settled — do not relitigate
-
-The following are accepted: the story plan's decisions and rulings, and the contracts of tasks already sealed in this story. A finding that contradicts one is a proposal to change a decision, which belongs in a decision record, not in this review; do not raise it as a defect. Rejected findings from earlier rounds are ledgered as lessons below.
-
-#### Story plan — Owner rulings
-
-- The manifest hashes EVERY accepted decision, not only cited ones, because
-  authors do not reliably know what they relied on.
-- A pass recorded without a manifest keeps today's tree-based freshness. No
-  manifest is ever backfilled: inferring what a reader read fabricates evidence.
-- Round reuse is narrowed to the same gate and the same story, never across
-  gates, stories or tasks.
-- Decision 0066 stands; stamp deaths are a bug against it, not a reason to
-  change it.
-
-#### Story plan — Decisions
-
-Governing: 0066 (a stamp binds the diff — restored, not changed), 0067 (a round
-belongs to its gate and story and may be reused there — accepted with this work,
-superseding 0051), 0055 (enforced static quality baseline). No further new
-decision.
-
-### Recorded evidence
-
-Recorded by the harness for this story (not in the diff). Use it to verdict verification contracts; do not mark them partial for lack of execution evidence in the bundle.
-
-- verify.py: ok at b32834d61038
-  - `python3 factory/scripts/check_dual_runtime.py` -> exit 0
-  - `python3 factory/scripts/check_factory_scaffold.py` -> exit 0
-  - `uv run --with pytest --with psutil python -m pytest factory/tests -q` -> exit 0
-- automated tests: pass
-  - Seven new tests in factory/tests/test_round_provenance.py cover the one condition this task changes: a pass no longer spends the rounds recorded at its own evidence path, so re-recording the same gate for the same story and task reuses them even when the submitted round set differs from the one stored, while a different gate, story or task still refuses. The floor of one real round per gate is asserted both ways, and global gates are asserted unchanged. Three existing gate tests that an earlier draft broke (intake, adhoc capture, and the next/board route) pass again after that draft's global-gate narrowing was reverted.
-  - 3 command(s) recorded, e.g. `uv run --with pytest --with psutil python -m pytest factory/tests/test_round_provenance.py -q`
-
-## Task GATES-1-T3
-
-### Plan contracts
-
-- None declared.
-
-### Reviewer focus
-
-No task-specific reviewer focus declared.
-
-### Settled — do not relitigate
-
-The following are accepted: the story plan's decisions and rulings, and the contracts of tasks already sealed in this story. A finding that contradicts one is a proposal to change a decision, which belongs in a decision record, not in this review; do not raise it as a defect. Rejected findings from earlier rounds are ledgered as lessons below.
-
-#### Story plan — Owner rulings
-
-- The manifest hashes EVERY accepted decision, not only cited ones, because
-  authors do not reliably know what they relied on.
-- A pass recorded without a manifest keeps today's tree-based freshness. No
-  manifest is ever backfilled: inferring what a reader read fabricates evidence.
-- Round reuse is narrowed to the same gate and the same story, never across
-  gates, stories or tasks.
-- Decision 0066 stands; stamp deaths are a bug against it, not a reason to
-  change it.
-
-#### Story plan — Decisions
-
-Governing: 0066 (a stamp binds the diff — restored, not changed), 0067 (a round
-belongs to its gate and story and may be reused there — accepted with this work,
-superseding 0051), 0055 (enforced static quality baseline). No further new
-decision.
-
-### Recorded evidence
-
-Recorded by the harness for this story (not in the diff). Use it to verdict verification contracts; do not mark them partial for lack of execution evidence in the bundle.
-
-- verify.py: ok at b32834d61038
-  - `python3 factory/scripts/check_dual_runtime.py` -> exit 0
-  - `python3 factory/scripts/check_factory_scaffold.py` -> exit 0
-  - `uv run --with pytest --with psutil python -m pytest factory/tests -q` -> exit 0
-- automated tests: pass
-  - Seven new tests in factory/tests/test_round_provenance.py cover the one condition this task changes: a pass no longer spends the rounds recorded at its own evidence path, so re-recording the same gate for the same story and task reuses them even when the submitted round set differs from the one stored, while a different gate, story or task still refuses. The floor of one real round per gate is asserted both ways, and global gates are asserted unchanged. Three existing gate tests that an earlier draft broke (intake, adhoc capture, and the next/board route) pass again after that draft's global-gate narrowing was reverted.
-  - 3 command(s) recorded, e.g. `uv run --with pytest --with psutil python -m pytest factory/tests/test_round_provenance.py -q`
-
-## Task GATES-1-T4
-
-### Plan contracts
-
-- None declared.
-
-### Reviewer focus
-
-No task-specific reviewer focus declared.
-
-### Settled — do not relitigate
-
-The following are accepted: the story plan's decisions and rulings, and the contracts of tasks already sealed in this story. A finding that contradicts one is a proposal to change a decision, which belongs in a decision record, not in this review; do not raise it as a defect. Rejected findings from earlier rounds are ledgered as lessons below.
-
-#### Story plan — Owner rulings
-
-- The manifest hashes EVERY accepted decision, not only cited ones, because
-  authors do not reliably know what they relied on.
-- A pass recorded without a manifest keeps today's tree-based freshness. No
-  manifest is ever backfilled: inferring what a reader read fabricates evidence.
-- Round reuse is narrowed to the same gate and the same story, never across
-  gates, stories or tasks.
-- Decision 0066 stands; stamp deaths are a bug against it, not a reason to
-  change it.
-
-#### Story plan — Decisions
-
-Governing: 0066 (a stamp binds the diff — restored, not changed), 0067 (a round
-belongs to its gate and story and may be reused there — accepted with this work,
-superseding 0051), 0055 (enforced static quality baseline). No further new
-decision.
 
 ### Recorded evidence
 

@@ -37,10 +37,14 @@ during an entirely different story. 0051 permitted that by accident.
    story" and nothing wider. Every other pass keeps consuming, which is what still
    refuses a round at a different gate, story or task.
 
-3. **A global gate reads only global rounds.** Ledger collection for a gate whose
-   `story_scoped` is false no longer includes the active story's directory, which
-   closes 0051's hole. When no story is active both paths resolve to the same
-   directory, so the pre-story flow is unchanged.
+3. **Global gates are untouched.** An earlier draft of this contract narrowed
+   ledger collection for non-story-scoped gates to the global directory, to close
+   what 0067 called 0051's hole. There is no hole: the recorder only ever reads
+   the ACTIVE story's rounds plus the global ones, so another story's rounds were
+   never reachable. The narrowing broke the ordinary flow instead — spec, signoff
+   and epics are recorded while a story IS active, so their rounds live in that
+   story's directory, and two existing gate tests failed. Decision 0067 is
+   amended to say so. This task changes ONE condition.
 
 4. **Nothing else moves.** No session context, no ceremony-target routing, no
    hook change, no schema field, no legacy class and no migration, because no
@@ -48,29 +52,27 @@ during an entirely different story. 0051 permitted that by accident.
    its reader, writer and reader resolving different directories, a legacy round
    colliding with a scoped one — cannot occur in a design that stores nothing.
 
-5. **Verification can actually close the stage.** The suite is 93 red on main, so
-   a bare full-suite command always exits non-zero and `stage done` rejects that,
-   meaning the stage could never close. A new `factory/scripts/check_test_baseline.py`
-   runs the suite and exits zero ONLY when the failing set matches the recorded
-   baseline by identity, not merely by count.
+5. **The suite is green, so nothing special is needed to close the stage.** An
+   earlier draft of this contract carried a baseline comparator and committed
+   baseline data, because the plan said the suite was 93 red. It is not. The
+   93 came from a non-hermetic board probe — `already_serving` answered "is ANY
+   board up" rather than "is a board for THIS repo up", and `task approve`
+   starts one — and sharding under CPU contention inflated it to 99. Measured
+   sequentially and alone, `factory/tests` is 942 passed, 0 failed. The
+   comparator and its baseline file are CUT: a plain full-suite verify closes
+   this stage. The probe is fixed separately, not here.
 
-   The baseline is DATA, not code: `factory/tests/baseline-failures.txt`, one
-   pytest node id per line, generated once from a clean run on the merge base and
-   committed. Identity means set equality, so the comparator exits non-zero on a
-   new failure AND on a known failure that disappears; a disappearing failure is a
-   fix that must update the baseline in the same commit, which is the point.
-
-   The suite command is INJECTABLE (`--suite`, defaulting to the repo's own
-   pytest invocation) for one reason: a test that exercises the comparator must
-   not invoke the full suite that contains that very test. The comparator's own
-   tests pass a tiny fake suite, so they cannot recurse.
-
-6. **Decision 0055 is not this task's to own.** 0055 wants lint, format and type
-   checks configured and enforced in CI. T1 records them as its own verify
-   commands, which is what the approved plan promised, but wiring them into
-   `verify.py` and CI touches the verify configuration and is out of a three-file
-   scope. That gap is named here rather than left implied, and belongs with the
-   T3 work that already changes the verify path.
+6. **Decision 0055 is not this task's to own, and this task does not pretend
+   otherwise.** An earlier draft named 0055's lint, format and type checks as T1's
+   verify commands while also saying 0055 was out of scope — a contradiction that
+   only surfaced when the seal ran them. They cannot pass: `ruff format --check`
+   reformats 97 files because the repo has never been ruff-formatted, the three
+   `ruff check` errors in the recorder are identical on `origin/main`, and the
+   twelve in the new suite are all F811 against pytest's `repo` fixture, which is
+   idiomatic and simply unconfigured here. Wiring 0055 means configuring ruff and
+   pyright and threading them through `verify.py` and CI — real work, belonging to
+   the T3 task that already changes the verify path. T1 verifies with the full
+   suite and `./forge doctor`, both of which pass.
 
 7. **The floor is untouched.** Every gate still requires at least one real round,
    and a pass still cannot be recorded against a question nobody asked.
@@ -102,24 +104,22 @@ flowchart TD
    edited round set: it succeeds with no new question.
 2. Try to record a DIFFERENT gate against that same round: it is refused.
 3. Answer a question while a story is active, then record a global gate against
-   it: it is refused.
+   it: it succeeds, exactly as before.
 4. Record a task gate for task A, then try the same round for task B: refused.
 5. Record a global gate with no story active: it behaves exactly as it does today.
-6. Delete a line from the baseline file and run the comparator: it exits non-zero.
 
 ## Verify
 
-`python3 factory/scripts/check_test_baseline.py`, which runs the suite and exits
-zero only when the failing set matches the recorded baseline by identity; the new
-round-reuse suite; `./forge doctor`; and per decision 0055, Ruff format, Ruff lint
-and Pyright over the changed Python.
+`uv run --with pytest --with psutil python -m pytest factory/tests -q`, which is
+green, and `./forge doctor`. Decision 0055's static checks are NOT run here: see
+item 6 — they are unconfigured repo-wide and wiring them is T3's.
 
 <!-- forge:contract -->
 ## Contract (recorded)
 
 Rendered by the harness from the recorded decomposition; edit the decomposition, not this block. It is excluded from the plan's approval and grill digests, so a re-render never stales either.
 
-**Objective.** A pass stops treating its own recorded rounds as spent, so re-recording the same gate for the same story and task reuses them and needs no invented question, while every other pass still spends them so a round never crosses to a different gate, story or task. A gate that is not story-scoped no longer reads the active story's rounds, closing 0051's hole. Provenance is read from where evidence already lives, so no round, schema or hook changes. Implements decision 0067.
+**Objective.** A pass stops treating its own recorded rounds as spent, so re-recording the same gate for the same story and task reuses them and needs no invented question, while every other pass still spends them so a round never crosses to a different gate, story or task. That is the whole change: one condition in the consumption walk. Provenance is read from where evidence already lives, so no round, schema, hook or global-gate behaviour changes. Implements decision 0067.
 
 **Acceptance criteria**
 
@@ -127,19 +127,14 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 - A round already consumed by a pass at a different gate is refused
 - A round already consumed by a pass for a different story is refused
 - A round already consumed by a pass for a different task id is refused
-- A gate that is not story-scoped does not consume a round asked while a story was active
-- A gate that is not story-scoped behaves exactly as it does today when no story is active
+- A gate that is not story-scoped is unchanged: it still reads the active story's rounds as well as the global ones
 - A story-scoped gate still consumes rounds asked before any story existed
 - The floor of at least one real round per gate still holds, asserted both ways
 - No round record, schema or hook changes, asserted by the existing ledger round shape test still passing untouched
-- The failing baseline is committed data, one pytest node id per line, and the comparator takes an injectable suite command so its own tests never invoke the suite that contains them
-- check_test_baseline.py exits zero on exact set equality with the baseline, non-zero when a new failure appears, and non-zero when a known failure disappears
 
 **Write scope** (what `stage done` measures the diff against)
 
 - factory/scripts/record_grill_from_json.py
-- factory/scripts/check_test_baseline.py
-- factory/tests/baseline-failures.txt
 - factory/tests/test_round_provenance.py
 
 **Required tests** (run by `stage done`)
@@ -148,21 +143,14 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 - `test_a_round_is_refused_at_a_different_gate` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
 - `test_a_round_is_refused_for_a_different_story` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
 - `test_a_round_is_refused_for_a_different_task_id` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
-- `test_a_global_gate_does_not_consume_a_story_round` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
 - `test_a_global_gate_is_unchanged_when_no_story_is_active` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
 - `test_a_story_gate_still_consumes_a_pre_story_round` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
 - `test_the_floor_of_one_real_round_per_gate_still_holds` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
-- `test_baseline_comparator_exits_zero_on_exact_identity` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
-- `test_baseline_comparator_exits_non_zero_on_a_new_failure` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
-- `test_baseline_comparator_exits_non_zero_when_a_known_failure_disappears` -- `uvx --with pytest python3 -m pytest {path}::{id} -q -o junit_family=legacy --junitxml={report}` (factory/tests/test_round_provenance.py)
 
 **Verify commands**
 
-- `python3 factory/scripts/check_test_baseline.py`
-- `uvx --with ruff ruff format --check factory/scripts factory/tests`
-- `uvx --with ruff ruff check factory/scripts factory/tests`
-- `uvx --with pyright pyright factory/scripts`
+- `uv run --with pytest --with psutil python -m pytest factory/tests -q`
 - `./forge doctor`
 
-**Review budget.** 4 files / 300 lines -- Two conditions in the recorder's consumption walk, a baseline comparator the stage cannot close without, its committed baseline data, and one new suite. Scope FELL from seven files after a fourth read showed the session carrier three drafts had been designing was unnecessary: provenance is already recorded in where evidence lives.
+**Review budget.** 2 files / 200 lines -- One condition in the recorder's consumption walk and one new suite. Two earlier drafts were cut by evidence: the baseline comparator (the 93-red premise was an artefact) and the global-gate narrowing (0051's hole does not exist, and narrowing broke spec/signoff/epics, which two gate tests caught).
 <!-- /forge:contract -->

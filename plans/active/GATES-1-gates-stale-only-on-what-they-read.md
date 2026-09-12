@@ -2,7 +2,7 @@
 issue: GATES-1
 title: Gates stale only on what they read
 status: approved
-saved: 2026-09-12T06:12:56+00:00
+saved: 2026-09-12T10:52:57+00:00
 story: GATES-1
 decisions_reviewed:
   - 0001-determinism-contract
@@ -95,7 +95,7 @@ ledger terminal states that decide what spends a grill allowance.
 
 Out: changing what any gate judges; `forge task close`, which exists and was a
 vendoring lag in the client repo; scope widening, which `stage amend-scope`
-already handles without a cascade; and the 93 test failures already red on main.
+already handles without a cascade.
 
 ## Owner rulings
 
@@ -116,8 +116,8 @@ leave a pass valid and edits inside it stale the pass, including a newly accepte
 decision; one predicate used by all six gates, the board and the next-step text;
 review stamps surviving contract re-records that leave the delta unchanged;
 same-gate round reuse with the per-gate floor intact; ledger terminal states
-where only an answered read spends an allowance; a bounded command-grammar check;
-and the 93 pre-existing failures unchanged in count and identity.
+where only an answered read spends an allowance; and a bounded command-grammar
+check.
 
 ## Technical Approach
 
@@ -173,11 +173,17 @@ gate, story and task. So the rule follows from location: in
 `record_grill_from_json.py`, a pass stops treating the rounds of its OWN evidence
 path as spent, which is what makes re-recording free, while every other pass
 still spends them, which is what refuses a round at a different gate, story or
-task. A gate that is not story-scoped reads only globally asked rounds, closing
-0051's accidental hole where a globally recorded gate could consume a round asked
-during another story. This is decision 0067 (accepted), which supersedes 0051.
-No round, round schema or hook changes, so there is no legacy class and no
-migration.
+task. That is the WHOLE change — one condition. This is decision 0067 (accepted),
+which supersedes 0051. No round, round schema or hook changes, so there is no
+legacy class and no migration.
+
+0051 was thought to leave a hole where a globally recorded gate could consume a
+round asked during another story. It does not: the recorder reads only the ACTIVE
+story's rounds plus the global ones, so another story's rounds were never
+reachable. Narrowing non-story-scoped gates to global rounds only, which an
+earlier draft of this plan required, breaks the ordinary flow instead — spec,
+signoff and epics are recorded while a story IS active, so their rounds live in
+that story's directory. The gate tests caught it. Those gates are unchanged.
 
 **The ledger learns what happened.** Launch rows gain a terminal state:
 `answered` for exit zero with a captured verdict, `failed` for a non-zero exit,
@@ -261,10 +267,9 @@ two small mechanisms land while the manifest work is still being designed.
   objective or criteria. Preserves 0066's post-stage binding rather than
   replacing it, and restores the stamp path to `delta_id` only. Depends on T3.
 
-Order: T1, then T2, then T3, then T4. T1 is first because it carries the
-test-baseline comparator, and no later task can close a stage against a suite
-that is 93 red without it. Each later task records the comparator among its own
-verify commands.
+Order: T1, then T2, then T3, then T4. The order is by dependency: T4 needs T3's
+manifest, and T1 and T2 are independent of both. Nothing is sequenced by a shared
+verification helper, because none is needed — see the note on the suite below.
 
 ## Risks
 
@@ -273,13 +278,20 @@ verify commands.
   decision.
 - The dual freshness path exists until legacy passes age out. It is deliberate
   and the alternative forces a re-grill on every in-flight task at vendor time.
-- The suite is 93 red on main, so this work has a weak net. The criteria pin
-  those failures by count and identity.
+- An earlier draft of this plan said the suite was 93 red and made T1 carry a
+  baseline comparator so a stage could close against it. That was wrong twice
+  over. `already_serving` answered "is ANY board up" rather than "is a board for
+  THIS repo up", so the gate suite failed whenever the developer had a board
+  running — and `task approve` starts one. Sharding the run under CPU contention
+  inflated the count further. Measured sequentially and alone, `factory/tests` is
+  942 passed, 0 failed. The comparator and its committed baseline are therefore
+  CUT from T1: a plain full-suite verify closes a stage, and the net is strong,
+  not weak. The probe itself is fixed separately.
 
 ## Verify Plan
 
-`python3 -m pytest factory/tests -q`, with the 93 pre-existing failures unchanged
-in count and identity; the named new suites for manifest freshness, round reuse,
+`uv run --with pytest --with psutil python -m pytest factory/tests -q`, which is
+green; the named new suites for manifest freshness, round reuse,
 ledger terminal states and the command grammar; `./forge doctor`; and, per
 decision 0055, Ruff format and lint plus Pyright over the changed Python. Those
 three are not wired into verify today, so this task wires them for its own files

@@ -45,8 +45,7 @@ directory, and a recorded pass is written to a path already unique per gate,
 story and task. Reuse therefore follows from location: a pass does not treat its
 OWN previously recorded rounds as spent, which is what makes re-recording free,
 while any other pass still spends them, which is what keeps a round from
-crossing to a different gate, story or task. A gate that is not story-scoped
-reads only globally asked rounds, closing 0051's accidental hole.
+crossing to a different gate, story or task.
 
 No round written before this decision changes meaning, because no round changes
 at all.
@@ -61,7 +60,12 @@ round, and a pass still cannot be recorded against a question nobody asked.
 - Neither the ledger nor the round schema changes. The rule lives entirely in
   the recorder's consumption walk, which reads provenance from where evidence is
   already written, so there is no legacy class and no migration.
-- A global-gate recording can no longer consume a round asked during another
-  story, which 0051 permitted by accident.
+- 0051 was thought to leave a hole where a globally recorded gate could consume a
+  round asked during another story. It does not: the recorder only ever reads the
+  ACTIVE story's rounds plus the global ones, so another story's rounds were
+  never reachable. An attempt to close that non-existent hole by making
+  non-story-scoped gates read only global rounds broke the ordinary flow instead,
+  because spec, signoff and epics are recorded while a story IS active and their
+  rounds live in that story's directory. Nothing changes for those gates.
 - 0051 is retired. Its intent, that no gate is satisfied by a question nobody
   asked, is carried forward intact.

@@ -84,7 +84,7 @@
       "ref": "docs/specs/gates-stale-only-on-what-they-read.md"
     }
   ],
-  "input_sha256": "06314252db0b0a8097dd677850d5f81ef0c00283c2c5fe73b428e36dd40376e9",
-  "recorded_at": "2026-09-12T06:12:38+00:00",
-  "commit": "ec07e34c2d159cd435c8541a3aa17588b29cd81e"
+  "input_sha256": "beaa880bb5ce7590b877cabc14fa791927642fc6819f02e3d1eb32dd62578707",
+  "recorded_at": "2026-09-12T10:52:49+00:00",
+  "commit": "131de5d9399975807401ed9d4c52824d6540cc1f"
 }
