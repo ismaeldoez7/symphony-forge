@@ -190,7 +190,7 @@ def test_reject_republishes_one_complete_pointer_selected_set(repo, tmp_path):
     from forge_cli.review import _review_set_problem
     assert _review_set_problem(repo, "ENG-1", "T2") == ""
     blockers = [{"category": "security", "area": "src/runtime",
-                 "summary": f"remembered hardFloor lookup {number}"} for number in (1, 2)]
+                 "summary": "remembered hardFloor lookup 1"}]
     root, first_pointer = _publish(repo, blockers)
     raw = root["raw_result"]
     quality = root["lenses"]["quality"]
@@ -198,7 +198,8 @@ def test_reject_republishes_one_complete_pointer_selected_set(repo, tmp_path):
                     "--lens", "security", "--reason", "remembered hardFloor contract",
                     "--cite", "T1-AC1", "--by", "autoreview")
     assert code == 0, out
-    code, out = run(repo, "forge.py", "review", "T2", "--reject", "lookup 2",
+    assert "review stamp recorded" in out
+    code, out = run(repo, "forge.py", "review", "T2", "--reject", "lookup 1",
                     "--lens", "security", "--reason", "remembered hardFloor contract",
                     "--cite", "T1-AC1", "--by", "autoreview")
     assert code != 0 and "selected combined generation" in out

@@ -581,16 +581,16 @@ def seal_task(base: Path, task_id: str) -> None:
         }
         if any(not isinstance(value, str) or not value.strip() for value in payload.values()):
             fail("task PR marker fields must all be non-empty strings")
-        dump_json(base / marker, payload)
-
         generation_path = marker.parent / "reviews" / "generations" / (
             f"{generation['generation_id']}.json"
         )
         selection_path = marker.parent / "reviews" / "selected.json"
         brief_path = Path(".factory/review-briefs/all.md")
-        proof_paths = [marker, generation_path, selection_path, brief_path]
-        if any(not (base / path).is_file() for path in proof_paths):
+        selected_paths = [generation_path, selection_path, brief_path]
+        if any(not (base / path).is_file() for path in selected_paths):
             fail("task PR marker requires the selected generation and saved review brief")
+        dump_json(base / marker, payload)
+        proof_paths = [marker, *selected_paths]
         # The pointer and its generation must exist in the marker publication
         # commit. Commit only these exact proof paths so an unrelated index is
         # not swept into the evidence commit this command owns.

@@ -368,6 +368,7 @@ def _project_combined_report(
     sections = [_pass_sections(provider)[0] for _, provider in passes]
     pass_findings: list[dict[str, list[dict]]] = []
     pass_fingerprints: list[tuple[str, int, int, str]] = []
+    pass_ordered_findings: list[tuple[str, dict]] = []
     for _label, provider in passes:
         if not isinstance(provider.get("findings", []), list):
             fail("combined review pass findings must be a list")
@@ -377,6 +378,7 @@ def _project_combined_report(
             if fingerprint in pass_fingerprints:
                 fail("combined review contains a duplicate normalized finding")
             pass_fingerprints.append(fingerprint)
+            pass_ordered_findings.append((lens, clean))
             by_lens[lens].append(clean)
         pass_findings.append(by_lens)
     findings = report.get("findings", [])
@@ -384,15 +386,15 @@ def _project_combined_report(
         fail("combined review findings must be a list")
     projected: dict[str, list[dict]] = {lens: [] for lens in LENSES}
     fingerprints: set[tuple[str, int, int, str]] = set()
-    ordered_fingerprints: list[tuple[str, int, int, str]] = []
+    ordered_findings: list[tuple[str, dict]] = []
     for finding in findings:
         lens, clean, fingerprint = _tagged_finding(finding)
         if fingerprint in fingerprints:
             fail("combined review contains a duplicate normalized finding")
         fingerprints.add(fingerprint)
-        ordered_fingerprints.append(fingerprint)
+        ordered_findings.append((lens, clean))
         projected[lens].append(clean)
-    if "pass_reports" in report and ordered_fingerprints != pass_fingerprints:
+    if "pass_reports" in report and ordered_findings != pass_ordered_findings:
         fail("combined review merged findings do not match its ordered provider passes")
     artifacts: dict[str, dict] = {}
     for lens in LENSES:
@@ -985,6 +987,9 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
         if problem:
             print(f"No stamp: {problem}")
         else:
+            from .stages import load_stages
+            stage = next((item for item in load_stages(base).get("stages", [])
+                          if item.get("id") == task_id), {})
             print(f"No lens blocks any more; stage {task_id} review stamp recorded. "
                   + ("`./forge stage done` then " if stage.get("status") == "active" else "")
                   + f"`./forge task pr-ready {task_id}`.")

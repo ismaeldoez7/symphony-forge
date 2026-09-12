@@ -1628,11 +1628,13 @@ def _committed_task_marker(
 
 def _marker_publication_commit(root: Path, marker_path: str) -> str:
     proc = subprocess.run(
-        ["git", "log", "-1", "--format=%H", "--", marker_path],
+        ["git", "log", "--diff-filter=A", "--reverse", "--format=%H", "--",
+         marker_path],
         cwd=root, capture_output=True, text=True, env=clean_git_env(),
         encoding="utf-8",
     )
-    return proc.stdout.strip() if proc.returncode == 0 else ""
+    commits = proc.stdout.splitlines() if proc.returncode == 0 else []
+    return commits[0].strip() if commits else ""
 
 
 def _proof_commit_problems(

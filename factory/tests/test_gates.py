@@ -19179,9 +19179,18 @@ def test_task_proof_allows_mixed_product_and_metadata_commits(
     code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=gh_env)
     assert code == 0, out
     assert json.loads(marker.read_text())["commit"] == seal
+    marker_publication = head(repo)
 
     import check_task_proof
     lib = load_factory_lib(repo)
+    marker_rel = marker.relative_to(repo).as_posix()
+    assert lib._marker_publication_commit(repo, marker_rel) == marker_publication
+    marker_payload = json.loads(marker.read_text())
+    marker_payload["sealed_at"] = "2026-09-12T01:00:00+00:00"
+    marker.write_text(json.dumps(marker_payload))
+    git(repo, "add", marker_rel)
+    git(repo, "commit", "-qm", "rewrite marker metadata")
+    assert lib._marker_publication_commit(repo, marker_rel) == marker_publication
     task = next(
         item for item in json.loads(
             (lib.protected_decomposition_state_path(repo)).read_text()
@@ -19312,6 +19321,21 @@ def test_task_seal_refuses_incomplete_proof_before_mutation(
     with pytest.raises(SystemExit, match="shared blocker"):
         lib.require_task_sealed(repo, "T1")
     assert stages_path.read_bytes() == before_stages
+
+    # Reach the marker publisher with an accepted seal but missing selected
+    # artifacts. It must validate those inputs before creating pr-ready.json.
+    import factory_lib as source_lib
+    from forge_cli import tasks as tasks_mod
+    with monkeypatch.context() as missing:
+        missing.setattr(tasks_mod, "require_task_sealed", lambda *_args: STAGE_TASK)
+        missing.setattr(
+            source_lib, "read_selected_review_generation",
+            lambda *_args, **_kwargs: ({"generation_id": "a" * 64}, {}, []),
+        )
+        missing.setattr(source_lib, "effective_review_base", lambda *_args: "b" * 40)
+        with pytest.raises(SystemExit):
+            tasks_mod.seal_task(repo, "T1")
+    assert not marker.exists()
 
     gh_env, argv_path = fake_gh_env(tmp_path)
     before_head = head(repo)

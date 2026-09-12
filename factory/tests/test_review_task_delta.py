@@ -120,6 +120,17 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
             {"id": "T1", "plan_contracts": [{"id": "C1"}]}, report,
             ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, ())
 
+    # Matching fingerprints cannot hide changed finding evidence in the
+    # synthesized top-level report.
+    report = {"overall_explanation": "passes", "findings": [
+        copy.deepcopy(first["findings"][0])], "pass_reports": [
+        {"label": "chunk 1/1", "report": first}]}
+    report["findings"][0]["body"] = "different evidence"
+    with pytest.raises(SystemExit):
+        _project_combined_report(
+            {"id": "T1", "plan_contracts": [{"id": "C1"}]}, report,
+            ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, ())
+
 
 def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(repo, tmp_path):
     from test_review_settled_contracts import _publish, _story
