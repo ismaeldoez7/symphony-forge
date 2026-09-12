@@ -970,6 +970,18 @@ PONYTAIL_BRIEF = (
 )
 
 
+# The worker can run its own tests (decision 0067); nothing asked it to. It
+# reported "host verification remains required" in 22 of 31 runs and the
+# fix loop paid a round trip per finding.
+BEFORE_YOU_REPORT = (
+    "\n\nBefore you report: run every required test and every verify command "
+    "above from this worktree, and paste each command's summary line into your "
+    "report. A test you did not run is not reported as passing. If a command "
+    "cannot run here, name the command, quote its error, and say what you "
+    "verified instead."
+)
+
+
 def _review_findings_section(base: Path, task: dict, story: str) -> str:
     """The task's recorded review findings, handed to the implementer.
 
@@ -1078,8 +1090,9 @@ def compose_brief(base: Path, task: dict, *, write: bool, user_facing: bool,
         + ("\n\nThe implementer writes and records the tests; a declared test that "
            "does not exist or whose exact command fails refuses the stage."
            if task.get("required_tests") else ""))
-    body += _section("Verify commands (they will be run when the stage closes)",
-                     "\n".join(f"- `{c}`" for c in task.get("verify_commands") or []))
+    body += _section("Verify commands (run them yourself; they run again when the stage closes)",
+                     "\n".join(f"- `{c}`" for c in task.get("verify_commands") or [])
+                     + BEFORE_YOU_REPORT)
     reviewer_focus = task.get("reviewer_focus", "")
     if isinstance(reviewer_focus, list):
         # The decomposition records reviewer_focus as a LIST (the stage-start
