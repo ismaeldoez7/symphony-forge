@@ -2,7 +2,7 @@
 issue: FORGE-COORD-1
 title: Either Claude or Codex coordinates the same Forge workflow
 status: approved
-saved: 2026-09-12T21:36:29+00:00
+saved: 2026-09-12T22:37:58+00:00
 story: FORGE-COORD-1
 decisions_reviewed:
   - 0001-determinism-contract
@@ -78,7 +78,7 @@ Repeated plans, approvals and review launches slow delivery and lose settled ans
 
 ## Transition before delegation
 
-The current protected plan, decomposition and First task plan remain in force until this amendment completes the normal gates. Main records the fresh requirements and plan reads after resolving every finding, saves the exact amended plan, binds the user's 2026-09-12 approval, records the matching eight-task decomposition, then saves, grills and binds that standing approval to the corrected First task plan. Before delegation, those recorders must replace every stale pre-integration identity and path: 0067 means round rebinding, 0068 worker networking, 0069 combined review, 0070 model policy, 0072 staged platform proof, and 0073 reuse plus empty-frontier proof; the nonexistent `docs/decisions/0068-sol-specialized-workflow-models.md` path disappears. The already-active First stage incarnation remains active; do not run task start or stage start again. Main refreshes its incomplete note through `forge stage done --incomplete`, records the exact pre-delegation HEAD, then launches one ordinary registered Sol/medium worker under the incumbent 77-path recorded scope plus the existing protected scope amendment for `factory/tests/test_task_parallelism.py`. For this third formal-review remediation, Main accepts only the eight named existing paths and no more than 600 added-plus-deleted lines relative to that pre-delegation HEAD. No degraded window is preassigned or opened without a real recorded outage. Deferral D-0032 is resolved and its stale lesson is corrected before that worker receives the contract.
+The current protected plan, decomposition and First task plan remain in force until this amendment completes the normal gates. Main records the fresh requirements and plan reads after resolving every finding, saves the exact amended plan, binds the user's 2026-09-12 approval, records the matching eight-task decomposition, then saves, grills and binds that standing approval to the corrected First task plan. Before delegation, those recorders must replace every stale pre-integration identity and path: 0067 means round rebinding, 0068 worker networking, 0069 combined review, 0070 model policy, 0072 staged platform proof, and 0073 reuse plus empty-frontier proof; the superseded model-policy file reference disappears. The already-active First stage incarnation remains active; do not run task start or stage start again. Main refreshes its incomplete note through `forge stage done --incomplete`, records the exact pre-delegation HEAD, then launches one ordinary registered Sol/medium worker under the incumbent 77-path recorded scope plus the existing protected scope amendment for `factory/tests/test_task_parallelism.py`. For this third formal-review remediation, Main accepts only the eight named existing paths and no more than 600 added-plus-deleted lines relative to that pre-delegation HEAD. No degraded window is preassigned or opened without a real recorded outage. Deferral D-0032 is resolved and its stale lesson is corrected before that worker receives the contract.
 
 ## Validated main baseline
 

@@ -19,7 +19,7 @@
     "The amended plan excludes every active or otherwise unmarked fixed set, requires its fresh ordinary combined review against current task state, and lets Portable inventory and migrate only proof bound to immutable task markers.",
     "The amended plan now contains the binding ten-row client-failure table with each symptom, exact owner, source seams, and acceptance obligation.",
     "The amended plan names the exact six labels in order: native-cli-macos, native-desktop-macos, native-cli-linux-ubuntu-24.04-x64, native-desktop-linux-ubuntu-24.04-x64, native-cli-windows, and native-desktop-windows.",
-    "The transition now requires the decomposition and task-plan recorders to replace every stale identity and remove the nonexistent path before delegation; the matching candidates are corrected and will be recorded after plan approval.",
+    "The transition now names the exact 0067/0068/0069/0070/0072/0073 meanings without spelling the obsolete phantom path, and the corrected decomposition and task-plan candidates replace every stale identity before implementation.",
     "The amended plan keeps one complete input and one cold read per grill gate, explicitly forbids partitioning, and assigns no partition capability to Lean; the matching decomposition candidate removes it.",
     "The amended plan requires one complete assessment and independently digest-bound record per gate through the existing one-gate launcher.",
     "Shared now uses the existing story-scoped .factory/signals.jsonl blocked signal before a required ordinary-chat question; session start, forge next, and pr_ready expose or block on an unresolved signal, so abandonment is recoverable without a chat ledger.",
@@ -48,7 +48,7 @@
   "frontier_empty": true,
   "questions_asked": 2,
   "issue": "FORGE-COORD-1",
-  "summary": "Resolved all nine findings from the single permitted Sol/high story-plan cold read, native launch launch-e4db1ff6f3f84445a7fe0cd9e571bb2b. The exact amended plan now binds manual external merges, sealed-only review migration, retained client failures, platform labels, stale-contract correction, unpartitioned grills, per-gate design assessment, durable ordinary-chat blocking, and read-safe CI triggers.",
+  "summary": "Resolved all nine findings from the single permitted Sol/high story-plan cold read, native launch launch-e4db1ff6f3f84445a7fe0cd9e571bb2b. The refreshed exact plan also removes the last literal phantom decision reference that the structural checker correctly treated as a live citation, while preserving the approved transition semantics.",
   "inspected_refs": [
     "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
     ".factory/stories/FORGE-COORD-1/decomposition.json",
@@ -103,7 +103,7 @@
       "source": "Amended Quality task and Falsifiable quality activation section; .github/workflows/harness-health.yml permissions and mutation steps."
     }
   ],
-  "input_sha256": "7bb7903fe8e991544a69fe1927d66d8f601d77dd12c6751b2698c2dce67b4c74",
-  "recorded_at": "2026-09-12T21:35:09+00:00",
-  "commit": "25e726ca62dff22090a4aa4c4144386614654b21"
+  "input_sha256": "12341f64052bfba26b8cb72bb51707cae1d4362d4fc96aedb669aa4d264c8c1a",
+  "recorded_at": "2026-09-12T22:37:46+00:00",
+  "commit": "ac44708dd473b22642b902054551fbb59e3f6425"
 }

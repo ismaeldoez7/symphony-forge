@@ -4,12 +4,14 @@
   "verdict": "pass",
   "gaps": [
     "Non-object proof coverage was narrower than the acceptance criterion: the required and manual exercises covered close/frontier while phase, board, phase transition, and story closeout could still call .get on non-object proof.",
-    "Reviewer focus omitted constitution references 05, 06, and 07 governing logging, transports, and exception handling across the accumulated native-lifecycle delta."
+    "Reviewer focus omitted constitution references 05, 06, and 07 governing logging, transports, and exception handling across the accumulated native-lifecycle delta.",
+    "The approved story transition still spelled a phantom decision path in a negated sentence, and the structural checker correctly treated that literal as a live reference."
   ],
   "contradictions": [],
   "resolutions": [
     "Amended the protected handover to require one central proof-specific typed-read rule in factory_lib.py across every existing verify/tests consumer, extended the two existing selectors and manual proof to cover each path, and kept all out-of-batch consumer modules byte-identical.",
-    "Amended reviewer_focus and the task plan to bind formal review of the complete First-task delta to constitution README, 05, 06, 07, and 09, explicitly covering structured logging, redaction, terminal failure propagation, and exception behavior."
+    "Amended reviewer_focus and the task plan to bind formal review of the complete First-task delta to constitution README, 05, 06, 07, and 09, explicitly covering structured logging, redaction, terminal failure propagation, and exception behavior.",
+    "Removed the literal phantom path from the story-plan candidate while preserving the exact 0067/0068/0069/0070/0072/0073 transition map, re-recorded the same completed plan cold-read result, and rebound the unchanged task contract to the corrected approved plan."
   ],
   "open_items": [],
   "rounds": [
@@ -25,7 +27,7 @@
   ],
   "questions_asked": 1,
   "issue": "FORGE-COORD-1",
-  "summary": "Resolved both findings from the one permitted Sol/high task cold read, native launch launch-49676977a7e44131a339e5f292129e78. The exact amended eight-criterion contract keeps the third remediation inside eight paths and 600 lines, centralizes non-object proof typing across every existing consumer, and binds full-delta formal review to constitution README, 05, 06, 07, and 09.",
+  "summary": "Resolved the two task-cold-read findings from native launch launch-49676977a7e44131a339e5f292129e78 and rebound the unchanged eight-criterion task contract after the parent structural verifier exposed and removed one literal phantom decision reference from the approved story transition. No second cold read was run.",
   "inspected_refs": [
     ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
     ".factory/stories/FORGE-COORD-1/decomposition.json",
@@ -70,16 +72,20 @@
     {
       "finding": "Reviewer focus omitted constitution references 05, 06, and 07 governing logging, transports, and exception handling across the accumulated native-lifecycle delta.",
       "source": "protected decomposition reviewer_focus; active story plan native lifecycle paragraph; constitution/README.md logging, transport, and exception index"
+    },
+    {
+      "finding": "The approved story transition still spelled a phantom decision path in a negated sentence, and the structural checker correctly treated that literal as a live reference.",
+      "source": "factory/scripts/check_dual_runtime.py phantom-decision validation; corrected approved story plan transition paragraph"
     }
   ],
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
-  "input_sha256": "71545d1a74f888bfacd4c46ef6355eddad8cfc0a0b9aab8160add65b1e7efd49",
+  "input_sha256": "2f8aba86ac3cdb51b11184ef2b1980215ea8abd23575f6f96bdbb84c290d3c0a",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
   "task_plan_sha256": "f2e26c99b9bece38c6f5c089c1e95fe67b1e46c2266a0436603b9c19628cf0a6",
-  "recorded_at": "2026-09-12T22:01:09+00:00",
-  "commit": "25e726ca62dff22090a4aa4c4144386614654b21",
+  "recorded_at": "2026-09-12T22:39:33+00:00",
+  "commit": "ac44708dd473b22642b902054551fbb59e3f6425",
   "approved_task_plan_sha256": "f2e26c99b9bece38c6f5c089c1e95fe67b1e46c2266a0436603b9c19628cf0a6",
-  "approved_by": "User (approved recovery plan and directed proceed, 2026-09-12)",
-  "approved_at": "2026-09-12T22:01:23+00:00"
+  "approved_by": "User (approved recovery plan and directed proceed, 2026-09-12; authorized merge without pause, 2026-09-13)",
+  "approved_at": "2026-09-12T22:39:39+00:00"
 }

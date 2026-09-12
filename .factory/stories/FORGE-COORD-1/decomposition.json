@@ -572,6 +572,6 @@
   "story": "FORGE-COORD-1",
   "epic": "symphony-forge",
   "plan_file": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-  "plan_sha256": "7bb7903fe8e991544a69fe1927d66d8f601d77dd12c6751b2698c2dce67b4c74",
-  "commit": "25e726ca62dff22090a4aa4c4144386614654b21"
+  "plan_sha256": "12341f64052bfba26b8cb72bb51707cae1d4362d4fc96aedb669aa4d264c8c1a",
+  "commit": "ac44708dd473b22642b902054551fbb59e3f6425"
 }
