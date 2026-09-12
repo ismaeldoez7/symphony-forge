@@ -93,7 +93,10 @@ def _approved_task_inputs(base: Path, task: dict) -> dict:
 
     task_root = story_dir(base, story)
     marker_path = proof_path(base, story, "pr-ready.json", task_id=task_id)
-    marker = load_json(marker_path, default=None)
+    from .stages import load_stages
+    stage = next((row for row in load_stages(base).get("stages", [])
+                  if row.get("id") == task_id), {})
+    marker = load_json(marker_path, default=None) if stage.get("status") == "done" else None
     historical_marker = None
     treeish = ""
     if marker is not None:

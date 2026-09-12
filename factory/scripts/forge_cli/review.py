@@ -166,7 +166,24 @@ def _helper_identity(skill: Path) -> tuple[dict[str, str], tuple[int, int]]:
     ):
         fail("autoreview helper changed while its identity was captured")
     digest = hashlib.sha256(body).hexdigest()
-    return ({"path": str(resolved), "version": digest[:12], "sha256": digest},
+    version = digest
+    version_path = resolved.parent.parent / ".upstream-sha"
+    try:
+        version_info = version_path.lstat()
+    except FileNotFoundError:
+        pass
+    except OSError:
+        fail(f"could not read autoreview helper version: {version_path}")
+    else:
+        if not stat.S_ISREG(version_info.st_mode) or version_info.st_nlink != 1:
+            fail(f"autoreview helper version is invalid: {version_path}")
+        try:
+            version = version_path.read_text(encoding="utf-8").strip()
+        except (OSError, UnicodeError):
+            fail(f"could not read autoreview helper version: {version_path}")
+        if not re.fullmatch(r"[0-9a-f]{40,64}", version):
+            fail(f"autoreview helper version is invalid: {version_path}")
+    return ({"path": str(resolved), "version": version, "sha256": digest},
             (info.st_dev, info.st_ino))
 
 
@@ -852,12 +869,11 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
     in the artifact under `rejected_findings` with the reason, so the record
     shows what was raised and why it did not block."""
     from factory_lib import (
-        append_ledger_record, now_iso, product_delta_digest,
+        append_ledger_record, effective_review_base, now_iso, product_delta_digest,
         publish_review_generation, read_selected_review_generation,
         review_finding_fingerprint,
     )
     from .lessons import lessons_path, load_lessons
-    from .stages import load_stages, stage_baseline
 
     if lens not in LENSES:
         fail(f"--lens must be one of {', '.join(LENSES)}")
@@ -876,9 +892,7 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
              "task whose stage is DONE (never this task's own or a pending task's), "
              "or a `## ` section of the story plan; a finding no settled text "
              "contradicts is a defect to fix, not to reject.")
-    stage = next((item for item in load_stages(base).get("stages", [])
-                  if item.get("id") == task_id), {})
-    delta_id = product_delta_digest(base, stage_baseline(base, stage))
+    delta_id = product_delta_digest(base, effective_review_base(base, task_id))
     generation, selection, problems = read_selected_review_generation(
         base, story, task_id, expected_delta_id=delta_id,
     )
@@ -1007,12 +1021,12 @@ def rejected_findings_report(base: Path, story: str, task_id: str) -> str:
 
 def _review_set_problem(base: Path, story: str, task_id: str) -> str:
     """Why the selected generation cannot seal this task; empty when clean."""
-    from factory_lib import product_delta_digest, selected_review_problems
-    from .stages import load_stages, stage_baseline
-    stage = next((item for item in load_stages(base).get("stages", [])
-                  if item.get("id") == task_id), {})
+    from factory_lib import (
+        effective_review_base, product_delta_digest, selected_review_problems,
+    )
     problems = selected_review_problems(
-        base, story, task_id, product_delta_digest(base, stage_baseline(base, stage)),
+        base, story, task_id,
+        product_delta_digest(base, effective_review_base(base, task_id)),
     )
     return problems[0] if problems else ""
 

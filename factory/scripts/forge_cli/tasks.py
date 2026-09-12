@@ -547,7 +547,9 @@ def seal_task(base: Path, task_id: str) -> None:
     if marker_problem:
         fail(marker_problem)
 
-    from factory_lib import product_delta_digest, task_proof_problems
+    from factory_lib import (
+        effective_review_base, product_delta_digest, task_proof_problems,
+    )
     same_seal = bool(
         reusable
         and reusable["branch"] == branch
@@ -573,6 +575,7 @@ def seal_task(base: Path, task_id: str) -> None:
             "task_id": args.id,
             "branch": branch,
             "base_main_sha": base_main_sha,
+            "review_base_sha": effective_review_base(base, args.id, commit),
             "commit": commit,
             "sealed_at": now_iso(),
         }

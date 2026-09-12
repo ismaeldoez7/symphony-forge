@@ -116,6 +116,13 @@ if args.set:
     token = load_json(story_dir(root, story) / "review-run.json", default={})
     if token.get("task_id") != args.task:
         raise SystemExit("review-run token does not match the reviewed task")
+    if token.get("branch_diff_digest") != expected_delta:
+        raise SystemExit("review-run token does not match the current task delta")
+    expected_run_id = hashlib.sha256(
+        (str(token.get("brief_sha256") or "") + expected_delta).encode()
+    ).hexdigest()
+    if token.get("review_run_id") != expected_run_id:
+        raise SystemExit("review-run token id does not bind the current task delta")
     for field in ("review_run_id", "brief_sha256"):
         if payload.get(field) != token.get(field):
             raise SystemExit(f"review generation {field} does not match review-run.json")

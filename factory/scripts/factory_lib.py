@@ -1596,6 +1596,12 @@ def _valid_task_marker(root: Path, marker: object, task_id: str) -> bool:
     seal = marker["commit"]
     if not _git_commit_exists(root, base) or not _git_commit_exists(root, seal):
         return False
+    review_base = marker.get("review_base_sha")
+    if review_base is not None and (
+        not _git_commit_exists(root, review_base)
+        or not _git_is_ancestor(root, review_base, seal)
+    ):
+        return False
     head = head_sha(root)
     return bool(
         head
@@ -2221,7 +2227,7 @@ def task_proof_problems(
         marker_publication_commit = _marker_publication_commit(
             root, marker_path,
         )
-        review_base = effective_review_base(root, task_id, sealed_commit)
+        review_base = str(marker_context.get("review_base_sha") or "")
         expected_branch_diff_digest = (
             product_delta_digest(root, review_base, sealed_commit)
             if review_base else _historical_branch_diff_digest(
@@ -2935,14 +2941,25 @@ def selected_review_problems(
 
 def _publish_immutable_review_file(root: Path, destination: Path, body: bytes) -> None:
     temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
-    if (_safe_review_leaf(root, destination, required=True, links=2)
-            and _safe_review_leaf(root, temporary, required=True, links=2)):
+    if _safe_review_leaf(root, destination, required=True, links=2):
         destination_info = destination.lstat()
+        prefix = f".{destination.name}."
+        candidates = [
+            path for path in destination.parent.iterdir()
+            if path.name.startswith(prefix) and path.name.endswith(".tmp")
+            and path.name[len(prefix):-4].isdigit()
+        ]
+        if len(candidates) != 1 or not _safe_review_leaf(
+                root, candidates[0], required=True, links=2):
+            raise SystemExit("unsafe interrupted review generation links")
+        temporary = candidates[0]
         temporary_info = temporary.lstat()
         same_inode = ((destination_info.st_dev, destination_info.st_ino)
                       == (temporary_info.st_dev, temporary_info.st_ino))
-        if same_inode and destination.read_bytes() == body:
-            temporary.unlink()
+        if not same_inode or destination.read_bytes() != body \
+                or temporary.read_bytes() != body:
+            raise SystemExit("interrupted review generation link does not match")
+        temporary.unlink()
     if not _safe_review_leaf(root, destination, required=False, create_parents=True):
         raise SystemExit(f"unsafe review generation destination: {destination}")
     if destination.exists():

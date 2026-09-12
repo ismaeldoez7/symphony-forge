@@ -149,6 +149,21 @@ def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(repo,
                     stdin=json.dumps(fabricated))
     assert code != 0 and "do not match the raw helper result" in out
 
+    stale = copy.deepcopy(candidate)
+    token_path = repo / ".factory/stories/ENG-1/review-run.json"
+    token = json.loads(token_path.read_text())
+    token["branch_diff_digest"] = "0" * 64
+    token["review_run_id"] = hashlib.sha256(
+        (token["brief_sha256"] + token["branch_diff_digest"]).encode()
+    ).hexdigest()
+    token_path.write_text(json.dumps(token))
+    stale["review_run_id"] = token["review_run_id"]
+    for lens in stale["lenses"].values():
+        lens["review_run_id"] = token["review_run_id"]
+    code, out = run(repo, "record_review_from_json.py", "--set", "--task", "T2",
+                    stdin=json.dumps(stale))
+    assert code != 0 and "current task delta" in out
+
 
 def _commit(repo, name: str, content: str) -> str:
     (repo / name).parent.mkdir(parents=True, exist_ok=True)

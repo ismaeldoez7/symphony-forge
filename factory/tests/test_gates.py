@@ -693,7 +693,9 @@ def write_task_proof(repo: Path, task_id: str = "T1", *,
             item for item in load_stages(repo).get("stages", [])
             if item.get("id") == task_id
         )
-        branch_digest = lib.product_delta_digest(repo, stage_baseline(repo, stage))
+        branch_digest = lib.product_delta_digest(
+            repo, lib.effective_review_base(repo, task_id),
+        )
         review_run_id = hashlib.sha256(
             (brief_sha256 + branch_digest).encode()
         ).hexdigest()
@@ -18280,6 +18282,15 @@ def test_review_consumers_include_complete_approved_inputs(
     future = branch.split("## Task T2", 1)[1]
     assert "### Approved task inputs" not in future
 
+    # A prior marker is historical proof, not authority for an active review-fix
+    # task. Active re-review must keep using the current approved inputs.
+    marker = proof / "pr-ready.json"
+    marker.write_text("{}")
+    from forge_cli.review_brief import _approved_task_inputs
+    active_inputs = _approved_task_inputs(repo, first)
+    assert active_inputs["plan_text"] == plan_text
+    marker.unlink()
+
     write_stages(repo, {"issue": "ENG-1", "stages": [
         {"id": "T1", "title": first["title"], "status": "done"},
         {"id": "T2", "title": "future", "status": "pending"},
@@ -18951,7 +18962,7 @@ def test_review_generation_retry_and_collision_are_safe(repo, tmp_path):
     assert pointer["generation_id"] == selected["generation_id"]
     assert (proof / "reviews/selected.json").read_bytes() == before
     interrupted = generation_path.with_name(
-        f".{generation_path.name}.{os.getpid()}.tmp"
+        f".{generation_path.name}.{os.getpid() + 100000}.tmp"
     )
     os.link(generation_path, interrupted)
     retried, _pointer = lib.publish_review_generation(repo, "ENG-1", "T1", candidate)
@@ -19161,7 +19172,7 @@ def test_task_proof_allows_mixed_product_and_metadata_commits(
     assert code == 0, out
     stages_path = delegation_ledger(repo).parent / "stages.json"
     stages = json.loads(stages_path.read_text())
-    stages["stages"][0].update({"status": "done", "base_sha": base})
+    stages["stages"][0]["status"] = "done"
     write_stages(repo, stages)
     gh_env, _ = fake_gh_env(tmp_path)
     code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=gh_env)
@@ -19187,6 +19198,13 @@ def test_task_proof_allows_mixed_product_and_metadata_commits(
     assert not lib.task_proof_problems(repo, "ENG-1", task)
     assert len(digest_calls) == 3
     assert set(digest_calls) == {seal, product_commit, metadata_commit}
+
+    # Historical validation is bound to the immutable marker/proof commits;
+    # moving origin/main to the later marker publication cannot change it.
+    original_main = git(repo, "rev-parse", "origin/main")
+    git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+    assert not lib.task_proof_problems(repo, "ENG-1", task)
+    git(repo, "update-ref", "refs/remotes/origin/main", original_main)
 
     # CI proof stays pinned to the committed marker and HEAD artifacts even
     # when the checkout's branch, run pointer, and review brief are tampered

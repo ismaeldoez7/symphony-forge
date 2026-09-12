@@ -14,7 +14,7 @@ from test_gates import (  # noqa: F401
 )
 
 sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
-from forge_cli.review import codex_runs_path, review_task  # noqa: E402
+from forge_cli.review import _helper_identity, codex_runs_path, review_task  # noqa: E402
 from forge_cli.stages import load_stages  # noqa: E402
 
 
@@ -138,6 +138,14 @@ def test_review_helper_identity_mismatch_refuses_publication(repo, tmp_path, mon
     with pytest.raises(SystemExit):
         review_task(repo, "T1", skill=str(helper), engine="claude")
     assert selection_path.read_bytes() == before
+
+
+def test_review_helper_identity_records_installed_version(tmp_path):
+    helper = tmp_path / "plugin" / "autoreview" / "SKILL.md"
+    helper.parent.mkdir(parents=True)
+    helper.write_text("helper\n", encoding="utf-8")
+    (helper.parent.parent / ".upstream-sha").write_text("a" * 40, encoding="utf-8")
+    assert _helper_identity(helper)[0]["version"] == "a" * 40
 
 
 def test_review_product_change_during_helper_refuses_publication(

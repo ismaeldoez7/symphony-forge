@@ -16,6 +16,7 @@ import base64
 import copy
 import hashlib
 import json
+import subprocess
 
 import pytest
 
@@ -25,7 +26,8 @@ from test_gates import (  # noqa: I001 — test_gates puts factory/scripts on sy
     sign_off, skeletal_stage_task, write_stages,
 )
 from factory_lib import (  # noqa: E402
-    load_json, product_delta_digest, protected_decomposition_state_path,
+    effective_review_base, load_json, product_delta_digest,
+    protected_decomposition_state_path,
     publish_review_generation, read_selected_review_generation,
     review_finding_fingerprint,
 )
@@ -125,7 +127,8 @@ def _publish(repo, blocking=(), *, recorded_at="2026-09-11T01:00:00+00:00"):
     assert code == 0, out
     token = load_json(repo / ".factory/stories/ENG-1/review-run.json", default={})
     stage = next(row for row in load_stages(repo)["stages"] if row["id"] == "T2")
-    delta = product_delta_digest(repo, stage_baseline(repo, stage))
+    review_base = effective_review_base(repo, "T2")
+    delta = product_delta_digest(repo, review_base)
     raw_findings = [{"title": f"[security] {item['summary']}", "body": item["summary"],
                      "priority": "P1", "confidence": 1, "category": "security",
                      "code_location": {"file_path": "src/work.py", "line": index}}
@@ -143,7 +146,7 @@ def _publish(repo, blocking=(), *, recorded_at="2026-09-11T01:00:00+00:00"):
     task = next(item for item in tasks if item["id"] == "T2")
     started = {item["id"]: item["status"] for item in load_stages(repo)["stages"]}
     lenses = _project_combined_report(
-        task, json.loads(raw), ["src/work.py"], stage_baseline(repo, stage),
+        task, json.loads(raw), ["src/work.py"], review_base,
         head(repo), [], tasks, started, (),
     )
     for artifact in lenses.values():
@@ -164,6 +167,28 @@ def _publish(repo, blocking=(), *, recorded_at="2026-09-11T01:00:00+00:00"):
 
 def test_reject_republishes_one_complete_pointer_selected_set(repo, tmp_path):
     _story(repo, tmp_path)
+    branch = git(repo, "branch", "--show-current")
+    stage = next(row for row in load_stages(repo)["stages"] if row["id"] == "T2")
+    recorded_base = stage_baseline(repo, stage)
+    git(repo, "checkout", "-q", "-b", "trunk-work", recorded_base)
+    (repo / "src").mkdir(exist_ok=True)
+    (repo / "src/work.py").write_text("trunk work\n")
+    git(repo, "add", "src/work.py")
+    git(repo, "commit", "-qm", "trunk touches task path")
+    trunk_commit = head(repo)
+    git(repo, "update-ref", "refs/remotes/origin/main", trunk_commit)
+    git(repo, "checkout", "-q", branch)
+    assert subprocess.run(
+        ["git", "merge", "-q", "--no-edit", "origin/main"], cwd=repo,
+        capture_output=True, text=True,
+    ).returncode != 0
+    (repo / "src/work.py").write_text("task work\n")
+    git(repo, "add", "src/work.py")
+    git(repo, "commit", "-qm", "resolve trunk merge")
+
+    _publish(repo)
+    from forge_cli.review import _review_set_problem
+    assert _review_set_problem(repo, "ENG-1", "T2") == ""
     blockers = [{"category": "security", "area": "src/runtime",
                  "summary": f"remembered hardFloor lookup {number}"} for number in (1, 2)]
     root, first_pointer = _publish(repo, blockers)
