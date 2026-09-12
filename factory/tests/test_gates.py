@@ -14388,9 +14388,12 @@ def test_stage_done_termination_signal_reaps_active_proof(
         text=True,
     )
     marker = repo / ".factory" / "proof-child.pid"
-    for _ in range(100):
+    for _ in range(240):
         if marker.is_file():
             break
+        if proc.poll() is not None:
+            stdout, stderr = proc.communicate()
+            pytest.fail(f"stage done exited before proof started: {stdout}{stderr}")
         threading.Event().wait(0.05)
     assert marker.is_file()
     child_pid = int(marker.read_text())
