@@ -3,31 +3,21 @@
   "gate": "requirements",
   "verdict": "pass",
   "issue": "FORGE-COORD-1",
-  "summary": "Resolved all 10 findings from the single permitted Sol/high requirements cold read, launch-fd2aeb490263442aa0921e7bd9c441a9. The confirmed specification, Decision 0073, amended story-plan candidate, and pending normal plan/decomposition/task recorders now define one consistent authority chain.",
+  "summary": "Resolved all five findings from the single permitted Sol/high requirements cold read, native session 01a09b24-3dcf-7722-83d0-1885b33f4ec3. The confirmed specification and amended plan candidate now form one current Decision 0074 authority chain, distinguish provider reconstruction from remediation projection, and state honest cooperative-transfer and context-retention boundaries.",
   "gaps": [
-    "The authoritative spec, approved plan, decomposition, and task-plan chain no longer named one revision.",
-    "The active task handover still used the pre-renumbering combined-review and model-policy decision identifiers.",
-    "The settled Wait for all answer had no unambiguous execution-versus-transfer scope.",
-    "The specification's Main wording appeared to grant the coordinator human decision authority.",
-    "The writer boundary used canon in mutually incompatible ways for planning documents and delegated implementation.",
-    "Question consumption conflicted with Decision 0067 and the stale no-reuse text in Decision 0071.",
-    "Partial multi-question calls had no all-or-nothing authority rule.",
-    "Setup precedence and detected-host signals were not decision-complete.",
-    "Review rejection had incompatible combined-only versus combined-or-rejection source rules.",
-    "Active fixed-review migration was contradictory about copying versus fresh reassessment."
+    "The active plan, decomposition, and task plan were stale under accepted Decision 0074 and the newly confirmed specification.",
+    "Architecture and the task contract required a free-form assessment fingerprint grammar that the specification explicitly forbade.",
+    "Provider/top-level merging and remediation/rejection used incompatible duplicate identities that allowed two same-lens projected records to share one rejection fingerprint.",
+    "Coordinator-transfer preconditions claimed mechanical observability despite no coordinator registry or fencing mechanism.",
+    "Supplemental context from an external file had no permissions, deletion, recovery, or sensitive durable-retention boundary."
   ],
   "contradictions": [],
   "resolutions": [
-    "The confirmed specification and architecture now have pinned current hashes in the exact amended story-plan candidate. This requirements pass precedes the required plan save; the normal plan approval, decomposition, and task-plan recorders will replace the stale protected chain in order without treating old proof as current.",
-    "The amended story and task candidates now assign Decision 0067 to round rebinding, 0068 to worker networking, 0069 to combined review, 0070 to model policy, 0072 to staged platform proof, and 0073 to round reuse plus future empty-frontier proof.",
-    "The confirmed specification and amended plan state that Decision 0064 permits unaffected dependency-ready execution while the recorded Wait for all answer governs only coordinator transfer until required structured and ordinary-chat exchanges close or cancel.",
-    "The specification now says Main carries and presents recorded intent and invokes owning recorders; the developer alone makes decisions and supplies acceptance, sign-off, and approval.",
-    "The specification now distinguishes ordinary versioned planning sources that Main may author during authorized planning from managed state that only owning recorders change and post-approval product or enduring documentation that requires the registered task-writer path.",
-    "Accepted Decision 0073 supersedes Decision 0071's stale no-reuse consequence, keeps Decision 0067 as the sole same-gate/story/task reuse rule, and preserves the future empty-frontier exception.",
-    "A structured call is now atomic for authority: every question must return one nonblank answer or no partial answer from the call is eligible.",
-    "Setup now uses exact first-applicable tiers and concrete host signals: CODEX_THREAD_ID or CODEX_SHELL detects Codex and CLAUDECODE detects Claude; a valid higher tier suppresses lower disagreement, while both or neither host reaches TTY.",
-    "The specification, architecture, and task candidate now allow a rejection successor from the selected combined or rejection generation and preserve the immediate source plus combined root; all invalid source states refuse unchanged.",
-    "Portable migrates only sealed fixed sets. An active fixed set is excluded and must receive a fresh ordinary combined review against current task state; a sealed reader follows a later upgrade pointer only with an exact immutable marker binding."
+    "The amended story candidate attests Decision 0074, pins the current confirmed spec and architecture hashes, authorizes the exact 14-path correction, and orders plan, decomposition, and task-plan rebinding before any worker. The protected chain will be replaced by its normal recorders.",
+    "The confirmed specification, architecture, and story candidate remove separately parsed assessment fingerprints. Finding identity is derived deterministically from structured path, line, tag, and title fields.",
+    "The helper provider/top-level merge key remains path, line, exact category, and normalized tagged title so raw reconstruction is lossless. Lens projection and remediation separately use path, normalized line pair, and tag-free title; same-lens duplicates retain only the first projected record while cross-lens duplicates refuse.",
+    "Coordinator transfer is now explicitly cooperative and developer- or host-directed. Forge gates only marker, CI, active-worker, and required-question signal state and claims no stop proof, partial-exchange observation, stale-session fencing, or concurrency prevention.",
+    "Lean owns randomized mode-0600 snapshots under a per-user mode-0700 transient directory, terminal deletion, narrowly verified stale cleanup, and durable metadata limited to supplied state, byte count, and random opaque ID. Source path, content digest, and bytes are forbidden from durable logs/evidence, and AC9/C6 require the proof."
   ],
   "open_items": [],
   "questions_asked": 1,
@@ -46,64 +36,39 @@
     "docs/specs/dual-coordinator-parity.md",
     "docs/architecture/dual-coordinator-parity.md",
     "docs/product/BRIEF.md",
-    "docs/decisions/0037-strict-role-split.md",
-    "docs/decisions/0054-native-questions-and-task-proof.md",
-    "docs/decisions/0064-lean-delivery-and-durable-history.md",
     "docs/decisions/0067-rounds-rebind-to-their-gate.md",
-    "docs/decisions/0068-worker-commands-may-reach-the-network.md",
     "docs/decisions/0069-combined-review-generation.md",
-    "docs/decisions/0070-sol-specialized-workflow-models.md",
-    "docs/decisions/0072-staged-platform-proof.md",
-    "docs/decisions/0073-grill-round-reuse-and-empty-frontier-coexist.md",
+    "docs/decisions/0074-user-selects-main-orchestrator-model.md",
     "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
     ".factory/stories/FORGE-COORD-1/decomposition.json",
     ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
+    "factory/scripts/forge_cli/review.py",
     "factory/scripts/factory_lib.py"
   ],
-  "current_flow": "Record this requirements pass against the confirmed current specification and product inputs, cold-read the exact amended story-plan candidate once, record that plan pass, save and bind the user's standing approval, then record the matching decomposition and amended First task contract before resuming its existing stage.",
+  "current_flow": "Record this requirements pass against the confirmed current specification and product inputs, record the already completed plan cold read against the final amended candidate, save and bind the standing human approval, then record the matching decomposition and amended First task contract before integration and correction workers.",
   "citations": [
     {
-      "finding": "authority digest chain",
-      "source": "confirmed spec plus amended story-plan pinned hashes and the normal ordered recorders"
+      "finding": "current authority chain",
+      "source": "Decision 0074, confirmed dual-coordinator spec, and amended story candidate"
     },
     {
-      "finding": "decision renumbering",
-      "source": "active Decisions 0067 through 0070, 0072, and 0073; amended task candidate"
+      "finding": "assessment grammar",
+      "source": "docs/specs/dual-coordinator-parity.md and docs/architecture/dual-coordinator-parity.md"
     },
     {
-      "finding": "Wait for all scope",
-      "source": "docs/specs/dual-coordinator-parity.md:30,44"
+      "finding": "two review identity purposes",
+      "source": "docs/specs/dual-coordinator-parity.md, docs/architecture/dual-coordinator-parity.md, factory/scripts/forge_cli/review.py, and factory_lib rejection identity"
     },
     {
-      "finding": "human authority",
-      "source": "docs/specs/dual-coordinator-parity.md:28"
+      "finding": "cooperative transfer",
+      "source": "docs/specs/dual-coordinator-parity.md and docs/architecture/dual-coordinator-parity.md"
     },
     {
-      "finding": "writer boundary",
-      "source": "docs/specs/dual-coordinator-parity.md:32"
-    },
-    {
-      "finding": "round reuse",
-      "source": "docs/decisions/0073-grill-round-reuse-and-empty-frontier-coexist.md"
-    },
-    {
-      "finding": "multi-question atomicity",
-      "source": "docs/specs/dual-coordinator-parity.md:38"
-    },
-    {
-      "finding": "setup precedence",
-      "source": "docs/specs/dual-coordinator-parity.md:98; docs/architecture/dual-coordinator-parity.md:13"
-    },
-    {
-      "finding": "rejection lineage",
-      "source": "docs/specs/dual-coordinator-parity.md:90; docs/architecture/dual-coordinator-parity.md:62"
-    },
-    {
-      "finding": "active fixed review migration",
-      "source": "docs/architecture/dual-coordinator-parity.md:66; amended task candidate upgrade contract"
+      "finding": "supplemental context retention",
+      "source": "docs/specs/dual-coordinator-parity.md and constitution/05-logging-and-observability.md"
     }
   ],
-  "input_sha256": "13481f1522f7bda4f355762e30385e368fbd6338abb7226fb22554bcb5d22ed7",
-  "recorded_at": "2026-09-12T21:11:22+00:00",
-  "commit": "25e726ca62dff22090a4aa4c4144386614654b21"
+  "input_sha256": "a1c08a28587d566ea6c162aa151d1098f9d5c5e08be2d8e9c5117c29bb9478e7",
+  "recorded_at": "2026-09-13T15:08:42+00:00",
+  "commit": "3ad1a69d61c8fdf4a884bfbd8ec27323bab95b6c"
 }

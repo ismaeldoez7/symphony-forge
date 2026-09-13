@@ -2,30 +2,32 @@
   "generated_by": "griller",
   "gate": "plan",
   "verdict": "pass",
+  "issue": "FORGE-COORD-1",
+  "summary": "Resolved the four original plan findings plus four executable-handoff findings surfaced by the downstream task cold read. The final candidate is awaiting approval, consumes the confirmed inputs, uses an executable Main-owned conflict resolution and commit, and filters harness-owned recorder events from the 14-path product/test audit.",
   "gaps": [
-    "Automatic external-client merges lacked human authority under the unchanged manual merge policy.",
-    "The Portable migration admitted active fixed review sets even though confirmed canon requires fresh combined review for active tasks and sealed-only upgrade migration.",
-    "The ten retained client failures were promised as binding but their exact ownership rows existed only in a historical non-authoritative graph.",
-    "The Integration evidence contract required an exact ordered six-label platform report without naming those labels in an authoritative artifact.",
-    "The promised replacement decomposition and First task plan still carried stale post-integration decision identities and a nonexistent Decision 0068 model-policy path.",
-    "Lean recorded an unapproved partition capability even though the confirmed grill contract forbids partitioning.",
-    "The multi-gate design-review wording had no executable protocol for independent digest-bound publication.",
-    "A later coordinator could not recover an abandoned required ordinary-chat question from the proposed transfer state.",
-    "Adding a pull-request trigger to the write-authorized harness-health workflow would permit untrusted PR activity to push an upgrade branch or create a PR."
+    "The draft falsely claimed approved status and a 2026-09-12 approval for the new Decision 0074 revision.",
+    "The transition ordered the confirmed-spec correction after the requirements and plan gates that had to consume it.",
+    "The exact expected correction path set was narrower than the incumbent 78-path admission authority and lacked a deterministic rejection check.",
+    "factory/skills/forge.md contradicted native-main coordination but had no correction owner.",
+    "The registered integration worker could not edit plans/deferrals.md because that orchestration-surface path was outside its admitted task scope.",
+    "The unfiltered untracked-path audit necessarily included recorder-generated .factory event files outside the 14 expected correction paths.",
+    "The plan referred to a worker commit while separately forbidding workers from committing and assigning Git commits to Main.",
+    "The conflict-resolution sequence omitted the repository lesson requiring an anchored conflict-marker check before staging."
   ],
   "contradictions": [],
   "resolutions": [
-    "The amended plan limits the prior one-time client authorization to branch, push, and PR creation, retains each external repository human merge gate, and starts the next client only after observing and verifying the human merge.",
-    "The amended plan excludes every active or otherwise unmarked fixed set, requires its fresh ordinary combined review against current task state, and lets Portable inventory and migrate only proof bound to immutable task markers.",
-    "The amended plan now contains the binding ten-row client-failure table with each symptom, exact owner, source seams, and acceptance obligation.",
-    "The amended plan names the exact six labels in order: native-cli-macos, native-desktop-macos, native-cli-linux-ubuntu-24.04-x64, native-desktop-linux-ubuntu-24.04-x64, native-cli-windows, and native-desktop-windows.",
-    "The transition now names the exact 0067/0068/0069/0070/0072/0073 meanings without spelling the obsolete phantom path, and the corrected decomposition and task-plan candidates replace every stale identity before implementation.",
-    "The amended plan keeps one complete input and one cold read per grill gate, explicitly forbids partitioning, and assigns no partition capability to Lean; the matching decomposition candidate removes it.",
-    "The amended plan requires one complete assessment and independently digest-bound record per gate through the existing one-gate launcher.",
-    "Shared now uses the existing story-scoped .factory/signals.jsonl blocked signal before a required ordinary-chat question; session start, forge next, and pr_ready expose or block on an unresolved signal, so abandonment is recoverable without a chat ledger.",
-    "Only factory-scaffold keeps a pull-request trigger and its existing main push; harness-health receives no pull-request trigger and keeps mutation on its existing trusted main push/manual dispatch."
+    "Frontmatter and prose now state awaiting approval. They distinguish the approved 2026-09-12 chain from this amendment and require grill, first save, exact human approval, and unchanged second save before claiming authority.",
+    "Decision 0074 is committed; the spec was amended, cold-read once, recorded, and reconfirmed; and the current requirements pass is recorded before this plan pass and save. The correction worker no longer owns confirmation status or an unconfirmed spec amendment.",
+    "The effective 78-path admission and 180-file/18,000-line seal ceiling remain honest. Fourteen paths are the expected correction output; immediately before commit Main compares the post-merge/pre-delegation baseline to the working tree and untracked files, rejects any path outside the set, and verifies the same set after commit. Imported main changes are audited separately.",
+    "factory/skills/forge.md is assigned to First in the exact 14-path correction set and receives an explicit live-guidance alignment check alongside AGENTS, CLAUDE, README, ROLES, FACTORY, prompt, and spec surfaces.",
+    "The worker now fetches and runs git merge --no-commit, then stops without editing. Main resolves only plans/deferrals.md as an authorized orchestration-surface edit, preserving the three exact deferral rows; no scope widening is claimed.",
+    "The baseline-to-working-tree and postcommit expected-output checks exclude only harness-owned .factory/** state. Tracked and untracked product/test/documentation paths remain covered, and imported main paths remain a separate merge audit.",
+    "The worker never commits. Main performs the product/test audit after the worker returns and owns both the integration merge commit and correction commit.",
+    "Immediately after resolving plans/deferrals.md and before staging, Main requires the anchored rg conflict-marker search to return no matches and git diff --check to pass."
   ],
   "open_items": [],
+  "questions_asked": 2,
+  "frontier_empty": true,
   "rounds": [
     {
       "question": "When CI requires a PR, which delivery rule should Forge use?",
@@ -45,65 +47,57 @@
       "frontier_empty": true
     }
   ],
-  "frontier_empty": true,
-  "questions_asked": 2,
-  "issue": "FORGE-COORD-1",
-  "summary": "Resolved all nine findings from the single permitted Sol/high story-plan cold read, native launch launch-e4db1ff6f3f84445a7fe0cd9e571bb2b. The refreshed exact plan also removes the last literal phantom decision reference that the structural checker correctly treated as a live citation, while preserving the approved transition semantics.",
   "inspected_refs": [
-    "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-    ".factory/stories/FORGE-COORD-1/decomposition.json",
-    ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
-    "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
+    "/Users/dev/.codex/plans/symphony-forge+user-selected-main-model+20260913T205000IST.md",
     "docs/specs/dual-coordinator-parity.md",
     "docs/architecture/dual-coordinator-parity.md",
-    "docs/decisions/0064-lean-delivery-and-durable-history.md",
-    "docs/decisions/0069-combined-review-generation.md",
-    ".github/workflows/factory-scaffold.yml",
-    ".github/workflows/harness-health.yml",
-    "harness.yaml",
-    "factory/scripts/forge_cli/signal.py",
-    "WORKFLOW.md"
+    "docs/decisions/0074-user-selects-main-orchestrator-model.md",
+    ".factory/stories/FORGE-COORD-1/grills/requirements.json",
+    ".factory/stories/FORGE-COORD-1/decomposition.json",
+    ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
+    "factory/scripts/forge_cli/worker_admission.py",
+    "factory/scripts/forge_cli/stages.py",
+    "factory/skills/forge.md",
+    "plans/lessons.jsonl",
+    "factory/scripts/forge_cli/delegate.py",
+    "factory/scripts/pre_tool_use.py"
   ],
-  "current_flow": "Record this resolved plan pass against the exact amended candidate, save the plan and bind the standing human approval, record the corrected eight-task decomposition, then save, cold-read once, resolve, and approve the corrected active First task plan before resuming its existing stage.",
+  "current_flow": "Record this resolved plan pass against the exact candidate, save it awaiting approval, bind the user standing Decision 0074 instruction through plan approval, save it unchanged as approved, record the matching eight-task decomposition, then save, grill, and approve the amended First task plan before integration and correction workers.",
   "citations": [
     {
-      "finding": "Automatic external-client merges lacked human authority under the unchanged manual merge policy.",
-      "source": "Amended plan Safe installation, retention and client migration paragraph; harness.yaml manual merge policy; Decision 0064."
+      "finding": "false approval state",
+      "source": "amended plan frontmatter and transition"
     },
     {
-      "finding": "The Portable migration admitted active fixed review sets even though confirmed canon requires fresh combined review for active tasks and sealed-only upgrade migration.",
-      "source": "Amended plan review migration paragraph; docs/specs/dual-coordinator-parity.md and docs/architecture/dual-coordinator-parity.md."
+      "finding": "spec and requirements order",
+      "source": "confirmed dual-coordinator spec, current requirements grill, and amended plan transition"
     },
     {
-      "finding": "The ten retained client failures were promised as binding but their exact ownership rows existed only in a historical non-authoritative graph.",
-      "source": "Amended plan Binding retained client-failure ownership table."
+      "finding": "expected-output enforcement",
+      "source": "amended plan 14-path list, precommit working-tree/untracked check, and postcommit check"
     },
     {
-      "finding": "The Integration evidence contract required an exact ordered six-label platform report without naming those labels in an authoritative artifact.",
-      "source": "Amended plan Separate UI and platform evidence section."
+      "finding": "live Forge skill owner",
+      "source": "amended plan exact 14-path correction set and factory/skills/forge.md"
     },
     {
-      "finding": "The promised replacement decomposition and First task plan still carried stale post-integration decision identities and a nonexistent Decision 0068 model-policy path.",
-      "source": "Amended plan Transition before delegation; corrected decomposition and task-plan candidates."
+      "finding": "integration scope and ownership",
+      "source": "final plan integration baseline; existing orchestration-surface classifier"
     },
     {
-      "finding": "Lean recorded an unapproved partition capability even though the confirmed grill contract forbids partitioning.",
-      "source": "Amended plan One brief and proportionate scrutiny; confirmed dual-coordinator parity specification."
+      "finding": "event-aware expected-output audit",
+      "source": "final plan transition; factory/scripts/forge_cli/events.py"
     },
     {
-      "finding": "The multi-gate design-review wording had no executable protocol for independent digest-bound publication.",
-      "source": "Amended plan design-review classification paragraph."
+      "finding": "Main commit ownership",
+      "source": "final plan transition and task handoff"
     },
     {
-      "finding": "A later coordinator could not recover an abandoned required ordinary-chat question from the proposed transfer state.",
-      "source": "Amended plan required ordinary-chat paragraph; existing .factory/signals.jsonl contract in WORKFLOW.md and forge_cli/signal.py."
-    },
-    {
-      "finding": "Adding a pull-request trigger to the write-authorized harness-health workflow would permit untrusted PR activity to push an upgrade branch or create a PR.",
-      "source": "Amended Quality task and Falsifiable quality activation section; .github/workflows/harness-health.yml permissions and mutation steps."
+      "finding": "pre-staging conflict check",
+      "source": "plans/lessons.jsonl and final plan integration baseline"
     }
   ],
-  "input_sha256": "12341f64052bfba26b8cb72bb51707cae1d4362d4fc96aedb669aa4d264c8c1a",
-  "recorded_at": "2026-09-12T22:37:46+00:00",
-  "commit": "ac44708dd473b22642b902054551fbb59e3f6425"
+  "input_sha256": "a3c9c822d8f3788272cc8e68dd8b7f8316ce99d078f3aeeea2b91b15b4f81469",
+  "recorded_at": "2026-09-13T15:32:09+00:00",
+  "commit": "3ad1a69d61c8fdf4a884bfbd8ec27323bab95b6c"
 }
