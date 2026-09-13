@@ -1,266 +1,27 @@
 {
-  "commit": "c5382ee54eafa6ad361b6ebe7cec7fc5bbaa1c7f",
+  "commit": "d5782f28a8fa3366ebaeb2f818610fc31cafa1c1",
   "automated": {
-    "blocking_findings": [],
-    "c5_bootstrap_provenance": {
-      "cases": [
-        {
-          "branch_exists_after": false,
-          "branch_exists_before": false,
-          "case": "missing-task-plan",
-          "exit_code": 1,
-          "missing_input": ".factory/stories/ENG-1/task-plans/T1.md",
-          "refusal_observed": true,
-          "stdout": "ERROR: task start hydration inputs are missing: .factory/stories/ENG-1/task-plans/T1.md\n",
-          "worktree_exists_after": false,
-          "worktree_exists_before": false
-        },
-        {
-          "branch_exists_after": false,
-          "branch_exists_before": false,
-          "case": "missing-task-grill",
-          "exit_code": 1,
-          "missing_input": ".factory/stories/ENG-1/grills/tasks/T1.json",
-          "refusal_observed": true,
-          "stdout": "ERROR: task start hydration inputs are missing: .factory/stories/ENG-1/grills/tasks/T1.json\n",
-          "worktree_exists_after": false,
-          "worktree_exists_before": false
-        }
-      ],
-      "historical_approval_observations": {
-        "source_live_record": {
-          "approved_at": "2026-09-10T08:47:29+00:00",
-          "approved_by": "User (standing in-scope approval, Codex conversation 2026-09-10)",
-          "available": true,
-          "note": "Read separately from existing live source/target records; not used to configure the archived probe.",
-          "path": "/Users/dev/Workdir/symphony-forge-native-dogfood/.factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json",
-          "recorded_at": "2026-09-10T08:47:29+00:00"
-        },
-        "target_record": {
-          "approved_at": "2026-09-10T09:14:45+00:00",
-          "approved_by": "User (standing approval and accepted0063/0064/0065)",
-          "available": true,
-          "note": "Read separately from existing live source/target records; not used to configure the archived probe.",
-          "path": "/Users/dev/Workdir/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/.factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json",
-          "recorded_at": "2026-09-10T09:14:38+00:00"
-        }
-      },
-      "method": "Two independent git clones checked out at immutable 7a462bc; each used a controlled story/decomposition/remote fixture and invoked the archived forge task-start CLI.",
-      "path": "/Users/dev/.codex/reviews/forge-lean-20260910/first-incumbent-bootstrap-probe/first-incumbent-bootstrap-probe.json",
-      "sha256": "a2bf5ddf80eebd1057bd86fdf36718f20e00a9d34acce86bb99a5b818e57d2c9",
-      "source_commit": "7a462bc2bd770a4df0ba47f40d515916438b8ac7"
-    },
-    "commands_run": [
-      "UV_CACHE_DIR=/tmp/forge-native-uv-cache UV_TOOL_DIR=/tmp/forge-native-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/check_encoding_hygiene.py -> encoding hygiene: OK",
-      "git diff --check -> clean",
-      "UV_CACHE_DIR=/tmp/forge-native-uv-cache UV_TOOL_DIR=/tmp/forge-native-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_native_launch.py factory/tests/test_native_setup.py factory/tests/test_worker_admission.py -q -p no:cacheprovider -> 72 passed in 36.11s; JUnit /tmp/forge-native-trio-final-c5382ee.xml",
-      "Validated all 62 task-plan pytest selectors as present, then ran their deduplicated union with uv/pytest -> 82 parameterized passes, 806 deselected in 280.18s; JUnit /tmp/forge-native-main-all62-c5382ee.xml",
-      "UV_CACHE_DIR=/tmp/forge-native-uv-cache UV_TOOL_DIR=/tmp/forge-native-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_task_parallelism.py -q -k \"tasks_with_disjoint_scopes_run_side_by_side_in_their_own_worktrees or required_test_counts_as_writable_until_it_is_tracked\" -p no:cacheprovider -> 2 passed in 17.83s; JUnit /tmp/forge-native-task-parallelism-fix.xml",
-      "UV_CACHE_DIR=/tmp/forge-native-uv-cache UV_TOOL_DIR=/tmp/forge-native-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py -> structural clean; scaffold clean; 1,043 passed, 3 skipped in 2,731.00s; verify completed 2026-09-12T19:37:33Z"
-    ],
-    "current_contract": {
-      "plan": "/Users/dev/Workdir/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/.factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
-      "report": "/tmp/forge-native-authoritative-c5382ee-automated.json",
-      "commit": "c5382ee54eafa6ad361b6ebe7cec7fc5bbaa1c7f"
-    },
-    "current_evidence": {
-      "artifacts": {
-        "c8_source_check": {
-          "path": "/Users/dev/.codex/reviews/forge-lean-20260910/process-recovery-c8-source-check.json",
-          "sha256": "0ceb8ced77ca6408b83e393d5084bd51e607f3cb157fed80b0347aa6206e36b5"
-        },
-        "c8_transcript": {
-          "path": "/Users/dev/.codex/reviews/forge-lean-20260910/process-recovery-c8-operation-transcript.json",
-          "sha256": "85bf8a69fec368bceee2a712d57701f4d13cec99449fef0c71dc952b00a1a88b"
-        },
-        "receipt": {
-          "path": "/Users/dev/.codex/reviews/forge-lean-20260910/process-recovery-worker-receipt.json",
-          "sha256": "06882521c53180ea6f4b61a816750e58d547b339f2c1af81cb7f0d81a227ba20"
-        }
-      },
-      "protected_denial": {
-        "request": "const patch = \"*** Begin Patch\\n*** Update File: /Users/dev/Workdir/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/.factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md\\n@@\\n-ABSENT PROBE CONTEXT: THIS PATCH MUST NEVER EXECUTE\\n+ABSENT PROBE CONTEXT CHANGED: THIS PATCH MUST NEVER EXECUTE\\n*** End Patch\";\nconst result = await tools.apply_patch(patch);\ntext(result);\n",
-        "response": "Script failed\nWall time 0.1 seconds\nOutput:\n\nScript error:\nCommand blocked by PreToolUse hook: .factory/ is recorded state, never hand-written (AGENTS.md): run.json carries plan_status, so editing it disarms the planning lock. Use the record_* scripts, `./forge note` for the scratchpad, or `./forge stage` for stage status.. Command: *** Begin Patch\n*** Update File: /Users/dev/Workdir/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/.factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md\n@@\n-ABSENT PROBE CONTEXT: THIS PATCH MUST NEVER EXECUTE\n+ABSENT PROBE CONTEXT CHANGED: THIS PATCH MUST NEVER EXECUTE\n*** End Patch"
-      },
-      "record_refs": {
-        "lifecycle": [
-          {
-            "id": null,
-            "line": 1,
-            "source": "native_output",
-            "type": "thread.started"
-          },
-          {
-            "id": null,
-            "line": 3,
-            "source": "native_output",
-            "type": "turn.started"
-          },
-          {
-            "id": null,
-            "line": 59,
-            "source": "native_output",
-            "type": "turn.completed"
-          }
-        ],
-        "native": [
-          {
-            "id": "item_26",
-            "line": 40,
-            "source": "native_output",
-            "type": "file_change"
-          },
-          {
-            "id": "item_34",
-            "line": 51,
-            "source": "native_output",
-            "type": "command_execution"
-          },
-          {
-            "id": "item_29",
-            "line": 44,
-            "source": "native_output",
-            "type": "command_execution"
-          }
-        ],
-        "tool": [
-          {
-            "id": "ctc_0a08280687aa38a4016aa38106b6b887d0b5e6aa359181e6b0",
-            "line": 119,
-            "source": "runtime_session",
-            "type": "custom_tool_call"
-          },
-          {
-            "id": "ctco_01a08eb0-08d4-7fc3-859e-1b2f313f16ff",
-            "line": 121,
-            "source": "runtime_session",
-            "type": "custom_tool_call_output"
-          },
-          {
-            "id": "ctc_0a08280687aa38a4016aa380d4b03087d0945298fa402c2d23",
-            "line": 87,
-            "source": "runtime_session",
-            "type": "custom_tool_call"
-          },
-          {
-            "id": "ctco_01a08eaf-4811-72e3-b6d2-56a9822b8497",
-            "line": 90,
-            "source": "runtime_session",
-            "type": "custom_tool_call_output"
-          }
-        ]
-      },
-      "sources": {
-        "native_output": {
-          "bytes": 290594,
-          "path": "/Users/dev/Workdir/symphony-forge-native-dogfood/.git/worktrees/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/forge/native-runs/launch-b38deadcbf7d4b44b50ebf1002120c1e.jsonl",
-          "sha256": "c63407c220aff45dfaa91045ee33431bd870845a581dd345ac879770577c034f"
-        },
-        "protected_ledger_at_capture": {
-          "bytes": 124360,
-          "path": "/Users/dev/Workdir/symphony-forge-native-dogfood/.git/worktrees/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/forge/delegations.jsonl",
-          "sha256": "4f77d2ca46db82f220340c5f94efd9190b8234325ac49bc99de68587244aeea7"
-        },
-        "runtime_session": {
-          "bytes": 1525851,
-          "path": "/Users/dev/.codex/sessions/2026/09/11/rollout-2026-09-11T09-45-33-01a08ead-8b42-7990-99c9-a4a07efb8a18.jsonl",
-          "sha256": "7dbb0d49567323abbad3ecb4aaa268eeae0e2bc275e36df1971f5fa90d05e5f0"
-        }
-      },
-      "terminal": {
-        "argv": [
-          "/Applications/ChatGPT.app/Contents/Resources/codex",
-          "exec",
-          "--json",
-          "--enable",
-          "hooks",
-          "-C",
-          "/Users/dev/Workdir/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE",
-          "--model",
-          "gpt-5.6-sol",
-          "--config",
-          "model_reasoning_effort=\"medium\"",
-          "--config",
-          "approval_policy=\"never\"",
-          "--sandbox",
-          "workspace-write",
-          "--add-dir",
-          ".codex/agents/AGENTS.md",
-          "--add-dir",
-          ".codex/agents/architect.toml",
-          "--add-dir",
-          ".codex/agents/backend.toml",
-          "--add-dir",
-          ".codex/agents/debugger.toml",
-          "--add-dir",
-          ".codex/agents/docs-decomposer.toml",
-          "--add-dir",
-          ".codex/agents/explorer.toml",
-          "--add-dir",
-          ".codex/agents/frontend.toml",
-          "--add-dir",
-          ".codex/agents/functional-checker.toml",
-          "--add-dir",
-          ".codex/agents/griller.toml",
-          "--add-dir",
-          ".codex/agents/lite.toml",
-          "--add-dir",
-          ".codex/agents/performance.toml",
-          "--add-dir",
-          ".codex/agents/planner-high.toml",
-          "--add-dir",
-          ".codex/agents/planner.toml",
-          "--add-dir",
-          ".codex/agents/refactorer.toml",
-          "--add-dir",
-          ".codex/agents/security.toml",
-          "--add-dir",
-          ".codex/agents/tester.toml",
-          "--add-dir",
-          ".codex/config.toml",
-          "--add-dir",
-          ".codex/explore.config.toml",
-          "--add-dir",
-          ".codex/hooks.json",
-          "-"
-        ],
-        "argv_sha256": "31745ef6f10530821dfad9c6ec066cac999bdf352859ce62e17cd44a9423d1f1",
-        "at": "2026-09-11T04:18:43+00:00",
-        "brief_path": ".factory/briefs/NATIVE-FOREGROUND-ACTIVATE.md",
-        "brief_sha256": "bc09f21e48a91b548ddb1c9964a518ef2a38ab9e6b9c38c483f7f1b553f2c7de",
-        "effort": "medium",
-        "executable_path": "/Applications/ChatGPT.app/Contents/Resources/codex",
-        "exit_code": 0,
-        "generated_by": "orchestrator",
-        "launch_id": "launch-b38deadcbf7d4b44b50ebf1002120c1e",
-        "launch_status": "succeeded",
-        "model": "gpt-5.6-sol",
-        "output_path": "/Users/dev/Workdir/symphony-forge-native-dogfood/.git/worktrees/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/forge/native-runs/launch-b38deadcbf7d4b44b50ebf1002120c1e.jsonl",
-        "pgid": 73452,
-        "pid": 73452,
-        "pid_started": "1789100133.155788",
-        "process_token": "delegation-launch-b38deadcbf7d4b44b50ebf1002120c1e",
-        "session_id": "01a08ead-8b42-7990-99c9-a4a07efb8a18",
-        "stage_started_at": "2026-09-10T09:12:51+00:00",
-        "stderr_path": "/Users/dev/Workdir/symphony-forge-native-dogfood/.git/worktrees/symphony-forge-native-dogfood-FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE/forge/native-runs/launch-b38deadcbf7d4b44b50ebf1002120c1e.stderr.log",
-        "story": "FORGE-COORD-1",
-        "task": "NATIVE-FOREGROUND-ACTIVATE",
-        "task_sha256": "7a65c1c25beba9fa409ba6e717965ef4aeb4c5251459b63d580be6a4317e49df",
-        "transport": "native",
-        "write": true
-      }
-    },
     "generated_by": "implementer",
-    "history_archive": {
-      "facts": "Earlier failed workers, superseded C8 proof and accepted/rejected review dispositions are historical only; use the archived source hashes without embedding them here.",
-      "path": "/Users/dev/.codex/reviews/forge-lean-20260910/before-process-loop-recovery-7af551b/sources.json",
-      "sha256": "6ffaabfea27007e04350f8bad50c7f685b3b120a08ce610d6606e73e8474bfc3"
-    },
-    "manual_validation_steps": [],
-    "non_blocking_findings": [],
-    "pass_fail_summary": "At c5382ee: structural check clean; scaffold clean; full suite 1,043 passed and 3 skipped; 62 declared selectors resolved and produced 82 parameterized passes with 806 deselected; native launch/setup/admission 72 passed; corrected task-parallelism selectors passed; encoding and diff hygiene clean.",
+    "status": "passed",
+    "summary": "At d5782f2, Main proved all ninth-review follow-ups: malformed task proof cannot unlock legacy fallback, quoted or escaped whitespace Codex operands remain guarded, a whitespace-separated second review lens tag is refused, and ordinary unchanged-product pr-ready cannot reseal mutated task proof. All affected selectors, the native suite, all 62 declared selectors, encoding, compile, diff hygiene, the full 1,051-test verifier, and the current protected-plan denial receipt passed.",
+    "blocking_findings": [],
+    "commands_run": [
+      "Direct pre_tool_use hook matrix at 748977c/d5782f2: 22/22 literal Codex launch variants with single-quoted, double-quoted, escaped, concatenated, wrapper, pipeline, substitution, option-operand, and environment-prefix forms denied; 6/6 unrelated executable, query, and argv-data controls allowed",
+      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest <ten ninth-review affected and neighboring selectors> --junitxml=/tmp/forge-native-ninth-affected.xml -> 10 passed, 737 deselected in 66.45s",
+      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_native_launch.py factory/tests/test_native_setup.py factory/tests/test_worker_admission.py -q --junitxml=/tmp/forge-native-ninth-native-suite.xml -> 72 passed in 35.07s",
+      "Generated the exact union of all 62 protected required_tests and ran uv/pytest across their 12 files with JUnit /tmp/forge-native-main-all62-ninth.xml -> 82 passed, 807 deselected in 170.21s",
+      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/check_encoding_hygiene.py -> encoding hygiene: OK",
+      "python3 -m py_compile factory/scripts/factory_lib.py factory/scripts/forge_cli/review.py factory/scripts/forge_cli/tasks.py factory/scripts/pre_tool_use.py -> passed",
+      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py -> structural clean; scaffold clean; 1,051 passed, 3 skipped in 2,227.79s; Verification passed",
+      "Registered launch launch-631a6148d30a48b4b3785ec196872ac6 / session 01a09994-9ccb-7583-917f-ade3e89d2e09: authoritative rollout tool call call_LUjX1EZiS1oPA87c8P2j5QLY was refused by PreToolUse before execution; patch_executed=false; task-plan SHA remained 3bc793c4adeceb858c8a962f90eeb063eaaf43d633ea2336909262b31a8fe146 before and after",
+      "git diff --check -> clean"
+    ],
+    "tests_added_or_updated": [
+      "factory/tests/test_gates.py",
+      "factory/tests/test_review_task_delta.py"
+    ],
+    "pass_fail_summary": "At d5782f2: 22/22 guarded literal launches were denied, 6/6 negative controls were allowed, 10/10 affected selectors passed, 72/72 native launch/setup/admission tests passed, 82/82 cases from all 62 declared selectors passed, and the full 1,051-test repository suite passed; 3 pre-existing platform skips remained. Malformed-proof fallback, compositional shell-word parsing, direct parsed argv classification, second-lens normalization, post-marker proof immutability, encoding, compile, structural, scaffold, and diff hygiene all passed.",
     "remaining_gaps": [],
-    "residual_risks": [],
     "reviewed_scope": [
       ".claude/CLAUDE.md",
       ".claude/settings.json",
@@ -283,36 +44,6 @@
       ".codex/config.toml",
       ".codex/explore.config.toml",
       ".codex/hooks.json",
-      ".factory/grills/spec.json",
-      ".factory/review-briefs/NATIVE-FOREGROUND-ACTIVATE.performance.md",
-      ".factory/review-briefs/NATIVE-FOREGROUND-ACTIVATE.quality.md",
-      ".factory/review-briefs/NATIVE-FOREGROUND-ACTIVATE.security.md",
-      ".factory/review-briefs/all.md",
-      ".factory/signals.jsonl",
-      ".factory/stages.json",
-      ".factory/stories/FORGE-COORD-1/decomposition.json",
-      ".factory/stories/FORGE-COORD-1/grill-rounds/13f6cd18-c62d-4460-b42a-be49f9955fb6.json",
-      ".factory/stories/FORGE-COORD-1/grill-rounds/21dbd037-6b89-47ee-87fe-0238143108bd.json",
-      ".factory/stories/FORGE-COORD-1/grill-rounds/457f2251-df00-42cd-ac47-9644e3a43789.json",
-      ".factory/stories/FORGE-COORD-1/grill-rounds/f31c009a-7746-4eea-896a-d233829fec3a.json",
-      ".factory/stories/FORGE-COORD-1/grills/plan.json",
-      ".factory/stories/FORGE-COORD-1/grills/requirements.json",
-      ".factory/stories/FORGE-COORD-1/grills/tasks/NATIVE-FOREGROUND-ACTIVATE.json",
-      ".factory/stories/FORGE-COORD-1/review-run.json",
-      ".factory/stories/FORGE-COORD-1/stages/FORGE-COORD-1.1.json",
-      ".factory/stories/FORGE-COORD-1/stages/FORMAT-SOURCES.json",
-      ".factory/stories/FORGE-COORD-1/stages/LEAN-WORKFLOW.json",
-      ".factory/stories/FORGE-COORD-1/stages/NATIVE-FOREGROUND-ACTIVATE.json",
-      ".factory/stories/FORGE-COORD-1/stages/NATIVE-LIFECYCLE.json",
-      ".factory/stories/FORGE-COORD-1/stages/PORTABLE-DELIVERY-MIGRATION.json",
-      ".factory/stories/FORGE-COORD-1/stages/QUALITY-BASELINE.json",
-      ".factory/stories/FORGE-COORD-1/stages/SHARED-COORDINATOR-JOURNEY.json",
-      ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
-      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/reviews/performance.json",
-      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/reviews/quality.json",
-      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/reviews/security.json",
-      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/tests.json",
-      ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/verify.json",
       "AGENTS.md",
       "README.md",
       "WORKFLOW.md",
@@ -321,10 +52,7 @@
       "docs/ROLES.md",
       "docs/architecture/dual-coordinator-parity.md",
       "docs/decisions/0062-luna-max-exploration-and-implementation.md",
-      "docs/decisions/0067-combined-review-generation.md",
-      "docs/decisions/0068-sol-specialized-workflow-models.md",
-      "docs/decisions/0069-empty-frontier-grill-proof.md",
-      "docs/decisions/0070-staged-platform-proof.md",
+      "docs/decisions/0070-sol-specialized-workflow-models.md",
       "docs/degraded-mode.md",
       "docs/getting-started.md",
       "docs/product/BRIEF.md",
@@ -346,19 +74,21 @@
       "factory/scripts/forge_cli/delegate.py",
       "factory/scripts/forge_cli/doctor.py",
       "factory/scripts/forge_cli/phase.py",
+      "factory/scripts/forge_cli/readiness.py",
       "factory/scripts/forge_cli/review.py",
       "factory/scripts/forge_cli/review_brief.py",
       "factory/scripts/forge_cli/stages.py",
       "factory/scripts/forge_cli/tasks.py",
+      "factory/scripts/forge_cli/upgrade.py",
       "factory/scripts/forge_cli/worker_admission.py",
       "factory/scripts/pre_tool_use.py",
       "factory/scripts/record_review_from_json.py",
       "factory/scripts/session_start.py",
       "factory/scripts/stop_continue.py",
       "factory/skills/forge.md",
-      "factory/tests/test_close_binds_to_the_diff.py",
       "factory/tests/test_gate_table.py",
       "factory/tests/test_gates.py",
+      "factory/tests/test_close_binds_to_the_diff.py",
       "factory/tests/test_grill_release.py",
       "factory/tests/test_native_launch.py",
       "factory/tests/test_native_setup.py",
@@ -367,32 +97,20 @@
       "factory/tests/test_review_settled_contracts.py",
       "factory/tests/test_review_task_delta.py",
       "factory/tests/test_stop_less_often.py",
-      "factory/tests/test_task_parallelism.py",
       "factory/tests/test_worker_admission.py",
       "harness.yaml",
-      "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-      "plans/deferrals.md",
-      "plans/exploration/coordinator-parity-preparation/client-ledger-migration-inventory.json",
-      "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json"
+      "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
+      "factory/tests/test_task_parallelism.py"
     ],
     "skills_used": [
       "forge",
       "ponytail"
     ],
-    "status": "passed",
-    "summary": "Authoritative proof at c5382ee passed the complete Forge verifier, all 62 declared acceptance selectors, the native launch/setup/admission suites, the two corrected task-parallelism regressions, encoding hygiene, and diff hygiene.",
-    "tests_added_or_updated": [
-      "factory/tests/test_review_settled_contracts.py",
-      "factory/tests/test_review_task_delta.py",
-      "factory/tests/test_close_binds_to_the_diff.py",
-      "factory/tests/test_gates.py",
-      "factory/tests/test_native_launch.py",
-      "factory/tests/test_native_setup.py",
-      "factory/tests/test_worker_admission.py",
-      "factory/tests/test_task_parallelism.py"
-    ],
-    "recorded_at": "2026-09-12T19:40:39+00:00",
-    "commit": "c5382ee54eafa6ad361b6ebe7cec7fc5bbaa1c7f"
+    "non_blocking_findings": [],
+    "residual_risks": [],
+    "manual_validation_steps": [],
+    "recorded_at": "2026-09-13T07:46:23+00:00",
+    "commit": "d5782f28a8fa3366ebaeb2f818610fc31cafa1c1"
   },
-  "updated_at": "2026-09-12T19:40:39+00:00"
+  "updated_at": "2026-09-13T07:46:23+00:00"
 }

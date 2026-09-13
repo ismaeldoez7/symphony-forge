@@ -5,7 +5,7 @@
     {
       "id": "NATIVE-FOREGROUND-ACTIVATE",
       "title": "Native foreground and complete first-task proof",
-      "objective": "Act as the registered gpt-5.6-sol/medium current-plan C8 evidence worker for NATIVE-FOREGROUND-ACTIVATE. Use ponytail and make zero product or repository edits. Read and SHA-256 hash the exact protected `.factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md`, then make one real apply_patch attempt against that file with harmless absent context containing `THIS PATCH MUST NEVER EXECUTE`. The PreToolUse hook must deny before execution. Hash the same file again and write `/tmp/forge-native-c8-current-receipt.json` with launch_id, Codex session/thread ID, protected path, before and after full-file SHA-256, patch_executed=false, and exact tool-call ID when available. Report the denial. Do not run process-heavy tests, record evidence, stage, commit, review, close, push, or open a PR. Main correlates the terminal row and durable native logs and owns all remaining verification and lifecycle work.",
+      "objective": "Act as the registered gpt-5.6-sol/medium tenth-review fix worker for NATIVE-FOREGROUND-ACTIVATE. Use ponytail. Resolve only the two validated findings: make check_dual_runtime enforce the explicit complete Claude/Codex event-tool matcher matrix, and make combined review validate the full helper/provider report structure before projection or publication. Extend existing selectors and update valid fixtures. Modify only factory/scripts/check_dual_runtime.py, factory/scripts/forge_cli/review.py, factory/tests/test_native_setup.py, factory/tests/test_review_task_delta.py, factory/tests/test_review_settled_contracts.py, and factory/tests/test_gates.py, within 220 changed lines from Main's exact pre-delegation HEAD. The frontier non-object finding is rejected: factory_lib.load_json already applies the central _proof_object_or_default rule, and the recorded task-proof-typed-reader lesson plus existing regression bind that C4 behavior. Do not change factory_lib.py or add consumer-local normalization. Add no file, selector, dependency, schema, task, criterion, scope entry, proof mechanism, or compatibility fallback. Run the focused existing selectors supported in the worker; Main owns process-heavy/full proof, recording, review, close, push, PR, and CI.",
       "dependencies": [],
       "user_facing": false,
       "acceptance_criteria": [
@@ -459,7 +459,7 @@
       "review_budget": {
         "max_changed_files": 180,
         "max_changed_lines": 18000,
-        "reason": "Seal-time ceiling remains the incumbent 180 files and 18,000 lines over the complete First delta. The ninth product batch is committed at 748977c within six paths and 115 lines. This final C8 launch is evidence-only and permits zero repository changes; any worker diff refuses the receipt."
+        "reason": "Seal-time ceiling remains the incumbent 180 files and 18,000 lines over the complete First delta. The tenth review batch is limited by contract to six existing paths and 220 added-plus-deleted lines from Main's exact pre-delegation HEAD; no factory_lib.py or schema change is authorized."
       },
       "reviewer_focus": [
         "Constitution sources are binding across the complete accumulated First-task delta: constitution/README.md, constitution/05-logging-and-observability.md, constitution/06-logger-and-log-transports.md, constitution/07-exception-handling.md, and constitution/09-agent-conduct.md. Review structured logging, redaction, terminal failure propagation and exception behavior. Preserve the validated origin/main integration at 30b19c7, diff-bound closeout, exact task proof, board and CI behavior as inherited; implement Decision0069 with one helper, one schema-exact immutable raw-plus-three-lens generation and one selected pointer. AGENTS.md Hard Gates must name selected.json and its immutable selected generation lineage as certifying task review proof; fixed lens files are diagnostic and migration input only.",
@@ -471,8 +471,9 @@
         "C6: every unsupported native operation in the accepted contract still refuses before side effects; the current correction adds no background, status, signal, resume, question, or durable-output recovery implementation.",
         "C7: preserve own-task review proof lookup/refusal behavior.",
         "C8: the admitted worker hashes the exact approved task plan and makes one real apply_patch attempt against it with harmless absent context containing THIS PATCH MUST NEVER EXECUTE. The automated report, registered terminal row and durable PreToolUse event must identify the same launch, session and tool call, with unchanged before/after hashes and patch_executed=false; context failure and synthetic hook payloads do not count. Main verifies and records the concrete correlation, runs forge next and process-heavy/full verification outside the companion, and requires concise worker prose only.",
+        "Tenth-review findings: enforce the exact Claude/Codex PreToolUse and PostToolUse matcher matrix in check_dual_runtime.py, including Bash and every Claude write tool. Validate each decoded helper/provider report against the complete four-field report and seven-field finding contract, exact wrapper/pass structure, enums, types, ranges and bounds before projection. Reject the frontier diagnosis because central load_json already normalizes non-object .factory task verify/tests proof; lesson task-proof-typed-reader and the existing close/frontier selector are authoritative.",
         "Process: after two identical failures with unchanged inputs/cause, stop expensive retries, obtain the cheapest diagnostic capable of going RED, change the fix, then retry. Keep blocking gates and evidence quality unchanged.",
-        "Scope: zero repository changes. This registered Sol/medium worker only reads and hashes the exact protected task plan, makes the harmless absent-context apply_patch attempt containing THIS PATCH MUST NEVER EXECUTE, writes the external /tmp receipt, and reports the actual hook denial. Main verifies unchanged bytes plus the same launch/session/tool-call across the receipt, terminal row and durable native log before full proof."
+        "Scope: six existing paths and at most 220 added-plus-deleted lines: factory/scripts/check_dual_runtime.py, factory/scripts/forge_cli/review.py, factory/tests/test_native_setup.py, factory/tests/test_review_task_delta.py, factory/tests/test_review_settled_contracts.py, and factory/tests/test_gates.py. Extend existing selectors only; preserve current C8 proof and keep factory_lib.py byte-identical. Main verifies the exact delta before commit and owns full proof and lifecycle."
       ]
     },
     {
@@ -573,5 +574,5 @@
   "epic": "symphony-forge",
   "plan_file": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
   "plan_sha256": "12341f64052bfba26b8cb72bb51707cae1d4362d4fc96aedb669aa4d264c8c1a",
-  "commit": "748977c27111f2668a4ca90266f73f5bb532e771"
+  "commit": "d5782f28a8fa3366ebaeb2f818610fc31cafa1c1"
 }
