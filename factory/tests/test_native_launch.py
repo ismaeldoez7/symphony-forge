@@ -463,6 +463,7 @@ def test_stage_launch_gate_requires_exact_native_terminal_stream(
         "launch_id": launch_id, "task": "T1",
         "brief_sha256": sha256_of(brief), "task_sha256": task_digest(task),
         "write": True, "model": "model", "effort": "medium",
+        "write_scope": task["write_scope"],
         "argv": argv, "argv_sha256": argv_digest(argv),
         "process_token": f"delegation-{launch_id}",
         "stage_started_at": stage["started_at"], "transport": "native",
@@ -499,12 +500,16 @@ def test_concurrent_native_terminal_is_idempotent_and_retry_can_close_stage(
     def record(launch_id: str) -> dict:
         output = logs / f"{launch_id}.jsonl"
         stderr = logs / f"{launch_id}.stderr.log"
-        argv = native_argv("/bin/codex", native_repo, "model", "medium", True)
+        argv = native_argv(
+            "/bin/codex", native_repo, "model", "medium", True,
+            task["write_scope"],
+        )
         return {
             "generated_by": "orchestrator", "at": stage["started_at"],
             "launch_id": launch_id, "task": "T1",
             "brief_sha256": sha256_of(brief),
             "task_sha256": task_digest(task), "write": True,
+            "write_scope": task["write_scope"],
             "model": "model", "effort": "medium", "argv": argv,
             "argv_sha256": argv_digest(argv),
             "process_token": f"delegation-{launch_id}",
