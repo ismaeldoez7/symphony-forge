@@ -1,9 +1,9 @@
 {
-  "commit": "5150e64874b216b090acc2ca6dbef2f1d3aa3d75",
+  "commit": "a17510c65efce3ae94275dc25a7f322d659d15ee",
   "automated": {
     "generated_by": "implementer",
     "status": "passed",
-    "summary": "At a428241, the exact 14-path Decision 0074 correction is green across the seven focused model, distribution, projection, cross-lens and rejection-lineage selectors plus the dual-runtime checker. The separate current-plan C8 worker produced a real protected-plan PreToolUse denial with byte-identical hashes and a correlated successful registered terminal row. The finite correction worker added the helper-shaped cross-lens path proof and its three selectors passed.",
+    "summary": "At a17510c, the post-integration model/review correction and its closeout fixture repair are focused-green. The first full close at c9a85e9 truthfully failed only two imported fixtures after 1,057 passes; two independent read-only diagnoses showed production marker validation was correct. Registered Sol/medium workers updated those fixtures and restored AGENTS.md hygiene without changing runtime code.",
     "blocking_findings": [],
     "commands_run": [
       "Registered finite correction worker launch/session launch-65c670c937ff4e409cb97edcb5768d0c / 01a09b85-acdf-76a0-bcd5-a120857e7139 -> 3 existing projection/refusal/rejection-lineage selectors passed in 16.21s; terminal succeeded with exit_code 0",
@@ -11,15 +11,21 @@
       "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/check_dual_runtime.py -> clean (historical Confirmed-by convention warnings only)",
       "Current-plan C8 correlation -> launch launch-8fd15d00170a45bc9a642e6df6954532; session 01a09b81-08e6-73b0-a9d0-d4e030513900; apply_patch call call_zQXCTCLlj6okpsUWnnFyHzDD; transcript ordinals 62/64 contain the real protected-plan tool call and PreToolUse denial; registered terminal row succeeded with exit_code 0; exact task-plan SHA256 before/after b17d99b92031cc14ffea79ca3cb32fd397d291d02f8deb12b8a6c6a900d7b20b; patch_executed=false; repository bytes unchanged by that worker",
       "Post-merge baseline 980a2d68eafa267d3a20d0838ddbf219610c8e4a..a428241 product audit -> exactly the approved 14 paths, 95 added-plus-deleted lines <= 180, no non-.factory untracked paths; managed harness.yaml, .codex/explore.config.toml and all 15 .codex/agents/*.toml byte-identical",
-      "git diff --check -> clean"
+      "git diff --check -> clean",
+      "FACTORY deterministic close at c9a85e9722983787797edd82556e713986948c20 -> structural/typecheck passed; full suite 2 failed, 1057 passed, 3 skipped in 3027.44s; failures were board memo obsolete cat-file/invalid-marker fixture and story-closeout uncommitted protected-decomposition fixture",
+      "Registered fixture worker 01a09bdb-ed37-76f2-8179-3d5e58c38b03 -> test_board_memo_reuses_git_facts_until_the_files_that_decide_them_change passed in 8.06s; test_story_closeout_requires_all_task_markers_and_completed_stories_reads_shipped passed in 31.80s; check_agents_hygiene.py and check_factory_scaffold.py passed",
+      "Registered semantic correction worker 01a09be8-16ef-7942-bebc-93522eca9ab8 -> same two selectors passed in 3.23s and 25.93s; AGENTS hygiene and factory scaffold passed; git diff --check clean",
+      "Main fixture baseline 4cd4916..a17510c product/documentation audit -> exactly AGENTS.md, factory/tests/test_board_load_time.py, factory/tests/test_gates.py; 30 added-plus-deleted lines; no non-.factory untracked paths",
+      "wc -l -c AGENTS.md -> 110 lines, 6999 bytes; post-approval human authorization and code-only Ponytail semantics retained"
     ],
     "tests_added_or_updated": [
       "factory/tests/test_gate_table.py",
       "factory/tests/test_gates.py",
       "factory/tests/test_native_setup.py",
-      "factory/tests/test_review_task_delta.py"
+      "factory/tests/test_review_task_delta.py",
+      "factory/tests/test_board_load_time.py"
     ],
-    "pass_fail_summary": "The correction worker reported 3/3 existing selectors passed; Main reported 7/7 focused selectors passed; dual-runtime and diff checks passed; exact 14-path/95-line output audit passed; current-plan C8 denial, tool call, unchanged hash and successful terminal identity correlated.",
+    "pass_fail_summary": "The prior full close recorded 1,057 passes, 3 skips, and 2 diagnosed fixture failures. After the repair, both failing nodes passed twice under registered workers; both CI hygiene/scaffold checks and diff checks passed. The final continuation is exactly three paths/30 lines. Full deterministic verification remains represented by verify.json and will be rerun by task close.",
     "remaining_gaps": [],
     "reviewed_scope": [
       ".codex/config.toml",
@@ -35,7 +41,8 @@
       "factory/tests/test_gate_table.py",
       "factory/tests/test_gates.py",
       "factory/tests/test_native_setup.py",
-      "factory/tests/test_review_task_delta.py"
+      "factory/tests/test_review_task_delta.py",
+      "factory/tests/test_board_load_time.py"
     ],
     "skills_used": [
       "forge",
@@ -43,9 +50,12 @@
     ],
     "non_blocking_findings": [],
     "residual_risks": [],
-    "manual_validation_steps": [],
-    "recorded_at": "2026-09-13T16:14:55+00:00",
-    "commit": "5150e64874b216b090acc2ca6dbef2f1d3aa3d75"
+    "manual_validation_steps": [
+      "Inspect AGENTS.md to confirm every policy section remains and the file is 110 lines/6,999 bytes.",
+      "Inspect the board marker fixture identity and the T1 historical decomposition staging before resuming task close."
+    ],
+    "recorded_at": "2026-09-13T18:01:32+00:00",
+    "commit": "a17510c65efce3ae94275dc25a7f322d659d15ee"
   },
-  "updated_at": "2026-09-13T16:14:55+00:00"
+  "updated_at": "2026-09-13T18:01:32+00:00"
 }
