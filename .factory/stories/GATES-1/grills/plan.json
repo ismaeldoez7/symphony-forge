@@ -47,7 +47,7 @@
     "plans/active/GATES-1-gates-stale-only-on-what-they-read.md:216",
     "docs/decisions/0066-closeout-binds-to-the-diff.md:40"
   ],
-  "input_sha256": "54710b56cc6467518f3ff39739edb4d761217b2a3a0997e2f4ae52af18e55c31",
-  "recorded_at": "2026-09-12T10:52:49+00:00",
-  "commit": "131de5d9399975807401ed9d4c52824d6540cc1f"
+  "input_sha256": "21d8db84d2a8355ce1738d79ae859dd4e4a57ff654b3b05af2fceff9ab47fe27",
+  "recorded_at": "2026-09-13T05:22:45+00:00",
+  "commit": "43f6bedeb01c50c9d7af52829ac73f540ae5d25f"
 }

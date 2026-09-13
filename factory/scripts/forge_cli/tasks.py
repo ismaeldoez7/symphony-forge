@@ -617,10 +617,6 @@ def cmd_task_reconcile(args: argparse.Namespace) -> None:
         fail(f"task {args.id} is not in the current decomposition")
     stage = stages[idx]
     status = stage.get("status")
-    if status not in ("active", "done"):
-        fail(f"task {args.id} is '{status}', not active or done — reconcile adopts a "
-             "task whose work already SHIPPED; a task that never started has nothing "
-             "to reconcile.")
 
     task = task_for(base, args.id)
     if not task:
@@ -638,6 +634,17 @@ def cmd_task_reconcile(args: argparse.Namespace) -> None:
     already = _git(
         base, "cat-file", "-e", f"origin/{default_branch}:{marker.as_posix()}",
     ).returncode == 0
+
+    # A task whose work shipped out of band is PENDING on every checkout that did
+    # not run it — a fresh clone, a sibling worktree, or this one after a
+    # decomposition re-record rebuilt the tracker. Refusing pending outright made
+    # reconcile unusable in exactly the case it exists for. The marker already on
+    # the trunk is the proof that it shipped, so pending is allowed when it is
+    # there; without it, a pending task still has nothing to adopt.
+    if status not in ("active", "done") and not already:
+        fail(f"task {args.id} is '{status}' and no marker for it is on origin/"
+             f"{default_branch} — reconcile adopts a task whose work already "
+             "SHIPPED; a task that never started has nothing to reconcile.")
 
     if not already:
         # Confirm the task's work is genuinely on the trunk before adopting it: at

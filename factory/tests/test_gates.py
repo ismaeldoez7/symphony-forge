@@ -19828,3 +19828,75 @@ def test_already_serving_only_matches_a_board_for_this_repo(tmp_path,
     # No root supplied keeps the old "any board" answer for callers that only
     # want to know whether the port is taken.
     assert board.already_serving(8765) is True
+
+
+def test_task_reconcile_adopts_a_pending_task_whose_marker_is_on_the_trunk(
+        repo, tmp_path):
+    # A task whose work shipped out of band is PENDING on every checkout that
+    # did not run it: a fresh clone, a sibling worktree, or this one after a
+    # decomposition re-record rebuilt the stage tracker. Refusing pending
+    # outright made reconcile unusable in exactly the case it exists for, and
+    # left the story unable to advance. The marker already on the trunk is the
+    # proof it shipped, so pending is adopted when it is there.
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    git(repo, "config", "user.email", "test@knacklabs.dev")
+    git(repo, "config", "user.name", "Gate Tests")
+    second = task_skeleton({**STAGE_TASK, "id": "T2", "title": "second slice"})
+    record_skeleton_then_frontier(repo, [STAGE_TASK, second])
+    write_in_scope(repo, "src/core.py")
+    git(repo, "add", "src/core.py")
+    git(repo, "commit", "-qm", "ship T1 work")
+    configure_origin_main(repo, tmp_path / "pending-origin.git")
+
+    marker = story_state(repo) / "tasks" / "T1" / "pr-ready.json"
+    gh_env, _argv_path = fake_gh_env(tmp_path)
+    # Adopt it once while active, and push so the marker is on the trunk.
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [
+            {"id": "T1", "title": "core slice", "status": "active",
+             "base_sha": head(repo)},
+            {"id": "T2", "title": "second slice", "status": "pending"},
+        ],
+    })
+    code, out = run(repo, "forge.py", "task", "reconcile", "T1", env=gh_env)
+    assert code == 0, out
+    git(repo, "push", "-q", "origin", "HEAD:main")
+    assert marker.exists()
+
+    # Now the tracker is rebuilt and T1 reads pending again, exactly as a
+    # re-recorded decomposition or a fresh checkout leaves it.
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [
+            {"id": "T1", "title": "core slice", "status": "pending"},
+            {"id": "T2", "title": "second slice", "status": "pending"},
+        ],
+    })
+    code, out = run(repo, "forge.py", "task", "reconcile", "T1", env=gh_env)
+    assert code == 0, out
+    data = json.loads((delegation_ledger(repo).parent / "stages.json").read_text())
+    assert data["stages"][0]["status"] == "done"
+
+
+def test_task_reconcile_still_refuses_a_pending_task_with_no_marker(
+        repo, tmp_path):
+    # The relaxation is bounded by the marker. A pending task that never shipped
+    # has nothing to adopt, and reconcile must not invent a completion for it.
+    sign_off(repo)
+    intake(repo)
+    save_plan(repo, tmp_path)
+    git(repo, "config", "user.email", "test@knacklabs.dev")
+    git(repo, "config", "user.name", "Gate Tests")
+    record_skeleton_then_frontier(repo, [STAGE_TASK])
+    configure_origin_main(repo, tmp_path / "nomarker-origin.git")
+    write_stages(repo, {
+        "issue": "ENG-1",
+        "stages": [{"id": "T1", "title": "core slice", "status": "pending"}],
+    })
+    gh_env, _argv_path = fake_gh_env(tmp_path)
+    code, out = run(repo, "forge.py", "task", "reconcile", "T1", env=gh_env)
+    assert code != 0
+    assert "nothing to reconcile" in out
