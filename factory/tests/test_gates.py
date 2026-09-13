@@ -11777,6 +11777,11 @@ def test_codex_exec_ban_matches_invocations_not_prose(repo, monkeypatch):
                 '/opt/homebrew/bin/codex exec "x"',
                 'codex.exe exec "x"',
                 'codex.cmd exec "x"',
+                'codex --config \'model_reasoning_summary = "detailed summary"\' exec "x"',
+                r'codex --config model\ reasoning exec "x"',
+                r"codex --config 'model 'reasoning exec x",
+                'MODE=\'value with spaces\' codex exec "x"',
+                r'MODE=value\ with\ spaces codex exec "x"',
                 '"C:/Program Files/codex.exe" exec "x"',
                 r'"C:\Program Files\codex.cmd" exec "x"',
                 'command "C:/Program Files/codex.exe" exec "x"',
@@ -11784,8 +11789,10 @@ def test_codex_exec_ban_matches_invocations_not_prose(repo, monkeypatch):
                 r'command "C:\Program Files\codex.exe" exec "x"',
                 r'env "C:\Tools\codex.cmd" exec "x"',
                 'command codex exec "x"',
+                'command codex --profile \'review profile\' exec "x"',
                 'command -- codex exec "x"',
                 'env codex exec "x"',
+                'env \'MODE=value with spaces\' codex --config \'key = value\' exec "x"',
                 'env -i codex exec "x"',
                 'env -S "codex exec x"',
                 'env -S "command -- codex exec x"',
@@ -11825,7 +11832,14 @@ def test_codex_exec_ban_matches_invocations_not_prose(repo, monkeypatch):
                 'command "/opt/Tools With Spaces/codex" exec "x"',
                 'cd /tmp && codex exec "x"',
                 'echo hi | codex exec "x"',
-                'OUT=$(codex exec "x")'):
+                'echo hi | codex --profile \'review profile\' exec "x"',
+                r'echo hi | codex --profile review\ profile exec "x"',
+                r'echo hi | codex --config "key = \"value\"" exec "x"',
+                'OUT=$(codex exec "x")',
+                'OUT=$(MODE=\'value with spaces\' codex --config \'key = value\' exec "x")',
+                r'OUT=$(MODE=value\ with\ spaces codex --config key\ =\ value exec x)',
+                r"OUT=$(MODE='value 'with\ spaces codex --config 'key 'value exec x)",
+                r'OUT=$(MODE="value \"quoted\"" codex --config "key = \"value\"" exec x)'):
         code, out = bash(cmd)
         assert "deny" in out, cmd
     # prose mentioning the phrase (heredocs, greps, docs): allowed
@@ -19198,6 +19212,17 @@ def test_task_proof_ci_uses_sealed_selected_t1_not_later_t2_singleton(
     story = next(s for s in aggregate_state(repo)["stories"] if s["key"] == "ENG-1")
     assert story["lifecycle"]["proven"] == {"done": 1, "total": 2}
 
+    for name in ("verify.json", "tests.json"):
+        modern_proof = story_state(repo) / f"tasks/T1/{name}"
+        modern_proof.parent.mkdir(parents=True, exist_ok=True)
+        modern_proof.write_text("[]\n")
+        git(repo, "add", modern_proof.relative_to(repo).as_posix())
+        git(repo, "commit", "-qm", f"record malformed modern {name}")
+        assert check_task_proof.proof_problems(repo, "ENG-1", "T1")
+        modern_proof.unlink()
+        git(repo, "add", "-u")
+        git(repo, "commit", "-qm", f"remove malformed modern {name}")
+
     root_paths = [
         ".factory/decomposition.json", ".factory/verify.json",
         ".factory/tests.json", ".factory/reviews/quality.json",
@@ -21991,7 +22016,7 @@ def test_task_pr_ready_retry_reuses_unchanged_committed_marker(repo, tmp_path):
     assert "gh auth login" not in generic_failure
 
 
-def test_task_pr_ready_changed_evidence_reseals_instead_of_reusing_marker(
+def test_task_pr_ready_refuses_changed_evidence_after_marker(
         repo, tmp_path):
     git(repo, "checkout", "-qb", "feat/task-pr-reseal")
     marker = prepare_task_pr_ready(repo, tmp_path)
@@ -21999,10 +22024,9 @@ def test_task_pr_ready_changed_evidence_reseals_instead_of_reusing_marker(
     proof = write_task_proof(repo, "T1", publish_review=True)
     git(repo, "add", proof.relative_to(repo).as_posix(), ".factory/review-briefs/all.md")
     git(repo, "commit", "-qm", "record T1 proof")
-    env, _, _ = task_pr_retry_env(tmp_path)
+    env, calls, pushes = task_pr_retry_env(tmp_path)
     code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=env)
     assert code == 0, out
-    first_marker_head = head(repo)
 
     tests_path = proof / "tests.json"
     tests = json.loads(tests_path.read_text())
@@ -22011,11 +22035,24 @@ def test_task_pr_ready_changed_evidence_reseals_instead_of_reusing_marker(
     git(repo, "add", tests_path.relative_to(repo).as_posix())
     git(repo, "commit", "-qm", "clarify passing evidence")
     changed_evidence_head = head(repo)
+    stage_path = delegation_ledger(repo).parent / "stages.json"
+    selected_path = proof / "reviews/selected.json"
+    before = {
+        "marker": marker.read_bytes(),
+        "stage": stage_path.read_bytes(),
+        "selection": selected_path.read_bytes(),
+        "pushes": pushes.read_bytes(),
+        "calls": calls.read_bytes(),
+    }
 
     code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=env)
-    assert code == 0, out
-    assert json.loads(marker.read_text())["commit"] == changed_evidence_head
-    assert head(repo) not in (first_marker_head, changed_evidence_head)
+    assert code != 0 and "changed after task marker" in out, out
+    assert head(repo) == changed_evidence_head
+    assert marker.read_bytes() == before["marker"]
+    assert stage_path.read_bytes() == before["stage"]
+    assert selected_path.read_bytes() == before["selection"]
+    assert pushes.read_bytes() == before["pushes"]
+    assert calls.read_bytes() == before["calls"]
 
 
 def test_task_pr_ready_marker_commit_preserves_unrelated_index(repo, tmp_path):

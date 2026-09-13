@@ -698,25 +698,46 @@ for pattern in blocked:
 # live worker registration, or lifecycle proof. Keep the existing invocation
 # matcher, including substitutions and global flags; exempt only exact help argv
 # and safe display commands whose quoted text happens to contain the phrase.
+SHELL_WORD = r'''(?:"(?:\\[^\r\n]|[^"\\\r\n])*"|'[^'\r\n]*'|\\[^\r\n]|[^\s;&|"'\\])+'''
 CODEX_EXEC_INVOCATION = re.compile(
-    r"(?:^|[;&|]\s*|\$\(\s*|`\s*)(?:\w+=\S+\s+)*(?:command\s+)?"
+    r"(?:^|[;&|]\s*|\$\(\s*|`\s*)"
+    rf"(?:\w+={SHELL_WORD}\s+)*(?:command\s+)?"
     r"(?:\"[^\"\r\n;&|]*[/\\]codex(?:\.exe|\.cmd)?\"|"
     r"'[^'\r\n;&|]*[/\\]codex(?:\.exe|\.cmd)?'|"
     r"(?:[^\s;&|]*[/\\])?codex(?:\.exe|\.cmd)?)"
-    r"(?:\s+-{1,2}[\w-]+(?:[= ]\S+)?)*\s+exec\b",
+    rf"(?:\s+-{{1,2}}[\w-]+(?:[= ]{SHELL_WORD})?)*"
+    r"\s+exec\b",
     re.IGNORECASE | re.MULTILINE,
 )
 
 
 def _wrapped_codex_exec(tokens: list[str]) -> bool:
     """Detect a literal Codex exec argv behind a command wrapper."""
+    def codex_exec_at(index: int) -> bool:
+        if re.split(r"[/\\]", tokens[index])[-1].lower() not in {
+                "codex", "codex.exe", "codex.cmd"}:
+            return False
+        operand_options = {
+            "-a", "--ask-for-approval", "-C", "--cd", "-c", "--config",
+            "--disable", "--enable", "-i", "--image", "--local-provider",
+            "-m", "--model", "-p", "--profile", "-s", "--sandbox", "--add-dir",
+        }
+        position = index + 1
+        while position < len(tokens):
+            option = tokens[position]
+            if option in operand_options:
+                position += 2
+                continue
+            if any(option.startswith(f"{name}=") for name in operand_options):
+                position += 1
+                continue
+            if option.startswith("-"):
+                return "exec" in tokens[position + 1:]
+            return option == "exec"
+        return False
+
     def literal_launch_after(start: int) -> bool:
-        return any(
-            re.split(r"[/\\]", tokens[index])[-1].lower()
-            in {"codex", "codex.exe", "codex.cmd"}
-            and CODEX_EXEC_INVOCATION.match(shlex.join(tokens[index:]))
-            for index in range(start, len(tokens))
-        )
+        return any(codex_exec_at(index) for index in range(start, len(tokens)))
 
     def split_env_launch(value: str, tail: list[str]) -> bool:
         try:
@@ -727,8 +748,10 @@ def _wrapped_codex_exec(tokens: list[str]) -> bool:
     position = 0
     while position < len(tokens):
         name = re.split(r"[/\\]", tokens[position])[-1].lower()
-        if name in {"codex", "codex.exe", "codex.cmd"} and CODEX_EXEC_INVOCATION.match(
-                shlex.join(tokens[position:])):
+        if re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", tokens[position]):
+            position += 1
+            continue
+        if codex_exec_at(position):
             return True
         if name in {"command", "nohup"}:
             position += 1

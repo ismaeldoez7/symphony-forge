@@ -341,8 +341,11 @@ def _tagged_finding(finding: dict) -> tuple[
     if len(matches) != 1:
         fail("every combined review finding needs exactly one lens title tag")
     lens = matches[0]
-    clean_title = title[len(f"[{lens}] "):]
-    if not clean_title.strip() or clean_title.startswith(LENS_TAGS):
+    clean_title = " ".join(
+        unicodedata.normalize("NFC", title[len(f"[{lens}] "):]).split()
+    )
+    if not clean_title or any(
+            clean_title == tag.strip() or clean_title.startswith(tag) for tag in LENS_TAGS):
         fail("every combined review finding needs exactly one lens title tag")
     location = finding.get("code_location")
     if not isinstance(location, dict) or set(location) != {"file_path", "line"}:
@@ -354,7 +357,7 @@ def _tagged_finding(finding: dict) -> tuple[
             ) or not isinstance(line, int) or isinstance(line, bool) or line < 1):
         fail("combined review finding location must be a repository-relative POSIX path and line")
     normalized_path = unicodedata.normalize("NFC", PurePosixPath(raw_path).as_posix())
-    display_title = " ".join(unicodedata.normalize("NFC", clean_title).split())
+    display_title = clean_title
     normalized_title = display_title.casefold()
     tagged_title = " ".join(
         unicodedata.normalize("NFC", title).split()).casefold()

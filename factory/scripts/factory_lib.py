@@ -712,7 +712,7 @@ def _proof_object_or_default(path: Path | str, data: Any, default: Any) -> Any:
     """Treat valid non-object verify/test JSON as malformed proof."""
     parts = Path(path).parts
     if ".factory" in parts and Path(path).name in {"verify.json", "tests.json"}:
-        return data if isinstance(data, dict) else default
+        return data if isinstance(data, dict) else {}
     return data
 
 

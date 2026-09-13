@@ -573,14 +573,19 @@ def seal_task(base: Path, task_id: str) -> None:
     from factory_lib import (
         effective_review_base, product_delta_digest, task_proof_problems,
     )
-    same_seal = bool(
+    product_unchanged = bool(
         reusable
         and reusable["branch"] == branch
         and reusable["base_main_sha"] == base_main_sha
         and product_delta_digest(base, reusable["commit"], commit)
         == hashlib.sha256(b"").hexdigest()
-        and not task_proof_problems(base, key, task)
     )
+    same_seal = False
+    if product_unchanged:
+        proof_problems = task_proof_problems(base, key, task)
+        if proof_problems:
+            fail("Task proof changed after its marker:\n- " + "\n- ".join(proof_problems))
+        same_seal = True
     if same_seal:
         commit = reusable["commit"]
         print(f"Task {args.id} already sealed at {commit[:12]}; the product "
