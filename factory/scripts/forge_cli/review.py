@@ -270,9 +270,16 @@ def _combined_prompt(task: dict) -> bytes:
     if len("\n".join(minimum)) > 3000:
         fail("combined review boilerplate cannot fit the helper's 3000-character "
              "overall_explanation limit; reduce the approved contract count")
+    combined_verdict_format = QUALITY_VERDICT_FORMAT.replace(
+        'listed under "Plan contracts" below',
+        f'listed under the target task\'s "Plan contracts" in {REVIEW_DATASET_REL}',
+    )
     lines = [
         f"# Review brief — {task.get('id', '')} — combined review", "",
         COMMON_PREAMBLE.replace("one lens of a three-lens", "the three-lens"),
+        "The target task's complete Plan contracts and Reviewer focus are supplied "
+        f"in `{REVIEW_DATASET_REL}`; use that dataset for task-specific review "
+        "requirements.", "",
         "Assess quality, performance, and security in one provider pass. In every "
         "provider pass, overall_explanation must contain these exact full-line "
         "markers once, in this order, with a non-empty assessment between each pair:",
@@ -283,10 +290,9 @@ def _combined_prompt(task: dict) -> bytes:
         "END FORGE ASSESSMENT security", "",
         "Prefix every finding title with exactly one matching token: [quality] , "
         "[performance] , or [security] .", "", LENS_FOCUS["quality"],
-        QUALITY_VERDICT_FORMAT, VERDICT_INSTRUCTION, "", LENS_FOCUS["performance"],
+        combined_verdict_format, VERDICT_INSTRUCTION, "", LENS_FOCUS["performance"],
         LENS_FOCUS["security"], LEFTOVER_INSTRUCTION, "",
     ]
-    lines += _task_section(task, None)
     return ("\n".join(lines).rstrip() + "\n").encode()
 
 

@@ -18441,7 +18441,9 @@ def test_review_consumers_include_complete_approved_inputs(
         "#### Full task-owned automated report",
         plan_text, full_grill, full_automated,
     ))
-    from forge_cli.review import _lens_prompt
+    import forge_cli.review as review_mod
+    from forge_cli.review import _combined_prompt, _lens_prompt
+    from forge_cli.review_brief import _task_section
     for lens in ("quality", "performance", "security"):
         prompt = _lens_prompt(first, lens, repo).decode()
         assert all(token in prompt for token in (
@@ -18450,6 +18452,20 @@ def test_review_consumers_include_complete_approved_inputs(
         assert all(token not in prompt for token in (
             "### Approved task inputs", plan_text, full_grill, full_automated,
         ))
+    task_section = "\n".join(_task_section(first, None)).rstrip() + "\n"
+    combined = _combined_prompt(first).decode()
+    assert all(token in combined for token in (
+        "BEGIN FORGE ASSESSMENT quality",
+        "BEGIN FORGE ASSESSMENT performance",
+        "BEGIN FORGE ASSESSMENT security",
+        "Prefix every finding title with exactly one matching token",
+        "target task's complete Plan contracts and Reviewer focus",
+        f'in `{review_mod.REVIEW_DATASET_REL}`',
+        f'listed under the target task\'s "Plan contracts" in '
+        f"{review_mod.REVIEW_DATASET_REL}",
+    ))
+    assert 'listed under "Plan contracts" below' not in combined
+    assert task_section not in combined
     brief_path = repo / ".factory" / "review-briefs" / "T1.md"
     prior_brief = brief_path.read_bytes()
     code, out = run(repo, "forge.py", "review-brief", "--all", "--repo", str(repo))
@@ -18484,13 +18500,13 @@ def test_review_consumers_include_complete_approved_inputs(
     assert "#### Full approved task plan" in done_current
     assert "#### Full task-owned automated report" in done_current
 
-    import forge_cli.review as review_mod
     from forge_cli import stages as stages_mod
     dataset_path = repo / review_mod.REVIEW_DATASET_REL
     dataset_bytes = dataset_path.read_bytes()
     assert all(token.encode() in dataset_bytes for token in (
         plan_text, full_grill, full_automated,
     ))
+    assert dataset_bytes.count(task_section.encode()) == 1
     review_run = json.loads((story_state(repo) / "review-run.json").read_text())
     assert review_run["brief_sha256"] == hashlib.sha256(dataset_bytes).hexdigest()
     assert (
