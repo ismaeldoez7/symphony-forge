@@ -1,7 +1,7 @@
 {
   "ok": true,
-  "completed_at": "2026-09-13T18:59:05+00:00",
-  "commit": "937233c7db4d43ec9d10e816eaa2ca2a3338df06",
+  "completed_at": "2026-09-13T21:17:53+00:00",
+  "commit": "f954f177ba67f8a7711c7ed6ec36060d023764e7",
   "results": [
     {
       "command": "python3 factory/scripts/check_dual_runtime.py",
@@ -18,9 +18,9 @@
       "phase": "typecheck"
     },
     {
-      "command": "AUTOREVIEW= UV_CACHE_DIR=/tmp/forge-ci-uv-cache UV_TOOL_DIR=/tmp/forge-ci-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest -q factory/tests/test_review_task_delta.py::test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes factory/tests/test_gates.py::test_review_preflight_uses_active_task_proof factory/tests/test_review_settled_contracts.py::test_reject_republishes_one_complete_pointer_selected_set",
+      "command": "uv run --python 3.11 --with pytest --with psutil pytest -q factory/tests/test_gates.py::test_task_proof_refuses_working_tree_marker_different_from_head factory/tests/test_gates.py::test_task_proof_allows_mixed_product_and_metadata_commits factory/tests/test_gates.py::test_task_pr_ready_retry_reuses_unchanged_committed_marker factory/tests/test_gates.py::test_task_proof_refuses_committed_null_marker factory/tests/test_worker_admission.py::test_worker_add_or_update_symlink_leaf_is_denied factory/tests/test_worker_admission.py::test_worker_symlink_entry_is_denied",
       "exit_code": 0,
-      "stdout": "...                                                                      [100%]\n3 passed in 40.12s\n",
+      "stdout": ".........                                                                [100%]\n9 passed in 45.69s\n",
       "stderr": "",
       "phase": "tests"
     }

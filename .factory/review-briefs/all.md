@@ -39,10 +39,10 @@ For each contract, emit a verdict — implemented | partial | missing — with f
 
 ### Reviewer focus
 
-- Review the complete accumulated task delta against every acceptance criterion and constitution/09-agent-conduct.md sections 2 through 4. Preserve all prior native coordination, model selection, review projection, marker validation, and AGENTS hygiene behavior.
-- For the Ubuntu continuation, require exactly three test paths relative to the recorded pre-delegation baseline. The recorder test must use the same test-owned safe helper in-process and in its subprocess; the active-task preflight test may patch only helper discovery; neither may depend on a personal ~/.codex skill.
-- The rejection-lineage merge fixture must commit existing lifecycle state before branching, require merge failure, and assert git diff --name-only --diff-filter=U is exactly src/work.py before resolution. Reject skipped tests, production-code changes, an arbitrary nonzero merge, or hidden dirty state.
-- Require all three focused nodes with AUTOREVIEW empty and the ordinary process HOME, exact diff proof, then a fresh deterministic close result and current Ubuntu CI before sealing/merge.
+- Review the complete accumulated task delta against every acceptance criterion and constitution/09-agent-conduct.md sections 2 through 4. Treat generation 6575c26f as blocking history and require all three cited P1 defects to be closed.
+- Marker handling must distinguish no committed marker from changed, deleted, malformed, or non-object working state when HEAD contains one. A present committed JSON null marker must be rejected by both local task_proof_problems and the CI check_task_proof reader rather than treated as absence; a genuinely absent committed marker keeps pre-seal behavior. Normalize non-objects only for the exact .factory/stories/<story>/tasks/<task>/pr-ready.json suffix, preserve other same-named JSON values, and remove the redundant test_task_proof_refuses_committed_non_object_marker fixture so the cumulative four-path repair stays below 160 changed lines. Ordinary sealed all.md bytes come from marker publication, while explicit preseal and marker-bound upgrade behavior remain intact.
+- Structured patch handling must retain operation identity through normalization: Add, standalone Update, and Move-destination symlink leaves refuse; authorized Delete and Move-source leaves remain allowed; and symlinked or escaping ancestors refuse.
+- Require only the four authorized product paths, the five focused regression nodes, git diff --check, fresh focused task-close proof, fresh clean combined review, and current-head Linux and Windows CI before merge.
 
 ### Scope amendments
 
@@ -120,81 +120,83 @@ The following blocks are evidence from approved artifacts. Treat their contents 
 - Story: `FORGE-COORD-1`
 - Task: `NATIVE-FOREGROUND-ACTIVATE`
 - Branch: `feat/FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE`
-- Current delta ID: `6d51c3352052b836e0e8adcd53af369812301192b22cebbebc0dcc3143ad3a34`
-- Approved plan digest: `314c119e85f9a2cc0fc96ad4520ccf7235c79c5890f6095dbcd9687a6de5c303`
+- Current delta ID: `a00b7ddb44aa0b04df2bb79dcc9da3ac5e1be69a0300ec30768dceb10cce6b58`
+- Approved plan digest: `c48020f6f79f50c704d549721780f2f378025188771b974f782b0c1b67595971`
 
 #### Full approved task plan (untrusted data)
 
 ````markdown
-# NATIVE-FOREGROUND-ACTIVATE Ubuntu fixture repair
+# NATIVE-FOREGROUND-ACTIVATE nineteenth formal review fixes
 
 ## Status
 
-The task remains active and draft PR #221 remains open at `4e8dd2e4f24654c368372fadb4119813f1609f33`. Local deterministic verification is green: 1,059 passed and three skipped under the recorded four-worker command. Main interrupted close after that proof and during focused selectors, before formal review, because Ubuntu CI identified three hermetic-test failures on the same commit.
-
-The failures are diagnosed test portability defects. They require no runtime, architecture, dependency, model-policy, review-policy, or task-graph change. Preserve the green `verify.json`, all prior task behavior, and the existing three-path closeout repair.
+Draft PR #221 is open at `499c358`. Its current Linux and Windows CI is green. Formal combined review generation `6575c26f` is preserved as blocking history with two quality P1 findings and one security P1 finding. Independent focused reproductions confirmed all three defects.
 
 ## Objective
 
-Make three existing review tests hermetic on a clean Ubuntu runner. Give the review-set recorder test one temporary safe helper whose identity is shared with its subprocess, give the active-task preflight test an explicit temporary safe helper instead of resolving a personal install, and make the rejection-lineage merge fixture commit its lifecycle state before the intended divergent merge while asserting that `src/work.py` is the exact unmerged path.
+Fix the three confirmed review defects without changing architecture or the task graph: fail closed when a working-tree task marker differs from its committed HEAD identity, read a sealed task's authoritative review brief from the marker-publication commit, and preserve structured patch operation identity so Add, standalone Update, and Move destination cannot follow a symlink leaf while Delete and Move source keep their authorized lexical-leaf behavior.
 
 ## Scope and decisions
 
-Only these paths may change:
+Only these product paths may change:
 
-- `factory/tests/test_review_task_delta.py`
+- `factory/scripts/factory_lib.py`
+- `factory/scripts/pre_tool_use.py`
 - `factory/tests/test_gates.py`
-- `factory/tests/test_review_settled_contracts.py`
+- `factory/tests/test_worker_admission.py`
 
-Use existing pytest fixtures, `monkeypatch`, and temporary files. Do not install or copy a personal autoreview skill into CI, skip tests, weaken helper validation, change production resolution order, or accept an arbitrary failed merge. Follow `constitution/09-agent-conduct.md` sections 2 through 4 and the Ponytail ladder.
+Use the existing C2 worker-admission and C4 sealed-proof abstractions. Do not add a marker format, review registry, proof fallback, path abstraction, dependency, skip, or platform exception. Follow `constitution/09-agent-conduct.md` sections 2 through 4 and the Ponytail ladder.
 
 The exact repairs are:
 
-1. `test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes` receives `monkeypatch`, writes a harmless temporary helper, and sets `AUTOREVIEW` to that path before deriving the candidate helper identity. The subprocess recorder inherits the same explicit helper identity. This keeps the production resolver and installed-helper comparison exercised without depending on `~/.codex/skills/autoreview`.
-2. `test_review_preflight_uses_active_task_proof` writes a harmless temporary helper and patches only `review_mod.resolve_skill` to return it. The test remains focused on reaching the review-brief boundary after checking the active task's proof paths.
-3. `test_reject_republishes_one_complete_pointer_selected_set` commits the fixture's existing lifecycle state on the task branch before creating the divergent trunk branch. After the expected nonzero merge, assert the exact unmerged path list is `src/work.py` before resolving it. A dirty-tree refusal or unrelated merge error must fail the test.
-
-Before the worker launches, Main temporarily records only these three required tests and no broad verify command. After the worker returns, Main audits the exact three-path diff, records focused proof, commits and pushes, restores all 64 cumulative required tests and five verify commands, then resumes task close. The already-green full-suite result remains truthful history but the changed test delta requires the normal final close proof.
+1. Local task-proof validation compares the working marker with the marker committed at HEAD before treating a task as unsealed. A changed, deleted, malformed, or non-object working marker refuses when HEAD contains a marker. A task with no committed marker keeps its existing pre-seal behavior, and explicit `preseal=True` remains available for the supported fresh-proof flow.
+2. A sealed ordinary task reads `.factory/review-briefs/all.md` from the commit that first published its marker. It must not prefer an inherited brief at the product/seal commit. Existing selected-upgrade and historical proof behavior remains intact.
+3. `apply_patch_paths()` preserves Add, standalone Update, Delete, Move source, and Move destination roles through normalization. Add, standalone Update, and Move destination targeting a symlink lexical leaf refuse because Codex writes through those paths. Delete and Move source retain the existing lexical-leaf behavior. Symlinked or escaping ancestors still refuse.
 
 ## Workflow
 
 ```mermaid
 flowchart LR
-    A[Ubuntu CI three fixture failures] --> B[Three test-only hermetic fixes]
-    B --> C[Run three nodes without AUTOREVIEW]
-    C --> D[Main audits, commits, pushes]
-    D --> E[Restore cumulative proof contract]
-    E --> F[Resume task close]
+    A[Blocking formal review generation] --> B[Fix marker identity and brief tree]
+    A --> C[Fix patch operation identity]
+    B --> D[Focused sealed-proof regressions]
+    C --> E[Focused symlink operation matrix]
+    D --> F[Main audits and records proof]
+    E --> F
+    F --> G[Fresh combined review and CI]
 ```
 
 ## Verification
 
-The worker runs only:
+The implementation worker runs:
 
 ```bash
-AUTOREVIEW= UV_CACHE_DIR=/tmp/forge-ci-uv-cache UV_TOOL_DIR=/tmp/forge-ci-uv-tool \
+UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool \
   uv run --python 3.11 --with pytest --with psutil pytest -q \
-  factory/tests/test_review_task_delta.py::test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes \
-  factory/tests/test_gates.py::test_review_preflight_uses_active_task_proof \
-  factory/tests/test_review_settled_contracts.py::test_reject_republishes_one_complete_pointer_selected_set
+  factory/tests/test_gates.py::test_task_proof_refuses_working_tree_marker_different_from_head \
+  factory/tests/test_gates.py::test_task_proof_allows_mixed_product_and_metadata_commits \
+  factory/tests/test_gates.py::test_task_pr_ready_retry_reuses_unchanged_committed_marker \
+  factory/tests/test_worker_admission.py::test_worker_add_or_update_symlink_leaf_is_denied \
+  factory/tests/test_worker_admission.py::test_worker_symlink_entry_is_denied
 git diff --check
 ```
 
-`AUTOREVIEW=` is intentionally empty so each test must provide its own temporary helper. Main rejects any non-`.factory` path outside the three files. This continuation may add plus delete at most 40 lines; the cumulative task remains under 180 files/18,000 lines.
+Main audits the exact four-path diff and records focused proof. Final task close uses the existing cumulative selectors with a focused `FACTORY_TEST_CMD`; current-head Linux and Windows CI own the broad cross-platform run before merge.
 
 ## Manual Verification
 
-1. Read the recorder test and confirm its in-process candidate and subprocess validation resolve the same temporary helper while production helper validation remains active.
-2. Read the preflight test and confirm only helper discovery is replaced; proof-path spies and the review-brief boundary remain unchanged.
-3. Read the merge fixture and confirm task lifecycle state is committed before checkout, the merge conflicts on `src/work.py`, and the test checks that exact unmerged path before resolution.
-4. Inspect the baseline-to-working-tree diff and confirm only the three authorized test files changed, with no skip marker or production-code edit.
+1. Read `_committed_task_marker()` and confirm a committed marker cannot be hidden by changing or deleting its working copy, while a genuinely unsealed task still works.
+2. Read the sealed proof call and confirm marker publication is the sole ordinary sealed source for `all.md`.
+3. Read the structured patch parser and confirm a Move reclassifies its source and destination separately without resolving either lexical leaf.
+4. Run the focused tests and confirm changed/deleted/non-object marker cases refuse, the publication-brief case passes, Add/standalone-Update/Move-destination symlink leaves refuse, and Delete/Move-source controls pass.
+5. Inspect the worker diff and confirm only the four authorized files changed, with no skip or fallback.
 
 <!-- forge:contract -->
 ## Contract (recorded)
 
 Rendered by the harness from the recorded decomposition; edit the decomposition, not this block. It is excluded from the plan's approval and grill digests, so a re-render never stales either.
 
-**Objective.** Continue from locally verified commit 4e8dd2e4f24654c368372fadb4119813f1609f33 and preserve all production behavior. Repair only three clean-Ubuntu review-test fixtures: bind the recorder test to one temporary safe helper shared with its subprocess, bind the active-task preflight test to a temporary safe helper, and commit lifecycle fixture state before the rejection-lineage test's intentional divergent merge while asserting src/work.py is the exact unmerged path. The worker runs only those three nodes with no personal AUTOREVIEW dependency; Main owns diff audit, recorders, Git, restored cumulative proof, close, review, seal, PR and CI.
+**Objective.** Resolve formal combined review generation 6575c26f without changing architecture or the task graph. In factory_lib.py, fail closed when the local task marker differs from the marker committed at HEAD and read an ordinary sealed review brief from the marker-publication commit. In pre_tool_use.py, preserve Add/Update/Delete/Move identity through structured patch normalization so Add, standalone Update, and Move-destination symlink leaves refuse while authorized Delete and Move-source lexical leaves remain allowed and escaping ancestors still refuse. Change only factory/scripts/factory_lib.py, factory/scripts/pre_tool_use.py, factory/tests/test_gates.py, and factory/tests/test_worker_admission.py; Main owns recorders, Git, close, review, seal, PR, and CI.
 
 **Acceptance criteria**
 
@@ -360,6 +362,11 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 - `test_the_effort_escalation_harness_yaml_documents_is_reachable` -- `UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}` (factory/tests/test_stop_less_often.py)
 - `test_board_memo_reuses_git_facts_until_the_files_that_decide_them_change` -- `UV_CACHE_DIR=/tmp/forge-closeout-uv-cache UV_TOOL_DIR=/tmp/forge-closeout-uv-tool uv run --with pytest --with psutil pytest -q {path}::{id} --junitxml={report}` (factory/tests/test_board_load_time.py)
 - `test_story_closeout_requires_all_task_markers_and_completed_stories_reads_shipped` -- `UV_CACHE_DIR=/tmp/forge-closeout-uv-cache UV_TOOL_DIR=/tmp/forge-closeout-uv-tool uv run --with pytest --with psutil pytest -q {path}::{id} --junitxml={report}` (factory/tests/test_gates.py)
+- `test_task_proof_refuses_working_tree_marker_different_from_head` -- `UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}` (factory/tests/test_gates.py)
+- `test_task_proof_allows_mixed_product_and_metadata_commits` -- `UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}` (factory/tests/test_gates.py)
+- `test_worker_add_or_update_symlink_leaf_is_denied` -- `UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}` (factory/tests/test_worker_admission.py)
+- `test_worker_symlink_entry_is_denied` -- `UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}` (factory/tests/test_worker_admission.py)
+- `test_task_proof_refuses_committed_null_marker` -- `UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}` (factory/tests/test_gates.py)
 
 **Verify commands**
 
@@ -369,7 +376,7 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 - `UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_native_launch.py factory/tests/test_native_setup.py factory/tests/test_worker_admission.py -q`
 - `UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py`
 
-**Review budget.** 180 files / 18000 lines -- Original estimate remains 24 files/4,000 changed lines; integrated e17f44f-to-4e8dd2e task delta remains within the approved 180-file/18,000-line seal ceiling. This post-4e8dd2e Ubuntu portability continuation may change only factory/tests/test_review_task_delta.py, factory/tests/test_gates.py, and factory/tests/test_review_settled_contracts.py with at most 40 added-plus-deleted lines. Exclude only harness-owned .factory/** recorder state; no runtime, dependency, skip, or production path may change.
+**Review budget.** 180 files / 18000 lines -- Original estimate remains 24 files/4,000 changed lines and the cumulative task remains inside the approved 180-file/18,000-line seal ceiling. The post-499c358 formal-review continuation may change only factory/scripts/factory_lib.py, factory/scripts/pre_tool_use.py, factory/tests/test_gates.py, and factory/tests/test_worker_admission.py with at most 160 added-plus-deleted lines. Exclude only recorder-owned .factory/** state; no architecture, dependency, schema, skip, or unrelated production path may change.
 <!-- /forge:contract -->
 
 ````
@@ -378,58 +385,58 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 
 ```json
 {
-  "approved_at": "2026-09-13T18:53:34+00:00",
-  "approved_by": "Ravi (standing complete-program and in-scope recovery authorization, Codex conversation 2026-09-14)",
-  "approved_task_plan_sha256": "314c119e85f9a2cc0fc96ad4520ccf7235c79c5890f6095dbcd9687a6de5c303",
+  "approved_at": "2026-09-13T19:51:01+00:00",
+  "approved_by": "Ravi (standing complete-program and in-scope review-fix authorization, Codex conversation 2026-09-14)",
+  "approved_task_plan_sha256": "c48020f6f79f50c704d549721780f2f378025188771b974f782b0c1b67595971",
   "citations": [
     {
-      "finding": "test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes resolved the autoreview helper from the developer personal installation, so a clean Ubuntu runner failed before testing origin-specific review validation.",
-      "source": "Ubuntu scaffold-check run 34773360292; factory/tests/test_review_task_delta.py recorder test; forge_cli.review.resolve_skill"
+      "finding": "A committed task marker changed, deleted, or replaced by non-object JSON in the working tree is treated as no marker, so local task-proof consumers can silently downgrade sealed proof to the pre-seal path.",
+      "source": "formal review generation 6575c26f quality finding at factory/scripts/factory_lib.py:1630; focused committed-marker reproduction"
     },
     {
-      "finding": "test_review_preflight_uses_active_task_proof reached personal helper resolution before its monkeypatched review-brief boundary, so it failed on clean Ubuntu instead of testing task proof selection.",
-      "source": "Ubuntu scaffold-check run 34773360292; factory/tests/test_gates.py active-task review preflight; forge_cli.review.cmd_review"
+      "finding": "An ordinary sealed task reads all.md from the marker's product/seal commit before the marker-publication commit, so an inherited prior-task brief can mask the exact brief published with the marker.",
+      "source": "formal review generation 6575c26f quality finding at factory/scripts/factory_lib.py:2209; focused marker-publication tree probe"
     },
     {
-      "finding": "test_reject_republishes_one_complete_pointer_selected_set accepted any nonzero merge and left lifecycle fixture state dirty, allowing a dirty-tree refusal with no src/work.py conflict to reach a later empty commit failure.",
-      "source": "Ubuntu scaffold-check run 34773360292; factory/tests/test_review_settled_contracts.py rejection-lineage merge fixture and git status"
+      "finding": "Structured apply_patch parsing discards Add/Update/Delete/Move source/Move destination identity before lexical-leaf normalization, so Add, standalone Update, or Move destination can write through a symlink leaf outside the repository.",
+      "source": "formal review generation 6575c26f security finding at factory/scripts/pre_tool_use.py:665; focused symlink-leaf reproduction; OpenAI Codex apply-patch source lines 65-77 and 474-672"
     }
   ],
-  "commit": "0a8da404ae492fac60f98959b7e8248434813c28",
+  "commit": "499c35817023d1bb30dcdd59886d808871837c23",
   "contradictions": [],
   "criteria_map": {
-    "C10 uses one task-aware proof predicate for local worktree, CI, board/readiness, `forge task close` and sealing. Pre-seal consumers resolve the immutable generation named and hashed by task `selected.json`, with raw output, three lenses and current `product_delta_digest` identity. Pointer replacement publishes last; absent, fixed-only, incomplete, malformed, copied, mixed, stale, tampered or interrupted proof preserves the prior pointer. Active publication rechecks HEAD/delta while holding review-selection exclusion. Task seal holds that same exclusion from selected-proof validation through marker commit, revalidates the pointer, traverses and validates the complete combined-to-selected rejection ancestry, and stages the pointer, every generation in that lineage, each referenced lesson at its exact path/hash, and `all.md`. A real separate-process regression pauses sealing after marker preparation while the lock remains held, starts publication in a second process, and proves pointer replacement waits until the marker commit finishes; sealed readers load that lineage and its lessons from the marker commit. Only Portable may later publish an upgrade pointer. Sealed readers follow the task's current pointer for an upgrade only when its validated `sealed_commit` exactly equals the inspected task marker; ordinary combined or rejection ancestry remains loaded from that marker commit. Close skips helper only for selected clean/current proof; a post-pointer stamp retry validates and stamps that same generation without another helper. Stage/frontier, CI and board share the predicate; refusal mutates no marker, Git, PR, stage or proof state, and no runtime reader falls back to fixed or story proof. Every verify/tests reader uses one central proof-specific typed-read rule in factory_lib.py: valid non-object JSON is malformed proof, and the existing forge next/phase, board, phase-transition, story-closeout, task-close, frontier and seal consumers reach their inspection, repair or refusal outcomes without calling .get on that value or raising; every out-of-batch consumer module remains byte-identical and only factory_lib.py plus existing in-batch tests may change for this fix. Decision 0066 legacy conversion runs only after selected proof passes; invalid/stale proof leaves caller, authoritative stage and snapshot bytes unchanged. Task-owned proof presence is independent of successful object parsing: a syntactically valid non-object verify.json or tests.json forces modern fail-closed validation and can never enable legacy fallback. With an existing marker and unchanged product delta, an ordinary pr-ready retry runs the sealed predicate and refuses every post-marker proof rewrite before marker, stage, selection, Git, push, or PR mutation; clean unchanged proof reuses the marker, while a genuinely moved product follows the normal reopen, fresh-proof, review, close, and reseal flow. A sealed task with missing task-owned proof never downgrades to fixed story/root verify, tests, or lens files. The sole fixed-proof migration remains a schema-valid selected origin=upgrade generation whose sealed_commit exactly binds the inspected marker.": "C4 remains covered by the accumulated selected-generation, sealing, typed-proof, CI, frontier, and close regressions named in the protected plan, with no correction outside the review projection seam.",
+    "C10 uses one task-aware proof predicate for local worktree, CI, board/readiness, `forge task close` and sealing. Pre-seal consumers resolve the immutable generation named and hashed by task `selected.json`, with raw output, three lenses and current `product_delta_digest` identity. Pointer replacement publishes last; absent, fixed-only, incomplete, malformed, copied, mixed, stale, tampered or interrupted proof preserves the prior pointer. Active publication rechecks HEAD/delta while holding review-selection exclusion. Task seal holds that same exclusion from selected-proof validation through marker commit, revalidates the pointer, traverses and validates the complete combined-to-selected rejection ancestry, and stages the pointer, every generation in that lineage, each referenced lesson at its exact path/hash, and `all.md`. A real separate-process regression pauses sealing after marker preparation while the lock remains held, starts publication in a second process, and proves pointer replacement waits until the marker commit finishes; sealed readers load that lineage and its lessons from the marker commit. Only Portable may later publish an upgrade pointer. Sealed readers follow the task's current pointer for an upgrade only when its validated `sealed_commit` exactly equals the inspected task marker; ordinary combined or rejection ancestry remains loaded from that marker commit. Close skips helper only for selected clean/current proof; a post-pointer stamp retry validates and stamps that same generation without another helper. Stage/frontier, CI and board share the predicate; refusal mutates no marker, Git, PR, stage or proof state, and no runtime reader falls back to fixed or story proof. Every verify/tests reader uses one central proof-specific typed-read rule in factory_lib.py: valid non-object JSON is malformed proof, and the existing forge next/phase, board, phase-transition, story-closeout, task-close, frontier and seal consumers reach their inspection, repair or refusal outcomes without calling .get on that value or raising; every out-of-batch consumer module remains byte-identical and only factory_lib.py plus existing in-batch tests may change for this fix. Decision 0066 legacy conversion runs only after selected proof passes; invalid/stale proof leaves caller, authoritative stage and snapshot bytes unchanged. Task-owned proof presence is independent of successful object parsing: a syntactically valid non-object verify.json or tests.json forces modern fail-closed validation and can never enable legacy fallback. With an existing marker and unchanged product delta, an ordinary pr-ready retry runs the sealed predicate and refuses every post-marker proof rewrite before marker, stage, selection, Git, push, or PR mutation; clean unchanged proof reuses the marker, while a genuinely moved product follows the normal reopen, fresh-proof, review, close, and reseal flow. A sealed task with missing task-owned proof never downgrades to fixed story/root verify, tests, or lens files. The sole fixed-proof migration remains a schema-valid selected origin=upgrade generation whose sealed_commit exactly binds the inspected marker.": "C4 owns both sealed-proof corrections. The plan distinguishes a genuinely absent committed marker from a changed local copy, makes marker publication authoritative for ordinary sealed all.md bytes, and binds focused negative and positive regressions without adding a proof path.",
     "C9 review inputs are complete and task-specific: task, branch and combined review receive the full approved task plan, approval/grill fields, digest, current delta and resolved automated report; missing, stale, summarized, truncated or substituted inputs refuse. Each default `forge review` calls the installed helper once and creates one schema-exact immutable generation with RFC4648 base64 of exact pre-parse output and three genuine lens records. Combined/rejection retain real helper/input/raw/run/brief provenance; upgrade losslessly copies sealed legacy lenses with inventory/source hashes and marker identity and fabricates none. Public `--set` derives or compares the installed helper path/version/hash, exact `_combined_prompt(task)` bytes/hash/count, current run/brief, task token and current delta before accepting raw output; it rederives lenses and refuses caller mismatch. Provider passes are authoritative. Forge reconstructs and validates the top-level list in pass order with the helper's unchanged `(NFC POSIX path, integer line, exact category, normalized tagged title)` merge key and chunk prefix/2,000-character bound; raw and top-level findings remain lossless and mixed source attribution refuses. Lens projection and remediation use the separate `(NFC POSIX path, integer line as normalized start/end, normalized tag-free title)` fingerprint. Same-lens duplicates keep only the first projected provider record, preserving its category and metadata; the same fingerprint under different lenses refuses. Assessment prose carries no parsed fingerprint grammar, and rejection identity remains SHA256 of canonical path/line/title JSON. Require exact ordered full-line lens markers, chunk order, one lens tag, the 3,000-character explanation bound, quality verdicts only inside quality blocks, and existing score/recommendation/worst-verdict rules. Verify helper identity before/after launch. Under cross-platform review-selection exclusion, revalidate current HEAD/delta immediately before pointer replacement; stale publication refuses. Generation identity is canonical content SHA256; reads recompute it; ancestors are real directories and leaves regular single-link files; identical retry succeeds and unequal collision refuses. A blocking generation selects and revokes clean status; only selected clean/current proof certifies. Rejection may extend selected combined or rejection proof, bind the immediate source SHA/ID and combined root, preserve raw bytes/prior history/unaffected lenses, and append one unique cited finding plus deterministic lesson path/hash. Record or idempotently reuse the lesson before pointer publication; lesson failure preserves selection, later pointer failure may leave a valid reusable lesson, and divergent lesson collision refuses. Upgrade, fixed-only, unselected, copied, stale, incomplete-source, unrelated-citation, no-match, ambiguous and already-rejected findings refuse. Existing regressions prove each refusal preserves selection and prove two sequential successful rejections preserve exact fingerprints, raw bytes, lesson lineage, and clean-checkout sealing. Diagnostics never publish or stamp. First and Lean produce only recorder-backed task proof. Lens-title validation normalizes the tag-free title before checking for another lens tag, so a second quality, performance, or security tag separated by any whitespace refuses before projection and duplicate identity. Combined/rejection generation validation always checks decoded raw helper shape even for zero bytes with canonical empty base64/SHA. One-pass and pass wrappers alone carry provider_report; a chunked top-level provider_report is unexpected and refuses before projection or publication. Every decoded non-object helper result, including null, number, list, and string, reaches one controlled invalid-wrapper refusal before membership tests and can never publish. provider_report authority is allowed only when the caller requires it for one-pass or pass wrappers, never through a global allowance.": "C3 is covered by the review.py projection-only change and the existing review task-delta tests: provider and top-level records stay lossless, same-lens projection keeps the first tag-free fingerprint, and cross-lens duplication refuses.",
     "Closeout proof matches the hardened marker contract without weakening production validation. The board memo regression counts the current rev-parse probe, proves memo reuse, and invalidates against a schema-valid reconciled marker. The story-closeout regression commits the existing scoped decomposition with T1 proof before marker publication, immediately asserts T1 is valid on trunk, and keeps normal sealed markers unreconciled. AGENTS.md remains semantically complete at no more than 110 lines, and the repository scaffold checker passes.": "C9 is executable through the exact two regression nodes plus both hygiene/scaffold checks; the board fixture uses current rev-parse probing and a valid reconciled marker, the story fixture commits its scoped decomposition before a normal marker and asserts it immediately, and AGENTS.md remains semantically complete within 110 lines.",
     "NATIVE-FOREGROUND-ACTIVATE preserves the full target hook configuration and Claude parity: native hook JSON stays scoped, `.claude/settings.json` gains clear registration, `check_dual_runtime.py` verifies independent and both-adapter omissions, and official hook readiness remains trusted. As an explicitly additional user-requested overlay, First owns every current model-policy hunk without moving any original prepared path/hunk allocation: owning harness/launcher, active project profiles and guidance, all 15 committed team agent definitions, exact init/upgrade distribution proof, top-level main-selector omission, and same-plugin Luna/max doctor compatibility. The main coordinator model and reasoning are selected by the user and host, including Terra when the user chooses it. Exploration uses Sol/low; planning, decomposition, architecture, plan validation and grills use Sol/high; implementation, technical test verification and autoreview fixes use Sol/medium, with formal Lite as Luna/max; formal autoreview and functional checking use Sol/high; no Forge-managed delegated or subagent lane uses Terra. Decision 0074 supersedes Decision 0070 for current model policy, retains every Forge-managed pin and team definition, and preserves Decision 0031's Lite lifecycle. The original Luna/max C8 evidence remains unchanged history, not selector authority. Ordinary `forge delegate` derives Sol/medium from harness.yaml; any retained effort input accepts only exact `medium` and rejects low/high/xhigh before launch. Review execution pins Codex to Sol/high and refuses an unreadable or known Terra-fallback helper before brief publication or launch. Shell-wrapped raw Codex detection consumes supported option operands before command detection: Bash `-o/+o`, `-O/+O`, `--rcfile`, `--init-file`, including whitespace-separated, clustered, and attached forms, and zsh `-o/+o`, including whitespace-separated and attached forms. Operand values remain data even when they contain `c`, `codex`, or shell-looking text. It treats `c` only as a real short option, stops at `--` or the first script operand, and refuses nested raw launch before execution. Direct and supported wrapped raw launches normalize both slash styles before comparing the platform basenames codex, codex.exe, and codex.cmd; quoted absolute Windows paths and executable suffixes cannot bypass the protected launch path. Raw detection remains quote-aware for whitespace-bearing global option operands and environment-assignment values in direct, wrapped, pipeline, and substitution forms; already-parsed Codex argv is classified directly without re-stringifying it. Raw-Codex regex candidates are accepted only at active shell boundaries: quoted or escaped assignment/query/pipeline data, single-quoted substitution text, and inert nested-shell data cannot deny, while active separators, later real launches, backticks, and command substitution inside double quotes still deny at both top-level and nested-shell checks. An active $() or backtick body uses fresh inner command context and restores its outer quote only at a real unquoted/unescaped close, so a later launch inside the body denies even under outer double quotes while nested, quoted, and escaped delimiters stay data.": "C1 is covered by the exact 14-path correction, which removes only the three top-level selectors, retains every managed model pin, updates named policy surfaces, and adds model/distribution/projection regressions.",
     "Own-task review preflight uses `proof_path(base, story, artifact, task_id=args.id)` for the active task, accepts only own-task proof, and refuses story or other-task proof without helper fallback.": "C7 remains covered by the accumulated task-owned review preflight implementation and its focused proof-path regression named in the protected plan.",
-    "Process-bound admission remains truthful: foreground launch registers before stdin with terminal identity and writes exact UTF-8 prompt bytes independent of the host locale, zero-exit without completed turn is failed, and native write admission covers add/update/delete/move only after registration. Cancellation writes the existing durable revocation marker before cleanup signals; terminal success/failure plus dead process and released matching lock revoke completion; non-active stage incarnation revokes stage closure. Admission requires an exact starting/running row, live matching process ancestry, held matching lock, active matching stage and no explicit revocation; failed cleanup never invents success and no new completion tombstone is introduced. Worker admission and stage coverage use one immutable-baseline-aware scope rule: a Git tree or explicit trailing slash is a directory, while a blob, symlink, or absent path is exact. Exact equality remains allowed; descendants require directory classification, and the mutable working tree cannot widen authority. Native Codex receives binary stdin bytes equal to the exact multiline prompt encoded as UTF-8, with no platform newline translation. An ordinary terminal row certifies completion only when argv exactly matches the command derived from its own recorded and baseline-classified scope; scope-less legacy argv is never current selector authority. Structured patch normalization preserves an exact lexical symlink leaf so its authorized delete or move can proceed, while any symlinked or escaping ancestor still refuses.": "C2 remains covered by the already implemented native-launch and worker-admission contracts plus the unchanged focused native launch and admission tests in the approved plan.",
+    "Process-bound admission remains truthful: foreground launch registers before stdin with terminal identity and writes exact UTF-8 prompt bytes independent of the host locale, zero-exit without completed turn is failed, and native write admission covers add/update/delete/move only after registration. Cancellation writes the existing durable revocation marker before cleanup signals; terminal success/failure plus dead process and released matching lock revoke completion; non-active stage incarnation revokes stage closure. Admission requires an exact starting/running row, live matching process ancestry, held matching lock, active matching stage and no explicit revocation; failed cleanup never invents success and no new completion tombstone is introduced. Worker admission and stage coverage use one immutable-baseline-aware scope rule: a Git tree or explicit trailing slash is a directory, while a blob, symlink, or absent path is exact. Exact equality remains allowed; descendants require directory classification, and the mutable working tree cannot widen authority. Native Codex receives binary stdin bytes equal to the exact multiline prompt encoded as UTF-8, with no platform newline translation. An ordinary terminal row certifies completion only when argv exactly matches the command derived from its own recorded and baseline-classified scope; scope-less legacy argv is never current selector authority. Structured patch normalization preserves an exact lexical symlink leaf so its authorized delete or move can proceed, while any symlinked or escaping ancestor still refuses.": "C2 owns the patch boundary. The four-path plan preserves distinct Add, standalone Update, Delete, Move-source, and Move-destination roles through the existing parser and normalizer; denies symlink leaves for write-following roles; and retains exact Delete/Move-source plus ancestor-escape controls without a new abstraction.",
     "Review regression tests are hermetic on clean Ubuntu. The review-set recorder test supplies one test-owned safe helper to both in-process identity derivation and the subprocess recorder; the active-task proof preflight test replaces only helper discovery with a test-owned safe helper; and the rejection-lineage fixture commits existing lifecycle state before its intentional divergent merge and requires src/work.py to be the exact unmerged path before resolution. The three focused nodes pass with no personal AUTOREVIEW installation, without skips or production-code changes.": "C10 is covered by three existing focused nodes executed with AUTOREVIEW empty: a test-owned helper shared with the subprocess, a resolver-only preflight patch, and a clean committed merge fixture that asserts the exact unmerged path. No skip, personal install, or production edit is permitted.",
     "The admitted native worker reads and hashes the exact protected task plan, then exercises the actual native hook against that plan with harmless absent patch context. Only a correlated PreToolUse deny event counts: automated report receipt, registered terminal row and durable tool log identify the same launch/session/tool call and actual denial; unchanged bytes, context failure or synthetic payload never certify it. Main runs current `forge next`, process-heavy/full verification and correlation outside the managed companion. The implemented plan-contract review checks that evidence. The one shared review-set schema is introduced here; no second registry or CI/C10 parser is added.": "C8 is covered by a separate registered Sol/medium zero-edit worker using the exact protected plan hash, a real denied apply_patch attempt, correlation to the native hook event, and a receipt recorded into task test proof.",
     "Unsupported native operations refuse before side effects: native background/read-only background, general status, live/dead worker status, cancel/resume/jobs, explore, and native question delivery do not compose briefs, spend question eligibility, append ledgers, signal processes, or dispatch children until their successor owners ship. The only native status exception renders already-dead registered native grill rows through existing dead_launches, restricted to strict grill gate/task labels and starting/running rows proven dead; it does not call the general status handler. Preserve unchanged Claude dispatch.": "C6 remains covered by the accumulated native refusal behavior and focused native setup, launch, and worker-admission suite named in the protected plan.",
     "Workspace-before-JIT honors incumbent 0063. Successor task start checks approved plan/decomposition, task/digest, refreshed trunk and dependency markers, then creates the worktree before JIT save/grill/approval. Attach accepts only a clean, registered, unowned same-common-directory worktree at that trunk commit with matching identity/dependencies. Grounding, JIT approval, stage and registered admission precede writes. After materialization, hydration preflights every destination before payload mutation and preserves Decision 0028's legal in-target file symlink. On refusal it attempts exact worktree removal, deletes the branch only after confirmed removal, and otherwise reports the surviving worktree/registration/branch without inventing cleanup success or mutating external payload state. The shipped-dependency predicate reads one exact fetched origin/trunk snapshot, validates marker identity and ancestry with the fetched SHA, and for an ordinary marker validates the shared exact task proof before any successor branch or worktree allocation. A reconciled marker skips proof only after its identity and ancestry validate; malformed, wrong-task, or proofless markers remain unshipped across task start, board, frontier, and closeout. Existing startup proof covers invalid JSON, non-object, empty-object, wrong-task, invalid-commit, and proofless ordinary dependency markers; each remains unshipped and allocates no task branch or worktree before the validated reconciled positive control.": "C5 remains covered by the accumulated workspace-before-JIT implementation and successor lifecycle tests named in the task plan; the current task changes no successor ordering contract."
   },
-  "current_flow": "Record this resolved task pass and standing approval, temporarily measure only the three failing nodes for one test-only worker, audit and commit exactly three test files, restore cumulative proof, rerun task close, and require Ubuntu CI green before merge.",
+  "current_flow": "Commit the amended contract, delegate one Sol/medium four-path repair, run the five focused nodes and diff check, audit and record proof, close with focused FACTORY_TEST_CMD under the cumulative selector contract, run one fresh combined review, push current-head CI, and merge when green.",
   "decision": "keep",
   "frontier_empty": true,
   "gaps": [
-    "test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes resolved the autoreview helper from the developer personal installation, so a clean Ubuntu runner failed before testing origin-specific review validation.",
-    "test_review_preflight_uses_active_task_proof reached personal helper resolution before its monkeypatched review-brief boundary, so it failed on clean Ubuntu instead of testing task proof selection.",
-    "test_reject_republishes_one_complete_pointer_selected_set accepted any nonzero merge and left lifecycle fixture state dirty, allowing a dirty-tree refusal with no src/work.py conflict to reach a later empty commit failure."
+    "A committed task marker changed, deleted, or replaced by non-object JSON in the working tree is treated as no marker, so local task-proof consumers can silently downgrade sealed proof to the pre-seal path.",
+    "An ordinary sealed task reads all.md from the marker's product/seal commit before the marker-publication commit, so an inherited prior-task brief can mask the exact brief published with the marker.",
+    "Structured apply_patch parsing discards Add/Update/Delete/Move source/Move destination identity before lexical-leaf normalization, so Add, standalone Update, or Move destination can write through a symlink leaf outside the repository."
   ],
   "gate": "task",
   "generated_by": "griller",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
-  "input_sha256": "070ee8bd2418b238e6f6b35db036b9480acfd1aa239252defb52b5905fab6a6d",
+  "input_sha256": "a115f31d6a3c62f2d9fdb0224272dea13d2b41718f85e9d366471dee8f0f46df",
   "inspected_refs": [
     ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
     ".factory/stories/FORGE-COORD-1/decomposition.json",
-    "factory/tests/test_review_task_delta.py",
+    ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/reviews/generations/6575c26fc76fd3051bc3929e33642e0ff3cf4eaa70e0c31ae108ff9b66cff33b.json",
+    "factory/scripts/factory_lib.py",
+    "factory/scripts/pre_tool_use.py",
     "factory/tests/test_gates.py",
-    "factory/tests/test_review_settled_contracts.py",
-    "factory/scripts/forge_cli/review.py",
-    "factory/scripts/record_review_from_json.py",
+    "factory/tests/test_worker_admission.py",
     "constitution/README.md",
     "constitution/09-agent-conduct.md"
   ],
@@ -437,11 +444,11 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
   "new_abstractions": [],
   "open_items": [],
   "questions_asked": 1,
-  "recorded_at": "2026-09-13T18:53:27+00:00",
+  "recorded_at": "2026-09-13T19:50:54+00:00",
   "resolutions": [
-    "The recorder test creates one harmless temporary helper, sets AUTOREVIEW to it, and derives the candidate identity from the same resolver; its subprocess inherits that explicit path, preserving real installed-helper identity comparison without a personal install.",
-    "The active-task preflight test creates a harmless temporary helper and patches only review_mod.resolve_skill. Proof-path spies, safety/identity checks, and the review-brief boundary remain exercised.",
-    "The rejection-lineage fixture commits its existing lifecycle state before creating the divergent trunk branch, then requires the merge to fail and requires git diff --name-only --diff-filter=U to equal src/work.py before resolution."
+    "The amended task plan requires HEAD marker comparison before the no-marker path and binds focused cases for changed, deleted, and non-object working markers while preserving a genuinely absent committed marker and explicit preseal behavior.",
+    "The amended task plan makes marker publication the authoritative ordinary sealed all.md tree and adds a stale-at-seal, correct-at-publication regression beside the existing retry control.",
+    "The amended task plan carries separate operation identity through normalization, denies Add, standalone Update, and Move-destination symlink leaves, retains Delete and Move-source lexical leaves, and binds the existing ancestor-escape and ordinary-file controls."
   ],
   "rounds": [
     {
@@ -454,9 +461,9 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
       "question": "Strict-role specification amendment: should Decision 0053 make the coordinator wording neutral while preserving the enforced delegated-Codex-writer boundary and the bounded degraded-mode outage valve?"
     }
   ],
-  "summary": "Resolved the three clean-Ubuntu fixture failures identified by CI and independently confirmed from the failing test code. The continuation changes only existing tests and keeps production review and merge validation intact.",
+  "summary": "Formal generation 6575c26f and two independent focused reproductions exposed three defects already owned by C2 and C4. The amended task plan now specifies the exact four-path fixes, failure boundaries, positive controls, and focused verification; no architecture, decision, or graph change remains.",
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
-  "task_plan_sha256": "314c119e85f9a2cc0fc96ad4520ccf7235c79c5890f6095dbcd9687a6de5c303",
+  "task_plan_sha256": "c48020f6f79f50c704d549721780f2f378025188771b974f782b0c1b67595971",
   "verdict": "pass"
 }
 ```
@@ -467,65 +474,37 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 {
   "blocking_findings": [],
   "commands_run": [
-    "Registered finite correction worker launch/session launch-65c670c937ff4e409cb97edcb5768d0c / 01a09b85-acdf-76a0-bcd5-a120857e7139 -> 3 existing projection/refusal/rejection-lineage selectors passed in 16.21s; terminal succeeded with exit_code 0",
-    "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil pytest -q factory/tests/test_gate_table.py::test_active_model_policy_has_no_forbidden_execution_surface factory/tests/test_native_setup.py::test_model_policy_selects_sol_work_and_luna_lite factory/tests/test_gates.py::test_init_and_upgrade_ship_portable_hook_commands factory/tests/test_gates.py::test_project_agents_init_upgrade_and_preserve_client_additions factory/tests/test_review_task_delta.py::test_combined_review_projects_tagged_lenses_and_preserves_ordered_pass_verdicts factory/tests/test_review_task_delta.py::test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixed_output factory/tests/test_review_settled_contracts.py::test_reject_republishes_one_complete_pointer_selected_set -> 7 passed in 18.73s",
-    "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/check_dual_runtime.py -> clean (historical Confirmed-by convention warnings only)",
-    "Current-plan C8 correlation -> launch launch-8fd15d00170a45bc9a642e6df6954532; session 01a09b81-08e6-73b0-a9d0-d4e030513900; apply_patch call call_zQXCTCLlj6okpsUWnnFyHzDD; transcript ordinals 62/64 contain the real protected-plan tool call and PreToolUse denial; registered terminal row succeeded with exit_code 0; exact task-plan SHA256 before/after b17d99b92031cc14ffea79ca3cb32fd397d291d02f8deb12b8a6c6a900d7b20b; patch_executed=false; repository bytes unchanged by that worker",
-    "Post-merge baseline 980a2d68eafa267d3a20d0838ddbf219610c8e4a..a428241 product audit -> exactly the approved 14 paths, 95 added-plus-deleted lines <= 180, no non-.factory untracked paths; managed harness.yaml, .codex/explore.config.toml and all 15 .codex/agents/*.toml byte-identical",
-    "git diff --check -> clean",
-    "FACTORY deterministic close at c9a85e9722983787797edd82556e713986948c20 -> structural/typecheck passed; full suite 2 failed, 1057 passed, 3 skipped in 3027.44s; failures were board memo obsolete cat-file/invalid-marker fixture and story-closeout uncommitted protected-decomposition fixture",
-    "Registered fixture worker 01a09bdb-ed37-76f2-8179-3d5e58c38b03 -> test_board_memo_reuses_git_facts_until_the_files_that_decide_them_change passed in 8.06s; test_story_closeout_requires_all_task_markers_and_completed_stories_reads_shipped passed in 31.80s; check_agents_hygiene.py and check_factory_scaffold.py passed",
-    "Registered semantic correction worker 01a09be8-16ef-7942-bebc-93522eca9ab8 -> same two selectors passed in 3.23s and 25.93s; AGENTS hygiene and factory scaffold passed; git diff --check clean",
-    "Main fixture baseline 4cd4916..a17510c product/documentation audit -> exactly AGENTS.md, factory/tests/test_board_load_time.py, factory/tests/test_gates.py; 30 added-plus-deleted lines; no non-.factory untracked paths",
-    "wc -l -c AGENTS.md -> 110 lines, 6999 bytes; post-approval human authorization and code-only Ponytail semantics retained",
-    "FACTORY_TEST_CMD four-worker task-close verification at 4e8dd2e -> 1059 passed, 3 skipped in 1811.34s; verify.json recorded green; close was intentionally interrupted during focused selectors before formal review after Ubuntu CI reported a known failing head",
-    "Ubuntu scaffold-check run 34773360292 at 4e8dd2e -> 3 failed, 1052 passed, 7 skipped in 774.82s; failures were personal autoreview resolution in two tests and dirty/unasserted intended merge state in the rejection-lineage fixture",
-    "Registered Ubuntu fixture worker 01a09c15-bfb2-7252-ba24-b3a0e9aa1263 -> all three target nodes passed in 24.44s on Python 3.11; git diff --check passed",
-    "AUTOREVIEW= UV_CACHE_DIR=/tmp/forge-ci-uv-cache UV_TOOL_DIR=/tmp/forge-ci-uv-tool uv run --python 3.11 --with pytest --with psutil pytest -q [three target nodes] -> 3 passed in 18.75s using ordinary process HOME",
-    "Main 0a8da40..aa12cd0 product audit -> exactly factory/tests/test_gates.py, factory/tests/test_review_settled_contracts.py, factory/tests/test_review_task_delta.py; 23 added-plus-deleted lines; no non-.factory untracked paths; git diff --check clean"
+    "FACTORY_TEST_CMD='uv run --python 3.11 --with pytest --with psutil pytest -q [six final regression selectors]' ./forge task close NATIVE-FOREGROUND-ACTIVATE at f954f177ba67f8a7711c7ed6ec36060d023764e7 -> all five recorded verify commands and 69 required selector invocations completed; current verify.json recorded check_dual_runtime clean, check_factory_scaffold OK, and the six-selector focused verifier 9 passed in 86.65s; close then stopped only because the prior tests.json was still bound to aa12cd0",
+    "UV_CACHE_DIR=/tmp/forge-native-host-uv-cache UV_TOOL_DIR=/tmp/forge-native-host-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest -q [two process-sensitive selectors plus six final regression selectors] --junitxml=/tmp/NATIVE-FOREGROUND-ACTIVATE-host-regressions.xml -> 11 passed in 58.57s; JUnit reports 11 tests, 0 failures, 0 errors, 0 skipped",
+    "Registered current-contract Sol/medium delegation launch-f274237ba9d0404baba7c3575f00d4e5 / session 01a09c7b-7300-7471-b2d5-fd102233358d at task digest e36ffe37384cb8ed1c75d2332046aec14db78a0b98eaa8ea9dd364e2060c4fdd -> terminal succeeded; 67 required selector commands were green in the worker sandbox, while two process-table selectors and three corresponding three-file-suite cases were blocked only by sandbox sysctl permissions and were subsequently green in the host run and host task-close proof",
+    "git diff --numstat 499c358..f954f17 -- factory/scripts/factory_lib.py factory/scripts/pre_tool_use.py factory/tests/test_gates.py factory/tests/test_worker_admission.py -> 136 insertions and 20 deletions, 156 changed lines across exactly four product/test paths, within the 160-line repair budget; git diff --check 499c358..f954f17 -> clean",
+    "Historical broad proof at 4e8dd2e: FACTORY_TEST_CMD four-worker task-close verification -> 1059 passed, 3 skipped in 1811.34s; later Ubuntu fixture failures were repaired and the current f954f17 task-close proof reran the task's final required selector and verify contracts",
+    "Historical C8 protected-plan correlation at the then-current task-plan commit: launch launch-8fd15d00170a45bc9a642e6df6954532 / session 01a09b81-08e6-73b0-a9d0-d4e030513900 recorded the real protected-plan apply_patch denial, patch_executed=false, and identical task-plan SHA256 before and after; later task-plan amendments changed the contract text but did not weaken that protected-write boundary",
+    "GitHub PR 221 at f954f177ba67f8a7711c7ed6ec36060d023764e7 -> windows-hook-gates passed in 2m1s; scaffold-check remained in progress when this artifact was recorded and remains a merge gate rather than a local automated-test failure"
   ],
-  "commit": "aa12cd024ac07ace890f85232e84711d40bfec08",
+  "commit": "f954f177ba67f8a7711c7ed6ec36060d023764e7",
   "generated_by": "implementer",
-  "manual_validation_steps": [
-    "Confirm the two helper tests construct test-owned safe helpers and do not consult a personal install.",
-    "Confirm the merge fixture commits lifecycle state and asserts src/work.py as the sole unmerged path before resolution."
-  ],
+  "manual_validation_steps": [],
   "non_blocking_findings": [],
-  "pass_fail_summary": "The last full local suite was green at 4e8dd2e. Ubuntu then isolated three fixture failures. After the aa12cd0 repair, all three failed nodes pass with AUTOREVIEW empty and ordinary HOME; the delta is exactly three test files/23 lines with no runtime change. Final deterministic proof and current CI remain owned by task close and the pushed PR.",
-  "recorded_at": "2026-09-13T18:54:20+00:00",
+  "pass_fail_summary": "Current host proof is green for all final regressions and process-sensitive cases. The one worker-sandbox process-table limitation was reproduced as an environment restriction and cleared by the host run and the current task-close proof. No product test failure remains.",
+  "recorded_at": "2026-09-13T21:16:01+00:00",
   "remaining_gaps": [],
   "residual_risks": [],
   "reviewed_scope": [
-    ".codex/config.toml",
-    ".claude/CLAUDE.md",
-    "AGENTS.md",
-    "README.md",
-    "docs/FACTORY.md",
-    "docs/ROLES.md",
-    "docs/specs/dual-coordinator-parity.md",
-    "factory/prompts/implementer.md",
-    "factory/skills/forge.md",
-    "factory/scripts/forge_cli/review.py",
-    "factory/tests/test_gate_table.py",
+    "factory/scripts/factory_lib.py",
+    "factory/scripts/pre_tool_use.py",
     "factory/tests/test_gates.py",
-    "factory/tests/test_native_setup.py",
-    "factory/tests/test_review_task_delta.py",
-    "factory/tests/test_board_load_time.py",
-    "factory/tests/test_review_settled_contracts.py"
+    "factory/tests/test_worker_admission.py"
   ],
   "skills_used": [
     "forge",
     "ponytail"
   ],
   "status": "passed",
-  "summary": "At aa12cd0, the branch retains the green 4e8dd2e local full-suite proof and fixes all three clean-Ubuntu review-fixture failures without production code changes. Review helper fixtures now supply test-owned identities, and the rejection-lineage merge fixture proves its exact intended conflict.",
+  "summary": "At f954f17, the final four-file closeout repair is green: committed-marker proof fails closed on local mismatch and malformed committed null data, sealed review input resolves from the marker-publication commit, and structured patch admission preserves operation roles so Add, Update, and Move destinations cannot follow symlink leaves while Delete and Move sources retain safe lexical behavior.",
   "tests_added_or_updated": [
-    "factory/tests/test_gate_table.py",
     "factory/tests/test_gates.py",
-    "factory/tests/test_native_setup.py",
-    "factory/tests/test_review_task_delta.py",
-    "factory/tests/test_board_load_time.py",
-    "factory/tests/test_review_settled_contracts.py"
+    "factory/tests/test_worker_admission.py"
   ]
 }
 ```
