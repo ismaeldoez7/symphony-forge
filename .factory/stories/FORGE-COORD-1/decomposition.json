@@ -5,7 +5,7 @@
     {
       "id": "NATIVE-FOREGROUND-ACTIVATE",
       "title": "Native foreground and complete first-task proof",
-      "objective": "Continue from locally verified commit 4e8dd2e4f24654c368372fadb4119813f1609f33 and preserve all production behavior. Repair only three clean-Ubuntu review-test fixtures: bind the recorder test to one temporary safe helper shared with its subprocess, bind the active-task preflight test to a temporary safe helper, and commit lifecycle fixture state before the rejection-lineage test's intentional divergent merge while asserting src/work.py is the exact unmerged path. The worker runs only those three nodes with no personal AUTOREVIEW dependency; Main owns diff audit, recorders, Git, restored cumulative proof, close, review, seal, PR and CI.",
+      "objective": "Resolve formal combined review generation 6575c26f without changing architecture or the task graph. In factory_lib.py, fail closed when the local task marker differs from the marker committed at HEAD and read an ordinary sealed review brief from the marker-publication commit. In pre_tool_use.py, preserve Add/Update/Delete/Move identity through structured patch normalization so Add, standalone Update, and Move-destination symlink leaves refuse while authorized Delete and Move-source lexical leaves remain allowed and escaping ancestors still refuse. Change only factory/scripts/factory_lib.py, factory/scripts/pre_tool_use.py, factory/tests/test_gates.py, and factory/tests/test_worker_admission.py; Main owns recorders, Git, close, review, seal, PR, and CI.",
       "dependencies": [],
       "user_facing": false,
       "acceptance_criteria": [
@@ -472,6 +472,26 @@
           "id": "test_story_closeout_requires_all_task_markers_and_completed_stories_reads_shipped",
           "path": "factory/tests/test_gates.py",
           "command": "UV_CACHE_DIR=/tmp/forge-closeout-uv-cache UV_TOOL_DIR=/tmp/forge-closeout-uv-tool uv run --with pytest --with psutil pytest -q {path}::{id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_proof_refuses_working_tree_marker_different_from_head",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_proof_allows_mixed_product_and_metadata_commits",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_worker_add_or_update_symlink_leaf_is_denied",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_worker_symlink_entry_is_denied",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
         }
       ],
       "verify_commands": [
@@ -484,13 +504,13 @@
       "review_budget": {
         "max_changed_files": 180,
         "max_changed_lines": 18000,
-        "reason": "Original estimate remains 24 files/4,000 changed lines; integrated e17f44f-to-4e8dd2e task delta remains within the approved 180-file/18,000-line seal ceiling. This post-4e8dd2e Ubuntu portability continuation may change only factory/tests/test_review_task_delta.py, factory/tests/test_gates.py, and factory/tests/test_review_settled_contracts.py with at most 40 added-plus-deleted lines. Exclude only harness-owned .factory/** recorder state; no runtime, dependency, skip, or production path may change."
+        "reason": "Original estimate remains 24 files/4,000 changed lines and the cumulative task remains inside the approved 180-file/18,000-line seal ceiling. The post-499c358 formal-review continuation may change only factory/scripts/factory_lib.py, factory/scripts/pre_tool_use.py, factory/tests/test_gates.py, and factory/tests/test_worker_admission.py with at most 160 added-plus-deleted lines. Exclude only recorder-owned .factory/** state; no architecture, dependency, schema, skip, or unrelated production path may change."
       },
       "reviewer_focus": [
-        "Review the complete accumulated task delta against every acceptance criterion and constitution/09-agent-conduct.md sections 2 through 4. Preserve all prior native coordination, model selection, review projection, marker validation, and AGENTS hygiene behavior.",
-        "For the Ubuntu continuation, require exactly three test paths relative to the recorded pre-delegation baseline. The recorder test must use the same test-owned safe helper in-process and in its subprocess; the active-task preflight test may patch only helper discovery; neither may depend on a personal ~/.codex skill.",
-        "The rejection-lineage merge fixture must commit existing lifecycle state before branching, require merge failure, and assert git diff --name-only --diff-filter=U is exactly src/work.py before resolution. Reject skipped tests, production-code changes, an arbitrary nonzero merge, or hidden dirty state.",
-        "Require all three focused nodes with AUTOREVIEW empty and the ordinary process HOME, exact diff proof, then a fresh deterministic close result and current Ubuntu CI before sealing/merge."
+        "Review the complete accumulated task delta against every acceptance criterion and constitution/09-agent-conduct.md sections 2 through 4. Treat generation 6575c26f as blocking history and require all three cited P1 defects to be closed.",
+        "Marker handling must distinguish no committed marker from a changed, deleted, malformed, or non-object working marker when HEAD contains one. Ordinary sealed all.md bytes come from marker publication, while explicit preseal and marker-bound upgrade behavior remain intact.",
+        "Structured patch handling must retain operation identity through normalization: Add, standalone Update, and Move-destination symlink leaves refuse; authorized Delete and Move-source leaves remain allowed; and symlinked or escaping ancestors refuse.",
+        "Require only the four authorized product paths, the five focused regression nodes, git diff --check, fresh focused task-close proof, fresh clean combined review, and current-head Linux and Windows CI before merge."
       ]
     },
     {
@@ -590,6 +610,6 @@
   "story": "FORGE-COORD-1",
   "epic": "symphony-forge",
   "plan_file": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-  "commit": "0a8da404ae492fac60f98959b7e8248434813c28",
+  "commit": "499c35817023d1bb30dcdd59886d808871837c23",
   "plan_sha256": "c605101d86582523c618eb7fbe236ccc103b96743d039926f418dc6540a3fd7c"
 }

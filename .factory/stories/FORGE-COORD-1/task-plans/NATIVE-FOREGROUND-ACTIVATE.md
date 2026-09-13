@@ -1,72 +1,74 @@
-# NATIVE-FOREGROUND-ACTIVATE Ubuntu fixture repair
+# NATIVE-FOREGROUND-ACTIVATE nineteenth formal review fixes
 
 ## Status
 
-The task remains active and draft PR #221 remains open at `4e8dd2e4f24654c368372fadb4119813f1609f33`. Local deterministic verification is green: 1,059 passed and three skipped under the recorded four-worker command. Main interrupted close after that proof and during focused selectors, before formal review, because Ubuntu CI identified three hermetic-test failures on the same commit.
-
-The failures are diagnosed test portability defects. They require no runtime, architecture, dependency, model-policy, review-policy, or task-graph change. Preserve the green `verify.json`, all prior task behavior, and the existing three-path closeout repair.
+Draft PR #221 is open at `499c358`. Its current Linux and Windows CI is green. Formal combined review generation `6575c26f` is preserved as blocking history with two quality P1 findings and one security P1 finding. Independent focused reproductions confirmed all three defects.
 
 ## Objective
 
-Make three existing review tests hermetic on a clean Ubuntu runner. Give the review-set recorder test one temporary safe helper whose identity is shared with its subprocess, give the active-task preflight test an explicit temporary safe helper instead of resolving a personal install, and make the rejection-lineage merge fixture commit its lifecycle state before the intended divergent merge while asserting that `src/work.py` is the exact unmerged path.
+Fix the three confirmed review defects without changing architecture or the task graph: fail closed when a working-tree task marker differs from its committed HEAD identity, read a sealed task's authoritative review brief from the marker-publication commit, and preserve structured patch operation identity so Add, standalone Update, and Move destination cannot follow a symlink leaf while Delete and Move source keep their authorized lexical-leaf behavior.
 
 ## Scope and decisions
 
-Only these paths may change:
+Only these product paths may change:
 
-- `factory/tests/test_review_task_delta.py`
+- `factory/scripts/factory_lib.py`
+- `factory/scripts/pre_tool_use.py`
 - `factory/tests/test_gates.py`
-- `factory/tests/test_review_settled_contracts.py`
+- `factory/tests/test_worker_admission.py`
 
-Use existing pytest fixtures, `monkeypatch`, and temporary files. Do not install or copy a personal autoreview skill into CI, skip tests, weaken helper validation, change production resolution order, or accept an arbitrary failed merge. Follow `constitution/09-agent-conduct.md` sections 2 through 4 and the Ponytail ladder.
+Use the existing C2 worker-admission and C4 sealed-proof abstractions. Do not add a marker format, review registry, proof fallback, path abstraction, dependency, skip, or platform exception. Follow `constitution/09-agent-conduct.md` sections 2 through 4 and the Ponytail ladder.
 
 The exact repairs are:
 
-1. `test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes` receives `monkeypatch`, writes a harmless temporary helper, and sets `AUTOREVIEW` to that path before deriving the candidate helper identity. The subprocess recorder inherits the same explicit helper identity. This keeps the production resolver and installed-helper comparison exercised without depending on `~/.codex/skills/autoreview`.
-2. `test_review_preflight_uses_active_task_proof` writes a harmless temporary helper and patches only `review_mod.resolve_skill` to return it. The test remains focused on reaching the review-brief boundary after checking the active task's proof paths.
-3. `test_reject_republishes_one_complete_pointer_selected_set` commits the fixture's existing lifecycle state on the task branch before creating the divergent trunk branch. After the expected nonzero merge, assert the exact unmerged path list is `src/work.py` before resolving it. A dirty-tree refusal or unrelated merge error must fail the test.
-
-Before the worker launches, Main temporarily records only these three required tests and no broad verify command. After the worker returns, Main audits the exact three-path diff, records focused proof, commits and pushes, restores all 64 cumulative required tests and five verify commands, then resumes task close. The already-green full-suite result remains truthful history but the changed test delta requires the normal final close proof.
+1. Local task-proof validation compares the working marker with the marker committed at HEAD before treating a task as unsealed. A changed, deleted, malformed, or non-object working marker refuses when HEAD contains a marker. A task with no committed marker keeps its existing pre-seal behavior, and explicit `preseal=True` remains available for the supported fresh-proof flow.
+2. A sealed ordinary task reads `.factory/review-briefs/all.md` from the commit that first published its marker. It must not prefer an inherited brief at the product/seal commit. Existing selected-upgrade and historical proof behavior remains intact.
+3. `apply_patch_paths()` preserves Add, standalone Update, Delete, Move source, and Move destination roles through normalization. Add, standalone Update, and Move destination targeting a symlink lexical leaf refuse because Codex writes through those paths. Delete and Move source retain the existing lexical-leaf behavior. Symlinked or escaping ancestors still refuse.
 
 ## Workflow
 
 ```mermaid
 flowchart LR
-    A[Ubuntu CI three fixture failures] --> B[Three test-only hermetic fixes]
-    B --> C[Run three nodes without AUTOREVIEW]
-    C --> D[Main audits, commits, pushes]
-    D --> E[Restore cumulative proof contract]
-    E --> F[Resume task close]
+    A[Blocking formal review generation] --> B[Fix marker identity and brief tree]
+    A --> C[Fix patch operation identity]
+    B --> D[Focused sealed-proof regressions]
+    C --> E[Focused symlink operation matrix]
+    D --> F[Main audits and records proof]
+    E --> F
+    F --> G[Fresh combined review and CI]
 ```
 
 ## Verification
 
-The worker runs only:
+The implementation worker runs:
 
 ```bash
-AUTOREVIEW= UV_CACHE_DIR=/tmp/forge-ci-uv-cache UV_TOOL_DIR=/tmp/forge-ci-uv-tool \
+UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool \
   uv run --python 3.11 --with pytest --with psutil pytest -q \
-  factory/tests/test_review_task_delta.py::test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes \
-  factory/tests/test_gates.py::test_review_preflight_uses_active_task_proof \
-  factory/tests/test_review_settled_contracts.py::test_reject_republishes_one_complete_pointer_selected_set
+  factory/tests/test_gates.py::test_task_proof_refuses_working_tree_marker_different_from_head \
+  factory/tests/test_gates.py::test_task_proof_allows_mixed_product_and_metadata_commits \
+  factory/tests/test_gates.py::test_task_pr_ready_retry_reuses_unchanged_committed_marker \
+  factory/tests/test_worker_admission.py::test_worker_add_or_update_symlink_leaf_is_denied \
+  factory/tests/test_worker_admission.py::test_worker_symlink_entry_is_denied
 git diff --check
 ```
 
-`AUTOREVIEW=` is intentionally empty so each test must provide its own temporary helper. Main rejects any non-`.factory` path outside the three files. This continuation may add plus delete at most 40 lines; the cumulative task remains under 180 files/18,000 lines.
+Main audits the exact four-path diff and records focused proof. Final task close uses the existing cumulative selectors with a focused `FACTORY_TEST_CMD`; current-head Linux and Windows CI own the broad cross-platform run before merge.
 
 ## Manual Verification
 
-1. Read the recorder test and confirm its in-process candidate and subprocess validation resolve the same temporary helper while production helper validation remains active.
-2. Read the preflight test and confirm only helper discovery is replaced; proof-path spies and the review-brief boundary remain unchanged.
-3. Read the merge fixture and confirm task lifecycle state is committed before checkout, the merge conflicts on `src/work.py`, and the test checks that exact unmerged path before resolution.
-4. Inspect the baseline-to-working-tree diff and confirm only the three authorized test files changed, with no skip marker or production-code edit.
+1. Read `_committed_task_marker()` and confirm a committed marker cannot be hidden by changing or deleting its working copy, while a genuinely unsealed task still works.
+2. Read the sealed proof call and confirm marker publication is the sole ordinary sealed source for `all.md`.
+3. Read the structured patch parser and confirm a Move reclassifies its source and destination separately without resolving either lexical leaf.
+4. Run the focused tests and confirm changed/deleted/non-object marker cases refuse, the publication-brief case passes, Add/standalone-Update/Move-destination symlink leaves refuse, and Delete/Move-source controls pass.
+5. Inspect the worker diff and confirm only the four authorized files changed, with no skip or fallback.
 
 <!-- forge:contract -->
 ## Contract (recorded)
 
 Rendered by the harness from the recorded decomposition; edit the decomposition, not this block. It is excluded from the plan's approval and grill digests, so a re-render never stales either.
 
-**Objective.** Continue from locally verified commit 4e8dd2e4f24654c368372fadb4119813f1609f33 and preserve all production behavior. Repair only three clean-Ubuntu review-test fixtures: bind the recorder test to one temporary safe helper shared with its subprocess, bind the active-task preflight test to a temporary safe helper, and commit lifecycle fixture state before the rejection-lineage test's intentional divergent merge while asserting src/work.py is the exact unmerged path. The worker runs only those three nodes with no personal AUTOREVIEW dependency; Main owns diff audit, recorders, Git, restored cumulative proof, close, review, seal, PR and CI.
+**Objective.** Resolve formal combined review generation 6575c26f without changing architecture or the task graph. In factory_lib.py, fail closed when the local task marker differs from the marker committed at HEAD and read an ordinary sealed review brief from the marker-publication commit. In pre_tool_use.py, preserve Add/Update/Delete/Move identity through structured patch normalization so Add, standalone Update, and Move-destination symlink leaves refuse while authorized Delete and Move-source lexical leaves remain allowed and escaping ancestors still refuse. Change only factory/scripts/factory_lib.py, factory/scripts/pre_tool_use.py, factory/tests/test_gates.py, and factory/tests/test_worker_admission.py; Main owns recorders, Git, close, review, seal, PR, and CI.
 
 **Acceptance criteria**
 
@@ -232,6 +234,10 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 - `test_the_effort_escalation_harness_yaml_documents_is_reachable` -- `UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}` (factory/tests/test_stop_less_often.py)
 - `test_board_memo_reuses_git_facts_until_the_files_that_decide_them_change` -- `UV_CACHE_DIR=/tmp/forge-closeout-uv-cache UV_TOOL_DIR=/tmp/forge-closeout-uv-tool uv run --with pytest --with psutil pytest -q {path}::{id} --junitxml={report}` (factory/tests/test_board_load_time.py)
 - `test_story_closeout_requires_all_task_markers_and_completed_stories_reads_shipped` -- `UV_CACHE_DIR=/tmp/forge-closeout-uv-cache UV_TOOL_DIR=/tmp/forge-closeout-uv-tool uv run --with pytest --with psutil pytest -q {path}::{id} --junitxml={report}` (factory/tests/test_gates.py)
+- `test_task_proof_refuses_working_tree_marker_different_from_head` -- `UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}` (factory/tests/test_gates.py)
+- `test_task_proof_allows_mixed_product_and_metadata_commits` -- `UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}` (factory/tests/test_gates.py)
+- `test_worker_add_or_update_symlink_leaf_is_denied` -- `UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}` (factory/tests/test_worker_admission.py)
+- `test_worker_symlink_entry_is_denied` -- `UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}` (factory/tests/test_worker_admission.py)
 
 **Verify commands**
 
@@ -241,5 +247,5 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 - `UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_native_launch.py factory/tests/test_native_setup.py factory/tests/test_worker_admission.py -q`
 - `UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py`
 
-**Review budget.** 180 files / 18000 lines -- Original estimate remains 24 files/4,000 changed lines; integrated e17f44f-to-4e8dd2e task delta remains within the approved 180-file/18,000-line seal ceiling. This post-4e8dd2e Ubuntu portability continuation may change only factory/tests/test_review_task_delta.py, factory/tests/test_gates.py, and factory/tests/test_review_settled_contracts.py with at most 40 added-plus-deleted lines. Exclude only harness-owned .factory/** recorder state; no runtime, dependency, skip, or production path may change.
+**Review budget.** 180 files / 18000 lines -- Original estimate remains 24 files/4,000 changed lines and the cumulative task remains inside the approved 180-file/18,000-line seal ceiling. The post-499c358 formal-review continuation may change only factory/scripts/factory_lib.py, factory/scripts/pre_tool_use.py, factory/tests/test_gates.py, and factory/tests/test_worker_admission.py with at most 160 added-plus-deleted lines. Exclude only recorder-owned .factory/** state; no architecture, dependency, schema, skip, or unrelated production path may change.
 <!-- /forge:contract -->
