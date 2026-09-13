@@ -711,6 +711,49 @@ CODEX_EXEC_INVOCATION = re.compile(
 )
 
 
+def _active_codex_exec_match(value: str) -> bool:
+    """Accept regex candidates only at active shell boundaries."""
+    quote = None
+    escaped = False
+    substitutions = []
+    position = 0
+    for match in CODEX_EXEC_INVOCATION.finditer(value):
+        while position < match.start():
+            char = value[position]
+            if escaped:
+                escaped = False
+            elif char == "\\" and quote != "'":
+                escaped = True
+            elif quote == "'":
+                if char == quote:
+                    quote = None
+            elif value.startswith("$(", position):
+                substitutions.append((")", quote))
+                quote = None
+                position += 2
+                continue
+            elif char == "`":
+                if quote is None and substitutions and substitutions[-1][0] == "`":
+                    _closing, quote = substitutions.pop()
+                else:
+                    substitutions.append(("`", quote))
+                    quote = None
+            elif quote:
+                if char == quote:
+                    quote = None
+            elif substitutions and char == substitutions[-1][0]:
+                _closing, quote = substitutions.pop()
+            elif char in "'\"":
+                quote = char
+            position += 1
+        boundary = match.group(0).lstrip()
+        if (not escaped and
+                (quote is None or
+                 (quote == '"' and boundary.startswith(("$(", "`"))))):
+            return True
+    return False
+
+
 def _wrapped_codex_exec(tokens: list[str]) -> bool:
     """Detect a literal Codex exec argv behind a command wrapper."""
     def codex_exec_at(index: int) -> bool:
@@ -880,7 +923,7 @@ def _wrapped_codex_exec(tokens: list[str]) -> bool:
                                 nested_tokens = shlex.split(nested)
                             except (ValueError, IndexError):
                                 return False
-                            return bool(CODEX_EXEC_INVOCATION.search(nested)
+                            return bool(_active_codex_exec_match(nested)
                                         or _wrapped_codex_exec(nested_tokens))
                     if consumed_operand:
                         continue
@@ -1130,7 +1173,7 @@ def _has_active_shell_syntax(value: str) -> bool:
 
 
 codex_match = (
-    CODEX_EXEC_INVOCATION.search(command) or _wrapped_codex_exec(shell_tokens)
+    _active_codex_exec_match(command) or _wrapped_codex_exec(shell_tokens)
 ) if tool_name == "Bash" else None
 codex_help = (
     len(shell_tokens) == 3

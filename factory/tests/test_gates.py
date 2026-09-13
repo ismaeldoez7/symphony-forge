@@ -11867,9 +11867,23 @@ def test_codex_exec_ban_matches_invocations_not_prose(repo, monkeypatch):
                 'xargs --version codex exec',
                 'sh script.sh -c \'codex exec "argument only"\'',
                 'bash +o codex script.sh \'codex exec "argument only"\'',
-                'sh -- -c \'codex exec "argument only"\''):
+                'sh -- -c \'codex exec "argument only"\'',
+                'MODE=\'safe; codex exec x\' python script.py',
+                'printf "%s" "safe | codex exec x"',
+                "echo '$(codex exec x)'",
+                r'echo safe\;codex exec x',
+                'sh -c \'printf "safe; codex exec x"\''):
         code, out = bash(cmd)
         assert "deny" not in out, cmd
+    for cmd in ('printf "%s" "safe; codex exec x"; codex exec real',
+                'echo "$(codex exec real)"',
+                'echo "$(printf x; codex exec x)"',
+                'echo "$(printf \'%s\' \'literal )\'; codex exec x)"',
+                r'echo "$(printf foo\); codex exec x)"',
+                'echo "`codex exec real`"',
+                'echo "`printf x; codex exec x`"'):
+        code, out = bash(cmd)
+        assert "deny" in out, cmd
 
     code, out = run(repo, "forge.py", "mode", "degraded", "start",
                     "--reason", "exercise structured patch content")
@@ -12384,7 +12398,14 @@ def configure_origin_main(repo: Path, remote: Path) -> None:
 def publish_task_marker(repo: Path, key: str, task_id: str) -> Path:
     marker = story_state(repo, key) / "tasks" / task_id / "pr-ready.json"
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text("{}\n")
+    marker.write_text(json.dumps({
+        "task_id": task_id,
+        "branch": git(repo, "branch", "--show-current"),
+        "base_main_sha": git(repo, "rev-parse", "origin/main"),
+        "commit": head(repo),
+        "sealed_at": "2026-09-10T00:00:00+00:00",
+        "reconciled": True,
+    }) + "\n")
     git(repo, "add", marker.relative_to(repo).as_posix())
     git(repo, "commit", "-q", "-m", f"mark {task_id} ready")
     git(repo, "push", "-q", "origin", "HEAD:main")
@@ -12489,7 +12510,12 @@ def test_task_start_creates_worktree_off_main_and_gates_on_predecessor_marker(
 
     marker = repo / ".factory" / "stories" / key / "tasks" / "T1" / "pr-ready.json"
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text("{}\n")
+    marker.write_text(json.dumps({
+        "task_id": "T1", "branch": "feat/ENG-1-T1",
+        "base_main_sha": git(repo, "rev-parse", "origin/main"),
+        "commit": head(repo), "sealed_at": "2026-09-10T00:00:00+00:00",
+        "reconciled": True,
+    }) + "\n")
     git(repo, "add", str(marker.relative_to(repo)))
     git(repo, "commit", "-q", "-m", "mark T1 ready")
     git(repo, "push", "-q", "origin", "HEAD:main")
@@ -19220,10 +19246,10 @@ def test_task_proof_ci_uses_sealed_selected_t1_not_later_t2_singleton(
     assert json.loads(tests.read_text())["automated"]["status"] == "failed"
     assert json.loads(quality.read_text())["task_id"] == "T2"
     import check_task_proof
-    assert not check_task_proof.proof_problems(repo, "ENG-1", "T1")
-    assert not lib.task_proof_problems(repo, "ENG-1", task)
+    assert check_task_proof.proof_problems(repo, "ENG-1", "T1")
+    assert lib.task_proof_problems(repo, "ENG-1", task)
     story = next(s for s in aggregate_state(repo)["stories"] if s["key"] == "ENG-1")
-    assert story["lifecycle"]["proven"] == {"done": 1, "total": 2}
+    assert story["lifecycle"]["proven"] == {"done": 0, "total": 2}
 
     for name in ("verify.json", "tests.json"):
         modern_proof = story_state(repo) / f"tasks/T1/{name}"
@@ -19664,6 +19690,46 @@ def test_task_start_creates_before_jit_with_approved_identity(
         sources["task_plan"].relative_to(repo).as_posix(),
         sources["grill"].relative_to(repo).as_posix())
     git(repo, "commit", "-q", "-m", "mark T1 ready")
+    git(repo, "push", "-q", "origin", "HEAD:main")
+
+    code, out = run(repo, "forge.py", "task", "start", "T2")
+    assert code != 0 and "dependency T1 marker is absent" in out
+    assert not second_worktree.exists()
+    for content in ("not json", "[]"):
+        marker.write_text(content)
+        git(repo, "add", marker.relative_to(repo).as_posix())
+        git(repo, "commit", "-qm", "publish malformed dependency marker")
+        git(repo, "push", "-q", "origin", "HEAD:main")
+        code, out = run(repo, "forge.py", "task", "start", "T2")
+        assert code != 0 and "dependency T1 marker is absent" in out
+        assert not second_worktree.exists()
+    base_main = git(repo, "rev-parse", "origin/main~1")
+    for payload in (
+        {"task_id": "OTHER", "branch": "feat/ENG-1-T1",
+         "base_main_sha": base_main, "commit": head(repo),
+         "sealed_at": "2026-09-10T00:00:00+00:00"},
+        {"task_id": "T1", "branch": "feat/ENG-1-T1",
+         "base_main_sha": base_main, "commit": "not-a-commit",
+         "sealed_at": "2026-09-10T00:00:00+00:00"},
+        {"task_id": "T1", "branch": "feat/ENG-1-T1",
+         "base_main_sha": base_main, "commit": head(repo),
+         "sealed_at": "2026-09-10T00:00:00+00:00"},
+    ):
+        marker.write_text(json.dumps(payload))
+        git(repo, "add", marker.relative_to(repo).as_posix())
+        git(repo, "commit", "-qm", "publish invalid dependency marker")
+        git(repo, "push", "-q", "origin", "HEAD:main")
+        code, out = run(repo, "forge.py", "task", "start", "T2")
+        assert code != 0 and "dependency T1 marker is absent" in out
+        assert not second_worktree.exists()
+
+    marker.write_text(json.dumps({
+        "task_id": "T1", "branch": "feat/ENG-1-T1",
+        "base_main_sha": base_main, "commit": head(repo),
+        "sealed_at": "2026-09-10T00:00:00+00:00", "reconciled": True,
+    }))
+    git(repo, "add", marker.relative_to(repo).as_posix())
+    git(repo, "commit", "-qm", "publish validated reconciled dependency marker")
     git(repo, "push", "-q", "origin", "HEAD:main")
 
     decomposition = json.loads((control / "decomposition.json").read_text())

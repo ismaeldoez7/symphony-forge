@@ -392,7 +392,7 @@ def _validate_provider_report(report: object) -> dict:
 
 
 def _validate_processed_report(report: object, required: set[str]) -> dict:
-    allowed = REPORT_FIELDS | required | REPORT_METADATA_FIELDS | {"provider_report"}
+    allowed = REPORT_FIELDS | required | REPORT_METADATA_FIELDS
     if (not isinstance(report, dict) or not REPORT_FIELDS | required <= set(report)
             or set(report) - allowed):
         fail("combined review helper wrapper has invalid fields")
@@ -463,7 +463,9 @@ def _validate_review_status(report: dict) -> None:
         fail("combined review report has invalid review_status")
 
 
-def _actual_passes(report: dict) -> list[tuple[str, dict]]:
+def _actual_passes(report: object) -> list[tuple[str, dict]]:
+    if not isinstance(report, dict):
+        fail("combined review helper wrapper has invalid fields")
     if "pass_reports" not in report:
         processed = _validate_processed_report(report, {"provider_report", "review_status"})
         _validate_provider_report(processed["provider_report"])

@@ -1079,12 +1079,32 @@ def task_marker_on_main(
         return False
 
     def ask() -> bool:
-        present = subprocess.run(
-            ["git", "cat-file", "-e", f"origin/{trunk}:{marker.as_posix()}"],
+        snapshot_proc = subprocess.run(
+            ["git", "rev-parse", "--verify", f"origin/{trunk}^{{commit}}"],
             cwd=root, capture_output=True, text=True, env=clean_git_env(),
             encoding="utf-8", errors="surrogateescape",
         )
-        return present.returncode == 0
+        snapshot = snapshot_proc.stdout.strip() if snapshot_proc.returncode == 0 else ""
+        if not snapshot:
+            return False
+        marker_rel = marker.as_posix()
+        try:
+            payload = _read_git_json(root, marker_rel, snapshot)
+        except SystemExit:
+            return False
+        if not _valid_task_marker(
+                root, payload, task_id, inspected_head=snapshot):
+            return False
+        if payload.get("reconciled") is True:
+            return True
+
+        def reader(path: str) -> dict | None:
+            return _read_git_json(root, path, snapshot)
+
+        return not task_proof_problems(
+            root, key, {"id": task_id}, reader=reader,
+            legacy_marker=payload, inspected_head=snapshot,
+        )
 
     dirs = _git_dirs(root) if BOARD_MEMO else None
     if dirs is None:
@@ -1474,21 +1494,6 @@ def require_all_stages_done(root: Path) -> list[str]:
     ]
 
 
-def _task_proof_is_modern(
-    root: Path, key: str, task_id: str,
-    reader: Callable[[str], dict | None] | None = None,
-) -> bool:
-    """Whether this task must use the task-owned proof bundle."""
-    names = ("verify.json", "tests.json", "reviews/selected.json")
-    if reader is not None:
-        return any(reader(f".factory/stories/{key}/tasks/{task_id}/{name}") is not None
-                   for name in names)
-    state = load_json(run_state_path(root), default={})
-    if state.get("task_id") == task_id:
-        return True
-    return any(task_evidence_path(root, key, task_id, name).is_file() for name in names)
-
-
 def _read_git_json(root: Path, path: str, treeish: str) -> dict | None:
     proc = subprocess.run(
         ["git", "show", f"{treeish}:{path}"], cwd=root, capture_output=True,
@@ -1568,13 +1573,6 @@ def _task_contract(
 
 _COMMIT_ID = re.compile(r"^[0-9a-fA-F]{7,64}$")
 _PROOF_LENSES = ("quality", "performance", "security")
-_PROOF_NAMES = ("verify.json", "tests.json", "reviews/selected.json")
-_LEGACY_PROOF_NAMES = (
-    "verify.json", "tests.json",
-    "reviews/quality.json", "reviews/performance.json", "reviews/security.json",
-)
-
-
 def _git_commit_exists(root: Path, value: object) -> bool:
     if not isinstance(value, str) or not _COMMIT_ID.fullmatch(value):
         return False
@@ -1593,7 +1591,9 @@ def _git_is_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
     return proc.returncode == 0
 
 
-def _valid_task_marker(root: Path, marker: object, task_id: str) -> bool:
+def _valid_task_marker(
+    root: Path, marker: object, task_id: str, *, inspected_head: str = "",
+) -> bool:
     if not isinstance(marker, dict) or marker.get("task_id") != task_id:
         return False
     if any(
@@ -1611,7 +1611,7 @@ def _valid_task_marker(root: Path, marker: object, task_id: str) -> bool:
         or not _git_is_ancestor(root, review_base, seal)
     ):
         return False
-    head = head_sha(root)
+    head = inspected_head or head_sha(root)
     return bool(
         head
         and _git_is_ancestor(root, base, seal)
@@ -1622,6 +1622,7 @@ def _valid_task_marker(root: Path, marker: object, task_id: str) -> bool:
 def _committed_task_marker(
     root: Path, key: str, task_id: str, marker: object,
     reader: Callable[[str], dict | None] | None,
+    *, inspected_head: str = "",
 ) -> tuple[dict | None, str | None]:
     """Return a valid marker, refusing an invalid committed identity."""
     if marker is None:
@@ -1630,15 +1631,18 @@ def _committed_task_marker(
     if reader is None:
         if _read_git_json(root, marker_path, "HEAD") != marker:
             return None, None
-    if not _valid_task_marker(root, marker, task_id):
+    if not _valid_task_marker(
+            root, marker, task_id, inspected_head=inspected_head):
         return None, f"{task_id}: task PR marker is invalid"
     return marker, None
 
 
-def _marker_publication_commit(root: Path, marker_path: str) -> str:
+def _marker_publication_commit(
+    root: Path, marker_path: str, *, inspected_head: str = "HEAD",
+) -> str:
     proc = subprocess.run(
-        ["git", "log", "--diff-filter=A", "--reverse", "--format=%H", "--",
-         marker_path],
+        ["git", "log", "--diff-filter=A", "--reverse", "--format=%H",
+         inspected_head, "--", marker_path],
         cwd=root, capture_output=True, text=True, env=clean_git_env(),
         encoding="utf-8",
     )
@@ -1714,25 +1718,6 @@ def _proof_commit_problems(
     return problems
 
 
-def _historical_branch_diff_digest(root: Path, base: str, seal: str) -> str:
-    """Hash the product diff that the historical review actually covered."""
-    from forge_cli.stages import WORKFLOW_PATHS, committed_paths
-
-    paths = sorted(
-        path for path in committed_paths(root, base, seal)
-        if not path.startswith(WORKFLOW_PATHS)
-    )
-    if not paths:
-        return hashlib.sha256(b"").hexdigest()
-    diff = subprocess.run(
-        ["git", "diff", "--binary", "--no-ext-diff", base, seal, "--", *paths],
-        cwd=root, capture_output=True, env=clean_git_env(),
-    )
-    if diff.returncode != 0:
-        return ""
-    return hashlib.sha256(diff.stdout).hexdigest()
-
-
 def _proof_review_problems(
     root: Path,
     task_id: str,
@@ -1785,6 +1770,7 @@ def _current_task_review_inputs(
     task: dict,
     *,
     reader: Callable[[str], dict | None] | None = None,
+    reader_treeish: str = "",
     branch: str = "",
     delta_id: str = "",
 ) -> tuple[dict | None, list[str]]:
@@ -1817,7 +1803,7 @@ def _current_task_review_inputs(
 
     def read_bytes(path: str) -> bytes | None:
         if reader is not None:
-            return _read_git_bytes(root, path, "HEAD")
+            return _read_git_bytes(root, path, reader_treeish or "HEAD")
         try:
             return (root / path).read_bytes()
         except OSError:
@@ -1866,6 +1852,7 @@ def _review_input_problems(
     reviews: dict[str, dict],
     *,
     reader: Callable[[str], dict | None] | None = None,
+    reader_treeish: str = "",
     brief_treeish: str = "",
     brief_fallback_treeish: str = "",
     branch: str = "",
@@ -1884,7 +1871,7 @@ def _review_input_problems(
         if brief_bytes is None and brief_fallback_treeish:
             brief_bytes = _read_git_bytes(root, brief_path, brief_fallback_treeish)
     elif reader is not None:
-        brief_bytes = _read_git_bytes(root, brief_path, "HEAD")
+        brief_bytes = _read_git_bytes(root, brief_path, reader_treeish or "HEAD")
     else:
         try:
             brief_bytes = (root / brief_path).read_bytes()
@@ -1909,7 +1896,8 @@ def _review_input_problems(
         return problems + [f"{task_id}: saved review brief is not UTF-8"]
 
     inputs, input_problems = _current_task_review_inputs(
-        root, key, task_id, task, reader=reader, branch=branch,
+        root, key, task_id, task, reader=reader, reader_treeish=reader_treeish,
+        branch=branch,
         delta_id=delta_id,
     )
     if input_problems:
@@ -1937,6 +1925,7 @@ def _modern_task_proof_problems(
     marker_publication_commit: str = "",
     expected_branch_diff_digest: str | None = None,
     reader: Callable[[str], dict | None] | None = None,
+    reader_treeish: str = "",
     brief_treeish: str = "",
     brief_fallback_treeish: str = "",
     review_branch: str = "",
@@ -1947,6 +1936,7 @@ def _modern_task_proof_problems(
     selected_bytes_reader: Callable[[str], bytes | None] | None = None,
     sealed_commit: str = "",
     selected_upgrade_after_marker: bool = False,
+    history_head: str = "HEAD",
 ) -> list[str]:
     """The fail-closed proof predicate for a task-owned bundle."""
     from forge_cli.readiness import tests_passed, verify_passed
@@ -2017,12 +2007,13 @@ def _modern_task_proof_problems(
                 generation_change_error = "upgrade generation publication is invalid"
             elif generation_publication:
                 generation_changes, generation_change_error = _paths_changed_after(
-                    root, generation_publication, [generation_rel],
+                    root, generation_publication, [generation_rel], head=history_head,
                 )
         changed, change_error = _paths_changed_after(
             root, marker_publication_commit,
             [f"{proof_root}/verify.json", f"{proof_root}/tests.json",
              *sorted(history_review_paths)],
+            head=history_head,
         )
         changed.update(generation_changes)
         if change_error or generation_change_error:
@@ -2070,147 +2061,11 @@ def _modern_task_proof_problems(
     problems.extend(
         _review_input_problems(
             root, key, task_id, task, reviews,
-            reader=reader,
+            reader=reader, reader_treeish=reader_treeish,
             brief_treeish=brief_treeish,
             brief_fallback_treeish=brief_fallback_treeish,
             branch=review_branch,
             delta_id=review_delta or "",
-        )
-    )
-    return problems
-
-
-def _legacy_bundle_path(scope: str, name: str) -> str:
-    return f"{scope}/{name}" if scope else name
-
-
-def _legacy_task_proof_problems(
-    root: Path,
-    key: str,
-    task: dict,
-    read: Callable[[str], dict | None],
-    read_bytes: Callable[[str], bytes | None] | None,
-    *,
-    base: str,
-    seal: str,
-) -> list[str]:
-    """Validate one complete historical story/root proof bundle."""
-    from forge_cli.readiness import tests_passed, verify_passed
-
-    task_id = str(task.get("id") or "")
-    problems: list[str] = []
-    modern_names = [
-        f".factory/stories/{key}/tasks/{task_id}/{name}"
-        for name in _PROOF_NAMES
-    ]
-    if any(read(path) is not None for path in modern_names):
-        return [
-            f"{task_id}: legacy fallback refused because marker history contains "
-            "a partial task-owned proof bundle"
-        ]
-
-    scopes = (f".factory/stories/{key}", ".factory")
-    selected: tuple[str, dict[str, dict]] | None = None
-    for scope in scopes:
-        if scope == ".factory":
-            owner = read(".factory/decomposition.json")
-            if not isinstance(owner, dict) or owner.get("story") != key:
-                continue
-        records = {
-            name: read(_legacy_bundle_path(scope, name))
-            for name in _LEGACY_PROOF_NAMES
-        }
-        mandatory = all(isinstance(records[name], dict)
-                        for name in _LEGACY_PROOF_NAMES)
-        functional_ok = (
-            not bool(task.get("user_facing"))
-            or isinstance(records["tests.json"].get("functional"), dict)
-        ) if isinstance(records["tests.json"], dict) else False
-        if mandatory and functional_ok:
-            selected = (scope, records)  # one source; never mix layouts
-            break
-    if selected is None:
-        return [
-            f"{task_id}: legacy proof is incomplete; verify, tests and all three "
-            "reviews must exist together at the marker commit"
-        ]
-
-    scope, records = selected
-    if read_bytes is None:
-        return [f"{task_id}: legacy proof cannot verify its historical task plan"]
-    plan_name = _legacy_bundle_path(scope, f"task-plans/{task_id}.md")
-    grill_name = _legacy_bundle_path(scope, f"grills/tasks/{task_id}.json")
-    plan_bytes = read_bytes(plan_name)
-    grill = read(grill_name)
-    if not plan_bytes or not isinstance(grill, dict):
-        return [
-            f"{task_id}: legacy proof needs the matching task plan, grill and "
-            "human approval at the marker commit"
-        ]
-    digest = _plan_body_digest_bytes(plan_bytes)
-    if (
-        grill.get("task_id") != task_id
-        or grill.get("verdict") != "pass"
-        or grill.get("task_plan_sha256") != digest
-        or grill.get("approved_task_plan_sha256") != digest
-        or not isinstance(grill.get("approved_by"), str)
-        or not grill["approved_by"].strip()
-        or not isinstance(grill.get("approved_at"), str)
-        or not grill["approved_at"].strip()
-    ):
-        problems.append(
-            f"{task_id}: legacy task plan/grill/approval is missing or stale"
-        )
-
-    verify = records["verify.json"]
-    tests = records["tests.json"]
-    automated = tests.get("automated") if isinstance(tests, dict) else None
-    if not verify_passed(verify):
-        problems.append(f"{task_id}: historical verify is not passing")
-    if not isinstance(automated, dict) or automated.get("status") != "passed" \
-            or automated.get("blocking_findings"):
-        problems.append(f"{task_id}: historical automated tests are not passing")
-    if bool(task.get("user_facing")):
-        functional = tests.get("functional") if isinstance(tests, dict) else None
-        try:
-            functional_passed = (
-                isinstance(functional, dict)
-                and tests_passed(functional, functional=True)
-            )
-        except (TypeError, ValueError):
-            functional_passed = False
-        if (not isinstance(functional, dict)
-                or functional.get("status") != "passed"
-                or not functional_passed):
-            problems.append(f"{task_id}: historical functional proof is not passing")
-
-    reviews = {lens: records[f"reviews/{lens}.json"] for lens in _PROOF_LENSES}
-    for lens, review in reviews.items():
-        if review.get("task_id") != task_id:
-            problems.append(f"{task_id}: historical {lens} review is not task-owned")
-    expected_digest = _historical_branch_diff_digest(root, base, seal)
-    if not expected_digest:
-        problems.append(f"{task_id}: cannot derive the historical product diff")
-    historical_records = [
-        ("verify", verify), ("tests", tests),
-        *[(f"reviews.{lens}", reviews[lens]) for lens in _PROOF_LENSES],
-    ]
-    problems.extend(
-        _proof_commit_problems(
-            root, task_id, historical_records,
-            base=base, seal=seal,
-        )
-    )
-    problems.extend(
-        _proof_commit_problems(
-            root, task_id, [("grill", grill)],
-            base=base, seal=seal, compare_product=False,
-        )
-    )
-    problems.extend(
-        _proof_review_problems(
-            root, task_id, reviews, strict=True,
-            expected_branch_diff_digest=expected_digest,
         )
     )
     return problems
@@ -2224,20 +2079,21 @@ def task_proof_problems(
     legacy_bytes_reader: Callable[[str], bytes | None] | None = None,
     legacy_marker: dict | None = None,
     preseal: bool = False,
+    inspected_head: str = "",
 ) -> list[str]:
     """One task's proof, using one task-aware predicate everywhere.
 
-    Modern runs read only the task-owned bundle. A committed task marker binds
+    Every run reads only the task-owned bundle. A committed task marker binds
     post-seal local and CI reads to its sealed product and proof; pre-seal
-    callers always require the current task tree. CI may use the one legitimate
-    legacy exception: a complete marker whose historical proof was story-scoped.
+    callers always require the current task tree. Marker-bound upgrade
+    generations are the sole fixed-proof migration representation.
     """
     task_id = str(task.get("id") or "")
     task, contract_problem = _task_contract(root, key, task_id, reader)
     if contract_problem:
         return [contract_problem]
     assert task is not None
-    modern = _task_proof_is_modern(root, key, task_id, reader)
+    del allow_legacy, legacy_reader, legacy_bytes_reader
 
     def read_task(name: str) -> dict:
         rel = f".factory/stories/{key}/tasks/{task_id}/{name}"
@@ -2255,12 +2111,12 @@ def task_proof_problems(
     marker_context = None
     if not preseal:
         marker_context, marker_problem = _committed_task_marker(
-            root, key, task_id, marker, reader,
+            root, key, task_id, marker, reader, inspected_head=inspected_head,
         )
         if marker_problem:
             return [marker_problem]
 
-    expected_head = head_sha(root) or ""
+    expected_head = inspected_head or head_sha(root) or ""
     proof_base = ""
     proof_seal = ""
     marker_publication_commit = ""
@@ -2272,7 +2128,7 @@ def task_proof_problems(
         proof_base = str(marker_context["base_main_sha"])
         proof_seal = sealed_commit
         marker_publication_commit = _marker_publication_commit(
-            root, marker_path,
+            root, marker_path, inspected_head=inspected_head or "HEAD",
         )
         review_base = str(marker_context.get("review_base_sha") or "")
         expected_branch_diff_digest = (
@@ -2314,7 +2170,8 @@ def task_proof_problems(
             return [f"{task_id}: selected review pointer is invalid: {exc}"]
         if current_selection != marker_selection:
             current_bytes_reader = (
-                (lambda path: _read_git_bytes(root, path, "HEAD"))
+                (lambda path: _read_git_bytes(
+                    root, path, inspected_head or "HEAD"))
                 if reader is not None else None
             )
             current_generation, _current_pointer, current_problems = (
@@ -2335,53 +2192,31 @@ def task_proof_problems(
             selected_bytes_reader = current_bytes_reader
             selected_upgrade_after_marker = True
     elif reader is not None:
-        selected_bytes_reader = lambda path: _read_git_bytes(root, path, "HEAD")
+        selected_bytes_reader = lambda path: _read_git_bytes(
+            root, path, inspected_head or "HEAD")
     elif proof_base:
         review_base = effective_review_base(root, task_id) or proof_base
         expected_review_delta = product_delta_digest(root, review_base)
 
-    if modern or not allow_legacy:
-        return _modern_task_proof_problems(
-            root, key, task, read_task,
-            expected_head=expected_head,
-            marker_publication_commit=marker_publication_commit,
-            expected_branch_diff_digest=expected_branch_diff_digest,
-            reader=reader,
-            brief_treeish=(str(marker_context["commit"])
-                           if marker_context is not None else ""),
-            brief_fallback_treeish=marker_publication_commit,
-            review_branch=(str(marker_context.get("branch") or "")
-                           if marker_context is not None else ""),
-            proof_base=proof_base,
-            proof_seal=proof_seal,
-            expected_review_delta=expected_review_delta,
-            selected_reader=selected_reader,
-            selected_bytes_reader=selected_bytes_reader,
-            sealed_commit=sealed_review_commit,
-            selected_upgrade_after_marker=selected_upgrade_after_marker,
-        )
-    if marker_context is not None:
-        if legacy_reader is None:
-            legacy_reader = lambda path, treeish=sealed_commit: _read_git_json(
-                root, path, treeish
-            )
-        if legacy_bytes_reader is None:
-            legacy_bytes_reader = lambda path, treeish=sealed_commit: _read_git_bytes(
-                root, path, treeish
-            )
-        return _legacy_task_proof_problems(
-            root, key, task, legacy_reader, legacy_bytes_reader,
-            base=str(marker_context["base_main_sha"]), seal=sealed_commit,
-        )
     return _modern_task_proof_problems(
         root, key, task, read_task,
         expected_head=expected_head,
-        reader=reader,
+        marker_publication_commit=marker_publication_commit,
+        expected_branch_diff_digest=expected_branch_diff_digest,
+        reader=reader, reader_treeish=inspected_head,
+        brief_treeish=(str(marker_context["commit"])
+                       if marker_context is not None else ""),
+        brief_fallback_treeish=marker_publication_commit,
+        review_branch=(str(marker_context.get("branch") or "")
+                       if marker_context is not None else ""),
         proof_base=proof_base,
         proof_seal=proof_seal,
         expected_review_delta=expected_review_delta,
         selected_reader=selected_reader,
         selected_bytes_reader=selected_bytes_reader,
+        sealed_commit=sealed_review_commit,
+        selected_upgrade_after_marker=selected_upgrade_after_marker,
+        history_head=inspected_head or "HEAD",
     )
 
 
@@ -2772,7 +2607,7 @@ def validate_review_document(
                             or not _LOWER_SHA256.fullmatch(str(entry.get("sha256", "")))):
                         problems.append("upgrade legacy artifact has an invalid shape")
                         break
-    if origin in {"combined", "rejection"} and decoded:
+    if origin in {"combined", "rejection"}:
         try:
             raw_report = json.loads(decoded.decode("utf-8"))
             from forge_cli.review import _actual_passes, _pass_sections, _tagged_finding
@@ -4501,132 +4336,89 @@ def task_frontier_state(root: Path) -> tuple[str, dict] | None:
         root, key, frontier, stage_by_id.get(frontier.get("id"), {})), frontier
 
 
-def _task_action_state(root: Path, key: str, task: dict, stage: dict) -> str:
-    """The next JIT action for ONE task, given its stage record."""
-    task_id = task.get("id")
-    if not _task_contract_complete(task):
-        return "author-contract"
+def _proof_problem_action(task_id: object, first: str) -> str:
+    prefix = f"{task_id}: "
+    groups = {
+        "verify": ("no passing verify", "verify proof",
+                   "product content changed after verify proof"),
+        "tests": ("no passing automated tests", "tests proof",
+                  "product content changed after tests proof"),
+        "functional": ("user_facing, so a functional check is required",
+                       "functional check must be passed"),
+    }
+    for action, starts in groups.items():
+        if first.startswith(tuple(prefix + value for value in starts)):
+            return action
+    review_starts = tuple(
+        prefix + value
+        for lens in _PROOF_LENSES
+        for value in (f"no {lens} review", f"{lens} review",
+                      f"reviews.{lens} proof",
+                      f"product content changed after reviews.{lens} proof")
+    ) + tuple(prefix + value for value in (
+        "selected review", "rejection review", "upgrade review", "review brief",
+        "saved review brief", "tests.json review input",
+        "cannot render the complete approved-input section",
+    )) + ("quality, performance, and security reviews", "review_run_id",
+          "branch review is stale")
+    return "review" if first.startswith(review_starts) else "inspect-proof"
 
-    grill_path = evidence_path(root, key, f"grills/tasks/{task_id}.json")
-    grill = load_json(grill_path, default={})
-    plan_state = _task_plan_state(root, task, grill)
-    if plan_state == "author-task-plan":
-        return plan_state
-    if not _task_grill_fresh(root, task, grill):
-        return "grill"
-    if plan_state != "approved":
-        return plan_state
-    if stage.get("status") != "active":
-        return "stage-start"
 
-    # Once this exact stage has a handoff, the next action comes from that
-    # handoff and the task-owned proof. Treating every active stage as a fresh
-    # delegation request relaunched live work and repeated completed work.
-    from forge_cli.delegate import current_delegation, load_delegations
-    started_at = str(stage.get("started_at") or "")
-    digest = task_digest(task)
+def _recorded_failure_action(root: Path, key: str, task_id: str) -> str | None:
+    from forge_cli.readiness import tests_passed, verify_passed
+
+    verify = load_json(task_evidence_path(root, key, task_id, "verify.json"), default={})
+    tests = load_json(task_evidence_path(root, key, task_id, "tests.json"), default={})
+    current_head = head_sha(root)
+    if verify and verify.get("commit") == current_head and not verify_passed(verify):
+        return "fix-verify"
+    for name, action, functional in (
+        ("automated", "fix-tests", False),
+        ("functional", "fix-functional", True),
+    ):
+        report = tests.get(name) if isinstance(tests, dict) else None
+        if (tests.get("commit") == current_head and isinstance(report, dict)
+                and not tests_passed(report, functional=functional)):
+            return action
+    return None
+
+
+def _successful_delegation_action(
+    root: Path, key: str, task: dict, task_id: str,
+) -> str:
+    from forge_cli.review import _product_dirty
+    from forge_cli.readiness import review_passed
+
+    if _product_dirty(root):
+        return "commit"
+    failed = _recorded_failure_action(root, key, task_id)
+    if failed:
+        return failed
     try:
-        terminal = current_delegation(
-            root, str(task_id), stage_started_at=started_at,
-            task_sha256=digest, ignore_lock=True,
+        current_delta = product_delta_digest(
+            root, effective_review_base(root, task_id),
         )
-        ledger = load_delegations(root)
+        generation, _selection, selected_problems = read_selected_review_generation(
+            root, key, task_id, expected_delta_id=current_delta,
+        )
     except (Exception, SystemExit):
-        return "inspect-delegate"
-    if terminal and terminal.get("story") != key:
-        terminal = None
-    if terminal:
-        if terminal.get("launch_status") != "succeeded":
-            return "inspect-delegate"
-        from forge_cli.review import _product_dirty
-        if _product_dirty(root):
-            return "commit"
-
-        verify = load_json(
-            task_evidence_path(root, key, str(task_id), "verify.json"), default={})
-        tests = load_json(
-            task_evidence_path(root, key, str(task_id), "tests.json"), default={})
-        automated = tests.get("automated") if isinstance(tests, dict) else None
-        from forge_cli.readiness import review_passed, tests_passed, verify_passed
-        current_head = head_sha(root)
-        if (verify and verify.get("commit") == current_head
-                and not verify_passed(verify)):
-            return "fix-verify"
-        if (tests.get("commit") == current_head
-                and isinstance(automated, dict)
-                and not tests_passed(automated)):
-            return "fix-tests"
-        functional = tests.get("functional") if isinstance(tests, dict) else None
-        if (tests.get("commit") == current_head
-                and isinstance(functional, dict)
-                and not tests_passed(functional, functional=True)):
-            return "fix-functional"
-        try:
-            current_delta = product_delta_digest(
-                root, effective_review_base(root, str(task_id)),
-            )
-            generation, _selection, selected_problems = read_selected_review_generation(
-                root, key, str(task_id), expected_delta_id=current_delta,
-            )
-        except (Exception, SystemExit):
-            return "inspect-proof"
-        if not selected_problems and isinstance(generation, dict) and any(
-                not review_passed(generation["lenses"].get(lens))
-                for lens in _PROOF_LENSES):
-            return "fix-review"
-
-        problems = task_proof_problems(root, key, task, preseal=True)
-        if not problems:
-            return "stage-done"
-        first = problems[0]
-        prefix = f"{task_id}: "
-        if first.startswith((
-            prefix + "no passing verify",
-            prefix + "verify proof",
-            prefix + "product content changed after verify proof",
-        )):
-            return "verify"
-        if first.startswith((
-            prefix + "no passing automated tests",
-            prefix + "tests proof",
-            prefix + "product content changed after tests proof",
-        )):
-            return "tests"
-        if first.startswith((
-            prefix + "user_facing, so a functional check is required",
-            prefix + "functional check must be passed",
-        )):
-            return "functional"
-        review_prefixes = tuple(
-            prefix + value
-            for lens in _PROOF_LENSES
-            for value in (
-                f"no {lens} review", f"{lens} review",
-                f"reviews.{lens} proof",
-                f"product content changed after reviews.{lens} proof",
-            )
-        )
-        if first.startswith(review_prefixes + (
-            prefix + "selected review",
-            prefix + "rejection review",
-            prefix + "upgrade review",
-            prefix + "review brief",
-            prefix + "saved review brief",
-            prefix + "tests.json review input",
-            prefix + "cannot render the complete approved-input section",
-            "quality, performance, and security reviews",
-            "review_run_id",
-            "branch review is stale",
-        )):
-            return "review"
         return "inspect-proof"
+    if not selected_problems and isinstance(generation, dict) and any(
+            not review_passed(generation["lenses"].get(lens))
+            for lens in _PROOF_LENSES):
+        return "fix-review"
+    problems = task_proof_problems(root, key, task, preseal=True)
+    return "stage-done" if not problems else _proof_problem_action(task_id, problems[0])
 
+
+def _waiting_delegation_action(
+    root: Path, ledger: list[dict], key: str, task_id: object,
+    started_at: str, digest: str,
+) -> str:
     rows = [
         row for row in ledger
-        if row.get("task") == task_id
-        and row.get("story") == key
-        and row.get("write") is True
-        and row.get("stage_started_at") == started_at
+        if row.get("task") == task_id and row.get("story") == key
+        and row.get("write") is True and row.get("stage_started_at") == started_at
         and row.get("task_sha256") == digest
     ]
     if not rows:
@@ -4638,6 +4430,40 @@ def _task_action_state(root: Path, key: str, task: dict, stage: dict) -> str:
     dead = {row.get("launch_id") for row in dead_launches(root)}
     return ("inspect-delegate" if latest.get("launch_id") in dead
             else "watch-delegate")
+
+
+def _task_action_state(root: Path, key: str, task: dict, stage: dict) -> str:
+    """The next JIT action for ONE task, given its stage record."""
+    task_id = task.get("id")
+    if not _task_contract_complete(task):
+        return "author-contract"
+    grill = load_json(evidence_path(root, key, f"grills/tasks/{task_id}.json"), default={})
+    plan_state = _task_plan_state(root, task, grill)
+    if plan_state == "author-task-plan":
+        return plan_state
+    if not _task_grill_fresh(root, task, grill):
+        return "grill"
+    if plan_state != "approved" or stage.get("status") != "active":
+        return plan_state if plan_state != "approved" else "stage-start"
+
+    from forge_cli.delegate import current_delegation, load_delegations
+    started_at = str(stage.get("started_at") or "")
+    digest = task_digest(task)
+    try:
+        terminal = current_delegation(
+            root, str(task_id), stage_started_at=started_at,
+            task_sha256=digest, ignore_lock=True,
+        )
+        ledger = load_delegations(root)
+    except (Exception, SystemExit):
+        return "inspect-delegate"
+    if terminal and terminal.get("story") == key:
+        if terminal.get("launch_status") != "succeeded":
+            return "inspect-delegate"
+        return _successful_delegation_action(root, key, task, str(task_id))
+    return _waiting_delegation_action(
+        root, ledger, key, task_id, started_at, digest,
+    )
 
 
 INTERRUPT_REFUSAL = (
@@ -4991,11 +4817,11 @@ def changed_since(root: Path, stamp: str, prefixes: tuple[str, ...]) -> list[str
 
 
 def _paths_changed_after(
-    root: Path, commit: str, paths: list[str],
+    root: Path, commit: str, paths: list[str], *, head: str = "HEAD",
 ) -> tuple[set[str], str]:
     """Return every path touched after commit, including restored rewrites."""
     proc = subprocess.run(
-        ["git", "log", "--format=", "--name-only", f"{commit}..HEAD", "--", *paths],
+        ["git", "log", "--format=", "--name-only", f"{commit}..{head}", "--", *paths],
         cwd=root, capture_output=True, text=True, env=clean_git_env(),
         encoding="utf-8",
     )

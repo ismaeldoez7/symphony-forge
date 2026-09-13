@@ -11,6 +11,7 @@ Two 2026-09-04 defects from the first per-task review on a client repo:
 """
 from __future__ import annotations
 
+import base64
 import json
 import copy
 import hashlib
@@ -224,6 +225,12 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
     }
     with pytest.raises(SystemExit):
         _actual_passes(pass_rejected)
+    chunked_clean = {**clean, "review_status": "scoped-clean",
+                     "pass_reports": [_pass("chunk 1/1", clean)]}
+    assert len(_actual_passes(chunked_clean)) == 1
+    chunked_provider = {**chunked_clean, "provider_report": clean}
+    with pytest.raises(SystemExit):
+        _actual_passes(chunked_provider)
 
     finding = _combined_finding("quality", "Normalized", "src/a.py", 3)
     raw = copy.deepcopy(finding)
@@ -267,7 +274,7 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
 
 def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(repo, tmp_path):
     from test_review_settled_contracts import _publish, _story
-    from factory_lib import protected_decomposition_state_path
+    from factory_lib import protected_decomposition_state_path, validate_review_document
     from forge_cli.review import _combined_prompt, _helper_identity, resolve_skill
     _story(repo, tmp_path)
     generation, _pointer = _publish(repo)
@@ -285,6 +292,25 @@ def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(repo,
     code, out = run(repo, "record_review_from_json.py", "--set", "--task", "T2",
                     stdin=json.dumps(malformed))
     assert code != 0 and "decoded byte count" in out
+    empty_raw = {"encoding": "base64", "sha256": hashlib.sha256(b"").hexdigest(),
+                 "bytes": 0, "data": ""}
+    empty = copy.deepcopy(candidate)
+    empty["raw_result"] = empty_raw
+    with pytest.raises(SystemExit, match="valid combined helper report"):
+        validate_review_document(repo, empty, allow_missing_generation_id=True)
+    selected = repo / ".factory/stories/ENG-1/tasks/T2/reviews/selected.json"
+    before_selection = selected.read_bytes()
+    for value in (None, 7, [], "invalid"):
+        raw = json.dumps(value).encode()
+        invalid = copy.deepcopy(candidate)
+        invalid["raw_result"] = {
+            "encoding": "base64", "sha256": hashlib.sha256(raw).hexdigest(),
+            "bytes": len(raw), "data": base64.b64encode(raw).decode(),
+        }
+        code, out = run(repo, "record_review_from_json.py", "--set", "--task", "T2",
+                        stdin=json.dumps(invalid))
+        assert code != 0 and "valid combined helper report" in out
+        assert selected.read_bytes() == before_selection
     malformed = copy.deepcopy(candidate)
     malformed["origin"] = "rejection"
     malformed["rejection"] = {
@@ -296,6 +322,9 @@ def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(repo,
                      "lesson_path": "plans/lessons/review-rejection-test.json",
                      "lesson_sha256": "a" * 64}],
     }
+    malformed["raw_result"] = empty_raw
+    with pytest.raises(SystemExit, match="valid combined helper report"):
+        validate_review_document(repo, malformed, allow_missing_generation_id=True)
     code, out = run(repo, "record_review_from_json.py", "--set", "--task", "T2",
                     stdin=json.dumps(malformed))
     assert code != 0 and "only accepts origin=combined" in out
