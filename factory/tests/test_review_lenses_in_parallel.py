@@ -31,7 +31,7 @@ assert all(marker in text for marker in (
     "BEGIN FORGE ASSESSMENT security",
     "[quality] ", "[performance] ", "[security] ",
 ))
-report = {
+provider = {
     "findings": [],
     "overall_correctness": "patch is correct",
     "overall_explanation": (
@@ -45,6 +45,7 @@ report = {
     ),
     "overall_confidence": 0.9,
 }
+report = {**provider, "provider_report": provider, "review_status": "scoped-clean"}
 out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 if os.environ.get("FAKE_MUTATE_HELPER"):
     pathlib.Path(__file__).write_text(pathlib.Path(__file__).read_text() + "\n# changed\n")

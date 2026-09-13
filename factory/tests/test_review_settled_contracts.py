@@ -134,14 +134,19 @@ def _publish(repo, blocking=(), *, recorded_at="2026-09-11T01:00:00+00:00"):
                      "source_attribution": None,
                      "code_location": {"file_path": "src/work.py", "line": index}}
                     for index, item in enumerate(blocking, 1)]
-    raw = json.dumps({"findings": raw_findings, "overall_explanation":
+    provider = {"findings": raw_findings,
+        "overall_correctness": "patch is incorrect" if raw_findings else "patch is correct",
+        "overall_confidence": 1, "overall_explanation":
         "BEGIN FORGE ASSESSMENT quality\n"
         "VERDICT T2-AC1: implemented — src/work.py:1\n"
         "END FORGE ASSESSMENT quality\n"
         "BEGIN FORGE ASSESSMENT performance\nfast\n"
         "END FORGE ASSESSMENT performance\n"
         "BEGIN FORGE ASSESSMENT security\nsafe\n"
-        "END FORGE ASSESSMENT security"}, separators=(",", ":")).encode()
+        "END FORGE ASSESSMENT security"}
+    raw = json.dumps({**copy.deepcopy(provider), "provider_report": provider,
+        "review_status": "findings" if raw_findings else "scoped-clean"},
+        separators=(",", ":")).encode()
     decomposition = load_json(protected_decomposition_state_path(repo), default={})
     tasks = decomposition["tasks"]
     task = next(item for item in tasks if item["id"] == "T2")

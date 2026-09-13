@@ -22,7 +22,7 @@ from test_gates import (  # noqa: I001 — test_gates puts factory/scripts on sy
     DECOMP, _write_complete_automated, git, head, intake, record_task_grill, repo,
     run, save_plan, sign_off, skeletal_stage_task, task_skeleton,
 )
-from forge_cli.review import _project_combined_report, resolve_review_base  # noqa: E402
+from forge_cli.review import _actual_passes, _project_combined_report, resolve_review_base  # noqa: E402
 
 __all__ = ["repo"]
 
@@ -44,34 +44,46 @@ def _combined_finding(lens: str, title: str, path: str, line: int) -> dict:
     }
 
 
+def _provider_report(explanation: str, findings: list[dict]) -> dict:
+    return {
+        "findings": findings,
+        "overall_correctness": "patch is incorrect" if findings else "patch is correct",
+        "overall_explanation": explanation,
+        "overall_confidence": 0.9,
+    }
+
+
+def _processed(provider: dict, **metadata) -> dict:
+    return {**copy.deepcopy(provider), "provider_report": copy.deepcopy(provider), **metadata}
+
+
+def _pass(label: str, provider: dict, **metadata) -> dict:
+    return {"label": label, "report": _processed(provider, **metadata)}
+
+
 def test_combined_review_projects_tagged_lenses_and_preserves_ordered_pass_verdicts():
     task = {"id": "T1", "plan_contracts": [
         {"id": "T1-C1", "statement": "works", "source": "plan"},
     ]}
-    first = {
-        "overall_explanation": _combined_explanation(
-            "VERDICT T1-C1: implemented — src/a.py:1", "fast", "safe"),
-        "findings": [_combined_finding("performance", "Avoid repeat work", "src/a.py", 4)],
-    }
-    second = {
-        "overall_explanation": _combined_explanation(
-            "VERDICT T1-C1: partial — src/a.py:8 race", "bounded", "isolated"),
-        "findings": [
+    first = _provider_report(_combined_explanation(
+        "VERDICT T1-C1: implemented — src/a.py:1", "fast", "safe"), [
+            _combined_finding("performance", "Avoid repeat work", "src/a.py", 4),
+        ])
+    second = _provider_report(_combined_explanation(
+        "VERDICT T1-C1: partial — src/a.py:8 race", "bounded", "isolated"), [
             _combined_finding("performance", "Avoid repeat work", "src/a.py", 4),
             _combined_finding("security", "Validate token", "src/b.py", 9),
-        ],
-    }
+        ])
     merged_performance = copy.deepcopy(first["findings"][0])
     merged_performance["body"] = "chunk 1/2:\n\nevidence"
     merged_security = copy.deepcopy(second["findings"][1])
     merged_security["body"] = "chunk 2/2:\n\nevidence"
     report = {
         "overall_explanation": "Review passes returned.",
+        "overall_correctness": "patch is incorrect", "overall_confidence": 0.9,
         "findings": [merged_performance, merged_security],
-        "pass_reports": [
-            {"label": "chunk 1/2", "report": first},
-            {"label": "chunk 2/2", "report": second},
-        ],
+        "pass_reports": [_pass("chunk 1/2", first), _pass("chunk 2/2", second)],
+        "review_status": "findings",
     }
 
     lenses = _project_combined_report(
@@ -93,8 +105,7 @@ def test_combined_review_projects_tagged_lenses_and_preserves_ordered_pass_verdi
 
 
 def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixed_output():
-    narrative = {
-        "overall_explanation": "preface\n" + _combined_explanation(
+    provider = _provider_report("preface\n" + _combined_explanation(
             "VERDICT C1: implemented — src/a.py:1", "measured", "bounded",
         ).replace(
             "END FORGE ASSESSMENT quality\nBEGIN FORGE ASSESSMENT performance",
@@ -104,9 +115,8 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
             "END FORGE ASSESSMENT performance\nBEGIN FORGE ASSESSMENT security",
             "END FORGE ASSESSMENT performance\nperformance follow-up\n"
             "BEGIN FORGE ASSESSMENT security",
-        ) + "\nepilogue",
-        "findings": [_combined_finding("quality", "One issue", "src/a.py", 3)],
-    }
+        ) + "\nepilogue", [_combined_finding("quality", "One issue", "src/a.py", 3)])
+    narrative = _processed(provider, review_status="findings")
     lenses = _project_combined_report(
         {"id": "T1", "plan_contracts": [{"id": "C1"}]}, narrative,
         ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, (),
@@ -125,27 +135,48 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
         lambda report: report["findings"][0].update(title="[quality]  [security]"),
         lambda report: report["findings"][0].pop("source_attribution"),
         lambda report: report["findings"][0].update(source_attribution={}),
+        lambda report: report.pop("overall_correctness"),
+        lambda report: report.update(overall_correctness="maybe"),
+        lambda report: report.update(overall_correctness=[]),
+        lambda report: report.update(overall_confidence=True),
+        lambda report: report["findings"][0].pop("body"),
+        lambda report: report["findings"][0].update(priority="P4"),
+        lambda report: report["findings"][0].update(confidence=1.1),
+        lambda report: report["findings"][0].update(category="style"),
+        lambda report: report.update(extra=True),
+        lambda report: report.pop("provider_report"),
+        lambda report: report.update(review_status=[]),
+        lambda report: report.update(missing_required_findings=[""]),
+        lambda report: report.update(available_source_records=[1]),
+        lambda report: report.update(scope_rejected_findings={}),
+        lambda report: report.update(scope_rejected_findings=[]),
     )
     for mutate in mutators:
-        report = {
-            "overall_explanation": _combined_explanation(
-                "VERDICT C1: implemented — src/a.py:1", "measured", "bounded"),
-            "findings": [_combined_finding("quality", "Same issue", "src/a.py", 3)],
-        }
+        provider = _provider_report(_combined_explanation(
+            "VERDICT C1: implemented — src/a.py:1", "measured", "bounded"), [
+                _combined_finding("quality", "Same issue", "src/a.py", 3),
+            ])
+        report = _processed(provider, review_status="findings")
         mutate(report)
         with pytest.raises(SystemExit):
             _project_combined_report(
                 {"id": "T1", "plan_contracts": [{"id": "C1"}]}, report,
                 ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, ())
-    first = {"overall_explanation": _combined_explanation(
-        "VERDICT C1: implemented — src/a.py:1", "measured", "bounded"),
-        "findings": [_combined_finding("quality", "first", "src/a.py", 1)]}
-    second = {**first, "findings": [
-        _combined_finding("security", "second", "src/a.py", 2)]}
-    report = {"overall_explanation": "passes", "findings": [
-        *second["findings"], *first["findings"]], "pass_reports": [
-        {"label": "chunk 1/2", "report": first},
-        {"label": "chunk 2/2", "report": second}]}
+    first = _provider_report(_combined_explanation(
+        "VERDICT C1: implemented — src/a.py:1", "measured", "bounded"), [
+            _combined_finding("quality", "first", "src/a.py", 1)])
+    second = _provider_report(first["overall_explanation"], [
+        _combined_finding("security", "second", "src/a.py", 2)])
+    report = {"overall_explanation": "passes", "overall_correctness": "patch is incorrect",
+        "overall_confidence": 0.9, "findings": [*second["findings"], *first["findings"]],
+        "pass_reports": [_pass("chunk 1/2", first), _pass("chunk 2/2", second)],
+        "review_status": "findings"}
+    with pytest.raises(SystemExit):
+        _project_combined_report(
+            {"id": "T1", "plan_contracts": [{"id": "C1"}]}, report,
+            ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, ())
+    report = copy.deepcopy(report)
+    report["pass_reports"][0]["report"]["provider_report"].pop("overall_confidence")
     with pytest.raises(SystemExit):
         _project_combined_report(
             {"id": "T1", "plan_contracts": [{"id": "C1"}]}, report,
@@ -153,14 +184,85 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
 
     # Matching fingerprints cannot hide changed finding evidence in the
     # synthesized top-level report.
-    report = {"overall_explanation": "passes", "findings": [
-        copy.deepcopy(first["findings"][0])], "pass_reports": [
-        {"label": "chunk 1/1", "report": first}]}
+    report = {"overall_explanation": "passes", "overall_correctness": "patch is incorrect",
+        "overall_confidence": 0.9, "findings": [copy.deepcopy(first["findings"][0])],
+        "pass_reports": [_pass("chunk 1/1", first)], "review_status": "findings"}
     report["findings"][0]["body"] = "different evidence"
     with pytest.raises(SystemExit):
         _project_combined_report(
             {"id": "T1", "plan_contracts": [{"id": "C1"}]}, report,
             ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, ())
+
+    clean = _provider_report(_combined_explanation(
+        "VERDICT C1: implemented — src/a.py:1", "measured", "bounded"), [])
+    incorrect = {**clean, "overall_correctness": "patch is incorrect"}
+    rejected = _combined_finding("quality", "outside", "outside.py", 1)
+    with pytest.raises(SystemExit):
+        _actual_passes(clean)
+    assert _actual_passes(_processed(clean, review_status="scoped-clean"))[0][1][
+        "review_status"] == "scoped-clean"
+    for invalid in (
+        _processed(incorrect, review_status="incorrect"),
+        _processed(incorrect, review_status="incomplete", scope_rejected_findings=[rejected]),
+    ):
+        with pytest.raises(SystemExit):
+            _actual_passes(invalid)
+
+    filtered = _provider_report(clean["overall_explanation"], [{
+        **_combined_finding("performance", "P3 only", "src/a.py", 4), "priority": "P3"}])
+    chunked = {
+        **incorrect, "pass_reports": [
+            _pass("chunk 1/2", filtered,
+                  priority_filtered_findings=filtered["findings"], findings=[]),
+            _pass("chunk 2/2", clean),
+        ], "priority_filtered_findings": filtered["findings"], "review_status": "filtered"}
+    with pytest.raises(SystemExit):
+        _actual_passes(chunked)
+    pass_rejected = {
+        **clean, "review_status": "scoped-clean",
+        "pass_reports": [_pass("chunk 1/1", clean, scope_rejected_findings=[rejected])],
+    }
+    with pytest.raises(SystemExit):
+        _actual_passes(pass_rejected)
+
+    finding = _combined_finding("quality", "Normalized", "src/a.py", 3)
+    raw = copy.deepcopy(finding)
+    raw["code_location"]["file_path"] = r".\src\a.py"
+    assert _actual_passes(_processed(
+        _provider_report(clean["overall_explanation"], [raw]),
+        findings=[finding], overall_correctness="patch is incorrect",
+        review_status="findings"))[0][1]["findings"] == [finding]
+
+    attribution = {"target": "index", "record_id": "r", "source_id": "s",
+                   "side": "present", "column": 1, "excerpt": "x"}
+    rejected_attribution = {**copy.deepcopy(finding), "source_attribution": attribution,
+                            "attribution_rejection_reason": "mixed source refused"}
+    with pytest.raises(SystemExit):
+        _actual_passes(_processed(
+            clean, review_status="incomplete",
+            attribution_rejected_findings=[rejected_attribution]))
+
+    for mutate in (
+        lambda wrapper: wrapper.update(overall_confidence=0.1),
+        lambda wrapper: wrapper.update(findings=[]),
+        lambda wrapper: wrapper["findings"][0].update(body="invented"),
+        lambda wrapper: wrapper["provider_report"].update(overall_correctness=[]),
+        lambda wrapper: wrapper.update(priority_filtered_findings=[finding],
+                                       review_status="filtered", findings=[]),
+    ):
+        invalid = _processed(_provider_report(
+            clean["overall_explanation"], [copy.deepcopy(finding)]),
+            review_status="findings")
+        mutate(invalid)
+        with pytest.raises(SystemExit):
+            _actual_passes(invalid)
+
+    aggregate = {
+        **clean, "overall_correctness": "patch is correct", "review_status": "scoped-clean",
+        "pass_reports": [_pass("chunk 1/1", incorrect)],
+    }
+    with pytest.raises(SystemExit):
+        _actual_passes(aggregate)
 
 
 def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(repo, tmp_path):

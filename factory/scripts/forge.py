@@ -253,8 +253,8 @@ def main() -> None:
         "--engine", default="codex",
         help="autoreview engine (default: codex -- the review is Codex's, 0011)")
     p_task_close.add_argument(
-        "--max-priority", default="P2", choices=["P0", "P1", "P2", "P3"],
-        help="lowest review priority to report (default: P2)")
+        "--max-priority", default="P3", choices=["P0", "P1", "P2", "P3"],
+        help="lowest review priority to report (default: P3)")
     p_task_close.add_argument(
         "--skill", help="path to the autoreview helper (default: $AUTOREVIEW "
                         "or ~/.codex/skills/autoreview/scripts/autoreview)")
@@ -654,8 +654,8 @@ def main() -> None:
         "--engine", default="codex",
         help="autoreview engine (default: codex — the review is Codex's, 0011)")
     p_review.add_argument(
-        "--max-priority", default="P2", choices=["P0", "P1", "P2", "P3"],
-        help="lowest priority to report (default: P2, not the P0-only default)")
+        "--max-priority", default="P3", choices=["P0", "P1", "P2", "P3"],
+        help="lowest priority to report (default: P3)")
     p_review.add_argument(
         "--skill", help="path to the autoreview helper (default: $AUTOREVIEW "
                         "or ~/.codex/skills/autoreview/scripts/autoreview)")

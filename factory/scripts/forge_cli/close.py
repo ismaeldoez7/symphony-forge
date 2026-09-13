@@ -106,7 +106,7 @@ def cmd_task_close(args: argparse.Namespace) -> None:
         if not stamp_is_fresh(base, stage, task):
             outcome = review_task(
                 base, task_id, engine=getattr(args, "engine", "codex"),
-                max_priority=getattr(args, "max_priority", "P2"),
+                max_priority=getattr(args, "max_priority", "P3"),
                 skill=getattr(args, "skill", None))
             if outcome["blocking"]:
                 _stop("review", f"{outcome['blocking']} blocking finding(s)",

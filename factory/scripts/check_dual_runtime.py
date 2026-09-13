@@ -397,22 +397,27 @@ def check_path_parity(root: Path) -> None:
 
     # An event with the wrong matcher silently skips its gate. Check the
     # runtime-specific question names against the shared handlers too.
-    for relative, question_tools in (
-        (".claude/settings.json", ("AskUserQuestion",)),
-        (".codex/hooks.json", (
-            "request_user_input", "request_user_input_async", "apply_patch", "Edit", "Write",
-        )),
+    for relative, event_tools in (
+        (".claude/settings.json", {
+            "PreToolUse": (
+                "Bash", "AskUserQuestion", "Edit", "Write", "MultiEdit", "NotebookEdit",
+            ),
+            "PostToolUse": ("Write", "Edit", "MultiEdit", "AskUserQuestion"),
+        }),
+        (".codex/hooks.json", {
+            "PreToolUse": (
+                "Bash", "Edit", "Write", "apply_patch", "request_user_input",
+                "request_user_input_async",
+            ),
+            "PostToolUse": ("request_user_input",),
+        }),
     ):
         try:
             hooks = json.loads((root / relative).read_text(encoding="utf-8"))["hooks"]
         except (OSError, ValueError, KeyError):
             continue  # Missing/invalid registrations are reported above.
-        for tool in question_tools:
-            events = (("PreToolUse",) if tool.endswith("_async") or tool in {
-                "apply_patch", "Edit", "Write",
-            }
-                      else ("PreToolUse", "PostToolUse"))
-            for event in events:
+        for event, tools in event_tools.items():
+            for tool in tools:
                 script = "pre_tool_use" if event == "PreToolUse" else "post_tool_use"
                 covered = False
                 for entry in hooks.get(event, []):

@@ -723,14 +723,16 @@ def write_task_proof(repo: Path, task_id: str = "T1", *,
                     "recommendation": "request-changes",
                 })
             path.write_text(json.dumps(review))
-        raw = json.dumps({"findings": [], "overall_explanation":
+        provider = {"findings": [], "overall_correctness": "patch is correct",
+                    "overall_explanation":
             "BEGIN FORGE ASSESSMENT quality\nquality\n"
             "END FORGE ASSESSMENT quality\n"
             "BEGIN FORGE ASSESSMENT performance\nfast\n"
             "END FORGE ASSESSMENT performance\n"
             "BEGIN FORGE ASSESSMENT security\nsafe\n"
-            "END FORGE ASSESSMENT security"},
-            sort_keys=True).encode()
+            "END FORGE ASSESSMENT security", "overall_confidence": 0.9}
+        raw = json.dumps({**provider, "provider_report": provider,
+                          "review_status": "scoped-clean"}, sort_keys=True).encode()
         lib.publish_review_generation(repo, key, task_id, {
             "format": "forge-review-generation/v1", "origin": "combined",
             "generated_by": "autoreview", "story": key, "task_id": task_id,
@@ -18429,7 +18431,9 @@ def test_review_consumers_include_complete_approved_inputs(
         prompt_bytes = (worktree / prompt_rel).read_bytes()
         copied_dataset = (worktree / review_mod.REVIEW_DATASET_REL).read_bytes()
         seen.append((prompt_rel, prompt_bytes, copied_dataset))
-        report = {
+        provider = {
+            "overall_correctness": "patch is incorrect",
+            "overall_confidence": 0.9,
             "overall_explanation":
                 "BEGIN FORGE ASSESSMENT quality\n"
                 "VERDICT C1: implemented — complete dataset routed\n"
@@ -18440,6 +18444,8 @@ def test_review_consumers_include_complete_approved_inputs(
                 "END FORGE ASSESSMENT security",
             "findings": [finding],
         }
+        report = {**copy.deepcopy(provider), "provider_report": provider,
+                  "review_status": "findings"}
         return report, json.dumps(report).encode()
 
     with monkeypatch.context() as route:
@@ -18464,10 +18470,17 @@ def test_review_consumers_include_complete_approved_inputs(
         route.setattr(review_mod.subprocess, "run", lambda *args, **_kwargs:
                       subprocess.CompletedProcess(args[0], 0, "", ""))
         route.setattr(stages_mod, "stamp_stage_review", lambda *_args, **_kwargs: None)
+        with pytest.raises(SystemExit):
+            review_mod.cmd_review(argparse.Namespace(
+                id="T1", reject=None, lens=None, repo=str(repo),
+                skill=str(tmp_path / "fake-autoreview"), engine="claude",
+                max_priority="P2",
+            ))
+        assert not seen
         review_mod.cmd_review(argparse.Namespace(
             id="T1", reject=None, lens=None, repo=str(repo),
             skill=str(tmp_path / "fake-autoreview"), engine="claude",
-            max_priority="P1",
+            max_priority="P3",
         ))
 
     assert len(seen) == 1
@@ -18518,7 +18531,7 @@ def test_review_consumers_include_complete_approved_inputs(
                 review_mod.cmd_review(argparse.Namespace(
                     id="T1", reject=None, lens=None, repo=str(repo),
                     skill=str(tmp_path / "fake-autoreview"), engine="claude",
-                    max_priority="P1",
+                    max_priority="P3",
                 ))
             assert error.value.code == 1
             assert "unsafe detached review destination" in capsys.readouterr().out

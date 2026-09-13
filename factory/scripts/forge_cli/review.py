@@ -120,6 +120,17 @@ SECTION_MARKERS = tuple(
     for lens in LENSES
 )
 LENS_TAGS = tuple(f"[{lens}] " for lens in LENSES)
+REPORT_FIELDS = {
+    "findings", "overall_correctness", "overall_explanation", "overall_confidence",
+}
+FINDING_FIELDS = {
+    "title", "body", "priority", "confidence", "category", "code_location",
+    "source_attribution",
+}
+REPORT_METADATA_FIELDS = {
+    "scope_rejected_findings", "priority_filtered_findings", "attribution_rejected_findings",
+    "missing_required_findings", "available_source_records"}
+ATTRIBUTION_FIELDS = {"target", "record_id", "source_id", "side", "column", "excerpt"}
 
 
 def resolve_skill(explicit: str | None) -> Path:
@@ -304,9 +315,168 @@ def _pass_sections(report: dict) -> tuple[dict[str, str], list[str]]:
     return sections, lines
 
 
+def _valid_confidence(value: object) -> bool:
+    return (isinstance(value, (int, float)) and not isinstance(value, bool)
+            and 0 <= value <= 1)
+
+
+def _normalized_helper_path(value: object) -> str:
+    if not isinstance(value, str) or not value:
+        fail("combined review finding has invalid file_path")
+    normalized = value.replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    path = PurePosixPath(normalized)
+    result = path.as_posix()
+    if (not result or path.is_absolute() or ".." in path.parts
+            or re.match(r"^[A-Za-z]:/", result)):
+        fail("combined review finding has invalid file_path")
+    return result
+
+
+def _validate_helper_finding(finding: object, *, accepted: bool) -> dict:
+    if not isinstance(finding, dict) or set(finding) != FINDING_FIELDS:
+        fail("combined review finding has invalid fields")
+    if (not isinstance(finding.get("title"), str) or not finding["title"] or
+            len(finding["title"]) > 140):
+        fail("combined review finding has invalid title")
+    if (not isinstance(finding.get("body"), str) or not finding["body"] or
+            len(finding["body"]) > 2000):
+        fail("combined review finding has invalid body")
+    if (not isinstance(finding.get("priority"), str)
+            or finding["priority"] not in {"P0", "P1", "P2", "P3"}):
+        fail("combined review finding has invalid priority")
+    if not _valid_confidence(finding.get("confidence")):
+        fail("combined review finding has invalid confidence")
+    if (not isinstance(finding.get("category"), str) or finding["category"] not in
+            {"bug", "security", "regression", "test_gap", "maintainability"}):
+        fail("combined review finding has invalid category")
+    location = finding.get("code_location")
+    if (not isinstance(location, dict) or set(location) != {"file_path", "line"}
+            or not isinstance(location.get("line"), int)
+            or isinstance(location["line"], bool) or location["line"] < 1):
+        fail("combined review finding has invalid code_location")
+    _normalized_helper_path(location.get("file_path"))
+    attribution = finding.get("source_attribution")
+    if accepted and attribution is not None:
+        fail("combined review accepted findings require null source_attribution")
+    if attribution is not None and (
+            not isinstance(attribution, dict) or set(attribution) != ATTRIBUTION_FIELDS
+            or not all(isinstance(attribution.get(field), str)
+                       for field in ATTRIBUTION_FIELDS - {"column"})
+            or attribution["target"] not in {"index", "working_tree"}
+            or attribution["side"] not in {"present", "removed"}
+            or not isinstance(attribution.get("column"), int)
+            or isinstance(attribution["column"], bool) or attribution["column"] < 1):
+        fail("combined review finding has invalid source_attribution")
+    return finding
+
+
+def _validate_provider_report(report: object) -> dict:
+    if not isinstance(report, dict) or set(report) != REPORT_FIELDS:
+        fail("combined review report has invalid fields")
+    if (not isinstance(report.get("overall_correctness"), str) or
+            report["overall_correctness"] not in {"patch is correct", "patch is incorrect"}):
+        fail("combined review report has invalid overall_correctness")
+    explanation = report.get("overall_explanation")
+    if not isinstance(explanation, str) or not explanation or len(explanation) > 3000:
+        fail("combined review report needs overall_explanation within 3000 characters")
+    if not _valid_confidence(report.get("overall_confidence")):
+        fail("combined review report has invalid overall_confidence")
+    findings = report.get("findings")
+    if not isinstance(findings, list):
+        fail("combined review report findings must be a list")
+    for finding in findings:
+        _validate_helper_finding(finding, accepted=False)
+    return report
+
+
+def _validate_processed_report(report: object, required: set[str]) -> dict:
+    allowed = REPORT_FIELDS | required | REPORT_METADATA_FIELDS | {"provider_report"}
+    if (not isinstance(report, dict) or not REPORT_FIELDS | required <= set(report)
+            or set(report) - allowed):
+        fail("combined review helper wrapper has invalid fields")
+    _validate_provider_report({field: report[field] for field in REPORT_FIELDS})
+    if "provider_report" in report:
+        _validate_provider_report(report["provider_report"])
+    for finding in report["findings"]:
+        _validate_helper_finding(finding, accepted=True)
+    sample = {"overall_correctness": "patch is correct", "overall_explanation": "ok",
+              "overall_confidence": 1}
+    for field in ("scope_rejected_findings", "priority_filtered_findings"):
+        if field in report:
+            _validate_provider_report({**sample, "findings": report[field]})
+    if "attribution_rejected_findings" in report:
+        rejected = report["attribution_rejected_findings"]
+        if not isinstance(rejected, list):
+            fail("combined review attribution metadata must be a list")
+        if not all(isinstance(finding, dict) and
+                   set(finding) == FINDING_FIELDS | {"attribution_rejection_reason"} and
+                   isinstance(finding["attribution_rejection_reason"], str) and
+                   finding["attribution_rejection_reason"] for finding in rejected):
+            fail("combined review attribution metadata is invalid")
+        _validate_provider_report({**sample, "findings": [
+            {key: value for key, value in finding.items()
+             if key != "attribution_rejection_reason"} for finding in rejected]})
+    missing = report.get("missing_required_findings")
+    if "missing_required_findings" in report and (not isinstance(missing, list) or not all(
+            isinstance(item, str) and item for item in missing)):
+        fail("combined review missing-required metadata is invalid")
+    available = report.get("available_source_records")
+    if "available_source_records" in report and (not isinstance(available, list) or not all(
+            isinstance(item, str) for item in available)):
+        fail("combined review available-source metadata is invalid")
+    return report
+
+
+def _validate_certifying_wrapper(report: dict) -> None:
+    if (not report["findings"] and report["overall_correctness"] == "patch is incorrect") or any(
+            field in report for field in (
+            "scope_rejected_findings", "priority_filtered_findings",
+            "attribution_rejected_findings", "missing_required_findings")):
+        fail("combined review helper result is non-certifying")
+    provider = report["provider_report"]
+    if any(report[field] != provider[field]
+           for field in REPORT_FIELDS - {"findings"}):
+        fail("combined review processed result does not match its raw provider report")
+    normalized = copy.deepcopy(provider["findings"])
+    for finding in normalized:
+        finding["code_location"]["file_path"] = _normalized_helper_path(
+            finding["code_location"]["file_path"])
+    if report["findings"] != normalized:
+        fail("combined review accepted findings do not match its raw provider report")
+
+
+def _validate_review_status(report: dict) -> None:
+    status = report.get("review_status")
+    statuses = {"incomplete", "findings", "filtered", "incorrect", "scoped-clean"}
+    if not isinstance(status, str) or status not in statuses:
+        fail("combined review report has invalid review_status")
+    incomplete = ("scope_rejected_findings", "missing_required_findings",
+                  "attribution_rejected_findings")
+    expected = ("incomplete" if any(report.get(field) for field in incomplete)
+        else "findings" if report["findings"]
+        else "filtered" if report.get("priority_filtered_findings")
+        else "incorrect" if report["overall_correctness"] == "patch is incorrect"
+        else "scoped-clean")
+    if status != expected:
+        fail("combined review report has invalid review_status")
+
+
 def _actual_passes(report: dict) -> list[tuple[str, dict]]:
     if "pass_reports" not in report:
-        return [("pass 1/1", report)]
+        processed = _validate_processed_report(report, {"provider_report", "review_status"})
+        _validate_provider_report(processed["provider_report"])
+        _validate_review_status(processed)
+        if processed["review_status"] not in {"findings", "scoped-clean"}:
+            fail("combined review helper result is non-certifying")
+        _validate_certifying_wrapper(processed)
+        return [("pass 1/1", processed)]
+    _validate_processed_report(report, {"pass_reports", "review_status"})
+    _validate_review_status(report)
+    if report["review_status"] not in {"findings", "scoped-clean"} or any(
+            field in report for field in REPORT_METADATA_FIELDS - {"available_source_records"}):
+        fail("combined review helper result is non-certifying")
     entries = report.get("pass_reports")
     if not isinstance(entries, list) or not entries:
         fail("combined review pass_reports must be a non-empty list")
@@ -314,10 +484,18 @@ def _actual_passes(report: dict) -> list[tuple[str, dict]]:
     passes: list[tuple[str, dict]] = []
     for index, entry in enumerate(entries, 1):
         expected = f"chunk {index}/{total}"
-        if (not isinstance(entry, dict) or entry.get("label") != expected
-                or not isinstance(entry.get("report"), dict)):
+        if (not isinstance(entry, dict) or set(entry) != {"label", "report"}
+                or entry.get("label") != expected or not isinstance(entry.get("report"), dict)):
             fail(f"combined review pass order must be {expected}")
-        passes.append((expected, entry["report"]))
+        wrapper = _validate_processed_report(entry["report"], {"provider_report"})
+        _validate_provider_report(wrapper["provider_report"])
+        _validate_certifying_wrapper(wrapper)
+        passes.append((expected, wrapper))
+    expected_correctness = ("patch is incorrect" if report["findings"] or any(
+        item["overall_correctness"] == "patch is incorrect" for _, item in passes)
+        else "patch is correct")
+    if report["overall_correctness"] != expected_correctness:
+        fail("combined review aggregate correctness does not match its passes")
     return passes
 
 
@@ -706,8 +884,8 @@ def _artifact(
                          str(report.get("overall_explanation", "")).strip())
     summary = (
         f"{lens} lens over {task.get('id')} ({len(scope)} product path(s), "
-        f"{base_sha[:7]}..{tip_sha[:7]}, Codex via the autoreview skill at "
-        f"--max-priority P2): {len(blocking)} blocking, {len(non_blocking)} "
+        f"{base_sha[:7]}..{tip_sha[:7]}, Codex via the autoreview skill): "
+        f"{len(blocking)} blocking, {len(non_blocking)} "
         f"non-blocking. {explanation}"
     ).strip()[:3000]
     artifact = {
@@ -1140,7 +1318,7 @@ def cmd_review(args: argparse.Namespace) -> None:
     outcome = review_task(
         base, args.id, lens=getattr(args, "lens", None),
         engine=getattr(args, "engine", "codex"),
-        max_priority=getattr(args, "max_priority", "P2"),
+        max_priority=getattr(args, "max_priority", "P3"),
         skill=getattr(args, "skill", None),
     )
     print(_next_hint(args.id, outcome["stage_status"], outcome["blocking"],
@@ -1148,7 +1326,7 @@ def cmd_review(args: argparse.Namespace) -> None:
 
 
 def review_task(base: Path, task_id: str, *, lens: str | None = None,
-                engine: str = "codex", max_priority: str = "P2",
+                engine: str = "codex", max_priority: str = "P3",
                 skill: str | None = None) -> dict:
     """Release the three-lens review for one task and record its proof.
 
@@ -1205,6 +1383,8 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
     engine = getattr(args, "engine", "codex")
     if engine == "codex":
         _require_safe_codex_review_helper(skill)
+    if not args.lens and args.max_priority != "P3":
+        fail("complete three-lens review requires --max-priority P3")
 
     # Mint the branch review run the recorder binds every artifact to.
     cmd_review_brief(argparse.Namespace(

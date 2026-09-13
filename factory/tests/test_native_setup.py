@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -326,6 +328,17 @@ def test_model_policy_selects_sol_work_and_luna_lite():
 
 SESSION_START_ADAPTERS = (".codex/hooks.json", ".claude/settings.json")
 SESSION_START_SOURCES = ("startup", "resume", "clear", "compact")
+HOOK_TOOL_MATRIX = {
+    ".claude/settings.json": {
+        "PreToolUse": ("Bash", "AskUserQuestion", "Edit", "Write", "MultiEdit", "NotebookEdit"),
+        "PostToolUse": ("Write", "Edit", "MultiEdit", "AskUserQuestion"),
+    },
+    ".codex/hooks.json": {
+        "PreToolUse": ("Bash", "Edit", "Write", "apply_patch", "request_user_input",
+                       "request_user_input_async"),
+        "PostToolUse": ("request_user_input",),
+    },
+}
 
 
 def _remove_session_start_source(config, missing):
@@ -345,6 +358,24 @@ def test_dual_runtime_checker_accepts_session_start_match_all(repo, adapter):
     code, out = run(repo, "check_dual_runtime.py", str(repo))
 
     assert code == 0, out
+    for event, tools in HOOK_TOOL_MATRIX[adapter].items():
+        for tool in tools:
+            broken = copy.deepcopy(document)
+            for entry in broken["hooks"][event]:
+                matcher = entry.get("matcher") or ".*"
+                if re.search(matcher, tool):
+                    retained = [candidate for candidate in tools if candidate != tool
+                                and re.search(matcher, candidate)]
+                    entry["matcher"] = ("^(?:" + "|".join(map(re.escape, retained)) + ")$"
+                                        if retained else "(?!)")
+            config.write_text(json.dumps(broken), encoding="utf-8")
+            code, out = run(repo, "check_dual_runtime.py", str(repo))
+            assert code != 0 and f"({event}) must route {tool} to forge hook" in out
+            assert all(
+                f"({other_event}) must route {other} to forge hook" not in out
+                for other_event, other_tools in HOOK_TOOL_MATRIX[adapter].items()
+                for other in other_tools if (other_event, other) != (event, tool)
+            )
 
 
 @pytest.mark.parametrize("adapter", SESSION_START_ADAPTERS)
