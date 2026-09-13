@@ -711,9 +711,15 @@ def now_iso() -> str:
 def _proof_object_or_default(path: Path | str, data: Any, default: Any) -> Any:
     """Treat valid non-object task-proof JSON as malformed proof."""
     parts = Path(path).parts
-    if ".factory" in parts and Path(path).name in {
-        "pr-ready.json", "verify.json", "tests.json",
-    }:
+    task_marker = len(parts) >= 6 and (
+        parts[-6] == ".factory"
+        and parts[-5] == "stories"
+        and parts[-3] == "tasks"
+        and parts[-1] == "pr-ready.json"
+    )
+    if task_marker or (
+        ".factory" in parts and Path(path).name in {"verify.json", "tests.json"}
+    ):
         return data if isinstance(data, dict) else {}
     return data
 

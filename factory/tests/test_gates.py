@@ -22146,27 +22146,6 @@ def test_task_proof_refuses_working_tree_marker_different_from_head(
         assert not lib.task_proof_problems(repo, "ENG-1", STAGE_TASK)
 
 
-def test_task_proof_refuses_committed_non_object_marker(repo, tmp_path):
-    git(repo, "checkout", "-qb", "feat/non-object-task-marker")
-    marker = prepare_task_pr_ready(repo, tmp_path)
-    finish_task_for_pr_ready(repo)
-    proof = write_task_proof(repo, "T1", publish_review=True)
-    git(repo, "add", proof.relative_to(repo).as_posix(),
-        ".factory/review-briefs/all.md")
-    git(repo, "commit", "-qm", "record T1 proof")
-    env, _, _ = task_pr_retry_env(tmp_path)
-    code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=env)
-    assert code == 0, out
-
-    marker.write_text("[]\n", encoding="utf-8")
-    git(repo, "add", marker.relative_to(repo).as_posix())
-    git(repo, "commit", "-qm", "replace marker with non-object JSON")
-
-    problems = load_factory_lib(repo).task_proof_problems(
-        repo, "ENG-1", STAGE_TASK)
-    assert problems == ["T1: task PR marker is invalid"]
-
-
 def test_task_proof_refuses_committed_null_marker(repo, tmp_path):
     git(repo, "checkout", "-qb", "feat/null-task-marker")
     marker = prepare_task_pr_ready(repo, tmp_path)
@@ -22184,6 +22163,9 @@ def test_task_proof_refuses_committed_null_marker(repo, tmp_path):
     git(repo, "commit", "-qm", "replace marker with JSON null")
 
     lib = load_factory_lib(repo)
+    unrelated = repo / ".factory" / "pr-ready.json"
+    unrelated.write_text("[1]\n", encoding="utf-8")
+    assert lib.load_json(unrelated, default={}) == [1]
     assert lib.task_proof_problems(repo, "ENG-1", STAGE_TASK) == [
         "T1: task PR marker is invalid",
     ]
