@@ -4,23 +4,21 @@
   "verdict": "pass",
   "issue": "FORGE-COORD-1",
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
-  "summary": "Resolved the five task-plan cold-read findings and one observed continuation-handoff conflict. The final handover preserves the approved design and exact scope while making the separate current-plan C8 worker and the one-test correction continuation finite and state-dependent.",
+  "summary": "Resolved all five findings from the single closeout-fixture cold read. The task remains one cumulative active stage, while the single fixture worker receives a finite executable measurement contract and Main restores cumulative close proof afterward.",
   "gaps": [
-    "The integration worker could not resolve plans/deferrals.md because that path was outside the effective task write scope.",
-    "The unfiltered 14-path audit necessarily included untracked .factory event files created by the required delegations.",
-    "Commit ownership contradicted itself by naming a worker commit while prohibiting workers from committing.",
-    "The conflict-resolution sequence omitted the required anchored pre-staging conflict-marker check.",
-    "reviewer_focus restated general constitution duties without citing the load-bearing always-applicable conduct sections.",
-    "The generated implementer brief's generic run-everything tail overrode the plan's phase ownership, so unchanged-condition continuation launches repeated broad checks while omitting the current-plan C8 proof and helper-shaped cross-lens refusal case."
+    "The plan limited the fixture worker to two focused tests and one checker while the rendered cumulative contract still required 64 selectors and four process-heavy verify commands, forcing conflicting verification ownership.",
+    "The declared worker checks omitted check_agents_hygiene.py, the actual CI enforcement for the 110-line AGENTS.md limit.",
+    "The three-path and 30-line continuation limit was stated in prose while admission retained the cumulative 78-path task scope and 180-file/18,000-line seal ceiling.",
+    "The approved story plan body still said the Decision 0074 amendment remained awaiting recorder-bound approval despite approved frontmatter and run state.",
+    "The active handover omitted the original 24-file/4,000-line estimate and the measured accumulated overrun required by the task lesson."
   ],
   "contradictions": [],
   "resolutions": [
-    "The registered integration worker fetches and runs git merge --no-commit, then stops without editing. Main resolves only plans/deferrals.md as an authorized orchestration-surface edit; the task scope remains 77 paths plus the existing amendment.",
-    "The baseline-to-working-tree tracked and untracked audits exclude only harness-owned .factory/** state. Every other product, test, and documentation path remains covered by the exact 14-path expected-output set.",
-    "Main audits after each worker returns and owns both the merge commit and correction commit. Workers never commit.",
-    "Before staging plans/deferrals.md, Main requires the anchored conflict-marker rg search to return no output and git diff --check to pass.",
-    "reviewer_focus now cites constitution/09-agent-conduct.md \u00a7\u00a72\u20134 through constitution/README.md and retains the task-specific integration, model-policy, and projection checks.",
-    "The amended task handover now starts with state-conditioned finite duties: a first registered worker produces the exact current-plan C8 receipt with zero repository edits and returns; only after Main correlates its successful terminal row does a second worker preserve the current 14-path patch, add the helper-shaped cross-lens case in the existing test, run three named nodes, and return. Main still owns every broad check, recorder, review, and close step."
+    "Before the one fixture delegate, Main records a temporary measurement contract containing only the two focused tests and check_agents_hygiene.py plus check_factory_scaffold.py. The generated brief is therefore executable without running cumulative close proof. After return, Main restores all 64 required tests and the full verifier commands before task close.",
+    "check_agents_hygiene.py is now an explicit worker and contract verify command; the existing scaffold checker remains as the separate distribution check.",
+    "The user explicitly kept this as a continuation of the already-active cumulative task, so no new per-launch scope feature is added. The worker instruction limits output to three paths and Main enforces that constraint with exact c9a85e9-to-working-tree tracked, untracked, diff-check, and 30-line audits before commit; any stray path is rejected.",
+    "The story plan now states the completed 2026-09-13 Decision 0074 approval and separates the current task-plan approval. The same actual cold read supplied the finding; the requirements and plan records were refreshed, the standing human authorization was bound, and the unchanged eight-task graph was re-recorded against the approved digest.",
+    "The story plan, task plan, and review budget now retain the original 24-file/4,000-line estimate, measured e17f44f-to-c9a85e9 total of 122 paths/15,061 lines, separate 14-path/95-line post-integration correction, three-path/30-line continuation, and current 180-file/18,000-line seal ceiling."
   ],
   "open_items": [],
   "questions_asked": 1,
@@ -40,39 +38,37 @@
     ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
     ".factory/stories/FORGE-COORD-1/decomposition.json",
     "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-    "factory/scripts/pre_tool_use.py",
+    "factory/prompts/implementer.md",
     "factory/scripts/forge_cli/delegate.py",
-    "factory/scripts/forge_cli/events.py",
-    "plans/lessons.jsonl",
-    "factory/prompts/griller.md",
+    "factory/scripts/check_agents_hygiene.py",
+    "factory/scripts/check_factory_scaffold.py",
+    "factory/tests/test_board_load_time.py",
+    "factory/tests/test_gates.py",
+    "plans/lessons/20260910T170240-0000-first-native-scope-correction-authorization-170240173755.json",
     "constitution/README.md",
     "constitution/09-agent-conduct.md"
   ],
-  "current_flow": "Record this resolved task pass against the finite current handover, bind the standing human program authorization, commit only its recorder state while preserving the 14-path correction, then run the separate C8 worker and one-test correction worker before Main audits and commits the product patch.",
+  "current_flow": "Record this resolved task pass, bind the standing human approval, temporarily narrow only required tests and verify commands for the one three-path fixture worker, audit and commit its exact output, restore the cumulative measurement contract, then resume one accelerated full task close through review and seal.",
   "citations": [
     {
-      "finding": "The integration worker could not resolve plans/deferrals.md because that path was outside the effective task write scope.",
-      "source": "final protected task plan integration write-authority section and factory/scripts/pre_tool_use.py orchestration-surface classifier"
+      "finding": "The plan limited the fixture worker to two focused tests and one checker while the rendered cumulative contract still required 64 selectors and four process-heavy verify commands, forcing conflicting verification ownership.",
+      "source": "protected task plan verification ownership; rendered task contract; factory/prompts/implementer.md and factory/scripts/forge_cli/delegate.py"
     },
     {
-      "finding": "The unfiltered 14-path audit necessarily included untracked .factory event files created by the required delegations.",
-      "source": "final protected task plan filtered output-audit commands and factory/scripts/forge_cli/events.py recorder path"
+      "finding": "The declared worker checks omitted check_agents_hygiene.py, the actual CI enforcement for the 110-line AGENTS.md limit.",
+      "source": "factory/scripts/check_agents_hygiene.py and .github/workflows/factory-scaffold.yml"
     },
     {
-      "finding": "Commit ownership contradicted itself by naming a worker commit while prohibiting workers from committing.",
-      "source": "final protected task plan integration and worker-boundary sections"
+      "finding": "The three-path and 30-line continuation limit was stated in prose while admission retained the cumulative 78-path task scope and 180-file/18,000-line seal ceiling.",
+      "source": "protected task plan scope decision, cumulative decomposition scope, and standing user continuation authorization"
     },
     {
-      "finding": "The conflict-resolution sequence omitted the required anchored pre-staging conflict-marker check.",
-      "source": "plans/lessons.jsonl conflict-resolution lesson and final protected task plan"
+      "finding": "The approved story plan body still said the Decision 0074 amendment remained awaiting recorder-bound approval despite approved frontmatter and run state.",
+      "source": "approved story plan authority paragraph, refreshed plan grill, and plan approval event"
     },
     {
-      "finding": "reviewer_focus restated general constitution duties without citing the load-bearing always-applicable conduct sections.",
-      "source": "constitution/README.md and constitution/09-agent-conduct.md sections 2 through 4"
-    },
-    {
-      "finding": "The generated implementer brief's generic run-everything tail overrode the plan's phase ownership, so unchanged-condition continuation launches repeated broad checks while omitting the current-plan C8 proof and helper-shaped cross-lens refusal case.",
-      "source": "the three delivered native implementer briefs, the protected task plan, and factory/scripts/forge_cli/delegate.py generic verification tail"
+      "finding": "The active handover omitted the original 24-file/4,000-line estimate and the measured accumulated overrun required by the task lesson.",
+      "source": "scope-correction lesson and measured git diff e17f44f850b7..c9a85e9 excluding .factory"
     }
   ],
   "criteria_map": {
@@ -83,17 +79,18 @@
     "Workspace-before-JIT honors incumbent 0063. Successor task start checks approved plan/decomposition, task/digest, refreshed trunk and dependency markers, then creates the worktree before JIT save/grill/approval. Attach accepts only a clean, registered, unowned same-common-directory worktree at that trunk commit with matching identity/dependencies. Grounding, JIT approval, stage and registered admission precede writes. After materialization, hydration preflights every destination before payload mutation and preserves Decision 0028's legal in-target file symlink. On refusal it attempts exact worktree removal, deletes the branch only after confirmed removal, and otherwise reports the surviving worktree/registration/branch without inventing cleanup success or mutating external payload state. The shipped-dependency predicate reads one exact fetched origin/trunk snapshot, validates marker identity and ancestry with the fetched SHA, and for an ordinary marker validates the shared exact task proof before any successor branch or worktree allocation. A reconciled marker skips proof only after its identity and ancestry validate; malformed, wrong-task, or proofless markers remain unshipped across task start, board, frontier, and closeout. Existing startup proof covers invalid JSON, non-object, empty-object, wrong-task, invalid-commit, and proofless ordinary dependency markers; each remains unshipped and allocates no task branch or worktree before the validated reconciled positive control.": "C5 remains covered by the accumulated workspace-before-JIT implementation and successor lifecycle tests named in the task plan; the current task changes no successor ordering contract.",
     "Unsupported native operations refuse before side effects: native background/read-only background, general status, live/dead worker status, cancel/resume/jobs, explore, and native question delivery do not compose briefs, spend question eligibility, append ledgers, signal processes, or dispatch children until their successor owners ship. The only native status exception renders already-dead registered native grill rows through existing dead_launches, restricted to strict grill gate/task labels and starting/running rows proven dead; it does not call the general status handler. Preserve unchanged Claude dispatch.": "C6 remains covered by the accumulated native refusal behavior and focused native setup, launch, and worker-admission suite named in the protected plan.",
     "Own-task review preflight uses `proof_path(base, story, artifact, task_id=args.id)` for the active task, accepts only own-task proof, and refuses story or other-task proof without helper fallback.": "C7 remains covered by the accumulated task-owned review preflight implementation and its focused proof-path regression named in the protected plan.",
-    "The admitted native worker reads and hashes the exact protected task plan, then exercises the actual native hook against that plan with harmless absent patch context. Only a correlated PreToolUse deny event counts: automated report receipt, registered terminal row and durable tool log identify the same launch/session/tool call and actual denial; unchanged bytes, context failure or synthetic payload never certify it. Main runs current `forge next`, process-heavy/full verification and correlation outside the managed companion. The implemented plan-contract review checks that evidence. The one shared review-set schema is introduced here; no second registry or CI/C10 parser is added.": "C8 is covered by a separate registered Sol/medium zero-edit worker using the exact protected plan hash, a real denied apply_patch attempt, correlation to the native hook event, and a receipt recorded into task test proof."
+    "The admitted native worker reads and hashes the exact protected task plan, then exercises the actual native hook against that plan with harmless absent patch context. Only a correlated PreToolUse deny event counts: automated report receipt, registered terminal row and durable tool log identify the same launch/session/tool call and actual denial; unchanged bytes, context failure or synthetic payload never certify it. Main runs current `forge next`, process-heavy/full verification and correlation outside the managed companion. The implemented plan-contract review checks that evidence. The one shared review-set schema is introduced here; no second registry or CI/C10 parser is added.": "C8 is covered by a separate registered Sol/medium zero-edit worker using the exact protected plan hash, a real denied apply_patch attempt, correlation to the native hook event, and a receipt recorded into task test proof.",
+    "Closeout proof matches the hardened marker contract without weakening production validation. The board memo regression counts the current rev-parse probe, proves memo reuse, and invalidates against a schema-valid reconciled marker. The story-closeout regression commits the existing scoped decomposition with T1 proof before marker publication, immediately asserts T1 is valid on trunk, and keeps normal sealed markers unreconciled. AGENTS.md remains semantically complete at no more than 110 lines, and the repository scaffold checker passes.": "C9 is executable through the exact two regression nodes plus both hygiene/scaffold checks; the board fixture uses current rev-parse probing and a valid reconciled marker, the story fixture commits its scoped decomposition before a normal marker and asserts it immediately, and AGENTS.md remains semantically complete within 110 lines."
   },
   "decision": "keep",
   "new_abstractions": [],
-  "input_sha256": "bebd75648ba8dc417f4b94777cb671ad550fed7fafbf203fb5f85553fa5f58c0",
+  "input_sha256": "b9dea62195b8d46c92dc47fa6b46187407e000701110ee3a3e3d8be11dc8995e",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
-  "task_plan_sha256": "9ae804335bbfe68792288cb93c9073a501eb6b06d58d3abeb1a90ff0056f4308",
-  "recorded_at": "2026-09-13T16:01:03+00:00",
-  "commit": "980a2d68eafa267d3a20d0838ddbf219610c8e4a",
-  "approved_task_plan_sha256": "9ae804335bbfe68792288cb93c9073a501eb6b06d58d3abeb1a90ff0056f4308",
+  "task_plan_sha256": "498aefa72a2333de734b5d6eb176a34354c51e3266f4f9d445515eaa0a91a649",
+  "recorded_at": "2026-09-13T17:39:36+00:00",
+  "commit": "c9a85e9722983787797edd82556e713986948c20",
+  "approved_task_plan_sha256": "498aefa72a2333de734b5d6eb176a34354c51e3266f4f9d445515eaa0a91a649",
   "approved_by": "Ravi (standing complete-program and in-scope recovery authorization, Codex conversation 2026-09-13)",
-  "approved_at": "2026-09-13T16:01:10+00:00"
+  "approved_at": "2026-09-13T17:39:43+00:00"
 }

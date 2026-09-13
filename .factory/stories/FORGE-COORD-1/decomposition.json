@@ -5,7 +5,7 @@
     {
       "id": "NATIVE-FOREGROUND-ACTIVATE",
       "title": "Native foreground and complete first-task proof",
-      "objective": "Continue from post-merge baseline 980a2d68eafa267d3a20d0838ddbf219610c8e4a while preserving every current uncommitted byte in the existing 14-path correction. Choose exactly one finite duty from durable state. If /tmp/forge-native-c8-current-receipt.json does not match the exact protected task-plan digest and a successful terminal delegation row, act only as the separate registered gpt-5.6-sol/medium C8 worker: hash the protected plan, attempt the required harmless absent-context apply_patch, observe its PreToolUse denial, hash again, write the receipt, make zero repository edits, and return immediately without forge next, Git, tests, verify, review, or close. Only after Main has correlated that successful current-plan C8 receipt and launches another worker, preserve the existing correction and edit only factory/tests/test_review_task_delta.py: add helper-shaped provider and matching processed findings in the existing incomplete/noncontiguous/missing/copied/mixed refusal test so quality and security records sharing normalized path, line pair, and tag-free title reach and trigger cross-lens duplicate normalized finding; run only the existing projection, refusal, and rejection-lineage nodes, then return. Do not run the 62 declared selectors or verify commands in either continuation; Main owns exact diff auditing, broader proof, recorders, Git commits, review, and task close. This finite handoff changes no scope, acceptance criterion, model policy, or proof ownership.",
+      "objective": "Continue from committed correction c9a85e9722983787797edd82556e713986948c20 and preserve all product behavior. Repair only the two integration fixtures exposed by the full close verifier: make the board memo regression observe the current rev-parse probe and use a valid reconciled marker; make the story-closeout history contain its protected decomposition before T1 publication and assert that marker validity locally. Compress AGENTS.md to the enforced 110-line limit without changing its rules. The worker runs only both focused pytest nodes and the scaffold checker; Main owns diff audit, Git, recorders, full verification, formal review, sealing, PR promotion, CI, and merge.",
       "dependencies": [],
       "user_facing": false,
       "acceptance_criteria": [
@@ -16,7 +16,8 @@
         "Workspace-before-JIT honors incumbent 0063. Successor task start checks approved plan/decomposition, task/digest, refreshed trunk and dependency markers, then creates the worktree before JIT save/grill/approval. Attach accepts only a clean, registered, unowned same-common-directory worktree at that trunk commit with matching identity/dependencies. Grounding, JIT approval, stage and registered admission precede writes. After materialization, hydration preflights every destination before payload mutation and preserves Decision 0028's legal in-target file symlink. On refusal it attempts exact worktree removal, deletes the branch only after confirmed removal, and otherwise reports the surviving worktree/registration/branch without inventing cleanup success or mutating external payload state. The shipped-dependency predicate reads one exact fetched origin/trunk snapshot, validates marker identity and ancestry with the fetched SHA, and for an ordinary marker validates the shared exact task proof before any successor branch or worktree allocation. A reconciled marker skips proof only after its identity and ancestry validate; malformed, wrong-task, or proofless markers remain unshipped across task start, board, frontier, and closeout. Existing startup proof covers invalid JSON, non-object, empty-object, wrong-task, invalid-commit, and proofless ordinary dependency markers; each remains unshipped and allocates no task branch or worktree before the validated reconciled positive control.",
         "Unsupported native operations refuse before side effects: native background/read-only background, general status, live/dead worker status, cancel/resume/jobs, explore, and native question delivery do not compose briefs, spend question eligibility, append ledgers, signal processes, or dispatch children until their successor owners ship. The only native status exception renders already-dead registered native grill rows through existing dead_launches, restricted to strict grill gate/task labels and starting/running rows proven dead; it does not call the general status handler. Preserve unchanged Claude dispatch.",
         "Own-task review preflight uses `proof_path(base, story, artifact, task_id=args.id)` for the active task, accepts only own-task proof, and refuses story or other-task proof without helper fallback.",
-        "The admitted native worker reads and hashes the exact protected task plan, then exercises the actual native hook against that plan with harmless absent patch context. Only a correlated PreToolUse deny event counts: automated report receipt, registered terminal row and durable tool log identify the same launch/session/tool call and actual denial; unchanged bytes, context failure or synthetic payload never certify it. Main runs current `forge next`, process-heavy/full verification and correlation outside the managed companion. The implemented plan-contract review checks that evidence. The one shared review-set schema is introduced here; no second registry or CI/C10 parser is added."
+        "The admitted native worker reads and hashes the exact protected task plan, then exercises the actual native hook against that plan with harmless absent patch context. Only a correlated PreToolUse deny event counts: automated report receipt, registered terminal row and durable tool log identify the same launch/session/tool call and actual denial; unchanged bytes, context failure or synthetic payload never certify it. Main runs current `forge next`, process-heavy/full verification and correlation outside the managed companion. The implemented plan-contract review checks that evidence. The one shared review-set schema is introduced here; no second registry or CI/C10 parser is added.",
+        "Closeout proof matches the hardened marker contract without weakening production validation. The board memo regression counts the current rev-parse probe, proves memo reuse, and invalidates against a schema-valid reconciled marker. The story-closeout regression commits the existing scoped decomposition with T1 proof before marker publication, immediately asserts T1 is valid on trunk, and keeps normal sealed markers unreconciled. AGENTS.md remains semantically complete at no more than 110 lines, and the repository scaffold checker passes."
       ],
       "write_scope": [
         ".claude/CLAUDE.md",
@@ -83,6 +84,7 @@
         "factory/scripts/stop_continue.py",
         "factory/skills/forge.md",
         "factory/tests/test_gate_table.py",
+        "factory/tests/test_board_load_time.py",
         "factory/tests/test_gates.py",
         "factory/tests/test_close_binds_to_the_diff.py",
         "factory/tests/test_grill_release.py",
@@ -137,6 +139,11 @@
           "id": "NATIVE-FOREGROUND-ACTIVATE-C8",
           "statement": "The admitted native worker reads and hashes the exact protected task plan, then exercises the actual native hook against that plan with harmless absent patch context. Only a correlated PreToolUse deny event counts: automated report receipt, registered terminal row and durable tool log identify the same launch/session/tool call and actual denial; unchanged bytes, context failure or synthetic payload never certify it. Main runs current `forge next`, process-heavy/full verification and correlation outside the managed companion. The implemented plan-contract review checks that evidence. The one shared review-set schema is introduced here; no second registry or CI/C10 parser is added.",
           "source": "docs/specs/dual-coordinator-parity.md (AC1-5, AC7, AC10-11); docs/decisions/0063-first-native-task-workspace-bootstrap.md; plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json; /Users/dev/.codex/plans/symphony-forge+native-foreground-target-jit+20260910.md; tests: test_native_worker_reads_state_without_protected_write_authority, test_any_protected_revocation_marker_denies_admission"
+        },
+        {
+          "id": "NATIVE-FOREGROUND-ACTIVATE-C9",
+          "statement": "Closeout proof matches the hardened marker contract without weakening production validation. The board memo regression counts the current rev-parse probe, proves memo reuse, and invalidates against a schema-valid reconciled marker. The story-closeout regression commits the existing scoped decomposition with T1 proof before marker publication, immediately asserts T1 is valid on trunk, and keeps normal sealed markers unreconciled. AGENTS.md remains semantically complete at no more than 110 lines, and the repository scaffold checker passes.",
+          "source": "/Users/dev/.codex/plans/symphony-forge+native-foreground-closeout-fixture-repair+20260913T223000IST.md Scope and decisions; failed full verifier at c9a85e9722983787797edd82556e713986948c20; tests: test_board_memo_reuses_git_facts_until_the_files_that_decide_them_change, test_story_closeout_requires_all_task_markers_and_completed_stories_reads_shipped; python3 factory/scripts/check_factory_scaffold.py"
         }
       ],
       "required_tests": [
@@ -449,9 +456,21 @@
           "id": "test_the_effort_escalation_harness_yaml_documents_is_reachable",
           "path": "factory/tests/test_stop_less_often.py",
           "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_board_memo_reuses_git_facts_until_the_files_that_decide_them_change",
+          "path": "factory/tests/test_board_load_time.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-closeout-uv-cache UV_TOOL_DIR=/tmp/forge-closeout-uv-tool uv run --with pytest --with psutil pytest -q {path}::{id} --junitxml={report}"
+        },
+        {
+          "id": "test_story_closeout_requires_all_task_markers_and_completed_stories_reads_shipped",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-closeout-uv-cache UV_TOOL_DIR=/tmp/forge-closeout-uv-tool uv run --with pytest --with psutil pytest -q {path}::{id} --junitxml={report}"
         }
       ],
       "verify_commands": [
+        "python3 factory/scripts/check_agents_hygiene.py",
+        "python3 factory/scripts/check_factory_scaffold.py",
         "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/check_encoding_hygiene.py",
         "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_native_launch.py factory/tests/test_native_setup.py factory/tests/test_worker_admission.py -q",
         "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py"
@@ -459,12 +478,12 @@
       "review_budget": {
         "max_changed_files": 180,
         "max_changed_lines": 18000,
-        "reason": "Seal-time ceiling remains 180 files/18,000 lines. The post-merge correction is an exact 14-path expected-output subset of the incumbent effective 78-path admission and may add or delete at most 180 lines; the complete post-a838900 product/test remediation stays within 960 changed lines. After the worker returns and before Main commits, compare the recorded post-merge/pre-delegation baseline with the tracked working tree and untracked paths, exclude only harness-owned .factory/** state, and reject every other path outside the 14; verify the same set after Main commits."
+        "reason": "Original estimate remains 24 files/4,000 changed lines. Measured from integrated trunk e17f44f850b7d1574c7438bf641c69c70e5dcd38 through c9a85e9722983787797edd82556e713986948c20, the accumulated product/documentation delta is 122 paths and 15,061 added-plus-deleted lines, within the approved 180-file/18,000-line seal ceiling. The separate post-integration correction is 14 paths/95 lines. Relative to c9a85e9, this diagnosed closeout repair may change only AGENTS.md, factory/tests/test_board_load_time.py, and factory/tests/test_gates.py, with at most 30 added-plus-deleted lines. The complete post-980a2d68 correction may name only the prior 14-path output plus factory/tests/test_board_load_time.py and remains within 220 lines; the complete task stays within the seal ceiling. Exclude only harness-owned .factory/** recorder state and keep each baseline distinct."
       },
       "reviewer_focus": [
-        "Review the complete accumulated task delta against every acceptance criterion and constitution/09-agent-conduct.md \u00a7\u00a72\u20134, cited through constitution/README.md as always applicable. Treat origin/main e17f44f integration as inherited baseline, verify the sole deferrals conflict preserves upstream D-0032, Toolshed D-0033, and completed D-0034, and assess the 14-path correction separately.",
-        "Require the current approved task-plan C8 protected-write denial and exact post-merge/pre-delegation diff checks. After the worker returns and before Main commits, exclude only harness-owned .factory/** recorder state; all other tracked/untracked paths must be inside the 14-path expected output. The correction removes only top-level main-session selector keys, preserves every Forge-managed role/worker/review/grill/Lite pin, and aligns every named guidance/test surface under Decision 0074.",
-        "For review projection, keep the helper provider/top-level merge key unchanged. Same-lens records sharing the normalized tag-free remediation fingerprint remain lossless in raw/top-level output but project only the first record; a duplicate under a different lens refuses. Assessment prose has no fingerprint grammar. After focused proof, resume one coordinated task close."
+        "Review the complete accumulated task delta against every acceptance criterion and constitution/09-agent-conduct.md sections 2 through 4. Treat origin/main e17f44f integration as inherited baseline and the committed model/review correction through c9a85e9 as already focused-tested.",
+        "For this continuation, require exactly three product/documentation paths relative to c9a85e9: AGENTS.md, factory/tests/test_board_load_time.py, and factory/tests/test_gates.py. The board fixture must observe rev-parse and use a valid reconciled marker; the closeout fixture must commit its protected decomposition before publishing a normal unreconciled T1 marker and assert it valid immediately. Capture marker commit and branch before installing the rev-parse spy so fixture setup cannot increment the measured probe count.",
+        "Require both focused regression nodes, the scaffold checker, the current failed-then-passing deterministic verifier, and AGENTS.md at no more than 110 lines. Preserve all production validation and every prior product behavior; this continuation introduces no runtime code."
       ]
     },
     {
@@ -564,6 +583,6 @@
   "story": "FORGE-COORD-1",
   "epic": "symphony-forge",
   "plan_file": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-  "plan_sha256": "a3c9c822d8f3788272cc8e68dd8b7f8316ce99d078f3aeeea2b91b15b4f81469",
-  "commit": "980a2d68eafa267d3a20d0838ddbf219610c8e4a"
+  "commit": "c9a85e9722983787797edd82556e713986948c20",
+  "plan_sha256": "c605101d86582523c618eb7fbe236ccc103b96743d039926f418dc6540a3fd7c"
 }

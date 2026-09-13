@@ -3,27 +3,13 @@
   "gate": "plan",
   "verdict": "pass",
   "issue": "FORGE-COORD-1",
-  "summary": "Resolved the four original plan findings plus four executable-handoff findings surfaced by the downstream task cold read. The final candidate is awaiting approval, consumes the confirmed inputs, uses an executable Main-owned conflict resolution and commit, and filters harness-owned recorder events from the 14-path product/test audit.",
+  "summary": "Resolved the cold reader's stale approval and budget-authority finding in the already-approved story plan without changing production behavior or the eight-task graph.",
   "gaps": [
-    "The draft falsely claimed approved status and a 2026-09-12 approval for the new Decision 0074 revision.",
-    "The transition ordered the confirmed-spec correction after the requirements and plan gates that had to consume it.",
-    "The exact expected correction path set was narrower than the incumbent 78-path admission authority and lacked a deterministic rejection check.",
-    "factory/skills/forge.md contradicted native-main coordination but had no correction owner.",
-    "The registered integration worker could not edit plans/deferrals.md because that orchestration-surface path was outside its admitted task scope.",
-    "The unfiltered untracked-path audit necessarily included recorder-generated .factory event files outside the 14 expected correction paths.",
-    "The plan referred to a worker commit while separately forbidding workers from committing and assigning Git commits to Main.",
-    "The conflict-resolution sequence omitted the repository lesson requiring an anchored conflict-marker check before staging."
+    "The approved story plan body still said the Decision 0074 amendment remained awaiting recorder-bound approval even though its frontmatter and recorded plan state were approved, and it omitted the diagnosed post-c9a85e9 fixture continuation plus the original-versus-measured budget account."
   ],
   "contradictions": [],
   "resolutions": [
-    "Frontmatter and prose now state awaiting approval. They distinguish the approved 2026-09-12 chain from this amendment and require grill, first save, exact human approval, and unchanged second save before claiming authority.",
-    "Decision 0074 is committed; the spec was amended, cold-read once, recorded, and reconfirmed; and the current requirements pass is recorded before this plan pass and save. The correction worker no longer owns confirmation status or an unconfirmed spec amendment.",
-    "The effective 78-path admission and 180-file/18,000-line seal ceiling remain honest. Fourteen paths are the expected correction output; immediately before commit Main compares the post-merge/pre-delegation baseline to the working tree and untracked files, rejects any path outside the set, and verifies the same set after commit. Imported main changes are audited separately.",
-    "factory/skills/forge.md is assigned to First in the exact 14-path correction set and receives an explicit live-guidance alignment check alongside AGENTS, CLAUDE, README, ROLES, FACTORY, prompt, and spec surfaces.",
-    "The worker now fetches and runs git merge --no-commit, then stops without editing. Main resolves only plans/deferrals.md as an authorized orchestration-surface edit, preserving the three exact deferral rows; no scope widening is claimed.",
-    "The baseline-to-working-tree and postcommit expected-output checks exclude only harness-owned .factory/** state. Tracked and untracked product/test/documentation paths remain covered, and imported main paths remain a separate merge audit.",
-    "The worker never commits. Main performs the product/test audit after the worker returns and owns both the integration merge commit and correction commit.",
-    "Immediately after resolving plans/deferrals.md and before staging, Main requires the anchored rg conflict-marker search to return no matches and git diff --check to pass."
+    "The candidate now states that the 2026-09-12 chain and Decision 0074 amendment were recorder-bound approved on 2026-09-13, separates the current task-plan approval, and appends the exact three-path fixture continuation with original 24-file/4,000-line estimate, measured 122-path/15,061-line integrated delta, 14-path/95-line correction, and current 180-file/18,000-line ceiling."
   ],
   "open_items": [],
   "questions_asked": 2,
@@ -48,56 +34,19 @@
     }
   ],
   "inspected_refs": [
-    "/Users/dev/.codex/plans/symphony-forge+user-selected-main-model+20260913T205000IST.md",
-    "docs/specs/dual-coordinator-parity.md",
-    "docs/architecture/dual-coordinator-parity.md",
-    "docs/decisions/0074-user-selects-main-orchestrator-model.md",
-    ".factory/stories/FORGE-COORD-1/grills/requirements.json",
-    ".factory/stories/FORGE-COORD-1/decomposition.json",
+    "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
     ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
-    "factory/scripts/forge_cli/worker_admission.py",
-    "factory/scripts/forge_cli/stages.py",
-    "factory/skills/forge.md",
-    "plans/lessons.jsonl",
-    "factory/scripts/forge_cli/delegate.py",
-    "factory/scripts/pre_tool_use.py"
+    ".factory/stories/FORGE-COORD-1/decomposition.json",
+    "plans/lessons/20260910T170240-0000-first-native-scope-correction-authorization-170240173755.json"
   ],
-  "current_flow": "Record this resolved plan pass against the exact candidate, save it awaiting approval, bind the user standing Decision 0074 instruction through plan approval, save it unchanged as approved, record the matching eight-task decomposition, then save, grill, and approve the amended First task plan before integration and correction workers.",
+  "current_flow": "Save this exact corrected story-plan digest awaiting approval, bind the standing user authorization, save it unchanged as approved, re-record the unchanged eight-task decomposition against the new digest, then record the resolved current task grill and launch only the three-path fixture repair.",
   "citations": [
     {
-      "finding": "false approval state",
-      "source": "amended plan frontmatter and transition"
-    },
-    {
-      "finding": "spec and requirements order",
-      "source": "confirmed dual-coordinator spec, current requirements grill, and amended plan transition"
-    },
-    {
-      "finding": "expected-output enforcement",
-      "source": "amended plan 14-path list, precommit working-tree/untracked check, and postcommit check"
-    },
-    {
-      "finding": "live Forge skill owner",
-      "source": "amended plan exact 14-path correction set and factory/skills/forge.md"
-    },
-    {
-      "finding": "integration scope and ownership",
-      "source": "final plan integration baseline; existing orchestration-surface classifier"
-    },
-    {
-      "finding": "event-aware expected-output audit",
-      "source": "final plan transition; factory/scripts/forge_cli/events.py"
-    },
-    {
-      "finding": "Main commit ownership",
-      "source": "final plan transition and task handoff"
-    },
-    {
-      "finding": "pre-staging conflict check",
-      "source": "plans/lessons.jsonl and final plan integration baseline"
+      "finding": "The approved story plan body still said the Decision 0074 amendment remained awaiting recorder-bound approval even though its frontmatter and recorded plan state were approved, and it omitted the diagnosed post-c9a85e9 fixture continuation plus the original-versus-measured budget account.",
+      "source": "current cold-read task grill finding 4 and 5; active story plan approval paragraph and transition; scope-correction lesson; measured e17f44f..c9a85e9 product delta"
     }
   ],
-  "input_sha256": "a3c9c822d8f3788272cc8e68dd8b7f8316ce99d078f3aeeea2b91b15b4f81469",
-  "recorded_at": "2026-09-13T15:32:09+00:00",
-  "commit": "3ad1a69d61c8fdf4a884bfbd8ec27323bab95b6c"
+  "input_sha256": "c605101d86582523c618eb7fbe236ccc103b96743d039926f418dc6540a3fd7c",
+  "recorded_at": "2026-09-13T17:35:37+00:00",
+  "commit": "c9a85e9722983787797edd82556e713986948c20"
 }

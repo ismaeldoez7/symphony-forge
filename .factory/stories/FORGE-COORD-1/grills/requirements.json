@@ -3,24 +3,13 @@
   "gate": "requirements",
   "verdict": "pass",
   "issue": "FORGE-COORD-1",
-  "summary": "Resolved all five findings from the single permitted Sol/high requirements cold read, native session 01a09b24-3dcf-7722-83d0-1885b33f4ec3. The confirmed specification and amended plan candidate now form one current Decision 0074 authority chain, distinguish provider reconstruction from remediation projection, and state honest cooperative-transfer and context-retention boundaries.",
-  "gaps": [
-    "The active plan, decomposition, and task plan were stale under accepted Decision 0074 and the newly confirmed specification.",
-    "Architecture and the task contract required a free-form assessment fingerprint grammar that the specification explicitly forbade.",
-    "Provider/top-level merging and remediation/rejection used incompatible duplicate identities that allowed two same-lens projected records to share one rejection fingerprint.",
-    "Coordinator-transfer preconditions claimed mechanical observability despite no coordinator registry or fencing mechanism.",
-    "Supplemental context from an external file had no permissions, deletion, recovery, or sensitive durable-retention boundary."
-  ],
+  "summary": "The current cold reader rechecked the confirmed requirements while diagnosing the closeout continuation. The product tree moved only through the approved integrated implementation and its focused corrections; the confirmed capability boundary is unchanged and the fixture repair adds no behavior.",
+  "gaps": [],
   "contradictions": [],
-  "resolutions": [
-    "The amended story candidate attests Decision 0074, pins the current confirmed spec and architecture hashes, authorizes the exact 14-path correction, and orders plan, decomposition, and task-plan rebinding before any worker. The protected chain will be replaced by its normal recorders.",
-    "The confirmed specification, architecture, and story candidate remove separately parsed assessment fingerprints. Finding identity is derived deterministically from structured path, line, tag, and title fields.",
-    "The helper provider/top-level merge key remains path, line, exact category, and normalized tagged title so raw reconstruction is lossless. Lens projection and remediation separately use path, normalized line pair, and tag-free title; same-lens duplicates retain only the first projected record while cross-lens duplicates refuse.",
-    "Coordinator transfer is now explicitly cooperative and developer- or host-directed. Forge gates only marker, CI, active-worker, and required-question signal state and claims no stop proof, partial-exchange observation, stale-session fencing, or concurrency prevention.",
-    "Lean owns randomized mode-0600 snapshots under a per-user mode-0700 transient directory, terminal deletion, narrowly verified stale cleanup, and durable metadata limited to supplied state, byte count, and random opaque ID. Source path, content digest, and bytes are forbidden from durable logs/evidence, and AC9/C6 require the proof."
-  ],
+  "resolutions": [],
   "open_items": [],
   "questions_asked": 1,
+  "frontier_empty": true,
   "rounds": [
     {
       "question": "Dual-coordinator review migration: should Forge remove ongoing fixed-path review compatibility and use one Portable-owned upgrade migration into canonical task-scoped selected review sets?",
@@ -36,39 +25,15 @@
     "docs/specs/dual-coordinator-parity.md",
     "docs/architecture/dual-coordinator-parity.md",
     "docs/product/BRIEF.md",
-    "docs/decisions/0067-rounds-rebind-to-their-gate.md",
-    "docs/decisions/0069-combined-review-generation.md",
-    "docs/decisions/0074-user-selects-main-orchestrator-model.md",
     "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
     ".factory/stories/FORGE-COORD-1/decomposition.json",
     ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
-    "factory/scripts/forge_cli/review.py",
-    "factory/scripts/factory_lib.py"
+    "factory/tests/test_board_load_time.py",
+    "factory/tests/test_gates.py"
   ],
-  "current_flow": "Record this requirements pass against the confirmed current specification and product inputs, record the already completed plan cold read against the final amended candidate, save and bind the standing human approval, then record the matching decomposition and amended First task contract before integration and correction workers.",
-  "citations": [
-    {
-      "finding": "current authority chain",
-      "source": "Decision 0074, confirmed dual-coordinator spec, and amended story candidate"
-    },
-    {
-      "finding": "assessment grammar",
-      "source": "docs/specs/dual-coordinator-parity.md and docs/architecture/dual-coordinator-parity.md"
-    },
-    {
-      "finding": "two review identity purposes",
-      "source": "docs/specs/dual-coordinator-parity.md, docs/architecture/dual-coordinator-parity.md, factory/scripts/forge_cli/review.py, and factory_lib rejection identity"
-    },
-    {
-      "finding": "cooperative transfer",
-      "source": "docs/specs/dual-coordinator-parity.md and docs/architecture/dual-coordinator-parity.md"
-    },
-    {
-      "finding": "supplemental context retention",
-      "source": "docs/specs/dual-coordinator-parity.md and constitution/05-logging-and-observability.md"
-    }
-  ],
-  "input_sha256": "a1c08a28587d566ea6c162aa151d1098f9d5c5e08be2d8e9c5117c29bb9478e7",
-  "recorded_at": "2026-09-13T15:08:42+00:00",
-  "commit": "3ad1a69d61c8fdf4a884bfbd8ec27323bab95b6c"
+  "current_flow": "Keep the confirmed capability unchanged, correct only story-plan approval and measured-history wording, rebind the unchanged eight-task graph, and repair the two stale fixtures plus AGENTS.md line hygiene before resuming close.",
+  "citations": [],
+  "input_sha256": "2731481c616ce7c5c5a416c50dc56b0c4f9d71af4edd0208509c4ec38b736435",
+  "recorded_at": "2026-09-13T17:36:06+00:00",
+  "commit": "c9a85e9722983787797edd82556e713986948c20"
 }
