@@ -1,5 +1,5 @@
 {
-  "commit": "a428241acf03991f540dc2d4d6410ee37ba37ba3",
+  "commit": "5150e64874b216b090acc2ca6dbef2f1d3aa3d75",
   "automated": {
     "generated_by": "implementer",
     "status": "passed",
@@ -7,7 +7,7 @@
     "blocking_findings": [],
     "commands_run": [
       "Registered finite correction worker launch/session launch-65c670c937ff4e409cb97edcb5768d0c / 01a09b85-acdf-76a0-bcd5-a120857e7139 -> 3 existing projection/refusal/rejection-lineage selectors passed in 16.21s; terminal succeeded with exit_code 0",
-      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil pytest -q [seven exact focused node IDs from the protected task plan] -> 7 passed in 18.73s",
+      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil pytest -q factory/tests/test_gate_table.py::test_active_model_policy_has_no_forbidden_execution_surface factory/tests/test_native_setup.py::test_model_policy_selects_sol_work_and_luna_lite factory/tests/test_gates.py::test_init_and_upgrade_ship_portable_hook_commands factory/tests/test_gates.py::test_project_agents_init_upgrade_and_preserve_client_additions factory/tests/test_review_task_delta.py::test_combined_review_projects_tagged_lenses_and_preserves_ordered_pass_verdicts factory/tests/test_review_task_delta.py::test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixed_output factory/tests/test_review_settled_contracts.py::test_reject_republishes_one_complete_pointer_selected_set -> 7 passed in 18.73s",
       "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/check_dual_runtime.py -> clean (historical Confirmed-by convention warnings only)",
       "Current-plan C8 correlation -> launch launch-8fd15d00170a45bc9a642e6df6954532; session 01a09b81-08e6-73b0-a9d0-d4e030513900; apply_patch call call_zQXCTCLlj6okpsUWnnFyHzDD; transcript ordinals 62/64 contain the real protected-plan tool call and PreToolUse denial; registered terminal row succeeded with exit_code 0; exact task-plan SHA256 before/after b17d99b92031cc14ffea79ca3cb32fd397d291d02f8deb12b8a6c6a900d7b20b; patch_executed=false; repository bytes unchanged by that worker",
       "Post-merge baseline 980a2d68eafa267d3a20d0838ddbf219610c8e4a..a428241 product audit -> exactly the approved 14 paths, 95 added-plus-deleted lines <= 180, no non-.factory untracked paths; managed harness.yaml, .codex/explore.config.toml and all 15 .codex/agents/*.toml byte-identical",
@@ -44,8 +44,8 @@
     "non_blocking_findings": [],
     "residual_risks": [],
     "manual_validation_steps": [],
-    "recorded_at": "2026-09-13T16:14:28+00:00",
-    "commit": "a428241acf03991f540dc2d4d6410ee37ba37ba3"
+    "recorded_at": "2026-09-13T16:14:55+00:00",
+    "commit": "5150e64874b216b090acc2ca6dbef2f1d3aa3d75"
   },
-  "updated_at": "2026-09-13T16:14:28+00:00"
+  "updated_at": "2026-09-13T16:14:55+00:00"
 }
