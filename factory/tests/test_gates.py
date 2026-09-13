@@ -19388,6 +19388,23 @@ def test_task_proof_allows_mixed_product_and_metadata_commits(
     assert lib.task_proof_problems(repo, "ENG-1", task)
     assert check_task_proof.proof_problems(repo, "ENG-1", "T1")
 
+    # Restoring an authoritative generation's bytes does not erase its history.
+    authoritative = proof / "reviews/generations" / (
+        f"{valid_upgrade_pointer['generation_id']}.json"
+    )
+    authoritative_bytes = authoritative.read_bytes()
+    authoritative.write_bytes(authoritative_bytes + b"\n")
+    git(repo, "add", authoritative.relative_to(repo).as_posix())
+    git(repo, "commit", "-qm", "rewrite authoritative review generation")
+    authoritative.write_bytes(authoritative_bytes)
+    git(repo, "add", authoritative.relative_to(repo).as_posix())
+    git(repo, "commit", "-qm", "restore authoritative review generation")
+    exact_path = authoritative.relative_to(proof).as_posix()
+    assert any(
+        f"{exact_path} proof changed after task marker" in problem
+        for problem in lib.task_proof_problems(repo, "ENG-1", task)
+    )
+
 
 def test_task_proof_sealed_t1_survives_t2_product(repo, tmp_path):
     sign_off(repo)

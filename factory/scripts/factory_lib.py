@@ -1988,10 +1988,11 @@ def _modern_task_proof_problems(
                     f"{task_id}: functional check must be passed, have no blockers, "
                     "and score >= 8 — fix what it found and re-record it")
 
+    authoritative_review_paths: set[str] = set()
     generation, _selection, review_generation_problems = read_selected_review_generation(
         root, key, task_id, reader=selected_reader,
         bytes_reader=selected_bytes_reader, expected_delta_id=expected_review_delta,
-        sealed_commit=sealed_commit,
+        sealed_commit=sealed_commit, consumed_paths=authoritative_review_paths,
     )
     problems.extend(review_generation_problems)
     reviews = (
@@ -2000,21 +2001,34 @@ def _modern_task_proof_problems(
     )
     if marker_publication_commit:
         proof_root = f".factory/stories/{key}/tasks/{task_id}"
-        changed, change_error = _paths_changed_after(
-            root, marker_publication_commit,
-            [f"{proof_root}/verify.json", f"{proof_root}/tests.json",
-             f"{proof_root}/reviews"],
-        )
+        history_review_paths = set(authoritative_review_paths)
         allowed_upgrade_paths: set[str] = set()
+        generation_changes: set[str] = set()
+        generation_change_error = ""
         if selected_upgrade_after_marker and isinstance(generation, dict):
             generation_rel, selection_rel = _review_relpaths(
                 key, task_id, str(generation.get("generation_id") or ""),
             )
-            allowed_upgrade_paths.update((generation_rel, selection_rel))
-        if change_error:
+            history_review_paths.discard(generation_rel)
+            allowed_upgrade_paths.add(selection_rel)
+            generation_publication = _marker_publication_commit(root, generation_rel)
+            if generation_publication and not _git_is_ancestor(
+                    root, marker_publication_commit, generation_publication):
+                generation_change_error = "upgrade generation publication is invalid"
+            elif generation_publication:
+                generation_changes, generation_change_error = _paths_changed_after(
+                    root, generation_publication, [generation_rel],
+                )
+        changed, change_error = _paths_changed_after(
+            root, marker_publication_commit,
+            [f"{proof_root}/verify.json", f"{proof_root}/tests.json",
+             *sorted(history_review_paths)],
+        )
+        changed.update(generation_changes)
+        if change_error or generation_change_error:
             problems.append(
                 f"{task_id}: cannot inspect proof history after task marker: "
-                f"{change_error}"
+                f"{change_error or generation_change_error}"
             )
         for path in sorted(changed - allowed_upgrade_paths):
             problems.append(
@@ -2944,9 +2958,12 @@ def read_selected_review_generation(
     reader: Callable[[str], dict | None] | None = None,
     bytes_reader: Callable[[str], bytes | None] | None = None,
     expected_delta_id: str = "", sealed_commit: str = "",
+    consumed_paths: set[str] | None = None,
 ) -> tuple[dict | None, dict | None, list[str]]:
     """Read and recompute the one selected immutable generation."""
     _generation_unused, selection_rel = _review_relpaths(key, task_id)
+    if consumed_paths is not None:
+        consumed_paths.add(selection_rel)
     try:
         if reader is None:
             selection_bytes = _read_review_bytes(root, root / selection_rel)
@@ -2958,6 +2975,8 @@ def read_selected_review_generation(
                 return None, None, [f"{task_id}: selected review pointer is missing"]
         validate_review_document(root, selection)
         generation_rel, _ = _review_relpaths(key, task_id, selection["generation_id"])
+        if consumed_paths is not None:
+            consumed_paths.add(generation_rel)
         if reader is None:
             generation_bytes = _read_review_bytes(root, root / generation_rel)
             generation = json.loads(generation_bytes)
@@ -3005,6 +3024,8 @@ def read_selected_review_generation(
             source_id = str((descendant.get("rejection") or {}).get(
                 "source_generation_id") or "")
             source_rel, _ = _review_relpaths(key, task_id, source_id)
+            if consumed_paths is not None:
+                consumed_paths.add(source_rel)
             try:
                 if reader is None:
                     source_bytes = _read_review_bytes(root, root / source_rel)
@@ -3028,6 +3049,8 @@ def read_selected_review_generation(
                 break
             lesson = descendant["rejection"]["history"][-1]
             lesson_rel = lesson["lesson_path"]
+            if consumed_paths is not None:
+                consumed_paths.add(lesson_rel)
             try:
                 lesson_bytes = (
                     _read_review_bytes(root, root / lesson_rel)
