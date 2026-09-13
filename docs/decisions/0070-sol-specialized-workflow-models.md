@@ -1,9 +1,10 @@
 ---
-status: accepted
+status: superseded
 confirmed_by: "User (explicit model policy, Claude plugin parity and committed team configuration instructions, Codex conversation 2026-09-10/11)"
 date: 2026-09-11
 stories: [FORGE-COORD-1]
 supersedes: 0062-luna-max-exploration-and-implementation
+superseded_by: 0074-user-selects-main-orchestrator-model
 ---
 
 # Sol-specialized workflow models with Luna Max Lite
