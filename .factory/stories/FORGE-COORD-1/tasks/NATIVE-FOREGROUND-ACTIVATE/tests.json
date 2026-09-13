@@ -1,30 +1,38 @@
 {
-  "commit": "07a82f805169837be323383a1e1af156fc23e989",
+  "commit": "3ba105e54da7904dd6e99b6326f0776df0e63aab",
   "automated": {
     "generated_by": "implementer",
     "status": "passed",
-    "summary": "At 07a82f8, the final native-coordinator review fixes are green: raw builtin exec forms are denied only at active shell boundaries, quoted prose remains allowed, and worker symlink coverage now fails rather than skipping when the platform cannot create its required fixture.",
+    "summary": "At 3ba105e, all four findings from combined review d0efa136 are closed in the bounded ten-path cumulative repair: nested shell groups and process substitutions retain active raw-Codex detection, the public delegate effort no-op is removed while internal pinned argv remains, discarded proof-reader compatibility API is removed without changing marker-bound upgrades, and secondary lens tags refuse anywhere in normalized titles.",
     "blocking_findings": [],
     "commands_run": [
-      "UV_CACHE_DIR=/tmp/forge-native-host-uv-cache UV_TOOL_DIR=/tmp/forge-native-host-uv-tools uv run --python 3.11 --with pytest --with psutil pytest -q factory/tests/test_gates.py::test_codex_exec_ban_matches_invocations_not_prose factory/tests/test_worker_admission.py::test_worker_symlink_entry_is_denied --junitxml=/tmp/NATIVE-FOREGROUND-ACTIVATE-final-two.xml at 07a82f805169837be323383a1e1af156fc23e989 -> 3 passed in 13.54s; JUnit reports 3 tests, 0 failures, 0 errors, 0 skipped",
-      "git diff --numstat c462478..07a82f8 -- factory/scripts/factory_lib.py factory/scripts/pre_tool_use.py factory/tests/test_gates.py factory/tests/test_worker_admission.py -> 53 insertions and 6 deletions, 59 changed lines across the three final product/test paths",
-      "git diff --numstat 499c358..07a82f8 -- factory/scripts/factory_lib.py factory/scripts/pre_tool_use.py factory/tests/test_gates.py factory/tests/test_worker_admission.py -> 189 insertions and 26 deletions, 215 changed lines across exactly four product/test paths, within the amended 240-line cumulative repair budget; git diff --check 499c358..07a82f8 -> clean",
-      "Registered current-contract Sol/medium correction launch with terminal session 01a09cd3-898f-78c0-887d-4a3a840708a9 -> succeeded at the current task stage; the worker implemented and checked the final raw-exec and symlink-fixture corrections",
-      "At f954f17, FACTORY_TEST_CMD with the six then-final regression selectors ./forge task close NATIVE-FOREGROUND-ACTIVATE -> all five recorded verify commands and 69 required selector invocations completed; verify recorded check_dual_runtime clean, check_factory_scaffold OK, and the focused verifier 9 passed in 86.65s before close correctly stopped on stale automated evidence",
-      "At f954f17, UV_CACHE_DIR=/tmp/forge-native-host-uv-cache UV_TOOL_DIR=/tmp/forge-native-host-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest -q [two process-sensitive selectors plus six final regression selectors] --junitxml=/tmp/NATIVE-FOREGROUND-ACTIVATE-host-regressions.xml -> 11 passed in 58.48s; JUnit reports 11 tests, 0 failures, 0 errors, 0 skipped",
-      "Historical broad proof at 4e8dd2e: FACTORY_TEST_CMD four-worker task-close verification -> 1059 passed, 3 skipped in 1811.34s; later Ubuntu fixture failures were repaired and the task's 69-selector plus five-command contract was rerun at f954f17",
-      "GitHub PR 221 at f954f17: scaffold-check and windows-hook-gates passed; Linux scaffold-check owns the full worker-admission suite, while windows-hook-gates does not run factory/tests/test_worker_admission.py"
+      "Registered Sol/medium final correction launch launch-564774510005496e88a5285509a9946c / session 01a09d08-268b-7722-b148-7701cf533476 -> succeeded after changing only pre_tool_use.py, test_gates.py, and check_task_proof.py; required updated raw selector passed 1 test with 732 deselected in 14.64s and git diff --check was clean",
+      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_review_task_delta.py -k test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixed_output --junitxml=/tmp/test-review-tags.xml -> 1 passed, 0 failed, 0 errored, 0 skipped in 0.09s",
+      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_stop_less_often.py -k test_the_effort_escalation_harness_yaml_documents_is_reachable --junitxml=/tmp/test-effort.xml -> 1 passed, 0 failed, 0 errored, 0 skipped in 2.38s",
+      "UV_CACHE_DIR=/tmp/forge-review-final-uv-cache UV_TOOL_DIR=/tmp/forge-review-final-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_gates.py -k test_task_proof_ci_seal_and_later_mutation --junitxml=/tmp/test-proof-mutation.xml -> 1 passed, 0 failed, 0 errored, 0 skipped in 9.34s",
+      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_gates.py -k test_task_proof_ci_uses_sealed_selected_t1_not_later_t2_singleton --junitxml=/tmp/test-proof-sealed.xml -> 1 passed, 0 failed, 0 errored, 0 skipped in 12.19s",
+      "git diff --numstat 499c358..3ba105e over the ten authorized cumulative paths -> 348 added-plus-deleted lines across exactly ten product/test paths, within the 380-line limit; git diff --check 499c358..3ba105e -> clean; _wrapped_codex_exec matches c462478 byte-for-byte",
+      "Registered launch launch-32f37ea909254ad69830a7972e6a103c produced the first nine-file candidate and five green focused JUnit reports, then ignored the focused ownership note and entered the inherited full selector list; it was aborted after the known worker-sandbox ProcessDiscoveryError in test_native_zero_exit_without_completed_turn_is_failed. This is environment/process history, not successful full-suite proof and not a product failure.",
+      "Registered launch launch-dd7d98f3de644349a3a6118fb3af82ac was stopped when its broad objective made it re-certify the old raw matrix without the required group-boundary finish. It contributed no accepted product edit or proof.",
+      "Historical host/task-close proof at f954f17 completed the then-current 69 required selectors and five verify commands; the restored current contract has 70 selectors plus the same five verify commands, which the parent-owned task close will rerun at 3ba105e before formal review."
     ],
     "tests_added_or_updated": [
       "factory/tests/test_gates.py",
-      "factory/tests/test_worker_admission.py"
+      "factory/tests/test_review_task_delta.py",
+      "factory/tests/test_stop_less_often.py"
     ],
-    "pass_fail_summary": "The current-head focused regression is green with no skipped cases. The task's full 69-selector and five-command proof was green at the immediately preceding repair commit; task close will rerun it at 07a82f8 before formal review.",
+    "pass_fail_summary": "All five focused finding regressions are green with no skips, and the updated final raw-launch selector is green after the literal grouped-function cases were added. The redundant worker-wide attempt hit only the documented sandbox process-discovery limitation and was stopped; current-head cumulative verification remains parent-owned and will run through task close.",
     "remaining_gaps": [],
     "reviewed_scope": [
+      "factory/scripts/check_task_proof.py",
       "factory/scripts/factory_lib.py",
+      "factory/scripts/forge.py",
+      "factory/scripts/forge_cli/delegate.py",
+      "factory/scripts/forge_cli/review.py",
       "factory/scripts/pre_tool_use.py",
       "factory/tests/test_gates.py",
+      "factory/tests/test_review_task_delta.py",
+      "factory/tests/test_stop_less_often.py",
       "factory/tests/test_worker_admission.py"
     ],
     "skills_used": [
@@ -34,8 +42,8 @@
     "non_blocking_findings": [],
     "residual_risks": [],
     "manual_validation_steps": [],
-    "recorded_at": "2026-09-13T22:23:13+00:00",
-    "commit": "07a82f805169837be323383a1e1af156fc23e989"
+    "recorded_at": "2026-09-13T23:15:34+00:00",
+    "commit": "3ba105e54da7904dd6e99b6326f0776df0e63aab"
   },
-  "updated_at": "2026-09-13T22:23:13+00:00"
+  "updated_at": "2026-09-13T23:15:34+00:00"
 }
