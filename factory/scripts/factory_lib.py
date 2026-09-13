@@ -1625,12 +1625,19 @@ def _committed_task_marker(
     *, inspected_head: str = "",
 ) -> tuple[dict | None, str | None]:
     """Return a valid marker, refusing an invalid committed identity."""
-    if marker is None:
-        return None, None
     marker_path = f".factory/stories/{key}/tasks/{task_id}/pr-ready.json"
     if reader is None:
-        if _read_git_json(root, marker_path, "HEAD") != marker:
+        try:
+            committed = _read_git_json(root, marker_path, "HEAD")
+        except SystemExit:
+            return None, f"{task_id}: task PR marker committed at HEAD is invalid"
+        if committed is None:
             return None, None
+        if committed != marker:
+            return None, f"{task_id}: task PR marker differs from marker committed at HEAD"
+        marker = committed
+    elif marker is None:
+        return None, None
     if not _valid_task_marker(
             root, marker, task_id, inspected_head=inspected_head):
         return None, f"{task_id}: task PR marker is invalid"
@@ -2104,9 +2111,12 @@ def task_proof_problems(
     marker_path = f".factory/stories/{key}/tasks/{task_id}/pr-ready.json"
     marker = legacy_marker
     if marker is None:
-        marker = reader(marker_path) if reader is not None else load_json(
-            root / marker_path, default=None
-        )
+        try:
+            marker = reader(marker_path) if reader is not None else load_json(
+                root / marker_path, default=None
+            )
+        except (json.JSONDecodeError, OSError, TypeError, ValueError):
+            return [f"{task_id}: task PR marker is invalid"]
 
     marker_context = None
     if not preseal:
@@ -2204,9 +2214,8 @@ def task_proof_problems(
         marker_publication_commit=marker_publication_commit,
         expected_branch_diff_digest=expected_branch_diff_digest,
         reader=reader, reader_treeish=inspected_head,
-        brief_treeish=(str(marker_context["commit"])
+        brief_treeish=(marker_publication_commit
                        if marker_context is not None else ""),
-        brief_fallback_treeish=marker_publication_commit,
         review_branch=(str(marker_context.get("branch") or "")
                        if marker_context is not None else ""),
         proof_base=proof_base,

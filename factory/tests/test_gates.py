@@ -19390,8 +19390,14 @@ def test_task_proof_allows_mixed_product_and_metadata_commits(
             ".factory/stories/ENG-1/review-run.json",
             ".factory/stories/ENG-1/tasks/T1/reviews")
     git(repo, "commit", "-qm", "proof N")
+    brief_path = repo / ".factory" / "review-briefs" / "all.md"
+    publication_brief = brief_path.read_bytes()
+    brief_path.write_text("inherited review brief\n", encoding="utf-8")
+    git(repo, "add", brief_path.relative_to(repo).as_posix())
+    git(repo, "commit", "-qm", "inherit an older review brief at the seal")
     seal = head(repo)
     assert seal != metadata_commit
+    brief_path.write_bytes(publication_brief)
 
     # Complete the ordinary stage/seal path. The stage stamp is bound to N's
     # product tree, while the proof records intentionally retain E and M.
@@ -19484,7 +19490,6 @@ def test_task_proof_allows_mixed_product_and_metadata_commits(
     run_state_value = json.loads(run_pointer.read_text())
     run_state_value.update({"branch": "spoofed-proof-branch", "base_main_sha": "0" * 40})
     run_pointer.write_text(json.dumps(run_state_value))
-    brief_path = repo / ".factory" / "review-briefs" / "all.md"
     brief_path.write_text(brief_path.read_text() + "\nworking-tree tamper\n")
     assert not check_task_proof.proof_problems(repo, "ENG-1", "T1")
 
@@ -22105,6 +22110,40 @@ def test_task_pr_ready_retry_reuses_unchanged_committed_marker(repo, tmp_path):
     assert len(pushes.read_text().splitlines()) == 3
     assert sum(line.startswith("pr create ") for line in calls.read_text().splitlines()) == 3
     assert "gh auth login" not in generic_failure
+
+
+def test_task_proof_refuses_working_tree_marker_different_from_head(
+        repo, tmp_path):
+    git(repo, "checkout", "-qb", "feat/task-marker-identity")
+    marker = prepare_task_pr_ready(repo, tmp_path)
+    finish_task_for_pr_ready(repo)
+    proof = write_task_proof(repo, "T1", publish_review=True)
+    git(repo, "add", proof.relative_to(repo).as_posix(),
+        ".factory/review-briefs/all.md")
+    git(repo, "commit", "-qm", "record T1 proof")
+    env, _, _ = task_pr_retry_env(tmp_path)
+    code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=env)
+    assert code == 0, out
+
+    lib = load_factory_lib(repo)
+    marker_bytes = marker.read_bytes()
+    assert not lib.task_proof_problems(repo, "ENG-1", STAGE_TASK)
+    variants = [
+        json.dumps({**json.loads(marker_bytes),
+                    "sealed_at": "2026-09-14T12:00:00+00:00"}).encode(),
+        None,
+        b"{\n",
+        b"[]\n",
+    ]
+    for value in variants:
+        if value is None:
+            marker.unlink()
+        else:
+            marker.write_bytes(value)
+        problems = lib.task_proof_problems(repo, "ENG-1", STAGE_TASK)
+        assert problems and "task PR marker" in problems[0]
+        marker.write_bytes(marker_bytes)
+        assert not lib.task_proof_problems(repo, "ENG-1", STAGE_TASK)
 
 
 def test_task_pr_ready_refuses_changed_evidence_after_marker(

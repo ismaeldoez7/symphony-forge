@@ -330,6 +330,28 @@ def test_native_worker_patch_add_update_delete_and_move_is_admitted(repo, tmp_pa
     assert "deny" not in output, output
 
 
+@pytest.mark.parametrize("controls", [
+    ("*** Add File: src/link.py", "+new"),
+    ("*** Update File: src/link.py", "@@", "-old", "+new"),
+    ("*** Update File: src/old.py", "*** Move to: src/link.py",
+     "@@", "-old", "+new"),
+])
+def test_worker_add_or_update_symlink_leaf_is_denied(
+        repo, tmp_path, controls):
+    brief, digest = _seed_contract(repo)
+    target = repo / "src" / "old.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("old\n", encoding="utf-8")
+    link = repo / "src" / "link.py"
+    link.symlink_to("old.py")
+    proc, token, launch_id = _start_worker(repo, tmp_path)
+    _record_launch(repo, proc, token, launch_id, brief, digest)
+
+    output = _invoke_worker(proc, _patch(*controls))
+
+    assert "deny" in output and "cannot prove its write paths" in output
+
+
 def test_native_worker_reads_state_without_protected_write_authority(
         repo, tmp_path, monkeypatch, capsys):
     brief, digest = _seed_contract(repo)
@@ -660,11 +682,11 @@ def test_worker_move_target_must_remain_in_scope(repo, tmp_path):
         ["src/in-scope-link.py"],
     ),
     (
-        ("*** Update File: src/old.py", "*** Move to: outside-link.py",
+        ("*** Update File: outside-link.py", "*** Move to: src/moved.py",
          "@@", "-old", "+new"),
-        ("*** Update File: src/old.py", "*** Move to: src/in-scope-link.py",
+        ("*** Update File: src/in-scope-link.py", "*** Move to: src/moved.py",
          "@@", "-old", "+new"),
-        ["src/old.py", "src/in-scope-link.py"],
+        ["src/in-scope-link.py", "src/moved.py"],
     ),
 ])
 def test_worker_symlink_entry_is_denied(

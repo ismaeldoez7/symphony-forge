@@ -513,7 +513,7 @@ def bash_write_paths(value: str, root: Path) -> list[str]:
 PATCH_HEADER = re.compile(r"^\*\*\* (Add|Update|Delete) File: (.+)$")
 
 
-def apply_patch_paths(value: str) -> list[str] | None:
+def apply_patch_paths(value: str) -> list[tuple[str, str]] | None:
     """Extract every write path from one native apply_patch payload.
 
     None is a malformed patch. The parser understands only the native patch
@@ -523,9 +523,10 @@ def apply_patch_paths(value: str) -> list[str] | None:
     lines = value.splitlines()
     if len(lines) < 3 or lines[0] != "*** Begin Patch" or lines[-1] != "*** End Patch":
         return None
-    paths: list[str] = []
+    paths: list[tuple[str, str]] = []
     operation = ""
     moved = False
+    operation_index = -1
     for line in lines[1:-1]:
         match = PATCH_HEADER.fullmatch(line)
         if match:
@@ -534,13 +535,15 @@ def apply_patch_paths(value: str) -> list[str] | None:
             path = match.group(2).strip()
             if not path:
                 return None
-            paths.append(path)
+            paths.append((operation, path))
+            operation_index = len(paths) - 1
             continue
         if line.startswith("*** Move to: "):
             path = line.removeprefix("*** Move to: ").strip()
             if operation != "Update" or moved or not path:
                 return None
-            paths.append(path)
+            paths[operation_index] = ("Move source", paths[operation_index][1])
+            paths.append(("Move destination", path))
             moved = True
             continue
         if line == "*** End of File":
@@ -552,11 +555,13 @@ def apply_patch_paths(value: str) -> list[str] | None:
     return paths if paths else None
 
 
-def normalized_patch_paths(paths: list[str], root: Path) -> list[str] | None:
+def normalized_patch_paths(
+    paths: list[tuple[str, str]], root: Path,
+) -> list[str] | None:
     normalized: list[str] = []
     lexical_root = Path(os.path.abspath(root))
     resolved_root = root.resolve()
-    for raw in paths:
+    for operation, raw in paths:
         if "$" in raw or "`" in raw:
             return None
         candidate = Path(raw).expanduser()
@@ -569,6 +574,9 @@ def normalized_patch_paths(paths: list[str], root: Path) -> list[str] | None:
         except (OSError, RuntimeError, ValueError):
             return None
         if not rel or rel == "." or resolved_parent != parent:
+            return None
+        if operation in {"Add", "Update", "Move destination"} \
+                and lexical.is_symlink():
             return None
         normalized.append(rel)
     return normalized
