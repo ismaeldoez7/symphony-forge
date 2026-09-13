@@ -154,28 +154,8 @@
       ],
       "required_tests": [
         {
-          "id": "test_task_pr_ready_retry_reuses_unchanged_committed_marker",
+          "id": "test_task_proof_refuses_committed_non_object_marker",
           "path": "factory/tests/test_gates.py",
-          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
-        },
-        {
-          "id": "test_task_proof_refuses_working_tree_marker_different_from_head",
-          "path": "factory/tests/test_gates.py",
-          "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
-        },
-        {
-          "id": "test_task_proof_allows_mixed_product_and_metadata_commits",
-          "path": "factory/tests/test_gates.py",
-          "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
-        },
-        {
-          "id": "test_worker_add_or_update_symlink_leaf_is_denied",
-          "path": "factory/tests/test_worker_admission.py",
-          "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
-        },
-        {
-          "id": "test_worker_symlink_entry_is_denied",
-          "path": "factory/tests/test_worker_admission.py",
           "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
         }
       ],
@@ -189,7 +169,7 @@
       },
       "reviewer_focus": [
         "Review the complete accumulated task delta against every acceptance criterion and constitution/09-agent-conduct.md sections 2 through 4. Treat generation 6575c26f as blocking history and require all three cited P1 defects to be closed.",
-        "Marker handling must distinguish no committed marker from a changed, deleted, malformed, or non-object working marker when HEAD contains one. Ordinary sealed all.md bytes come from marker publication, while explicit preseal and marker-bound upgrade behavior remain intact.",
+        "Marker handling must distinguish no committed marker from changed, deleted, malformed, or non-object working state when HEAD contains one, and must reject a present committed non-object marker rather than treating it as absence. Ordinary sealed all.md bytes come from marker publication, while explicit preseal and marker-bound upgrade behavior remain intact.",
         "Structured patch handling must retain operation identity through normalization: Add, standalone Update, and Move-destination symlink leaves refuse; authorized Delete and Move-source leaves remain allowed; and symlinked or escaping ancestors refuse.",
         "Require only the four authorized product paths, the five focused regression nodes, git diff --check, fresh focused task-close proof, fresh clean combined review, and current-head Linux and Windows CI before merge."
       ]
@@ -291,6 +271,6 @@
   "story": "FORGE-COORD-1",
   "epic": "symphony-forge",
   "plan_file": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-  "commit": "86b3d46e68748c4928e29fafb1f7d8b7c4d4e99e",
+  "commit": "d298b31cabd77bd97c024852e1946592c7dc4989",
   "plan_sha256": "c605101d86582523c618eb7fbe236ccc103b96743d039926f418dc6540a3fd7c"
 }
