@@ -78,7 +78,7 @@
       "ref": "constitution/05-logging-and-observability.md"
     }
   ],
-  "input_sha256": "32f4a492e08d61e21460ad08f3379cfa8dd6ca8b258f3db2ee792a34701e1ec4",
-  "recorded_at": "2026-09-13T15:06:02+00:00",
-  "commit": "7ccc7e2685e6166ff4c1e3e0b6652c50f9cc5e67"
+  "input_sha256": "df89e6ffbe02e808bac86113edc8f85ed6383532f9b14f41a725ec2cf2d8ee2f",
+  "recorded_at": "2026-09-13T15:07:46+00:00",
+  "commit": "08068416106335412b9b1b3c27ba52aebc3cbf8f"
 }
