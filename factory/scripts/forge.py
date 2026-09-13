@@ -636,10 +636,6 @@ def main() -> None:
                        help="background exploration only; active write stages refuse it")
     p_del.add_argument("--print-only", action="store_true",
                        help="print the argv without launching or recording evidence")
-    p_del.add_argument(
-        "--effort", default="",
-        choices=["", "medium"],
-        help="compatibility no-op; implementation is pinned to medium")
     p_del.add_argument("--repo")
     p_del.set_defaults(func=delegate_mod.cmd_delegate)
 

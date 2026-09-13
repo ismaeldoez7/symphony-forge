@@ -1111,7 +1111,7 @@ def task_marker_on_main(
 
         return not task_proof_problems(
             root, key, {"id": task_id}, reader=reader,
-            legacy_marker=payload, inspected_head=snapshot,
+            marker=payload, inspected_head=snapshot,
         )
 
     dirs = _git_dirs(root) if BOARD_MEMO else None
@@ -2089,10 +2089,7 @@ def _modern_task_proof_problems(
 def task_proof_problems(
     root: Path, key: str, task: dict, *,
     reader: Callable[[str], dict | None] | None = None,
-    allow_legacy: bool = False,
-    legacy_reader: Callable[[str], dict | None] | None = None,
-    legacy_bytes_reader: Callable[[str], bytes | None] | None = None,
-    legacy_marker: dict | None = None,
+    marker: dict | None = None,
     preseal: bool = False,
     inspected_head: str = "",
 ) -> list[str]:
@@ -2108,7 +2105,6 @@ def task_proof_problems(
     if contract_problem:
         return [contract_problem]
     assert task is not None
-    del allow_legacy, legacy_reader, legacy_bytes_reader
 
     def read_task(name: str) -> dict:
         rel = f".factory/stories/{key}/tasks/{task_id}/{name}"
@@ -2117,7 +2113,6 @@ def task_proof_problems(
         return load_json(task_evidence_path(root, key, task_id, name), default={})
 
     marker_path = f".factory/stories/{key}/tasks/{task_id}/pr-ready.json"
-    marker = legacy_marker
     if marker is None:
         try:
             marker = reader(marker_path) if reader is not None else load_json(
@@ -2153,8 +2148,6 @@ def task_proof_problems(
             product_delta_digest(root, review_base, sealed_commit)
             if review_base else None
         )
-        allow_legacy = True
-
     if not proof_base and reader is None:
         proof_base = _stage_baseline_for(root, task_id)
     if not proof_base and reader is None:

@@ -22,7 +22,6 @@ import sys
 from pathlib import Path
 
 from factory_lib import (
-    _read_git_bytes,
     _read_git_json,
     task_proof_problems,
 )
@@ -61,29 +60,16 @@ def proof_problems(root: Path, key: str, task_id: str) -> list[str]:
 
     The reader is pinned to HEAD so CI cannot accidentally inspect a working
     tree artifact. The decomposition supplies the task's user-facing flag;
-    legacy fallback is allowed only after the committed marker proves the
-    complete historical identity.
+    selected task proof is required, with only the explicit marker-bound
+    origin=upgrade exception for migrated fixed proof.
     """
     def reader(path: str) -> dict | None:
         return read_at_head(root, path)
 
     marker_path = f".factory/stories/{key}/tasks/{task_id}/pr-ready.json"
     marker = reader(marker_path)
-    legacy_reader = None
-    legacy_bytes_reader = None
-    if isinstance(marker, dict) and isinstance(marker.get("commit"), str):
-        seal = marker["commit"]
-
-        def legacy_reader(path: str, treeish: str = seal) -> dict | None:
-            return _read_git_json(root, path, treeish)
-
-        def legacy_bytes_reader(path: str, treeish: str = seal) -> bytes | None:
-            return _read_git_bytes(root, path, treeish)
-
     return task_proof_problems(
-        root, key, {"id": task_id}, reader=reader, allow_legacy=True,
-        legacy_reader=legacy_reader, legacy_bytes_reader=legacy_bytes_reader,
-        legacy_marker=marker,
+        root, key, {"id": task_id}, reader=reader, marker=marker,
     )
 
 

@@ -11929,11 +11929,27 @@ def test_codex_exec_ban_matches_invocations_not_prose(repo, monkeypatch):
                 'echo "$(printf x; exec -a worker codex exec x)"',
                 'echo "$(printf \'%s\' \'literal )\'; codex exec x)"',
                 r'echo "$(printf foo\); codex exec x)"',
+                'echo "$( (printf x); codex exec x)"',
+                'echo "$( (codex exec x) )"',
+                'f(){(codex exec x);}; f',
+                'OUT=$(f(){(codex exec x);}; f)',
+                '(codex exec x)',
+                'printf x <(codex exec x)',
+                'printf x <(printf y; codex exec x)',
                 'echo "`codex exec real`"',
                 'echo "`printf x; codex exec x`"',
                 'echo "`printf x; exec -laworker codex exec x`"'):
         code, out = bash(cmd)
         assert "deny" in out, cmd
+
+    for cmd in ('items=(codex exec x)',
+                'OUT=$(items=(codex exec x); printf safe)',
+                'OUT=$(f() { printf "%s" "codex exec x"; }; printf safe)',
+                'OUT=$((codex exec x))',
+                'OUT=$(printf "%s" @(codex exec x))',
+                r'OUT=$(printf "%s" \(codex exec x\))'):
+        code, out = bash(cmd)
+        assert "deny" not in out, cmd
 
     code, out = run(repo, "forge.py", "mode", "degraded", "start",
                     "--reason", "exercise structured patch content")

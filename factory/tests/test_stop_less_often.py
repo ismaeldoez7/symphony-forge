@@ -148,23 +148,15 @@ def test_forge_next_repeats_the_split_where_it_is_needed():
 
 # ------------------------------------------------------- reachable escalation
 def test_the_effort_escalation_harness_yaml_documents_is_reachable(repo: Path):
-    """Decision 0070 pins ordinary implementation to Sol/medium."""
+    """Decision 0074 pins managed implementation to Sol/medium."""
     from forge_cli.delegate import pinned_run_config
 
     assert pinned_run_config(HARNESS) == ("gpt-5.6-sol", "medium")
-    for effort in ("low", "high", "xhigh"):
-        code, out = run(repo, "forge.py", "delegate", "T1", "--effort", effort)
-        assert code != 0 and "invalid choice" in out
-    code, out = run(repo, "forge.py", "delegate", "T1", "--effort", "medium")
-    assert code != 0 and "invalid choice" not in out
-
-
-def test_an_unknown_effort_is_refused(repo: Path, tmp_path):
-    # A silently ignored override is worse than none: the run reports an
-    # effort it did not use.
-    code, out = run(repo, "forge.py", "delegate", "T1", "--effort", "maximum")
-    assert code != 0
-    assert "invalid choice" in out or "must be one of" in out
+    for args in (("--effort", "low"), ("--effort", "medium"),
+                 ("--effort", "high"), ("--effort", "xhigh"),
+                 ("--effort", "maximum"), ("--effort=medium",)):
+        code, out = run(repo, "forge.py", "delegate", "T1", *args)
+        assert code != 0 and "unrecognized arguments" in out, args
 
 
 # ------------------------------------------- caught in planning, not later --

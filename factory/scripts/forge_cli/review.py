@@ -524,8 +524,9 @@ def _tagged_finding(finding: dict) -> tuple[
     clean_title = " ".join(
         unicodedata.normalize("NFC", title[len(f"[{lens}] "):]).split()
     )
+    known_tags = {tag.strip().casefold() for tag in LENS_TAGS}
     if not clean_title or any(
-            clean_title == tag.strip() or clean_title.startswith(tag) for tag in LENS_TAGS):
+            token.casefold() in known_tags for token in clean_title.split()):
         fail("every combined review finding needs exactly one lens title tag")
     location = finding.get("code_location")
     if not isinstance(location, dict) or set(location) != {"file_path", "line"}:

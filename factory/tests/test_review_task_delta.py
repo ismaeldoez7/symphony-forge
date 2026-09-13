@@ -23,7 +23,9 @@ from test_gates import (  # noqa: I001 — test_gates puts factory/scripts on sy
     DECOMP, _write_complete_automated, git, head, intake, record_task_grill, repo,
     run, save_plan, sign_off, skeletal_stage_task, task_skeleton,
 )
-from forge_cli.review import _actual_passes, _project_combined_report, resolve_review_base  # noqa: E402
+from forge_cli.review import (  # noqa: E402
+    _actual_passes, _project_combined_report, _tagged_finding, resolve_review_base,
+)
 
 __all__ = ["repo"]
 
@@ -128,6 +130,25 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
         ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, (),
     )
     assert lenses["quality"]["contract_verdicts"][0]["verdict"] == "implemented"
+
+    for tag in ("[quality]", "[performance]", "[security]"):
+        for whitespace in (" ", "\t", "\n", "\N{NO-BREAK SPACE}"):
+            for title in (f"{tag}{whitespace}issue",
+                          f"issue{whitespace}{tag}{whitespace}detail",
+                          f"issue{whitespace}{tag}"):
+                invalid = _processed(_provider_report(
+                    _combined_explanation(
+                        "VERDICT C1: implemented — src/a.py:1", "measured", "bounded"),
+                    [_combined_finding("quality", title, "src/a.py", 3)]),
+                    review_status="findings")
+                with pytest.raises(SystemExit):
+                    _project_combined_report(
+                        {"id": "T1", "plan_contracts": [{"id": "C1"}]}, invalid,
+                        ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, ())
+    for title in ("Plain title", "Keep [custom] bracketed text"):
+        lens, finding, *_ = _tagged_finding(
+            _combined_finding("quality", title, "src/a.py", 3))
+        assert (lens, finding["title"]) == ("quality", title)
 
     mutators = (
         lambda report: report.update(overall_explanation=report["overall_explanation"].replace(

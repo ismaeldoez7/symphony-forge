@@ -713,7 +713,7 @@ EXEC_OPTION = (
     rf'''(?:-[cl]+|-[cl]*a{SHELL_TOKEN}|-[cl]*a\s+{SHELL_WORD})'''
 )
 CODEX_EXEC_INVOCATION = re.compile(
-    r"(?:^|[;&|]\s*|\$\(\s*|`\s*)"
+    r"(?:^|[;&|]\s*|\$\(\s*|[<>]\(\s*|(?<![\w=(@?!+*$])\(\s*|`\s*)"
     rf"(?:\w+={SHELL_WORD}\s+)*(?:command(?:\s+-p)*(?:\s+--)?\s+)?"
     rf"(?:{EXEC_WORD}\s+(?:{EXEC_OPTION}\s+)*(?:--\s+)?)?"
     r"(?:\"[^\"\r\n;&|]*[/\\]codex(?:\.exe|\.cmd)?\"|"
@@ -729,7 +729,7 @@ def _active_codex_exec_match(value: str) -> bool:
     """Accept regex candidates only at active shell boundaries."""
     quote = None
     escaped = False
-    substitutions = []
+    substitutions: list[tuple[str, str | None, int]] = []
     position = 0
     for match in CODEX_EXEC_INVOCATION.finditer(value):
         while position < match.start():
@@ -742,21 +742,32 @@ def _active_codex_exec_match(value: str) -> bool:
                 if char == quote:
                     quote = None
             elif value.startswith("$(", position):
-                substitutions.append((")", quote))
+                substitutions.append((")", quote, 0))
                 quote = None
+                position += 2
+                continue
+            elif quote is None and value.startswith(("<(", ">("), position):
+                substitutions.append((")", quote, 0))
                 position += 2
                 continue
             elif char == "`":
                 if quote is None and substitutions and substitutions[-1][0] == "`":
-                    _closing, quote = substitutions.pop()
+                    _closing, quote, _depth = substitutions.pop()
                 else:
-                    substitutions.append(("`", quote))
+                    substitutions.append(("`", quote, 0))
                     quote = None
             elif quote:
                 if char == quote:
                     quote = None
+            elif substitutions and char == "(" and substitutions[-1][0] == ")":
+                closing, saved_quote, depth = substitutions[-1]
+                substitutions[-1] = (closing, saved_quote, depth + 1)
             elif substitutions and char == substitutions[-1][0]:
-                _closing, quote = substitutions.pop()
+                if char == ")" and substitutions[-1][2]:
+                    closing, saved_quote, depth = substitutions[-1]
+                    substitutions[-1] = (closing, saved_quote, depth - 1)
+                else:
+                    _closing, quote, _depth = substitutions.pop()
             elif char in "'\"":
                 quote = char
             position += 1
