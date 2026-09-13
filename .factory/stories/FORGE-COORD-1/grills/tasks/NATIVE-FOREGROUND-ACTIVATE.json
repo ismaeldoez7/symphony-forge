@@ -6,17 +6,19 @@
     "The draft combined complete review used a P2 default while certification also required priority-filtered output to refuse, creating a deadlock in which legitimate P3 findings were either filtered into a non-certificate or never projected.",
     "The draft required an exact raw-to-processed finding partition without defining whether the helper's documented path normalization occurs before or after identity comparison, leaving valid Windows and leading-dot paths ambiguous.",
     "The draft required null source attribution for projection but did not distinguish accepted findings from attribution-rejected metadata, conflicting with the helper contract that preserves an exact non-null attribution object when rejecting it.",
-    "The protected Workflow still said any valid P0-P2 finding forces another fix batch, contradicting docs/QUALITY.md where only P0/P1 blocks certification and P2/P3 are recorded follow-ups."
+    "The protected Workflow still said any valid P0-P2 finding forces another fix batch, contradicting docs/QUALITY.md where only P0/P1 blocks certification and P2/P3 are recorded follow-ups.",
+    "The first resolution required a general accepted/rejected partition reconstruction even though every structurally valid result containing rejection or filter metadata is non-certifying and must already stop before projection."
   ],
   "contradictions": [],
   "resolutions": [
     "Amended the protected plan and decomposition so every complete three-lens entry point requests through P3, explicit lower complete thresholds refuse before helper launch, P2 and P3 findings project as non-blocking follow-ups, diagnostic single-lens thresholds remain non-certifying, and hard-coded P2 summary wording is removed.",
-    "Amended the protected plan and decomposition to compare an ordered multiset after only documented path normalization: convert backslashes to slashes, remove leading ./, and normalize the POSIX path; every other finding field and the non-finding core remain exact, and every raw finding belongs to exactly one accepted or validated rejection partition.",
+    "Amended the protected plan and decomposition to structurally validate all documented metadata, refuse non-certifying status or rejection/filter metadata, and compare each eligible pass as exact ordered raw-findings == processed accepted-findings after only backslash-to-slash, leading-./ removal, and normalized POSIX path conversion; every other finding field and the non-finding core remain exact.",
     "Amended the protected plan and decomposition so raw provider and rejection metadata accept either null or the exact six-field attribution object, attribution-rejected records add exactly one non-empty reason, and only accepted findings reaching lens projection require explicit null attribution.",
-    "Amended the external and protected task plan plus reviewer focus so only P0/P1 findings force another bounded fix batch; P2/P3 findings are resolved within the current bounded batch or explicitly deferred with a reason and revisit trigger, and proof with no P0/P1 blocker proceeds to sealing."
+    "Amended the external and protected task plan plus reviewer focus so only P0/P1 findings force another bounded fix batch; P2/P3 findings are resolved within the current bounded batch or explicitly deferred with a reason and revisit trigger, and proof with no P0/P1 blocker proceeds to sealing.",
+    "Applied the minimum-diff rule: validate those metadata shapes for a controlled refusal, then perform exact raw-to-accepted binding only for eligible findings/scoped-clean passes where rejection/filter partitions are necessarily empty. This preserves certification integrity without adding unreachable partition machinery."
   ],
   "open_items": [],
-  "summary": "Pass. The three certification blockers and the stale P0-P2 workflow sentence are resolved in the protected plan and decomposition without a new selector, file, schema, proof mechanism, task, or acceptance criterion. The bounded nine-path completion can proceed.",
+  "summary": "Pass. The certification blockers, stale P0-P2 workflow sentence, and unnecessary general partition engine are resolved in the protected plan and decomposition without a new selector, file, schema, proof mechanism, task, or acceptance criterion. The bounded nine-path completion can proceed.",
   "inspected_refs": [
     ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
     ".factory/stories/FORGE-COORD-1/decomposition.json",
@@ -55,6 +57,10 @@
     {
       "finding": "The protected Workflow still said any valid P0-P2 finding forces another fix batch, contradicting docs/QUALITY.md where only P0/P1 blocks certification and P2/P3 are recorded follow-ups.",
       "source": "docs/QUALITY.md:47-73 blocking and non-blocking review-loop policy; protected task plan Workflow paragraph"
+    },
+    {
+      "finding": "The first resolution required a general accepted/rejected partition reconstruction even though every structurally valid result containing rejection or filter metadata is non-certifying and must already stop before projection.",
+      "source": "installed autoreview review_status precedence and rejection/filter metadata; protected task plan certification eligibility rule; constitution/README.md minimum-code rule"
     }
   ],
   "rounds": [
@@ -69,13 +75,13 @@
     }
   ],
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
-  "input_sha256": "cba538d8be9f13f94983a7bd1630b09f97cf74af9606fb780ec539a4a662c2cb",
+  "input_sha256": "3174023a5115ba9f65daa5685f48343545fde53fb10cf4fcf932af525e9f4117",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
-  "task_plan_sha256": "4268edc9272ac6668a768b56360f10246f62e0a3793117d37a5adc6d42e630c4",
-  "recorded_at": "2026-09-13T09:39:15+00:00",
-  "commit": "adfcf539865df9a6343363d599859df9c0734425",
-  "approved_task_plan_sha256": "4268edc9272ac6668a768b56360f10246f62e0a3793117d37a5adc6d42e630c4",
+  "task_plan_sha256": "1c32cd8d9be7eb32fed6bf0e86757357bed95178eb044d641a4b2dd276e344f9",
+  "recorded_at": "2026-09-13T09:41:01+00:00",
+  "commit": "f5a571160834c5054624ce49d605c0720c14374a",
+  "approved_task_plan_sha256": "1c32cd8d9be7eb32fed6bf0e86757357bed95178eb044d641a4b2dd276e344f9",
   "approved_by": "User (approved recovery plan and directed proceed, 2026-09-12; authorized merge without pause, 2026-09-13)",
-  "approved_at": "2026-09-13T09:39:21+00:00"
+  "approved_at": "2026-09-13T09:41:08+00:00"
 }
