@@ -3,41 +3,29 @@
   "gate": "spec",
   "verdict": "pass",
   "issue": "FORGE-COORD-1",
-  "summary": "Resolved all 15 findings from the single permitted Sol/high specification cold read, launch-ad584d65712a44709702bf89fe967a07. Decision 0073 records the user's same-gate reuse choice and supersedes the contradictory 0071 wording; the amended specification and architecture make every remaining repository-owned contract explicit.",
+  "summary": "Resolved all nine findings from the single permitted Sol/high specification cold read, native session 01a09b0e-d563-71e2-9cce-7c8eb51074f2. The amended capability now follows Decisions 0067 and 0074, makes handoff, context, review identity and migration coverage falsifiable, and leaves concrete formats to architecture and task contracts.",
   "gaps": [
-    "The settled Wait for all answer was not honored and its scope conflicted with dependency-ready execution.",
-    "Coordinator transfer did not cover unresolved required ordinary-chat questions.",
-    "Accepted Decisions 0067 and 0071 gave incompatible answers about same-gate round reuse.",
-    "The structured-question contract did not explicitly preserve valid free-form answers.",
-    "Zero-round cold-read proof had no falsifiable one-to-one finding-resolution map.",
-    "Context partitioning could violate the one-cold-read-per-grill-gate contract.",
-    "Cross-lens blocking semantics from the prior confirmed specification disappeared.",
-    "The no-truncation rule conflicted with the helper's bounded synthesized chunk projection.",
-    "Failed review attempts had contradictory generation-persistence requirements.",
-    "Rejection lineage in the specification disagreed with the architecture.",
-    "The Quality task's unchanged-byte boundary incorrectly included source files it must repair.",
-    "The early-draft exception was broader than Decision 0072 permits.",
-    "Client preservation had regressed to an undefined generic state promise.",
-    "Developer-journey acceptance lost its exact snapshot and retry guarantees.",
-    "Toolshed's D-0033 deferral made the story closeout meaning of resolved ambiguous."
+    "The specification named D-0034 before the deferral ledger assigned that identifier.",
+    "Global-round scoping contradicted active Decision 0067.",
+    "Ordinary-chat handoff state had no durable observable.",
+    "Review fingerprint identity required start and end data the provider does not supply.",
+    "Cross-lens consistency relied on undefined free-form assessment grammar.",
+    "The context-file capability was simultaneously optional to implement and required by acceptance.",
+    "Unknown capacity limits could disable every ordinary composed launch.",
+    "Migration eligibility lacked roots and a non-vacuous coverage predicate.",
+    "The capability layer duplicated filenames, schemas, algorithms, limits and host signals owned by architecture and task contracts."
   ],
   "contradictions": [],
   "resolutions": [
-    "The specification now states that Wait for all governs coordinator transfer only, while Decision 0064 still permits separately owned dependency-ready work unaffected by the pending answer.",
-    "Transfer now refuses while any required structured or ordinary-chat exchange for the story is unresolved, and cancellation grants no authority.",
-    "Accepted Decision 0073 supersedes Decision 0071, preserves its future empty-frontier exception, and leaves Decision 0067 as the sole same-gate/story/task reuse rule.",
-    "The specification now accepts any nonblank free-form answer outside the labels and preserves labels and free-form answers exactly without normalization.",
-    "The future empty-frontier result now requires an ordered exact finding-resolution-source object for every finding, with no extras or duplicates; only a truly empty read permits an empty map.",
-    "forge grill run now refuses any oversized complete framed input and never partitions a grill artifact or context; future partitioning requires a separate capability and cannot satisfy a grill gate.",
-    "The specification and architecture again require every materially affected lens to name the shared fingerprint and blocking state, and forbid an affected blocking lens from reporting clean.",
-    "Raw helper output and provider findings remain lossless; only the helper-owned synthesized top-level chunk body may use its declared 2,000-character bound.",
-    "A generation is published only after complete raw output and all three lenses validate; failed pre-publication attempts retain ordinary diagnostics but publish no generation or pointer.",
-    "Both specification and architecture allow a rejection successor only from the selected combined or rejection generation and preserve the immediate-source and combined-root lineage.",
-    "Quality consumes only the committed requirements and Ruff configuration byte-for-byte and may change source bytes to fix semantic diagnostics.",
-    "Only QUALITY-BASELINE may use Decision 0072's CI-transport draft, after all predecessors close under incumbent CI, and that draft grants no proof or readiness authority.",
-    "Acceptance now names client settings, client-added agents, CI, history, hotfixes, and dirty state as preservation classes.",
-    "Acceptance now requires one digest-matched protected story/task snapshot, the exact owner/worktree/base/stage tuple, byte-identical or freshly validated retry, and board agreement.",
-    "Toolshed counts as resolved only while the explicit zero-mutation D-0033 identity-and-authorization trigger remains unfired, or after a later authorized rollout resolves it."
+    "The deferral ledger now assigns the completed native combined-review work D-0034 and records that older FORGE-COORD-1 references to D-0032 are its historical alias; upstream keeps its shipped D-0032.",
+    "Spec, signoff and epics rounds use empty scope only without an active story; from an active story location they bind that story and an empty task exactly as Decision 0067 requires.",
+    "Main raises the existing story-scoped blocked signal before a required ordinary-chat question; abandonment leaves the signal open for session start, next-step, readiness and a later coordinator.",
+    "The capability states that the provider's one integer line becomes both normalized start and end.",
+    "Cross-lens enforcement is now deterministic: a finding has one lens tag, duplicate normalized identity under another lens refuses, and existing verdict and worst-result rules determine blocking; assessment prose carries no separate fingerprint grammar.",
+    "The workflow task must implement optional context-file support; callers may omit it, and supplied input is complete and capacity checked.",
+    "Only a launch that supplies supplemental context refuses when its installed or local byte limit is unknown; ordinary launches retain their existing behavior.",
+    "Migration inventories both task-scoped fixed triples and uniquely task-bound story-scoped triples, and a fresh independent walk must match its count and digest, so empty succeeds only when no eligible set exists.",
+    "The cited review, setup and migration sections now state observable capability outcomes and explicitly leave concrete filenames, schema fields, marker grammar, algorithms, limits, flags and host signals to architecture and task contracts."
   ],
   "open_items": [],
   "questions_asked": 1,
@@ -54,81 +42,55 @@
   ],
   "inspected_refs": [
     "docs/specs/dual-coordinator-parity.md",
+    "docs/specs/README.md",
     "docs/architecture/dual-coordinator-parity.md",
-    "docs/decisions/0054-native-questions-and-task-proof.md",
-    "docs/decisions/0064-lean-delivery-and-durable-history.md",
     "docs/decisions/0067-rounds-rebind-to-their-gate.md",
-    "docs/decisions/0070-sol-specialized-workflow-models.md",
-    "docs/decisions/0071-empty-frontier-grill-proof.md",
-    "docs/decisions/0072-staged-platform-proof.md",
     "docs/decisions/0073-grill-round-reuse-and-empty-frontier-coexist.md",
-    "factory/prompts/griller.md",
+    "docs/decisions/0074-user-selects-main-orchestrator-model.md",
+    "factory/scripts/forge_cli/plans.py",
     "factory/scripts/forge_cli/review.py",
+    "plans/deferrals.md",
     "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md"
   ],
   "citations": [
     {
-      "finding": "Wait for all scope",
-      "ref": "docs/specs/dual-coordinator-parity.md:30"
+      "finding": "D-0034 ownership",
+      "ref": "plans/deferrals.md"
     },
     {
-      "finding": "ordinary-chat transfer",
-      "ref": "docs/specs/dual-coordinator-parity.md:44"
+      "finding": "round scope",
+      "ref": "docs/decisions/0067-rounds-rebind-to-their-gate.md"
     },
     {
-      "finding": "same-gate reuse",
-      "ref": "docs/decisions/0073-grill-round-reuse-and-empty-frontier-coexist.md"
+      "finding": "ordinary-chat observability",
+      "ref": "docs/specs/dual-coordinator-parity.md"
     },
     {
-      "finding": "free-form answers",
-      "ref": "docs/specs/dual-coordinator-parity.md:38"
+      "finding": "review line identity",
+      "ref": "factory/scripts/forge_cli/review.py"
     },
     {
-      "finding": "finding-resolution map",
-      "ref": "docs/specs/dual-coordinator-parity.md:42"
+      "finding": "cross-lens grammar",
+      "ref": "factory/scripts/forge_cli/review.py"
     },
     {
-      "finding": "grill partition refusal",
-      "ref": "docs/specs/dual-coordinator-parity.md:76"
+      "finding": "context support",
+      "ref": "docs/specs/dual-coordinator-parity.md"
     },
     {
-      "finding": "cross-lens blocking",
-      "ref": "docs/specs/dual-coordinator-parity.md:84"
+      "finding": "capacity refusal",
+      "ref": "docs/specs/dual-coordinator-parity.md"
     },
     {
-      "finding": "lossless raw versus bounded synthesis",
-      "ref": "docs/specs/dual-coordinator-parity.md:84"
+      "finding": "migration coverage",
+      "ref": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md"
     },
     {
-      "finding": "failed attempts",
-      "ref": "docs/specs/dual-coordinator-parity.md:80"
-    },
-    {
-      "finding": "rejection lineage",
-      "ref": "docs/architecture/dual-coordinator-parity.md:62"
-    },
-    {
-      "finding": "Quality byte boundary",
-      "ref": "docs/specs/dual-coordinator-parity.md:104"
-    },
-    {
-      "finding": "draft scope",
-      "ref": "docs/specs/dual-coordinator-parity.md:94"
-    },
-    {
-      "finding": "client preservation",
-      "ref": "docs/specs/dual-coordinator-parity.md:119"
-    },
-    {
-      "finding": "snapshot guarantees",
-      "ref": "docs/specs/dual-coordinator-parity.md:122"
-    },
-    {
-      "finding": "Toolshed closeout",
-      "ref": "docs/specs/dual-coordinator-parity.md:138"
+      "finding": "capability neutrality",
+      "ref": "docs/specs/README.md"
     }
   ],
-  "input_sha256": "677b050cc3f40c2fe7ff771f70338886610d438c5df1dae2157b8e1be3f9d2ad",
-  "recorded_at": "2026-09-12T21:09:57+00:00",
-  "commit": "051c9d36de0ca81d4ec045b2f216cb4c84197bd1"
+  "input_sha256": "f84897de3ad5bfc63cafcab2bbda27da66c7b80b3bedd9951a45034fe417ad7e",
+  "recorded_at": "2026-09-13T14:20:17+00:00",
+  "commit": "8552734473376e09092502c4535ee00737ada720"
 }
