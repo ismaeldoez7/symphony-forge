@@ -697,10 +697,7 @@ def test_worker_symlink_entry_is_denied(
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("old\n", encoding="utf-8")
     link = repo / "outside-link.py"
-    try:
-        link.symlink_to(Path("src") / "old.py")
-    except OSError as exc:
-        pytest.skip(f"symlink unavailable: {exc}")
+    link.symlink_to(Path("src") / "old.py")
     proc, token, launch_id = _start_worker(repo, tmp_path)
     _record_launch(
         repo, proc, token, launch_id, brief, digest, write_scope=write_scope)

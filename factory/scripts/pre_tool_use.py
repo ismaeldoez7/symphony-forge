@@ -707,9 +707,15 @@ for pattern in blocked:
 # matcher, including substitutions and global flags; exempt only exact help argv
 # and safe display commands whose quoted text happens to contain the phrase.
 SHELL_WORD = r'''(?:"(?:\\[^\r\n]|[^"\\\r\n])*"|'[^'\r\n]*'|\\[^\r\n]|[^\s;&|"'\\])+'''
+SHELL_TOKEN = rf"(?:{SHELL_WORD})+"
+EXEC_WORD = r'''(?:"exec"|'exec'|exec)'''
+EXEC_OPTION = (
+    rf'''(?:-[cl]+|-[cl]*a{SHELL_TOKEN}|-[cl]*a\s+{SHELL_WORD})'''
+)
 CODEX_EXEC_INVOCATION = re.compile(
     r"(?:^|[;&|]\s*|\$\(\s*|`\s*)"
-    rf"(?:\w+={SHELL_WORD}\s+)*(?:command\s+)?"
+    rf"(?:\w+={SHELL_WORD}\s+)*(?:command(?:\s+-p)*(?:\s+--)?\s+)?"
+    rf"(?:{EXEC_WORD}\s+(?:{EXEC_OPTION}\s+)*(?:--\s+)?)?"
     r"(?:\"[^\"\r\n;&|]*[/\\]codex(?:\.exe|\.cmd)?\"|"
     r"'[^'\r\n;&|]*[/\\]codex(?:\.exe|\.cmd)?'|"
     r"(?:[^\s;&|]*[/\\])?codex(?:\.exe|\.cmd)?)"
