@@ -1,9 +1,9 @@
 {
-  "delta_id": "6d51c3352052b836e0e8adcd53af369812301192b22cebbebc0dcc3143ad3a34",
+  "delta_id": "8277192a3415d226b7726d0467d05f5a29d92f01d8afd1069dbd22663f489e3c",
   "format": "forge-review-selection/v1",
-  "generation_id": "6575c26fc76fd3051bc3929e33642e0ff3cf4eaa70e0c31ae108ff9b66cff33b",
-  "generation_sha256": "37a04ad9778b7ecce4a9b8c9b0b68683f896da4f6e97c93b85704eeca452d106",
-  "selected_at": "2026-09-13T19:20:52+00:00",
+  "generation_id": "d0efa13621663c64b5e693022de43a6a68532f2564a36104fcdfc95641c3642d",
+  "generation_sha256": "897b97a16a4aaf217be28fbc3322de82197c6afb6df2c028e22e97207783f296",
+  "selected_at": "2026-09-13T22:38:44+00:00",
   "story": "FORGE-COORD-1",
   "task_id": "NATIVE-FOREGROUND-ACTIVATE"
 }
