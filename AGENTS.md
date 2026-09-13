@@ -44,8 +44,7 @@ Codex executes exploration, implementation, testing, and the review: the orchest
 7. run the functional check when the decomposition says `user_facing: true`
 8. record the shipped outcome, mark PR ready, open the PR to the default branch, and poll CI green (fixing CI failures)
 
-Recording sign-off requires confirmed specs plus a derived roadmap. Later
-phases require sign-off; implementation also requires a plan and decomposition.
+Sign-off requires confirmed specs and a derived roadmap. Later phases require it; implementation needs an approved plan and decomposition.
 
 ## Prompt and Agent Use
 
@@ -63,12 +62,9 @@ Testing has no separate agent: the implementer writes and records the tests.
 
 ## Reasoning Defaults
 
-The user and host select the main coordinator model and reasoning. The
-committed Forge-managed team policy lives in `.codex/config.toml`,
-`.codex/agents/*.toml`, and `harness.yaml`: exploration is Sol/low; planning,
-decomposition, architecture and grilling are Sol/high; implementation and
-review fixes are Sol/medium and reuse the active implementer; formal Lite is
-Luna/max; formal review and functional checking are Sol/high.
+Main model/reasoning are host/user choices. Forge pins:
+`.codex/config.toml`, `.codex/agents/*.toml`, `harness.yaml`; exploration Sol/low; planning/decomposition/architecture/grilling Sol/high;
+implementation/review fixes reuse the active Sol/medium implementer; formal Lite Luna/max; formal review/functional checks Sol/high.
 
 ## Deterministic Commands
 
@@ -100,8 +96,8 @@ Closeout never re-verifies. Story proof is only `outcome.json`
 
 ## Non-Negotiables
 
-- The constitution binds HOW code is written (not just conduct) for EVERY executor — Claude, Codex, or any subagent, any environment: follow the `constitution/README.md` coding standards at implement/grill/review, cite them, never re-derive. Approval then LOCKS the contract until the PR opens — any post-approval change stops for the human (done+shipped is immutable → new task; done-but-unshipped → `forge task reopen`; active → amend + re-grill); never reshuffle the graph on your own authority.
-- Run ponytail on EVERY code change (write OR edit), any executor — Claude, Codex, or any subagent: climb the minimal-diff ladder (necessity/YAGNI → reuse what exists → stdlib → native → installed dep → one line → minimum viable), lazy but never negligent (never drop validation, error handling, security, or accessibility). The delegate brief always inlines it and review enforces it (harness.yaml implementation notes); it is not a record-time gate.
+- Constitution binds every executor/environment: follow/cite `constitution/README.md`; never re-derive. Approval locks the contract to PR open; all later changes need human authorization: shipped → new task; done/unshipped → `forge task reopen`; active → amend + re-grill; never reshuffle the graph unilaterally.
+- Every executor applies Ponytail to code edits: YAGNI → reuse → stdlib → native → installed dep → one line → minimum viable. Preserve validation, error handling, security, accessibility. Brief-inlined; review-enforced; no recording gate.
 - Keep tasks bounded and capability-driven; plans bind one roadmap story and attest all active decisions.
 - The session write lock is always armed: delegate locked writes; use `forge mode degraded` only during a companion outage.
 - Do not decompose by document file or arbitrary file count, nor bypass `verify.py` with ad hoc validation commands.

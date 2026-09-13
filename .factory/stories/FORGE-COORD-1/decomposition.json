@@ -483,7 +483,8 @@
       "reviewer_focus": [
         "Review the complete accumulated task delta against every acceptance criterion and constitution/09-agent-conduct.md sections 2 through 4. Treat origin/main e17f44f integration as inherited baseline and the committed model/review correction through c9a85e9 as already focused-tested.",
         "For this continuation, require exactly three product/documentation paths relative to c9a85e9: AGENTS.md, factory/tests/test_board_load_time.py, and factory/tests/test_gates.py. The board fixture must observe rev-parse and use a valid reconciled marker; the closeout fixture must commit its protected decomposition before publishing a normal unreconciled T1 marker and assert it valid immediately. Capture marker commit and branch before installing the rev-parse spy so fixture setup cannot increment the measured probe count.",
-        "Require both focused regression nodes, the scaffold checker, the current failed-then-passing deterministic verifier, and AGENTS.md at no more than 110 lines. Preserve all production validation and every prior product behavior; this continuation introduces no runtime code."
+        "Require both focused regression nodes, the scaffold checker, the current failed-then-passing deterministic verifier, and AGENTS.md at no more than 110 lines. Preserve all production validation and every prior product behavior; this continuation introduces no runtime code.",
+        "Before return, preserve AGENTS.md semantics exactly: post-approval contract changes require human authorization for shipped, done/unshipped, and active states, and graph reshuffling is never unilateral; Ponytail applies to code edits, not every documentation edit. Shorten the Reasoning Defaults wording if bytes are needed, while retaining every managed model pin. Both 110 lines and 7,000 bytes are hard limits."
       ]
     },
     {
@@ -583,6 +584,6 @@
   "story": "FORGE-COORD-1",
   "epic": "symphony-forge",
   "plan_file": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-  "commit": "c9a85e9722983787797edd82556e713986948c20",
+  "commit": "4cd491607cb4b746854905c7dc649741f45c5613",
   "plan_sha256": "c605101d86582523c618eb7fbe236ccc103b96743d039926f418dc6540a3fd7c"
 }

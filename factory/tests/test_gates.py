@@ -9428,7 +9428,7 @@ def test_story_closeout_requires_all_task_markers_and_completed_stories_reads_sh
         ]
         quality_path.write_text(json.dumps(quality))
         proof_files = proof.relative_to(repo).as_posix()
-        git(repo, "add", proof_files, ".factory/review-briefs/all.md")
+        git(repo, "add", proof_files, ".factory/review-briefs/all.md", (scoped / "decomposition.json").relative_to(repo).as_posix())
         git(repo, "commit", "-q", "-m", f"record {task_id} proof")
         return proof, head(repo)
 
@@ -9449,6 +9449,7 @@ def test_story_closeout_requires_all_task_markers_and_completed_stories_reads_sh
 
     _, t1_seal = seal_task_proof("T1")
     publish_sealed_marker("T1", t1_seal)
+    assert load_factory_lib(repo).task_marker_on_main(repo, "ENG-1", "T1")
     write_passing_artifacts(repo)
     code, out = run(repo, "pr_ready.py")
     assert code != 0 and "T2" in out, out
