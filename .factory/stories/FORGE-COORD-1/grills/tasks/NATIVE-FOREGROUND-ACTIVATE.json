@@ -4,13 +4,14 @@
   "verdict": "pass",
   "issue": "FORGE-COORD-1",
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
-  "summary": "Resolved all five findings from the single permitted Sol/high task-plan cold read, native session 01a09b55-22c8-7272-8378-ae5ac08ae146. The final handover gives Main an executable conflict-resolution and commit route, filters only harness-owned recorder state from the exact-output audit, and binds the merge lesson and constitution citations.",
+  "summary": "Resolved the five task-plan cold-read findings and one observed continuation-handoff conflict. The final handover preserves the approved design and exact scope while making the separate current-plan C8 worker and the one-test correction continuation finite and state-dependent.",
   "gaps": [
     "The integration worker could not resolve plans/deferrals.md because that path was outside the effective task write scope.",
     "The unfiltered 14-path audit necessarily included untracked .factory event files created by the required delegations.",
     "Commit ownership contradicted itself by naming a worker commit while prohibiting workers from committing.",
     "The conflict-resolution sequence omitted the required anchored pre-staging conflict-marker check.",
-    "reviewer_focus restated general constitution duties without citing the load-bearing always-applicable conduct sections."
+    "reviewer_focus restated general constitution duties without citing the load-bearing always-applicable conduct sections.",
+    "The generated implementer brief's generic run-everything tail overrode the plan's phase ownership, so unchanged-condition continuation launches repeated broad checks while omitting the current-plan C8 proof and helper-shaped cross-lens refusal case."
   ],
   "contradictions": [],
   "resolutions": [
@@ -18,7 +19,8 @@
     "The baseline-to-working-tree tracked and untracked audits exclude only harness-owned .factory/** state. Every other product, test, and documentation path remains covered by the exact 14-path expected-output set.",
     "Main audits after each worker returns and owns both the merge commit and correction commit. Workers never commit.",
     "Before staging plans/deferrals.md, Main requires the anchored conflict-marker rg search to return no output and git diff --check to pass.",
-    "reviewer_focus now cites constitution/09-agent-conduct.md \u00a7\u00a72\u20134 through constitution/README.md and retains the task-specific integration, model-policy, and projection checks."
+    "reviewer_focus now cites constitution/09-agent-conduct.md \u00a7\u00a72\u20134 through constitution/README.md and retains the task-specific integration, model-policy, and projection checks.",
+    "The amended task handover now starts with state-conditioned finite duties: a first registered worker produces the exact current-plan C8 receipt with zero repository edits and returns; only after Main correlates its successful terminal row does a second worker preserve the current 14-path patch, add the helper-shaped cross-lens case in the existing test, run three named nodes, and return. Main still owns every broad check, recorder, review, and close step."
   ],
   "open_items": [],
   "questions_asked": 1,
@@ -46,7 +48,7 @@
     "constitution/README.md",
     "constitution/09-agent-conduct.md"
   ],
-  "current_flow": "Record this resolved task pass against the final task plan and current decomposition, bind the standing human approval, commit the complete planning state, then execute the registered no-commit trunk integration and the exact correction sequence.",
+  "current_flow": "Record this resolved task pass against the finite current handover, bind the standing human program authorization, commit only its recorder state while preserving the 14-path correction, then run the separate C8 worker and one-test correction worker before Main audits and commits the product patch.",
   "citations": [
     {
       "finding": "The integration worker could not resolve plans/deferrals.md because that path was outside the effective task write scope.",
@@ -67,6 +69,10 @@
     {
       "finding": "reviewer_focus restated general constitution duties without citing the load-bearing always-applicable conduct sections.",
       "source": "constitution/README.md and constitution/09-agent-conduct.md sections 2 through 4"
+    },
+    {
+      "finding": "The generated implementer brief's generic run-everything tail overrode the plan's phase ownership, so unchanged-condition continuation launches repeated broad checks while omitting the current-plan C8 proof and helper-shaped cross-lens refusal case.",
+      "source": "the three delivered native implementer briefs, the protected task plan, and factory/scripts/forge_cli/delegate.py generic verification tail"
     }
   ],
   "criteria_map": {
@@ -81,13 +87,13 @@
   },
   "decision": "keep",
   "new_abstractions": [],
-  "input_sha256": "8d7dd898fe8f77d5d3a0e0a8295d3c432831000cfd220e06b91921fd04d0dc5f",
+  "input_sha256": "bebd75648ba8dc417f4b94777cb671ad550fed7fafbf203fb5f85553fa5f58c0",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
-  "task_plan_sha256": "4b0d550a4643540d03e0204946497332d1fc3854ba7eeb806619b383f97fa794",
-  "recorded_at": "2026-09-13T15:37:08+00:00",
-  "commit": "3ad1a69d61c8fdf4a884bfbd8ec27323bab95b6c",
-  "approved_task_plan_sha256": "4b0d550a4643540d03e0204946497332d1fc3854ba7eeb806619b383f97fa794",
-  "approved_by": "Ravi (explicit coordinator-model instruction, Codex conversation 2026-09-13)",
-  "approved_at": "2026-09-13T15:37:19+00:00"
+  "task_plan_sha256": "9ae804335bbfe68792288cb93c9073a501eb6b06d58d3abeb1a90ff0056f4308",
+  "recorded_at": "2026-09-13T16:01:03+00:00",
+  "commit": "980a2d68eafa267d3a20d0838ddbf219610c8e4a",
+  "approved_task_plan_sha256": "9ae804335bbfe68792288cb93c9073a501eb6b06d58d3abeb1a90ff0056f4308",
+  "approved_by": "Ravi (standing complete-program and in-scope recovery authorization, Codex conversation 2026-09-13)",
+  "approved_at": "2026-09-13T16:01:10+00:00"
 }
