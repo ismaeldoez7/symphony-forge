@@ -1,26 +1,25 @@
 {
-  "commit": "d5782f28a8fa3366ebaeb2f818610fc31cafa1c1",
+  "commit": "a83890049629626ef618e45bb249865b48bac1cb",
   "automated": {
     "generated_by": "implementer",
     "status": "passed",
-    "summary": "At d5782f2, Main proved all ninth-review follow-ups: malformed task proof cannot unlock legacy fallback, quoted or escaped whitespace Codex operands remain guarded, a whitespace-separated second review lens tag is refused, and ordinary unchanged-product pr-ready cannot reseal mutated task proof. All affected selectors, the native suite, all 62 declared selectors, encoding, compile, diff hygiene, the full 1,051-test verifier, and the current protected-plan denial receipt passed.",
+    "summary": "At a838900, the final combined-review certification patch is bounded to nine authorized paths and 479 changed lines. Parent and registered-worker focused tests prove strict helper/provider validation, eligibility-first refusal, raw binding, P3 complete-review defaults, lower-threshold early refusal, exact hook matchers, genuine helper fixtures, pointer-last publication, and diagnostic single-lens preservation. Full deterministic verification and all declared selectors are intentionally owned by the immediately following coordinated task close; this report does not claim they have run at a838900 yet.",
     "blocking_findings": [],
     "commands_run": [
-      "Direct pre_tool_use hook matrix at 748977c/d5782f2: 22/22 literal Codex launch variants with single-quoted, double-quoted, escaped, concatenated, wrapper, pipeline, substitution, option-operand, and environment-prefix forms denied; 6/6 unrelated executable, query, and argv-data controls allowed",
-      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest <ten ninth-review affected and neighboring selectors> --junitxml=/tmp/forge-native-ninth-affected.xml -> 10 passed, 737 deselected in 66.45s",
-      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_native_launch.py factory/tests/test_native_setup.py factory/tests/test_worker_admission.py -q --junitxml=/tmp/forge-native-ninth-native-suite.xml -> 72 passed in 35.07s",
-      "Generated the exact union of all 62 protected required_tests and ran uv/pytest across their 12 files with JUnit /tmp/forge-native-main-all62-ninth.xml -> 82 passed, 807 deselected in 170.21s",
-      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/check_encoding_hygiene.py -> encoding hygiene: OK",
-      "python3 -m py_compile factory/scripts/factory_lib.py factory/scripts/forge_cli/review.py factory/scripts/forge_cli/tasks.py factory/scripts/pre_tool_use.py -> passed",
-      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py -> structural clean; scaffold clean; 1,051 passed, 3 skipped in 2,227.79s; Verification passed",
-      "Registered launch launch-631a6148d30a48b4b3785ec196872ac6 / session 01a09994-9ccb-7583-917f-ade3e89d2e09: authoritative rollout tool call call_LUjX1EZiS1oPA87c8P2j5QLY was refused by PreToolUse before execution; patch_executed=false; task-plan SHA remained 3bc793c4adeceb858c8a962f90eeb063eaaf43d633ea2336909262b31a8fe146 before and after",
+      "Registered Sol/medium workers plus independent read-only certification controls: 17/17 structural, status, attribution, normalization, aggregation, P3/default and refusal cases passed on the final production logic",
+      "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_review_task_delta.py factory/tests/test_review_lenses_in_parallel.py factory/tests/test_review_settled_contracts.py factory/tests/test_native_setup.py factory/tests/test_gates.py::test_review_consumers_include_complete_approved_inputs factory/tests/test_gates.py::test_combined_review_publication_is_pointer_last_and_failure_atomic factory/tests/test_gates.py::test_single_lens_review_preserves_cli_without_publishing_an_incomplete_set -q -> 43 passed in 62.48s",
+      "Exact continuation selector command: test_review_helper_identity_mismatch_refuses_publication, test_combined_review_publication_is_pointer_last_and_failure_atomic, and test_single_lens_review_preserves_cli_without_publishing_an_incomplete_set -> 3 passed in 11.53s",
+      "Exact scope audit -> nine authorized product/test paths, no unexpected factory script/test path, 479 added-plus-deleted lines from d95601f (limit 480)",
       "git diff --check -> clean"
     ],
     "tests_added_or_updated": [
       "factory/tests/test_gates.py",
+      "factory/tests/test_native_setup.py",
+      "factory/tests/test_review_lenses_in_parallel.py",
+      "factory/tests/test_review_settled_contracts.py",
       "factory/tests/test_review_task_delta.py"
     ],
-    "pass_fail_summary": "At d5782f2: 22/22 guarded literal launches were denied, 6/6 negative controls were allowed, 10/10 affected selectors passed, 72/72 native launch/setup/admission tests passed, 82/82 cases from all 62 declared selectors passed, and the full 1,051-test repository suite passed; 3 pre-existing platform skips remained. Malformed-proof fallback, compositional shell-word parsing, direct parsed argv classification, second-lens normalization, post-marker proof immutability, encoding, compile, structural, scaffold, and diff hygiene all passed.",
+    "pass_fail_summary": "43/43 compact affected-review tests and the exact 3/3 omitted-selector handoff passed; 17/17 independent certification controls passed; scope and whitespace checks passed. The managed worker native-suite attempt had 69 passes and three known process-table permission failures, so no product claim is based on that environment-limited run; Main task close owns the authoritative native/full proof.",
     "remaining_gaps": [],
     "reviewed_scope": [
       ".claude/CLAUDE.md",
@@ -99,8 +98,7 @@
       "factory/tests/test_stop_less_often.py",
       "factory/tests/test_worker_admission.py",
       "harness.yaml",
-      "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json",
-      "factory/tests/test_task_parallelism.py"
+      "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json"
     ],
     "skills_used": [
       "forge",
@@ -109,8 +107,8 @@
     "non_blocking_findings": [],
     "residual_risks": [],
     "manual_validation_steps": [],
-    "recorded_at": "2026-09-13T07:46:23+00:00",
-    "commit": "d5782f28a8fa3366ebaeb2f818610fc31cafa1c1"
+    "recorded_at": "2026-09-13T10:29:01+00:00",
+    "commit": "a83890049629626ef618e45bb249865b48bac1cb"
   },
-  "updated_at": "2026-09-13T07:46:23+00:00"
+  "updated_at": "2026-09-13T10:29:01+00:00"
 }
