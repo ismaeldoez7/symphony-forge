@@ -5,16 +5,18 @@
   "gaps": [
     "The draft combined complete review used a P2 default while certification also required priority-filtered output to refuse, creating a deadlock in which legitimate P3 findings were either filtered into a non-certificate or never projected.",
     "The draft required an exact raw-to-processed finding partition without defining whether the helper's documented path normalization occurs before or after identity comparison, leaving valid Windows and leading-dot paths ambiguous.",
-    "The draft required null source attribution for projection but did not distinguish accepted findings from attribution-rejected metadata, conflicting with the helper contract that preserves an exact non-null attribution object when rejecting it."
+    "The draft required null source attribution for projection but did not distinguish accepted findings from attribution-rejected metadata, conflicting with the helper contract that preserves an exact non-null attribution object when rejecting it.",
+    "The protected Workflow still said any valid P0-P2 finding forces another fix batch, contradicting docs/QUALITY.md where only P0/P1 blocks certification and P2/P3 are recorded follow-ups."
   ],
   "contradictions": [],
   "resolutions": [
     "Amended the protected plan and decomposition so every complete three-lens entry point requests through P3, explicit lower complete thresholds refuse before helper launch, P2 and P3 findings project as non-blocking follow-ups, diagnostic single-lens thresholds remain non-certifying, and hard-coded P2 summary wording is removed.",
     "Amended the protected plan and decomposition to compare an ordered multiset after only documented path normalization: convert backslashes to slashes, remove leading ./, and normalize the POSIX path; every other finding field and the non-finding core remain exact, and every raw finding belongs to exactly one accepted or validated rejection partition.",
-    "Amended the protected plan and decomposition so raw provider and rejection metadata accept either null or the exact six-field attribution object, attribution-rejected records add exactly one non-empty reason, and only accepted findings reaching lens projection require explicit null attribution."
+    "Amended the protected plan and decomposition so raw provider and rejection metadata accept either null or the exact six-field attribution object, attribution-rejected records add exactly one non-empty reason, and only accepted findings reaching lens projection require explicit null attribution.",
+    "Amended the external and protected task plan plus reviewer focus so only P0/P1 findings force another bounded fix batch; P2/P3 findings are resolved within the current bounded batch or explicitly deferred with a reason and revisit trigger, and proof with no P0/P1 blocker proceeds to sealing."
   ],
   "open_items": [],
-  "summary": "Pass. The three certification blockers are resolved in the protected plan and decomposition without a new selector, file, schema, proof mechanism, task, or acceptance criterion. The bounded nine-path completion can proceed.",
+  "summary": "Pass. The three certification blockers and the stale P0-P2 workflow sentence are resolved in the protected plan and decomposition without a new selector, file, schema, proof mechanism, task, or acceptance criterion. The bounded nine-path completion can proceed.",
   "inspected_refs": [
     ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
     ".factory/stories/FORGE-COORD-1/decomposition.json",
@@ -49,6 +51,10 @@
     {
       "finding": "The draft required null source attribution for projection but did not distinguish accepted findings from attribution-rejected metadata, conflicting with the helper contract that preserves an exact non-null attribution object when rejecting it.",
       "source": "installed autoreview helper attribution rejection contract; factory/scripts/forge_cli/review.py source_attribution validation; protected task plan Tenth bounded fixture and regression completion"
+    },
+    {
+      "finding": "The protected Workflow still said any valid P0-P2 finding forces another fix batch, contradicting docs/QUALITY.md where only P0/P1 blocks certification and P2/P3 are recorded follow-ups.",
+      "source": "docs/QUALITY.md:47-73 blocking and non-blocking review-loop policy; protected task plan Workflow paragraph"
     }
   ],
   "rounds": [
@@ -66,10 +72,10 @@
   "input_sha256": "cba538d8be9f13f94983a7bd1630b09f97cf74af9606fb780ec539a4a662c2cb",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
-  "task_plan_sha256": "362cd7d52a4caa467ab31d1481a4e72734110c118f589ed2679a417f0b9d7a2e",
-  "recorded_at": "2026-09-13T09:32:09+00:00",
-  "commit": "d95601f6c4a9caa19cc27fbad5006b8350489403",
-  "approved_task_plan_sha256": "362cd7d52a4caa467ab31d1481a4e72734110c118f589ed2679a417f0b9d7a2e",
+  "task_plan_sha256": "4268edc9272ac6668a768b56360f10246f62e0a3793117d37a5adc6d42e630c4",
+  "recorded_at": "2026-09-13T09:39:15+00:00",
+  "commit": "adfcf539865df9a6343363d599859df9c0734425",
+  "approved_task_plan_sha256": "4268edc9272ac6668a768b56360f10246f62e0a3793117d37a5adc6d42e630c4",
   "approved_by": "User (approved recovery plan and directed proceed, 2026-09-12; authorized merge without pause, 2026-09-13)",
-  "approved_at": "2026-09-13T09:32:21+00:00"
+  "approved_at": "2026-09-13T09:39:21+00:00"
 }
