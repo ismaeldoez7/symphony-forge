@@ -179,6 +179,14 @@ From the current uncommitted ninth-batch diff, make only these corrections:
 
 The continuation may change only those three existing paths and at most 20 additional added-plus-deleted lines relative to the current 115-line uncommitted ninth patch. Add no file, selector, parser, abstraction, dependency, schema, task, criterion, scope entry, proof mechanism, or compatibility fallback. Main reruns the finite raw-command matrix, both combined-review malformed and positive selectors, the full affected-selector group, and only then the existing native/all-62/encoding/full proof sequence.
 
+## Current-plan C8 proof finalization
+
+The ninth product correction is committed at `748977c27111f2668a4ca90266f73f5bb532e771`. Focused family probes, the exact native suite, all 62 selectors, encoding hygiene, compile, and diff checks are green. Before Main spends the final full verifier, satisfy the existing C8 criterion against the current exact approved task plan; the earlier protected-plan denial receipts remain history bound to earlier task-plan bytes.
+
+Launch one registered Sol/medium worker with zero product edits. It must read and SHA-256 hash the exact protected task-plan file, make one real `apply_patch` attempt against that file using harmless absent context containing `THIS PATCH MUST NEVER EXECUTE`, then hash the file again. The hook denial must occur before patch execution. The worker writes `/tmp/forge-native-c8-current-receipt.json` containing its `launch_id`, Codex session/thread ID, before and after full-file SHA-256, `patch_executed: false`, protected plan path, and the exact tool-call ID if available. It reports the denial and leaves every repository byte unchanged. Main correlates the receipt to the terminal delegation row and durable native JSONL/stderr event, verifies the task-plan bytes/hash stayed identical, and records those exact identities in the automated report.
+
+This evidence-only launch adds no product path, line, test, selector, parser, abstraction, dependency, schema, task, criterion, scope entry, proof mechanism, or compatibility fallback. Any repository diff from the worker refuses the receipt and must be removed through the ordinary delegated correction path before proof continues.
+
 ## Workflow
 
 ```mermaid
@@ -313,7 +321,7 @@ The worker returns concise prose only. It writes no handoff or receipt, reads no
 
 Rendered by the harness from the recorded decomposition; edit the decomposition, not this block. It is excluded from the plan's approval and grill digests, so a re-render never stales either.
 
-**Objective.** Act as the registered gpt-5.6-sol/medium continuation worker for the approved ninth review-follow-up batch. Use ponytail. Preserve the current uncommitted six-file/115-line family fix. Change only factory/scripts/pre_tool_use.py, factory/scripts/forge_cli/review.py, and factory/tests/test_review_task_delta.py, within 20 additional added-plus-deleted lines. Make the double-quoted SHELL_WORD fragment exactly disjoint as backslash-plus-non-newline or an ordinary nonquote/nonbackslash/non-newline character while retaining the compositional outer repetition; make normalized second-tag validation reject equality with each stripped lens tag as well as a full-tag prefix; and add the exact lone `[quality]  [security]` case to the existing mutator table. Do not change the already-green non-object proof or pr-ready fixes. Add no file, selector, parser, abstraction, dependency, schema, task, criterion, scope entry, proof mechanism, or compatibility fallback. Main owns the finite matrix, affected selectors, native suite, all 62 selectors, encoding, full verifier, evidence, review, closeout, PR, and CI.
+**Objective.** Act as the registered gpt-5.6-sol/medium current-plan C8 evidence worker for NATIVE-FOREGROUND-ACTIVATE. Use ponytail and make zero product or repository edits. Read and SHA-256 hash the exact protected `.factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md`, then make one real apply_patch attempt against that file with harmless absent context containing `THIS PATCH MUST NEVER EXECUTE`. The PreToolUse hook must deny before execution. Hash the same file again and write `/tmp/forge-native-c8-current-receipt.json` with launch_id, Codex session/thread ID, protected path, before and after full-file SHA-256, patch_executed=false, and exact tool-call ID when available. Report the denial. Do not run process-heavy tests, record evidence, stage, commit, review, close, push, or open a PR. Main correlates the terminal row and durable native logs and owns all remaining verification and lifecycle work.
 
 **Acceptance criteria**
 
@@ -481,5 +489,5 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 - `UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_native_launch.py factory/tests/test_native_setup.py factory/tests/test_worker_admission.py -q`
 - `UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py`
 
-**Review budget.** 180 files / 18000 lines -- Seal-time ceiling over the complete accumulated First task delta: the 77-path recorded envelope plus the existing protected factory/tests/test_task_parallelism.py amendment (78 effective paths). The ninth family batch remains limited to its six existing paths and 220 added-plus-deleted lines from 10e444a. On top of the current uncommitted 115-line batch, this continuation may change only factory/scripts/pre_tool_use.py, factory/scripts/forge_cli/review.py, and factory/tests/test_review_task_delta.py and add no more than 20 changed lines.
+**Review budget.** 180 files / 18000 lines -- Seal-time ceiling remains the incumbent 180 files and 18,000 lines over the complete First delta. The ninth product batch is committed at 748977c within six paths and 115 lines. This final C8 launch is evidence-only and permits zero repository changes; any worker diff refuses the receipt.
 <!-- /forge:contract -->

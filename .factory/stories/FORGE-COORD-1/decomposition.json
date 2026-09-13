@@ -5,7 +5,7 @@
     {
       "id": "NATIVE-FOREGROUND-ACTIVATE",
       "title": "Native foreground and complete first-task proof",
-      "objective": "Act as the registered gpt-5.6-sol/medium continuation worker for the approved ninth review-follow-up batch. Use ponytail. Preserve the current uncommitted six-file/115-line family fix. Change only factory/scripts/pre_tool_use.py, factory/scripts/forge_cli/review.py, and factory/tests/test_review_task_delta.py, within 20 additional added-plus-deleted lines. Make the double-quoted SHELL_WORD fragment exactly disjoint as backslash-plus-non-newline or an ordinary nonquote/nonbackslash/non-newline character while retaining the compositional outer repetition; make normalized second-tag validation reject equality with each stripped lens tag as well as a full-tag prefix; and add the exact lone `[quality]  [security]` case to the existing mutator table. Do not change the already-green non-object proof or pr-ready fixes. Add no file, selector, parser, abstraction, dependency, schema, task, criterion, scope entry, proof mechanism, or compatibility fallback. Main owns the finite matrix, affected selectors, native suite, all 62 selectors, encoding, full verifier, evidence, review, closeout, PR, and CI.",
+      "objective": "Act as the registered gpt-5.6-sol/medium current-plan C8 evidence worker for NATIVE-FOREGROUND-ACTIVATE. Use ponytail and make zero product or repository edits. Read and SHA-256 hash the exact protected `.factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md`, then make one real apply_patch attempt against that file with harmless absent context containing `THIS PATCH MUST NEVER EXECUTE`. The PreToolUse hook must deny before execution. Hash the same file again and write `/tmp/forge-native-c8-current-receipt.json` with launch_id, Codex session/thread ID, protected path, before and after full-file SHA-256, patch_executed=false, and exact tool-call ID when available. Report the denial. Do not run process-heavy tests, record evidence, stage, commit, review, close, push, or open a PR. Main correlates the terminal row and durable native logs and owns all remaining verification and lifecycle work.",
       "dependencies": [],
       "user_facing": false,
       "acceptance_criteria": [
@@ -459,7 +459,7 @@
       "review_budget": {
         "max_changed_files": 180,
         "max_changed_lines": 18000,
-        "reason": "Seal-time ceiling over the complete accumulated First task delta: the 77-path recorded envelope plus the existing protected factory/tests/test_task_parallelism.py amendment (78 effective paths). The ninth family batch remains limited to its six existing paths and 220 added-plus-deleted lines from 10e444a. On top of the current uncommitted 115-line batch, this continuation may change only factory/scripts/pre_tool_use.py, factory/scripts/forge_cli/review.py, and factory/tests/test_review_task_delta.py and add no more than 20 changed lines."
+        "reason": "Seal-time ceiling remains the incumbent 180 files and 18,000 lines over the complete First delta. The ninth product batch is committed at 748977c within six paths and 115 lines. This final C8 launch is evidence-only and permits zero repository changes; any worker diff refuses the receipt."
       },
       "reviewer_focus": [
         "Constitution sources are binding across the complete accumulated First-task delta: constitution/README.md, constitution/05-logging-and-observability.md, constitution/06-logger-and-log-transports.md, constitution/07-exception-handling.md, and constitution/09-agent-conduct.md. Review structured logging, redaction, terminal failure propagation and exception behavior. Preserve the validated origin/main integration at 30b19c7, diff-bound closeout, exact task proof, board and CI behavior as inherited; implement Decision0069 with one helper, one schema-exact immutable raw-plus-three-lens generation and one selected pointer. AGENTS.md Hard Gates must name selected.json and its immutable selected generation lineage as certifying task review proof; fixed lens files are diagnostic and migration input only.",
@@ -472,7 +472,7 @@
         "C7: preserve own-task review proof lookup/refusal behavior.",
         "C8: the admitted worker hashes the exact approved task plan and makes one real apply_patch attempt against it with harmless absent context containing THIS PATCH MUST NEVER EXECUTE. The automated report, registered terminal row and durable PreToolUse event must identify the same launch, session and tool call, with unchanged before/after hashes and patch_executed=false; context failure and synthetic hook payloads do not count. Main verifies and records the concrete correlation, runs forge next and process-heavy/full verification outside the companion, and requires concise worker prose only.",
         "Process: after two identical failures with unchanged inputs/cause, stop expensive retries, obtain the cheapest diagnostic capable of going RED, change the fix, then retry. Keep blocking gates and evidence quality unchanged.",
-        "Scope: preserve the current uncommitted six-file/115-line ninth family fix. The continuation may touch only factory/scripts/pre_tool_use.py, factory/scripts/forge_cli/review.py, and factory/tests/test_review_task_delta.py and add no more than 20 changed lines. Require the exact disjoint double-quoted SHELL_WORD fragment, equality-or-prefix second-tag refusal, and lone-tag mutator. Extend no other path or selector; add no parser, abstraction, dependency, schema, task, criterion, scope entry, proof mechanism, or compatibility fallback. Use one ordinary Sol/medium delegate, then Main runs the finite matrix and existing required proof."
+        "Scope: zero repository changes. This registered Sol/medium worker only reads and hashes the exact protected task plan, makes the harmless absent-context apply_patch attempt containing THIS PATCH MUST NEVER EXECUTE, writes the external /tmp receipt, and reports the actual hook denial. Main verifies unchanged bytes plus the same launch/session/tool-call across the receipt, terminal row and durable native log before full proof."
       ]
     },
     {
@@ -573,5 +573,5 @@
   "epic": "symphony-forge",
   "plan_file": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
   "plan_sha256": "12341f64052bfba26b8cb72bb51707cae1d4362d4fc96aedb669aa4d264c8c1a",
-  "commit": "10e444ad508e54c5155b4d5b61d2f0946dbc913d"
+  "commit": "748977c27111f2668a4ca90266f73f5bb532e771"
 }
