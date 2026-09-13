@@ -154,7 +154,7 @@
       ],
       "required_tests": [
         {
-          "id": "test_task_proof_refuses_committed_non_object_marker",
+          "id": "test_task_proof_refuses_committed_null_marker",
           "path": "factory/tests/test_gates.py",
           "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
         }
@@ -169,7 +169,7 @@
       },
       "reviewer_focus": [
         "Review the complete accumulated task delta against every acceptance criterion and constitution/09-agent-conduct.md sections 2 through 4. Treat generation 6575c26f as blocking history and require all three cited P1 defects to be closed.",
-        "Marker handling must distinguish no committed marker from changed, deleted, malformed, or non-object working state when HEAD contains one, and must reject a present committed non-object marker rather than treating it as absence. Ordinary sealed all.md bytes come from marker publication, while explicit preseal and marker-bound upgrade behavior remain intact.",
+        "Marker handling must distinguish no committed marker from changed, deleted, malformed, or non-object working state when HEAD contains one. A present committed JSON null marker must be rejected by both local task_proof_problems and the CI check_task_proof reader rather than treated as absence; a genuinely absent committed marker keeps pre-seal behavior. Ordinary sealed all.md bytes come from marker publication, while explicit preseal and marker-bound upgrade behavior remain intact.",
         "Structured patch handling must retain operation identity through normalization: Add, standalone Update, and Move-destination symlink leaves refuse; authorized Delete and Move-source leaves remain allowed; and symlinked or escaping ancestors refuse.",
         "Require only the four authorized product paths, the five focused regression nodes, git diff --check, fresh focused task-close proof, fresh clean combined review, and current-head Linux and Windows CI before merge."
       ]
@@ -271,6 +271,6 @@
   "story": "FORGE-COORD-1",
   "epic": "symphony-forge",
   "plan_file": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-  "commit": "d298b31cabd77bd97c024852e1946592c7dc4989",
+  "commit": "bdf0c7cc8afc8916e62e528d48b1e0db8e0a9053",
   "plan_sha256": "c605101d86582523c618eb7fbe236ccc103b96743d039926f418dc6540a3fd7c"
 }

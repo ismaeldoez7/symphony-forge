@@ -170,7 +170,7 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 
 **Required tests** (run by `stage done`)
 
-- `test_task_proof_refuses_committed_non_object_marker` -- `UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}` (factory/tests/test_gates.py)
+- `test_task_proof_refuses_committed_null_marker` -- `UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}` (factory/tests/test_gates.py)
 
 **Verify commands**
 
