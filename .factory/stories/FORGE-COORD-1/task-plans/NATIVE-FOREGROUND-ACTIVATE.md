@@ -1,76 +1,72 @@
-# NATIVE-FOREGROUND-ACTIVATE closeout fixture repair
+# NATIVE-FOREGROUND-ACTIVATE Ubuntu fixture repair
 
 ## Status
 
-The task remains active and draft PR #221 remains open at commit `c9a85e9722983787797edd82556e713986948c20`. The first full close attempt recorded a truthful failed verifier result: 1,057 tests passed, three skipped, and two failed. Both failures are test-fixture drift after integrating `origin/main`; the hardened runtime behavior is correct. The PR scaffold check also reports that `AGENTS.md` is 114 lines while the repository limit is 110.
+The task remains active and draft PR #221 remains open at `4e8dd2e4f24654c368372fadb4119813f1609f33`. Local deterministic verification is green: 1,059 passed and three skipped under the recorded four-worker command. Main interrupted close after that proof and during focused selectors, before formal review, because Ubuntu CI identified three hermetic-test failures on the same commit.
 
-This continuation replaces the completed model-selection handoff. Preserve all committed product behavior and the failed `verify.json`; Main owns recorders, Git commits, full verification, formal review, sealing, PR promotion, CI, and merge. The story plan and run marker now truthfully record the completed Decision 0074 approval; no earlier approval step remains open.
+The failures are diagnosed test portability defects. They require no runtime, architecture, dependency, model-policy, review-policy, or task-graph change. Preserve the green `verify.json`, all prior task behavior, and the existing three-path closeout repair.
 
 ## Objective
 
-Apply the smallest fixture-only closeout repair. Update the board memo regression to observe the current `rev-parse` marker probe and to publish a valid reconciled marker. Update the story-closeout regression so the pushed T1 history contains its protected decomposition and assert that marker validity immediately after publication. Compress `AGENTS.md` to at most 110 lines without changing its rules.
+Make three existing review tests hermetic on a clean Ubuntu runner. Give the review-set recorder test one temporary safe helper whose identity is shared with its subprocess, give the active-task preflight test an explicit temporary safe helper instead of resolving a personal install, and make the rejection-lineage merge fixture commit its lifecycle state before the intended divergent merge while asserting that `src/work.py` is the exact unmerged path.
 
 ## Scope and decisions
 
-The worker output is constrained to these paths:
+Only these paths may change:
 
-- `factory/tests/test_board_load_time.py`
+- `factory/tests/test_review_task_delta.py`
 - `factory/tests/test_gates.py`
-- `AGENTS.md`
+- `factory/tests/test_review_settled_contracts.py`
 
-Use the existing pytest fixtures, agent-hygiene checker, and repository scaffold checker because they are the declared verification tools. No dependency, abstraction, runtime fallback, compatibility layer, or production-code edit is needed. Follow `constitution/09-agent-conduct.md` sections 2 through 4 and the ponytail minimal-diff ladder: change only stale expectations and fixture setup, and combine existing prose lines without deleting policy.
+Use existing pytest fixtures, `monkeypatch`, and temporary files. Do not install or copy a personal autoreview skill into CI, skip tests, weaken helper validation, change production resolution order, or accept an arbitrary failed merge. Follow `constitution/09-agent-conduct.md` sections 2 through 4 and the Ponytail ladder.
 
-The accumulated task keeps its original recorded write scope because admission and seal proof bind the complete task delta. This continuation does not add a per-launch scope mechanism. The finite three-path output is enforced by the worker instruction and by Main comparing the recorded post-contract/pre-delegation fixture baseline to the working tree, including untracked paths, before any product commit. Before delegation, Main temporarily records only the two focused required-test nodes and the two focused checkers so the generated worker brief has one executable verification owner. After the worker returns, Main restores all 64 cumulative required tests and the full close verification commands before resuming task close.
+The exact repairs are:
 
-The diagnosed repairs are exact:
+1. `test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes` receives `monkeypatch`, writes a harmless temporary helper, and sets `AUTOREVIEW` to that path before deriving the candidate helper identity. The subprocess recorder inherits the same explicit helper identity. This keeps the production resolver and installed-helper comparison exercised without depending on `~/.codex/skills/autoreview`.
+2. `test_review_preflight_uses_active_task_proof` writes a harmless temporary helper and patches only `review_mod.resolve_skill` to return it. The test remains focused on reaching the review-brief boundary after checking the active task's proof paths.
+3. `test_reject_republishes_one_complete_pointer_selected_set` commits the fixture's existing lifecycle state on the task branch before creating the divergent trunk branch. After the expected nonzero merge, assert the exact unmerged path list is `src/work.py` before resolving it. A dirty-tree refusal or unrelated merge error must fail the test.
 
-1. In `test_board_memo_reuses_git_facts_until_the_files_that_decide_them_change`, count `rev-parse` instead of obsolete `cat-file` calls. Replace the invalid `{}` marker with a valid reconciled marker carrying `task_id`, `branch`, `base_main_sha`, `commit`, `sealed_at`, and `reconciled: true`. Keep the cache-invalidation assertions intact.
-2. In `test_story_closeout_requires_all_task_markers_and_completed_stories_reads_shipped`, stage the existing scoped decomposition with the T1 proof before its seal commit. After publishing T1, assert `task_marker_on_main(repo, "ENG-1", "T1")` so a future historical-proof failure is local and explicit. Do not mark this normal sealed fixture as reconciled.
-3. Combine at least four existing `AGENTS.md` lines while preserving every current instruction verbatim in meaning. Do not add policy.
-
-The worker runs only the two focused pytest nodes, `python3 factory/scripts/check_agents_hygiene.py`, and `python3 factory/scripts/check_factory_scaffold.py`, then returns. Main audits the exact three-path diff, restores the cumulative measurement contract, and resumes `./forge task close NATIVE-FOREGROUND-ACTIVATE`; the close command owns all 64 cumulative required tests, the complete deterministic verifier, formal review, and seal. The continuation instruction and temporary measurement contract supersede the implementer prompt's generic run-everything footer for this one worker.
+Before the worker launches, Main temporarily records only these three required tests and no broad verify command. After the worker returns, Main audits the exact three-path diff, records focused proof, commits and pushes, restores all 64 cumulative required tests and five verify commands, then resumes task close. The already-green full-suite result remains truthful history but the changed test delta requires the normal final close proof.
 
 ## Workflow
 
 ```mermaid
 flowchart LR
-    A[Recorded failed verifier] --> B[Diagnosed fixture drift]
-    B --> C[Three-path Sol medium repair]
-    C --> D[Two focused tests and hygiene/scaffold checks]
-    D --> E[Main audits and commits]
+    A[Ubuntu CI three fixture failures] --> B[Three test-only hermetic fixes]
+    B --> C[Run three nodes without AUTOREVIEW]
+    C --> D[Main audits, commits, pushes]
+    D --> E[Restore cumulative proof contract]
     E --> F[Resume task close]
-    F --> G[Full verify, review, seal]
 ```
 
 ## Verification
 
-The worker runs:
+The worker runs only:
 
 ```bash
-UV_CACHE_DIR=/tmp/forge-closeout-uv-cache UV_TOOL_DIR=/tmp/forge-closeout-uv-tool uv run --with pytest --with psutil pytest -q \
-  factory/tests/test_board_load_time.py::test_board_memo_reuses_git_facts_until_the_files_that_decide_them_change \
-  factory/tests/test_gates.py::test_story_closeout_requires_all_task_markers_and_completed_stories_reads_shipped
-python3 factory/scripts/check_agents_hygiene.py
-python3 factory/scripts/check_factory_scaffold.py
+AUTOREVIEW= UV_CACHE_DIR=/tmp/forge-ci-uv-cache UV_TOOL_DIR=/tmp/forge-ci-uv-tool \
+  uv run --python 3.11 --with pytest --with psutil pytest -q \
+  factory/tests/test_review_task_delta.py::test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes \
+  factory/tests/test_gates.py::test_review_preflight_uses_active_task_proof \
+  factory/tests/test_review_settled_contracts.py::test_reject_republishes_one_complete_pointer_selected_set
+git diff --check
 ```
 
-Main then confirms `git diff --check`, exactly the three authorized product/documentation paths, no unrelated untracked path, and no more than 30 added-plus-deleted lines before committing. Main restores the recorded 64-test/full-verifier measurement contract and resumes the existing close command once; unchanged repeated failures are diagnosed before any further model run.
-
-The historical estimate remains 24 files/4,000 changed lines. The measured accumulated product/documentation delta from integrated trunk `e17f44f850b7d1574c7438bf641c69c70e5dcd38` through `c9a85e9` is 122 paths and 15,061 added-plus-deleted lines, within the approved 180-file/18,000-line seal ceiling. The separate post-integration correction is 14 paths/95 lines. This continuation is capped at three paths/30 lines. These baselines stay separate so the original overrun and inherited integration are both visible.
+`AUTOREVIEW=` is intentionally empty so each test must provide its own temporary helper. Main rejects any non-`.factory` path outside the three files. This continuation may add plus delete at most 40 lines; the cumulative task remains under 180 files/18,000 lines.
 
 ## Manual Verification
 
-1. Read the board memo test and confirm it measures the current `rev-parse` probe, reuses the memoized first answer, and invalidates after publishing a schema-valid reconciled marker.
-2. Read the closeout test and confirm its historical T1 commit contains the scoped decomposition before the marker is published; confirm the direct marker assertion precedes T2 work.
-3. Run `python3 factory/scripts/check_agents_hygiene.py`, `python3 factory/scripts/check_factory_scaffold.py`, and `wc -l AGENTS.md`; confirm both checkers pass and the line count is at most 110 while every policy section and link remains.
-4. Inspect `git diff --name-only "$fixture_baseline" -- . ':(exclude).factory/**'` and confirm only the three authorized paths changed.
+1. Read the recorder test and confirm its in-process candidate and subprocess validation resolve the same temporary helper while production helper validation remains active.
+2. Read the preflight test and confirm only helper discovery is replaced; proof-path spies and the review-brief boundary remain unchanged.
+3. Read the merge fixture and confirm task lifecycle state is committed before checkout, the merge conflicts on `src/work.py`, and the test checks that exact unmerged path before resolution.
+4. Inspect the baseline-to-working-tree diff and confirm only the three authorized test files changed, with no skip marker or production-code edit.
 
 <!-- forge:contract -->
 ## Contract (recorded)
 
 Rendered by the harness from the recorded decomposition; edit the decomposition, not this block. It is excluded from the plan's approval and grill digests, so a re-render never stales either.
 
-**Objective.** Continue from committed correction c9a85e9722983787797edd82556e713986948c20 and preserve all product behavior. Repair only the two integration fixtures exposed by the full close verifier: make the board memo regression observe the current rev-parse probe and use a valid reconciled marker; make the story-closeout history contain its protected decomposition before T1 publication and assert that marker validity locally. Compress AGENTS.md to the enforced 110-line limit without changing its rules. The worker runs only both focused pytest nodes and the scaffold checker; Main owns diff audit, Git, recorders, full verification, formal review, sealing, PR promotion, CI, and merge.
+**Objective.** Continue from locally verified commit 4e8dd2e4f24654c368372fadb4119813f1609f33 and preserve all production behavior. Repair only three clean-Ubuntu review-test fixtures: bind the recorder test to one temporary safe helper shared with its subprocess, bind the active-task preflight test to a temporary safe helper, and commit lifecycle fixture state before the rejection-lineage test's intentional divergent merge while asserting src/work.py is the exact unmerged path. The worker runs only those three nodes with no personal AUTOREVIEW/HOME dependency; Main owns diff audit, recorders, Git, restored cumulative proof, close, review, seal, PR and CI.
 
 **Acceptance criteria**
 
@@ -83,6 +79,7 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 - Own-task review preflight uses `proof_path(base, story, artifact, task_id=args.id)` for the active task, accepts only own-task proof, and refuses story or other-task proof without helper fallback.
 - The admitted native worker reads and hashes the exact protected task plan, then exercises the actual native hook against that plan with harmless absent patch context. Only a correlated PreToolUse deny event counts: automated report receipt, registered terminal row and durable tool log identify the same launch/session/tool call and actual denial; unchanged bytes, context failure or synthetic payload never certify it. Main runs current `forge next`, process-heavy/full verification and correlation outside the managed companion. The implemented plan-contract review checks that evidence. The one shared review-set schema is introduced here; no second registry or CI/C10 parser is added.
 - Closeout proof matches the hardened marker contract without weakening production validation. The board memo regression counts the current rev-parse probe, proves memo reuse, and invalidates against a schema-valid reconciled marker. The story-closeout regression commits the existing scoped decomposition with T1 proof before marker publication, immediately asserts T1 is valid on trunk, and keeps normal sealed markers unreconciled. AGENTS.md remains semantically complete at no more than 110 lines, and the repository scaffold checker passes.
+- Review regression tests are hermetic on clean Ubuntu. The review-set recorder test supplies one test-owned safe helper to both in-process identity derivation and the subprocess recorder; the active-task proof preflight test replaces only helper discovery with a test-owned safe helper; and the rejection-lineage fixture commits existing lifecycle state before its intentional divergent merge and requires src/work.py to be the exact unmerged path before resolution. The three focused nodes pass with no personal AUTOREVIEW installation, without skips or production-code changes.
 
 **Write scope** (what `stage done` measures the diff against)
 
@@ -244,5 +241,5 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 - `UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_native_launch.py factory/tests/test_native_setup.py factory/tests/test_worker_admission.py -q`
 - `UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py`
 
-**Review budget.** 180 files / 18000 lines -- Original estimate remains 24 files/4,000 changed lines. Measured from integrated trunk e17f44f850b7d1574c7438bf641c69c70e5dcd38 through c9a85e9722983787797edd82556e713986948c20, the accumulated product/documentation delta is 122 paths and 15,061 added-plus-deleted lines, within the approved 180-file/18,000-line seal ceiling. The separate post-integration correction is 14 paths/95 lines. Relative to c9a85e9, this diagnosed closeout repair may change only AGENTS.md, factory/tests/test_board_load_time.py, and factory/tests/test_gates.py, with at most 30 added-plus-deleted lines. The complete post-980a2d68 correction may name only the prior 14-path output plus factory/tests/test_board_load_time.py and remains within 220 lines; the complete task stays within the seal ceiling. Exclude only harness-owned .factory/** recorder state and keep each baseline distinct.
+**Review budget.** 180 files / 18000 lines -- Original estimate remains 24 files/4,000 changed lines; integrated e17f44f-to-4e8dd2e task delta remains within the approved 180-file/18,000-line seal ceiling. This post-4e8dd2e Ubuntu portability continuation may change only factory/tests/test_review_task_delta.py, factory/tests/test_gates.py, and factory/tests/test_review_settled_contracts.py with at most 40 added-plus-deleted lines. Exclude only harness-owned .factory/** recorder state; no runtime, dependency, skip, or production path may change.
 <!-- /forge:contract -->

@@ -4,21 +4,17 @@
   "verdict": "pass",
   "issue": "FORGE-COORD-1",
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
-  "summary": "Resolved all five findings from the single closeout-fixture cold read. The task remains one cumulative active stage, while the single fixture worker receives a finite executable measurement contract and Main restores cumulative close proof afterward.",
+  "summary": "Resolved the three clean-Ubuntu fixture failures identified by CI and independently confirmed from the failing test code. The continuation changes only existing tests and keeps production review and merge validation intact.",
   "gaps": [
-    "The plan limited the fixture worker to two focused tests and one checker while the rendered cumulative contract still required 64 selectors and four process-heavy verify commands, forcing conflicting verification ownership.",
-    "The declared worker checks omitted check_agents_hygiene.py, the actual CI enforcement for the 110-line AGENTS.md limit.",
-    "The three-path and 30-line continuation limit was stated in prose while admission retained the cumulative 78-path task scope and 180-file/18,000-line seal ceiling.",
-    "The approved story plan body still said the Decision 0074 amendment remained awaiting recorder-bound approval despite approved frontmatter and run state.",
-    "The active handover omitted the original 24-file/4,000-line estimate and the measured accumulated overrun required by the task lesson."
+    "test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes resolved the autoreview helper from the developer personal installation, so a clean Ubuntu runner failed before testing origin-specific review validation.",
+    "test_review_preflight_uses_active_task_proof reached personal helper resolution before its monkeypatched review-brief boundary, so it failed on clean Ubuntu instead of testing task proof selection.",
+    "test_reject_republishes_one_complete_pointer_selected_set accepted any nonzero merge and left lifecycle fixture state dirty, allowing a dirty-tree refusal with no src/work.py conflict to reach a later empty commit failure."
   ],
   "contradictions": [],
   "resolutions": [
-    "Before the one fixture delegate, Main records a temporary measurement contract containing only the two focused tests and check_agents_hygiene.py plus check_factory_scaffold.py. The generated brief is therefore executable without running cumulative close proof. After return, Main restores all 64 required tests and the full verifier commands before task close.",
-    "check_agents_hygiene.py is now an explicit worker and contract verify command; the existing scaffold checker remains as the separate distribution check.",
-    "The user explicitly kept this as a continuation of the already-active cumulative task, so no new per-launch scope feature is added. The worker instruction limits output to three paths and Main enforces that constraint with exact c9a85e9-to-working-tree tracked, untracked, diff-check, and 30-line audits before commit; any stray path is rejected.",
-    "The story plan now states the completed 2026-09-13 Decision 0074 approval and separates the current task-plan approval. The same actual cold read supplied the finding; the requirements and plan records were refreshed, the standing human authorization was bound, and the unchanged eight-task graph was re-recorded against the approved digest.",
-    "The story plan, task plan, and review budget now retain the original 24-file/4,000-line estimate, measured e17f44f-to-c9a85e9 total of 122 paths/15,061 lines, separate 14-path/95-line post-integration correction, three-path/30-line continuation, and current 180-file/18,000-line seal ceiling."
+    "The recorder test creates one harmless temporary helper, sets AUTOREVIEW to it, and derives the candidate identity from the same resolver; its subprocess inherits that explicit path, preserving real installed-helper identity comparison without a personal install.",
+    "The active-task preflight test creates a harmless temporary helper and patches only review_mod.resolve_skill. Proof-path spies, safety/identity checks, and the review-brief boundary remain exercised.",
+    "The rejection-lineage fixture commits its existing lifecycle state before creating the divergent trunk branch, then requires the merge to fail and requires git diff --name-only --diff-filter=U to equal src/work.py before resolution."
   ],
   "open_items": [],
   "questions_asked": 1,
@@ -37,38 +33,27 @@
   "inspected_refs": [
     ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
     ".factory/stories/FORGE-COORD-1/decomposition.json",
-    "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-    "factory/prompts/implementer.md",
-    "factory/scripts/forge_cli/delegate.py",
-    "factory/scripts/check_agents_hygiene.py",
-    "factory/scripts/check_factory_scaffold.py",
-    "factory/tests/test_board_load_time.py",
+    "factory/tests/test_review_task_delta.py",
     "factory/tests/test_gates.py",
-    "plans/lessons/20260910T170240-0000-first-native-scope-correction-authorization-170240173755.json",
+    "factory/tests/test_review_settled_contracts.py",
+    "factory/scripts/forge_cli/review.py",
+    "factory/scripts/record_review_from_json.py",
     "constitution/README.md",
     "constitution/09-agent-conduct.md"
   ],
-  "current_flow": "Record this resolved task pass, bind the standing human approval, temporarily narrow only required tests and verify commands for the one three-path fixture worker, audit and commit its exact output, restore the cumulative measurement contract, then resume one accelerated full task close through review and seal.",
+  "current_flow": "Record this resolved task pass and standing approval, temporarily measure only the three failing nodes for one test-only worker, audit and commit exactly three test files, restore cumulative proof, rerun task close, and require Ubuntu CI green before merge.",
   "citations": [
     {
-      "finding": "The plan limited the fixture worker to two focused tests and one checker while the rendered cumulative contract still required 64 selectors and four process-heavy verify commands, forcing conflicting verification ownership.",
-      "source": "protected task plan verification ownership; rendered task contract; factory/prompts/implementer.md and factory/scripts/forge_cli/delegate.py"
+      "finding": "test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes resolved the autoreview helper from the developer personal installation, so a clean Ubuntu runner failed before testing origin-specific review validation.",
+      "source": "Ubuntu scaffold-check run 34773360292; factory/tests/test_review_task_delta.py recorder test; forge_cli.review.resolve_skill"
     },
     {
-      "finding": "The declared worker checks omitted check_agents_hygiene.py, the actual CI enforcement for the 110-line AGENTS.md limit.",
-      "source": "factory/scripts/check_agents_hygiene.py and .github/workflows/factory-scaffold.yml"
+      "finding": "test_review_preflight_uses_active_task_proof reached personal helper resolution before its monkeypatched review-brief boundary, so it failed on clean Ubuntu instead of testing task proof selection.",
+      "source": "Ubuntu scaffold-check run 34773360292; factory/tests/test_gates.py active-task review preflight; forge_cli.review.cmd_review"
     },
     {
-      "finding": "The three-path and 30-line continuation limit was stated in prose while admission retained the cumulative 78-path task scope and 180-file/18,000-line seal ceiling.",
-      "source": "protected task plan scope decision, cumulative decomposition scope, and standing user continuation authorization"
-    },
-    {
-      "finding": "The approved story plan body still said the Decision 0074 amendment remained awaiting recorder-bound approval despite approved frontmatter and run state.",
-      "source": "approved story plan authority paragraph, refreshed plan grill, and plan approval event"
-    },
-    {
-      "finding": "The active handover omitted the original 24-file/4,000-line estimate and the measured accumulated overrun required by the task lesson.",
-      "source": "scope-correction lesson and measured git diff e17f44f850b7..c9a85e9 excluding .factory"
+      "finding": "test_reject_republishes_one_complete_pointer_selected_set accepted any nonzero merge and left lifecycle fixture state dirty, allowing a dirty-tree refusal with no src/work.py conflict to reach a later empty commit failure.",
+      "source": "Ubuntu scaffold-check run 34773360292; factory/tests/test_review_settled_contracts.py rejection-lineage merge fixture and git status"
     }
   ],
   "criteria_map": {
@@ -80,17 +65,18 @@
     "Unsupported native operations refuse before side effects: native background/read-only background, general status, live/dead worker status, cancel/resume/jobs, explore, and native question delivery do not compose briefs, spend question eligibility, append ledgers, signal processes, or dispatch children until their successor owners ship. The only native status exception renders already-dead registered native grill rows through existing dead_launches, restricted to strict grill gate/task labels and starting/running rows proven dead; it does not call the general status handler. Preserve unchanged Claude dispatch.": "C6 remains covered by the accumulated native refusal behavior and focused native setup, launch, and worker-admission suite named in the protected plan.",
     "Own-task review preflight uses `proof_path(base, story, artifact, task_id=args.id)` for the active task, accepts only own-task proof, and refuses story or other-task proof without helper fallback.": "C7 remains covered by the accumulated task-owned review preflight implementation and its focused proof-path regression named in the protected plan.",
     "The admitted native worker reads and hashes the exact protected task plan, then exercises the actual native hook against that plan with harmless absent patch context. Only a correlated PreToolUse deny event counts: automated report receipt, registered terminal row and durable tool log identify the same launch/session/tool call and actual denial; unchanged bytes, context failure or synthetic payload never certify it. Main runs current `forge next`, process-heavy/full verification and correlation outside the managed companion. The implemented plan-contract review checks that evidence. The one shared review-set schema is introduced here; no second registry or CI/C10 parser is added.": "C8 is covered by a separate registered Sol/medium zero-edit worker using the exact protected plan hash, a real denied apply_patch attempt, correlation to the native hook event, and a receipt recorded into task test proof.",
-    "Closeout proof matches the hardened marker contract without weakening production validation. The board memo regression counts the current rev-parse probe, proves memo reuse, and invalidates against a schema-valid reconciled marker. The story-closeout regression commits the existing scoped decomposition with T1 proof before marker publication, immediately asserts T1 is valid on trunk, and keeps normal sealed markers unreconciled. AGENTS.md remains semantically complete at no more than 110 lines, and the repository scaffold checker passes.": "C9 is executable through the exact two regression nodes plus both hygiene/scaffold checks; the board fixture uses current rev-parse probing and a valid reconciled marker, the story fixture commits its scoped decomposition before a normal marker and asserts it immediately, and AGENTS.md remains semantically complete within 110 lines."
+    "Closeout proof matches the hardened marker contract without weakening production validation. The board memo regression counts the current rev-parse probe, proves memo reuse, and invalidates against a schema-valid reconciled marker. The story-closeout regression commits the existing scoped decomposition with T1 proof before marker publication, immediately asserts T1 is valid on trunk, and keeps normal sealed markers unreconciled. AGENTS.md remains semantically complete at no more than 110 lines, and the repository scaffold checker passes.": "C9 is executable through the exact two regression nodes plus both hygiene/scaffold checks; the board fixture uses current rev-parse probing and a valid reconciled marker, the story fixture commits its scoped decomposition before a normal marker and asserts it immediately, and AGENTS.md remains semantically complete within 110 lines.",
+    "Review regression tests are hermetic on clean Ubuntu. The review-set recorder test supplies one test-owned safe helper to both in-process identity derivation and the subprocess recorder; the active-task proof preflight test replaces only helper discovery with a test-owned safe helper; and the rejection-lineage fixture commits existing lifecycle state before its intentional divergent merge and requires src/work.py to be the exact unmerged path before resolution. The three focused nodes pass with no personal AUTOREVIEW installation, without skips or production-code changes.": "C10 is covered by three existing focused nodes executed with AUTOREVIEW empty: a test-owned helper shared with the subprocess, a resolver-only preflight patch, and a clean committed merge fixture that asserts the exact unmerged path. No skip, personal install, or production edit is permitted."
   },
   "decision": "keep",
   "new_abstractions": [],
-  "input_sha256": "b9dea62195b8d46c92dc47fa6b46187407e000701110ee3a3e3d8be11dc8995e",
+  "input_sha256": "11c16a0d217d722af872e653c65ae0051275e0e8122865452b6bb9db1660c781",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
-  "task_plan_sha256": "498aefa72a2333de734b5d6eb176a34354c51e3266f4f9d445515eaa0a91a649",
-  "recorded_at": "2026-09-13T17:39:36+00:00",
-  "commit": "c9a85e9722983787797edd82556e713986948c20",
-  "approved_task_plan_sha256": "498aefa72a2333de734b5d6eb176a34354c51e3266f4f9d445515eaa0a91a649",
-  "approved_by": "Ravi (standing complete-program and in-scope recovery authorization, Codex conversation 2026-09-13)",
-  "approved_at": "2026-09-13T17:39:43+00:00"
+  "task_plan_sha256": "314c119e85f9a2cc0fc96ad4520ccf7235c79c5890f6095dbcd9687a6de5c303",
+  "recorded_at": "2026-09-13T18:42:38+00:00",
+  "commit": "4e8dd2e4f24654c368372fadb4119813f1609f33",
+  "approved_task_plan_sha256": "314c119e85f9a2cc0fc96ad4520ccf7235c79c5890f6095dbcd9687a6de5c303",
+  "approved_by": "Ravi (standing complete-program and in-scope recovery authorization, Codex conversation 2026-09-14)",
+  "approved_at": "2026-09-13T18:42:46+00:00"
 }
