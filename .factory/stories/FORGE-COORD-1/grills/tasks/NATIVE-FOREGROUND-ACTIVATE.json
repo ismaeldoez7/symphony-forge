@@ -8,7 +8,8 @@
     "The draft required null source attribution for projection but did not distinguish accepted findings from attribution-rejected metadata, conflicting with the helper contract that preserves an exact non-null attribution object when rejecting it.",
     "The protected Workflow still said any valid P0-P2 finding forces another fix batch, contradicting docs/QUALITY.md where only P0/P1 blocks certification and P2/P3 are recorded follow-ups.",
     "The first resolution required a general accepted/rejected partition reconstruction even though every structurally valid result containing rejection or filter metadata is non-certifying and must already stop before projection.",
-    "The generic delegate brief told the final continuation worker to run every verify command, including native/process-heavy and full verification, even though the task plan assigns those checks to Main after the worker finishes the still-missing P3 entry-point changes."
+    "The generic delegate brief told the final continuation worker to run every verify command, including native/process-heavy and full verification, even though the task plan assigns those checks to Main after the worker finishes the still-missing P3 entry-point changes.",
+    "The replacement worker declared focused completion without running three explicitly named selectors; Main ran them and proved the shared write_task_proof publish-review fixture still emits the obsolete bare helper report, making two selectors fail before their intended assertions."
   ],
   "contradictions": [],
   "resolutions": [
@@ -17,10 +18,11 @@
     "Amended the protected plan and decomposition so raw provider and rejection metadata accept either null or the exact six-field attribution object, attribution-rejected records add exactly one non-empty reason, and only accepted findings reaching lens projection require explicit null attribution.",
     "Amended the external and protected task plan plus reviewer focus so only P0/P1 findings force another bounded fix batch; P2/P3 findings are resolved within the current bounded batch or explicitly deferred with a reason and revisit trigger, and proof with no P0/P1 blocker proceeds to sealing.",
     "Applied the minimum-diff rule: validate those metadata shapes for a controlled refusal, then perform exact raw-to-accepted binding only for eligible findings/scoped-clean passes where rejection/filter partitions are necessarily empty. This preserves certification integrity without adding unreachable partition machinery.",
-    "Amended the protected plan and decomposition to allow the replacement worker only the six named focused review selectors and to prohibit native/process-heavy, all-declared-selector, full-verifier, formal-review, and closeout work. Main owns one coordinated task close after the bounded product commit, preserving verify-before-review without testing an incomplete patch."
+    "Amended the protected plan and decomposition to allow the replacement worker only the six named focused review selectors and to prohibit native/process-heavy, all-declared-selector, full-verifier, formal-review, and closeout work. Main owns one coordinated task close after the bounded product commit, preserving verify-before-review without testing an incomplete patch.",
+    "Narrowed the protected objective to one exact test_gates.py fixture repair: serialize the empty four-field provider inside the genuine processed one-pass scoped-clean envelope, change no production or other test bytes, stay within nine changed lines and 480 total, then run precisely the three omitted node IDs."
   ],
   "open_items": [],
-  "summary": "Pass. The certification blockers, stale P0-P2 workflow sentence, unnecessary partition engine, and final-worker verification ownership conflict are resolved without a new selector, file, schema, proof mechanism, task, or acceptance criterion. The bounded nine-path completion can proceed.",
+  "summary": "Pass. The final omission is reduced to one concrete stale fixture with two reproducible RED selectors, an exact eight-to-nine-line repair shape, and three exact validation node IDs. No production change or broader proof is delegated.",
   "inspected_refs": [
     ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
     ".factory/stories/FORGE-COORD-1/decomposition.json",
@@ -67,6 +69,10 @@
     {
       "finding": "The generic delegate brief told the final continuation worker to run every verify command, including native/process-heavy and full verification, even though the task plan assigns those checks to Main after the worker finishes the still-missing P3 entry-point changes.",
       "source": ".factory/briefs/NATIVE-FOREGROUND-ACTIVATE.md generic Verify commands section; protected task plan Eleventh bounded continuation; factory/scripts/forge_cli/close.py coordinated proof and review path"
+    },
+    {
+      "finding": "The replacement worker declared focused completion without running three explicitly named selectors; Main ran them and proved the shared write_task_proof publish-review fixture still emits the obsolete bare helper report, making two selectors fail before their intended assertions.",
+      "source": "parent pytest output for test_combined_review_publication_is_pointer_last_and_failure_atomic and test_single_lens_review_preserves_cli_without_publishing_an_incomplete_set; factory/tests/test_gates.py write_task_proof publish_review raw construction; protected task plan Twelfth bounded stale-fixture completion"
     }
   ],
   "rounds": [
@@ -81,13 +87,13 @@
     }
   ],
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
-  "input_sha256": "f0016d06e3a8e679654212b006e8472e9a2aeaf7e0f27d7dfa9fb2c3df56fed7",
+  "input_sha256": "be8b599e0988fe377b3fe9504337036e8621d59875005ff8d8c0fbf95e74ed79",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
-  "task_plan_sha256": "6681368307d60300aad37e6d6c96e780efb0e36daf3513f8ee2129a063bdf9d7",
-  "recorded_at": "2026-09-13T10:04:06+00:00",
-  "commit": "5392d64f5da82b5d02aa61f0243fb62e57900f67",
-  "approved_task_plan_sha256": "6681368307d60300aad37e6d6c96e780efb0e36daf3513f8ee2129a063bdf9d7",
+  "task_plan_sha256": "56d1c5a79272d7bb5e62ebbf2cbc44f8f1a7a92235406acab7a7dde6f391d623",
+  "recorded_at": "2026-09-13T10:22:30+00:00",
+  "commit": "bce8e7fd8a00ccf141f90958dee00b1620ba2f83",
+  "approved_task_plan_sha256": "56d1c5a79272d7bb5e62ebbf2cbc44f8f1a7a92235406acab7a7dde6f391d623",
   "approved_by": "User (approved recovery plan and directed proceed, 2026-09-12; authorized merge without pause, 2026-09-13)",
-  "approved_at": "2026-09-13T10:04:13+00:00"
+  "approved_at": "2026-09-13T10:22:36+00:00"
 }
