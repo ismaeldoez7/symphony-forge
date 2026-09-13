@@ -183,6 +183,7 @@ def test_active_model_policy_has_no_forbidden_execution_surface():
         name: (row["model"], row["model_reasoning_effort"])
         for name, row in roles.items()
     }
+    assert {"model", "model_reasoning_effort", "plan_mode_reasoning_effort"}.isdisjoint(config)
     assert actual_roles == expected_roles
     assert set(roles) == {
         path.stem for path in (HARNESS / ".codex" / "agents").glob("*.toml")
@@ -191,19 +192,16 @@ def test_active_model_policy_has_no_forbidden_execution_surface():
     from forge_cli.delegate import mode_run_config, pinned_run_config  # noqa: E402
 
     active = {
-        "default": (config["model"], config["model_reasoning_effort"]),
         "explore": (explore["model"], explore["model_reasoning_effort"]),
         "implementation": pinned_run_config(HARNESS),
         "grill": mode_run_config(HARNESS, "grill")[:2],
         "lite": mode_run_config(HARNESS, "lite")[:2],
         **actual_roles,
     }
-    assert active["default"] == active["implementation"] == (
-        "gpt-5.6-sol", "medium")
+    assert active["implementation"] == ("gpt-5.6-sol", "medium")
     assert active["explore"] == ("gpt-5.6-sol", "low")
     assert active["grill"] == ("gpt-5.6-sol", "high")
     assert active["lite"] == ("gpt-5.6-luna", "max")
-    assert config["plan_mode_reasoning_effort"] == "high"
     assert all(model != "gpt-5.6-terra" for model, _ in active.values())
 
     harness = (HARNESS / "harness.yaml").read_text(encoding="utf-8")

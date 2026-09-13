@@ -4,8 +4,10 @@ The harness is prompt-first for every role: say the phrase, the agent runs
 the command. `./forge next` tags each step with the role that acts —
 `[PM]`, `[EM]`, `[dev]`. This page is the map per seat.
 
-The committed role registry and model pins live in `.codex/config.toml` and
-`.codex/agents/*.toml`; reuse the active Sol/medium implementer for review fixes.
+The user and host select the main coordinator model and reasoning. The committed
+Forge-managed role registry and model pins live in `.codex/config.toml`,
+`.codex/agents/*.toml`, and `harness.yaml`; reuse the active Sol/medium
+implementer for review fixes.
 
 ## PM — product manager
 

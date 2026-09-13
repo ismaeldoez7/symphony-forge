@@ -3817,6 +3817,9 @@ def test_init_and_upgrade_ship_portable_hook_commands(tmp_path):
     assert len(commands(repo, ".claude/settings.json")) == 6
     assert len(commands(repo, ".codex/hooks.json")) == 5
     config = repo / ".codex" / "config.toml"
+    main_selectors = {"model", "model_reasoning_effort", "plan_mode_reasoning_effort"}
+    assert all(not line.startswith(f"{key} =") for key in main_selectors
+               for line in config.read_text().splitlines())
     assert 'sandbox_mode = "workspace-write"' in config.read_text().splitlines()
     assert "network_access = true" in config.read_text().splitlines()  # 0068
     assert (repo / "forge.cmd").is_file()
@@ -3849,6 +3852,8 @@ def test_init_and_upgrade_ship_portable_hook_commands(tmp_path):
     assert upgraded.returncode == 0, upgraded.stdout + upgraded.stderr
     assert len(commands(repo, ".claude/settings.json")) == 6
     assert len(commands(repo, ".codex/hooks.json")) == 5
+    assert all(not line.startswith(f"{key} =") for key in main_selectors
+               for line in config.read_text().splitlines())
     assert 'sandbox_mode = "workspace-write"' in config.read_text().splitlines()
     assert "network_access = true" in config.read_text().splitlines()  # 0068
     assert (repo / "forge.cmd").is_file()
@@ -20350,6 +20355,7 @@ def test_project_agents_init_upgrade_and_preserve_client_additions(
         path.name: path.read_bytes()
         for path in (source / ".codex" / "agents").glob("*.toml")
     }
+    source_config = (source / ".codex" / "config.toml").read_bytes()
     assert len(source_agents) == 15
 
     target = tmp_path / "app"
@@ -20359,6 +20365,7 @@ def test_project_agents_init_upgrade_and_preserve_client_additions(
         path.name: path.read_bytes()
         for path in (target / ".codex" / "agents").glob("*.toml")
     } == source_agents
+    assert (target / ".codex" / "config.toml").read_bytes() == source_config
 
     shipped = target / ".codex" / "agents" / sorted(source_agents)[0]
     shipped.write_text("stale harness-owned config\n", encoding="utf-8")
@@ -20374,6 +20381,7 @@ def test_project_agents_init_upgrade_and_preserve_client_additions(
         name: (target / ".codex" / "agents" / name).read_bytes()
         for name in source_agents
     } == source_agents
+    assert (target / ".codex" / "config.toml").read_bytes() == source_config
     assert custom.read_text(encoding="utf-8") == 'name = "client-custom"\n'
 
 

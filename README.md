@@ -35,7 +35,7 @@ Codex is the executor for everything that touches the codebase: exploration, imp
 - **Every Codex release is watched.** Workers raise contradiction, confusion, blocked, or scope-change signals and pause; the orchestrating session resolves the signal and resumes. Nothing is fire-and-forget.
 - **Review is one Codex run per task**, three lenses (quality, performance, security), looped with fix delegations until every lens is clean, then recorded as that task's proof.
 - **Evidence enters `.factory/` only through schema-validated recorders.** Each artifact names its generator, and the generator must be on the allowlist in `harness.yaml`.
-- **Reasoning is set per phase**, from the committed `.codex/` policy: Sol/low for exploration; Sol/high for planning, architecture, grilling, formal review and functional checking; Sol/medium for implementation and review fixes; Luna/max only for formal Lite fixes.
+- **The user and host select the main coordinator model and reasoning.** Forge-managed lanes stay pinned: Sol/low for exploration; Sol/high for planning, architecture, grilling, formal review and functional checking; Sol/medium for implementation and review fixes; Luna/max only for formal Lite fixes.
 
 The full contract is in [`AGENTS.md`](AGENTS.md), which both runtimes read. A Codex-only mode, in which Codex coordinates as well as executes, is planned; the gates, recorders, and evidence contract do not change. If the companion is unavailable, [Degraded Mode](docs/degraded-mode.md) is the ledgered exception.
 

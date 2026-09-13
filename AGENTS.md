@@ -63,11 +63,12 @@ Testing has no separate agent: the implementer writes and records the tests.
 
 ## Reasoning Defaults
 
-The committed team policy lives in `.codex/config.toml` and
-`.codex/agents/*.toml`: exploration is Sol/low; planning, decomposition,
-architecture and grilling are Sol/high; implementation and review fixes are
-Sol/medium and reuse the active implementer; formal Lite is Luna/max; formal
-review and functional checking are Sol/high.
+The user and host select the main coordinator model and reasoning. The
+committed Forge-managed team policy lives in `.codex/config.toml`,
+`.codex/agents/*.toml`, and `harness.yaml`: exploration is Sol/low; planning,
+decomposition, architecture and grilling are Sol/high; implementation and
+review fixes are Sol/medium and reuse the active implementer; formal Lite is
+Luna/max; formal review and functional checking are Sol/high.
 
 ## Deterministic Commands
 

@@ -3,7 +3,7 @@
 <!-- canon: AGENTS.md -->
 Read `AGENTS.md` first; it is the contract. Standards live in `constitution/`
 (<!-- canon: constitution/README.md -->) and phase ownership in `harness.yaml`.
-Model routing comes from `.codex/config.toml` and its registered `.codex/agents/*.toml` pins.
+The user and host select the main coordinator model and reasoning; Forge-managed routing remains pinned by `harness.yaml`, `.codex/config.toml`, and `.codex/agents/*.toml`.
 
 ## Role split (enforced)
 

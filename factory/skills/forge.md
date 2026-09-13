@@ -18,6 +18,9 @@ Report progress and keep driving; stop only for an open signal, a gate
 refusal you cannot resolve within the approved plan, a human-only act, or
 scope the plan does not cover.
 
+The user and host select the main coordinator model and reasoning. Repository
+pins apply only to Forge-managed workers, specialists, grills, review, and Lite.
+
 `./forge <cmd>` (from repo root) is shorthand for
 `python3 factory/scripts/forge.py <cmd>` — either form works everywhere below.
 

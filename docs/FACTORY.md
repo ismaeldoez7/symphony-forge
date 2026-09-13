@@ -64,7 +64,9 @@ when the repo has a repeated bottleneck that justifies another role.
 
 ## Reasoning Matrix
 
-Use strong reasoning selectively.
+The user and host select the main coordinator model and reasoning; the
+repository does not set either at the top level. Use strong reasoning
+selectively for Forge-managed lanes.
 
 - planner / decomposer / architecture reconciler
   - model: `gpt-5.6-sol`
@@ -73,7 +75,7 @@ Use strong reasoning selectively.
   - model: `gpt-5.6-sol`
   - reasoning: `low`
   - via `/codex:rescue --model gpt-5.6-sol --effort low` (read-only by default) — Claude Code never explores application code itself; raw `codex exec` is hook-blocked, no exceptions
-- implementation default
+- delegated implementation default
   - model: `gpt-5.6-sol`
   - reasoning: `medium`
   - reuse the active implementer for review fixes

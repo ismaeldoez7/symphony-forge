@@ -70,19 +70,24 @@ def test_combined_review_projects_tagged_lenses_and_preserves_ordered_pass_verdi
         "VERDICT T1-C1: implemented — src/a.py:1", "fast", "safe"), [
             _combined_finding("performance", "Avoid repeat work", "src/a.py", 4),
         ])
+    category_distinct = _combined_finding(
+        "performance", "Avoid repeat work", "src/a.py", 4)
+    category_distinct["category"] = "maintainability"
     second = _provider_report(_combined_explanation(
         "VERDICT T1-C1: partial — src/a.py:8 race", "bounded", "isolated"), [
-            _combined_finding("performance", "Avoid repeat work", "src/a.py", 4),
+            category_distinct,
             _combined_finding("security", "Validate token", "src/b.py", 9),
         ])
     merged_performance = copy.deepcopy(first["findings"][0])
     merged_performance["body"] = "chunk 1/2:\n\nevidence"
+    merged_distinct = copy.deepcopy(second["findings"][0])
+    merged_distinct["body"] = "chunk 2/2:\n\nevidence"
     merged_security = copy.deepcopy(second["findings"][1])
     merged_security["body"] = "chunk 2/2:\n\nevidence"
     report = {
         "overall_explanation": "Review passes returned.",
         "overall_correctness": "patch is incorrect", "overall_confidence": 0.9,
-        "findings": [merged_performance, merged_security],
+        "findings": [merged_performance, merged_distinct, merged_security],
         "pass_reports": [_pass("chunk 1/2", first), _pass("chunk 2/2", second)],
         "review_status": "findings",
     }
@@ -105,7 +110,7 @@ def test_combined_review_projects_tagged_lenses_and_preserves_ordered_pass_verdi
         "Validate token (src/b.py:9)")
 
 
-def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixed_output():
+def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixed_output(capsys):
     provider = _provider_report("preface\n" + _combined_explanation(
             "VERDICT C1: implemented — src/a.py:1", "measured", "bounded",
         ).replace(
@@ -130,8 +135,6 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
             "BEGIN FORGE ASSESSMENT security", 1)),
         lambda report: report["findings"].append(
             _combined_finding("quality", "Same issue", "src/./a.py", 3)),
-        lambda report: report["findings"].append(
-            _combined_finding("security", "  same   ISSUE ", "src/a.py", 3)),
         lambda report: report["findings"][0].update(title="Missing lens tag"),
         lambda report: report["findings"][0].update(title="[quality]  [security]"),
         lambda report: report["findings"][0].pop("source_attribution"),
@@ -163,6 +166,24 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
             _project_combined_report(
                 {"id": "T1", "plan_contracts": [{"id": "C1"}]}, report,
                 ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, ())
+
+    provider_findings = [
+        _combined_finding("quality", "Same issue", "src/./a.py", 3),
+        _combined_finding("security", "  same   ISSUE ", "src/a.py", 3),
+    ]
+    provider = _provider_report(_combined_explanation(
+        "VERDICT C1: implemented — src/a.py:1", "measured", "bounded"),
+        provider_findings)
+    processed_findings = copy.deepcopy(provider_findings)
+    processed_findings[0]["code_location"]["file_path"] = "src/a.py"
+    report = _processed(
+        provider, findings=processed_findings, review_status="findings")
+    capsys.readouterr()
+    with pytest.raises(SystemExit):
+        _project_combined_report(
+            {"id": "T1", "plan_contracts": [{"id": "C1"}]}, report,
+            ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, ())
+    assert "cross-lens duplicate normalized finding" in capsys.readouterr().out
     first = _provider_report(_combined_explanation(
         "VERDICT C1: implemented — src/a.py:1", "measured", "bounded"), [
             _combined_finding("quality", "first", "src/a.py", 1)])

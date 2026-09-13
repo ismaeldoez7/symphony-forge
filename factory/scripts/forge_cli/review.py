@@ -563,6 +563,7 @@ def _project_combined_report(
     fingerprint_lenses: dict[tuple[str, int, int, str], str] = {}
     retained: list[tuple[str, dict]] = []
     retained_raw: list[dict] = []
+    projected_fingerprints: set[tuple[str, int, int, str]] = set()
     seen_merge_keys: set[tuple[str, int, str, str]] = set()
     for label, provider in passes:
         if not isinstance(provider.get("findings", []), list):
@@ -573,16 +574,18 @@ def _project_combined_report(
             prior_lens = fingerprint_lenses.setdefault(fingerprint, lens)
             if prior_lens != lens:
                 fail("combined review contains a cross-lens duplicate normalized finding")
+            if fingerprint not in projected_fingerprints:
+                projected_fingerprints.add(fingerprint)
+                retained.append((lens, clean))
+                by_lens[lens].append(clean)
             if merge_key not in seen_merge_keys:
                 seen_merge_keys.add(merge_key)
-                retained.append((lens, clean))
                 merged = copy.deepcopy(finding)
                 if "pass_reports" in report:
                     merged["body"] = _helper_bounded_field(
                         f"{label}:\n\n{merged['body']}", 2000,
                     )
                 retained_raw.append(merged)
-            by_lens[lens].append(clean)
         pass_findings.append(by_lens)
     findings = report.get("findings", [])
     if not isinstance(findings, list):

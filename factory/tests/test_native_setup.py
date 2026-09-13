@@ -305,6 +305,7 @@ def test_model_policy_selects_sol_work_and_luna_lite():
         }
     }
 
+    assert {"model", "model_reasoning_effort", "plan_mode_reasoning_effort"}.isdisjoint(config)
     assert lanes == {
         ("gpt-5.6-sol", "low"): {"explorer"},
         ("gpt-5.6-sol", "medium"): {
@@ -317,7 +318,6 @@ def test_model_policy_selects_sol_work_and_luna_lite():
         ("gpt-5.6-luna", "max"): {"lite"},
     }
     assert pinned_run_config(HARNESS) == ("gpt-5.6-sol", "medium")
-    assert config["plan_mode_reasoning_effort"] == "high"
     assert (explore["model"], explore["model_reasoning_effort"]) == (
         "gpt-5.6-sol", "low")
     assert mode_run_config(HARNESS, "grill")[:2] == ("gpt-5.6-sol", "high")

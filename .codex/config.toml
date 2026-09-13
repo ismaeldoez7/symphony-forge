@@ -1,8 +1,5 @@
-# Team model routing is committed here and in agents/*.toml. Implementation
-# defaults to Sol/medium; named roles select the other approved work lanes.
-model = "gpt-5.6-sol"
-model_reasoning_effort = "medium"
-plan_mode_reasoning_effort = "high"
+# Forge-managed team model routing is committed here and in agents/*.toml.
+# The user and host select the main coordinator model and reasoning.
 # Terse output: artifacts and diffs carry the substance, not prose.
 model_verbosity = "low"
 model_reasoning_summary = "concise"
