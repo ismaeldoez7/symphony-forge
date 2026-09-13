@@ -110,7 +110,7 @@ def native_argv_valid(entry: dict, base: Path, write_scope: list[str]) -> bool:
     terminal = entry.get("launch_status") in {"failed", "succeeded"}
     resume_session = entry.get("resume_session")
     if resume_session in (None, ""):
-        return argv == expected or (terminal and argv == legacy)
+        return argv == expected
     if not isinstance(resume_session, str):
         return False
     # Historical completed rows may carry the removed continuation shape. They

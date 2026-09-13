@@ -564,10 +564,11 @@ def normalized_patch_paths(paths: list[str], root: Path) -> list[str] | None:
             absolute = candidate if candidate.is_absolute() else lexical_root / candidate
             lexical = Path(os.path.abspath(absolute))
             rel = lexical.relative_to(lexical_root).as_posix()
-            resolved = absolute.resolve().relative_to(resolved_root).as_posix()
+            parent = lexical.parent.relative_to(lexical_root)
+            resolved_parent = lexical.parent.resolve().relative_to(resolved_root)
         except (OSError, RuntimeError, ValueError):
             return None
-        if not rel or rel == "." or resolved != rel:
+        if not rel or rel == "." or resolved_parent != parent:
             return None
         normalized.append(rel)
     return normalized
@@ -699,9 +700,11 @@ for pattern in blocked:
 # and safe display commands whose quoted text happens to contain the phrase.
 CODEX_EXEC_INVOCATION = re.compile(
     r"(?:^|[;&|]\s*|\$\(\s*|`\s*)(?:\w+=\S+\s+)*(?:command\s+)?"
-    r"(?:\"[^\"\r\n;&|]*/codex\"|'[^'\r\n;&|]*/codex'|"
-    r"(?:[^\s;&|]*/)?codex)(?:\s+-{1,2}[\w-]+(?:[= ]\S+)?)*\s+exec\b",
-    re.MULTILINE,
+    r"(?:\"[^\"\r\n;&|]*[/\\]codex(?:\.exe|\.cmd)?\"|"
+    r"'[^'\r\n;&|]*[/\\]codex(?:\.exe|\.cmd)?'|"
+    r"(?:[^\s;&|]*[/\\])?codex(?:\.exe|\.cmd)?)"
+    r"(?:\s+-{1,2}[\w-]+(?:[= ]\S+)?)*\s+exec\b",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 
@@ -709,7 +712,8 @@ def _wrapped_codex_exec(tokens: list[str]) -> bool:
     """Detect a literal Codex exec argv behind a command wrapper."""
     def literal_launch_after(start: int) -> bool:
         return any(
-            Path(tokens[index]).name == "codex"
+            re.split(r"[/\\]", tokens[index])[-1].lower()
+            in {"codex", "codex.exe", "codex.cmd"}
             and CODEX_EXEC_INVOCATION.match(shlex.join(tokens[index:]))
             for index in range(start, len(tokens))
         )
@@ -722,8 +726,8 @@ def _wrapped_codex_exec(tokens: list[str]) -> bool:
 
     position = 0
     while position < len(tokens):
-        name = Path(tokens[position]).name
-        if name == "codex" and CODEX_EXEC_INVOCATION.match(
+        name = re.split(r"[/\\]", tokens[position])[-1].lower()
+        if name in {"codex", "codex.exe", "codex.cmd"} and CODEX_EXEC_INVOCATION.match(
                 shlex.join(tokens[position:])):
             return True
         if name in {"command", "nohup"}:
@@ -961,15 +965,16 @@ locked_targets = list(dict.fromkeys(
     rel for raw in write_targets
     if (rel := product_path(raw, root, is_harness)) is not None
 ))
+scoped_targets = write_targets if tool_name == PATCH_TOOL else locked_targets
 worker, worker_error = live_worker_admission(root)
-if locked_targets and worker_error:
+if scoped_targets and worker_error:
     deny(worker_error)
-if locked_targets and worker:
-    marker_targeted = any(_contains_marker(rel) for rel in locked_targets)
+if scoped_targets and worker:
+    marker_targeted = any(_contains_marker(rel) for rel in scoped_targets)
     if marker_targeted and worker["kind"] != "stage":
         deny(MARKER_PLAN_ONLY_MSG)
     if worker["kind"] == "stage":
-        outside = [rel for rel in locked_targets
+        outside = [rel for rel in scoped_targets
                    if not path_in_scope(rel, worker["scope"])]
         if outside:
             deny("Registered worker write is outside the protected task scope: "
@@ -1105,7 +1110,10 @@ codex_match = (
     CODEX_EXEC_INVOCATION.search(command) or _wrapped_codex_exec(shell_tokens)
 ) if tool_name == "Bash" else None
 codex_help = (
-    shell_tokens in (["codex", "exec", "--help"], ["codex", "exec", "-h"])
+    len(shell_tokens) == 3
+    and re.split(r"[/\\]", shell_tokens[0])[-1].lower()
+    in {"codex", "codex.exe", "codex.cmd"}
+    and shell_tokens[1:] in (["exec", "--help"], ["exec", "-h"])
     and not _has_active_shell_syntax(command)
 )
 quoted_display = (

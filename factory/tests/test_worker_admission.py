@@ -60,19 +60,19 @@ def _patch(*controls: str) -> dict:
     }
 
 
-def _seed_contract(repo: Path) -> tuple[Path, str]:
+def _seed_contract(repo: Path, task: dict = TASK) -> tuple[Path, str]:
     (repo / ".factory/harness-source.json").write_text("{}\n", encoding="utf-8")
     brief = repo / ".factory/briefs/T1.md"
     brief.parent.mkdir(parents=True, exist_ok=True)
     brief.write_text("# T1 protected brief\n", encoding="utf-8")
     control = _control(repo)
-    digest = task_digest(TASK)
+    digest = task_digest(task)
     (control / "run.json").write_text(
         json.dumps({"issue_key": "STORY-1", "story": "STORY-1"}),
         encoding="utf-8",
     )
     (control / "decomposition.json").write_text(
-        json.dumps({"tasks": [TASK]}), encoding="utf-8",
+        json.dumps({"tasks": [task]}), encoding="utf-8",
     )
     (control / "stages.json").write_text(json.dumps({
         "issue": "STORY-1",
@@ -653,15 +653,24 @@ def test_worker_move_target_must_remain_in_scope(repo, tmp_path):
     assert "deny" in output and "outside the protected task scope" in output
 
 
-@pytest.mark.parametrize("controls", [
-    ("*** Delete File: outside-link.py",),
+@pytest.mark.parametrize(("controls", "in_scope_controls", "write_scope"), [
     (
-        "*** Update File: src/old.py", "*** Move to: outside-link.py",
-        "@@", "-old", "+new",
+        ("*** Delete File: outside-link.py",),
+        ("*** Delete File: src/in-scope-link.py",),
+        ["src/in-scope-link.py"],
+    ),
+    (
+        ("*** Update File: src/old.py", "*** Move to: outside-link.py",
+         "@@", "-old", "+new"),
+        ("*** Update File: src/old.py", "*** Move to: src/in-scope-link.py",
+         "@@", "-old", "+new"),
+        ["src/old.py", "src/in-scope-link.py"],
     ),
 ])
-def test_worker_symlink_entry_is_denied(repo, tmp_path, controls):
-    brief, digest = _seed_contract(repo)
+def test_worker_symlink_entry_is_denied(
+        repo, tmp_path, controls, in_scope_controls, write_scope):
+    exact_task = {**TASK, "write_scope": write_scope}
+    brief, digest = _seed_contract(repo, exact_task)
     target = repo / "src" / "old.py"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("old\n", encoding="utf-8")
@@ -671,9 +680,30 @@ def test_worker_symlink_entry_is_denied(repo, tmp_path, controls):
     except OSError as exc:
         pytest.skip(f"symlink unavailable: {exc}")
     proc, token, launch_id = _start_worker(repo, tmp_path)
-    _record_launch(repo, proc, token, launch_id, brief, digest)
+    _record_launch(
+        repo, proc, token, launch_id, brief, digest, write_scope=write_scope)
 
     output = _invoke_worker(proc, _patch(*controls))
+    assert "deny" in output and "outside the protected task scope" in output
+
+    in_scope = repo / "src" / "in-scope-link.py"
+    in_scope.symlink_to("old.py")
+    proc, token, launch_id = _start_worker(repo, tmp_path)
+    _record_launch(
+        repo, proc, token, launch_id, brief, digest, write_scope=write_scope)
+    output = _invoke_worker(proc, _patch(*in_scope_controls))
+    assert "deny" not in output, output
+
+    outside = repo / "outside"
+    outside.mkdir()
+    ancestor = repo / "src" / "escape"
+    ancestor.symlink_to(outside, target_is_directory=True)
+    proc, token, launch_id = _start_worker(repo, tmp_path)
+    _record_launch(
+        repo, proc, token, launch_id, brief, digest, write_scope=write_scope)
+    output = _invoke_worker(proc, _patch(
+        "*** Delete File: src/escape/target.py",
+    ))
     assert "deny" in output and "cannot prove its write paths" in output
 
 

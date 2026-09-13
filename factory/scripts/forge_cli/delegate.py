@@ -1343,11 +1343,13 @@ def launch_companion(
                     else {"start_new_session": True,
                           "preexec_fn": unblock_termination_signals_in_child}
                 )
+                stdio_options = ({"text": False} if runtime == "codex" else {
+                    "text": True, "encoding": "utf-8", "errors": "strict",
+                })
                 proc = subprocess.Popen(
                     argv, cwd=base, stdout=stdout_log, stderr=stderr_log,
                     stdin=subprocess.PIPE if runtime == "codex" else None,
-                    text=True, encoding="utf-8", errors="strict",
-                    env=process_env, **spawn_options,
+                    env=process_env, **stdio_options, **spawn_options,
                 )
                 process_identity = _capture_spawn_identity(proc)
                 record.update({
@@ -1366,7 +1368,7 @@ def launch_companion(
                 append_delegation(base, record)
                 if runtime == "codex":
                     assert proc.stdin is not None
-                    proc.stdin.write(text)
+                    proc.stdin.write(text.encode("utf-8"))
                     proc.stdin.close()
         except OSError as exc:
             if proc is None:

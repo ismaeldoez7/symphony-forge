@@ -161,12 +161,10 @@ def test_native_write_argv_grants_only_exact_codex_scope_files(tmp_path):
     assert not native_argv_valid(entry, tmp_path, [])
     legacy = native_argv(
         "/bin/codex", tmp_path, "model", "high", True, [])
-    plain_historical = {
-        **entry, "argv": legacy, "launch_status": "succeeded",
-    }
-    assert native_argv_valid(plain_historical, tmp_path, scope)
-    assert not native_argv_valid(
-        {**plain_historical, "launch_status": "running"}, tmp_path, scope)
+    for launch_status in ("running", "failed", "succeeded"):
+        assert not native_argv_valid(
+            {**entry, "argv": legacy, "launch_status": launch_status},
+            tmp_path, scope)
     historical = {
         **entry,
         "argv": [*legacy[:-1], "resume", "thread-1", "-"],
@@ -203,17 +201,19 @@ def test_native_launch_registers_before_stdin_and_records_terminal_identity(
     )
     real_popen = delegate.subprocess.Popen
     stdin_snapshots = []
+    stdin_writes = []
     popen_options = {}
 
     class StdinProxy:
         def __init__(self, stream):
             self.stream = stream
 
-        def write(self, text):
+        def write(self, data):
             stdin_snapshots.append([
                 row["launch_status"] for row in load_delegations(native_repo)
             ])
-            return self.stream.write(text)
+            stdin_writes.append(data)
+            return self.stream.write(data)
 
         def close(self):
             return self.stream.close()
@@ -222,18 +222,21 @@ def test_native_launch_registers_before_stdin_and_records_terminal_identity(
             return getattr(self.stream, name)
 
     def popen(*args, **kwargs):
-        popen_options.update(kwargs)
+        native_launch = args[0][0] == str(executable)
+        if native_launch:
+            popen_options.update(kwargs)
         process = real_popen(*args, **kwargs)
-        if args[0][0] == str(executable):
+        if native_launch:
             process.stdin = StdinProxy(process.stdin)
         return process
 
     monkeypatch.setattr(delegate.subprocess, "Popen", popen)
     brief = native_repo / ".factory" / "briefs" / "T1.md"
+    prompt = "fixture prompt — नमस्ते\nsecond line\nlast line"
     terminal = launch_companion(
         native_repo,
         task_id="T1",
-        text="fixture prompt — नमस्ते",
+        text=prompt,
         path=brief,
         task_sha256_value="task-digest",
         model="model-pin",
@@ -246,15 +249,17 @@ def test_native_launch_registers_before_stdin_and_records_terminal_identity(
         "starting", "running", "succeeded",
     ]
     assert stdin_snapshots == [["starting", "running"]]
+    assert stdin_writes == [prompt.encode("utf-8")]
     assert terminal["transport"] == "native"
     assert terminal["pid_started"] == "known"
     assert terminal["session_id"] == "thread-fixture"
     assert terminal["brief_path"] == ".factory/briefs/T1.md"
     assert Path(terminal["output_path"]).is_file()
     assert Path(terminal["stderr_path"]).is_file()
-    assert capture["prompt"] == "fixture prompt — नमस्ते"
-    assert popen_options["encoding"] == "utf-8"
-    assert popen_options["errors"] == "strict"
+    assert capture["prompt"] == prompt
+    assert popen_options["text"] is False
+    assert "encoding" not in popen_options
+    assert "errors" not in popen_options
     assert capture["token"] == terminal["process_token"]
     assert capture["launch_id"] == terminal["launch_id"]
     assert capture["argv"][-1] == "-"
