@@ -1999,17 +1999,28 @@ def _modern_task_proof_problems(
         if isinstance(generation, dict) else {lens: {} for lens in _PROOF_LENSES}
     )
     if marker_publication_commit:
-        for name in _PROOF_NAMES:
-            if name == "reviews/selected.json" and selected_upgrade_after_marker:
-                continue
-            path = f".factory/stories/{key}/tasks/{task_id}/{name}"
-            changed = _marker_publication_commit(root, path)
-            if changed and not _git_is_ancestor(
-                root, changed, marker_publication_commit
-            ):
-                problems.append(
-                    f"{task_id}: {name} proof changed after task marker"
-                )
+        proof_root = f".factory/stories/{key}/tasks/{task_id}"
+        changed, change_error = _paths_changed_after(
+            root, marker_publication_commit,
+            [f"{proof_root}/verify.json", f"{proof_root}/tests.json",
+             f"{proof_root}/reviews"],
+        )
+        allowed_upgrade_paths: set[str] = set()
+        if selected_upgrade_after_marker and isinstance(generation, dict):
+            generation_rel, selection_rel = _review_relpaths(
+                key, task_id, str(generation.get("generation_id") or ""),
+            )
+            allowed_upgrade_paths.update((generation_rel, selection_rel))
+        if change_error:
+            problems.append(
+                f"{task_id}: cannot inspect proof history after task marker: "
+                f"{change_error}"
+            )
+        for path in sorted(changed - allowed_upgrade_paths):
+            problems.append(
+                f"{task_id}: {path.removeprefix(proof_root + '/')} proof "
+                "changed after task marker"
+            )
     # The recorder stamps the containing tests.json record. Nested reports are
     # payloads within that one artifact and do not carry an independent proof
     # commit in every historical fixture.
@@ -3171,6 +3182,7 @@ def publish_review_generation(
     root: Path, key: str, task_id: str, candidate: dict, *,
     expected_source_id: str = "", update_stamp: bool = False,
     lesson_records: list[tuple[str, bytes]] = (),
+    on_selection_lock_wait: Callable[[], None] | None = None,
 ) -> tuple[dict, dict]:
     """Publish generation first and selected.json last under one protected lock."""
     validate_review_document(root, candidate, allow_missing_generation_id=True)
@@ -3183,6 +3195,8 @@ def publish_review_generation(
     generation_sha = hashlib.sha256(generation_body).hexdigest()
     generation_rel, selection_rel = _review_relpaths(key, task_id, generation["generation_id"])
     from forge_cli.delegate import delegation_exclusion
+    if on_selection_lock_wait is not None:
+        on_selection_lock_wait()
     with delegation_exclusion(
         root, task_id, kind="review-selection",
     ):
@@ -4951,6 +4965,20 @@ def changed_since(root: Path, stamp: str, prefixes: tuple[str, ...]) -> list[str
     if proc.returncode != 0:
         return [f"<commit {stamp[:8]} unknown to this repo>"]
     return [f for f in proc.stdout.splitlines() if f.startswith(prefixes)]
+
+
+def _paths_changed_after(
+    root: Path, commit: str, paths: list[str],
+) -> tuple[set[str], str]:
+    """Return every path touched after commit, including restored rewrites."""
+    proc = subprocess.run(
+        ["git", "log", "--format=", "--name-only", f"{commit}..HEAD", "--", *paths],
+        cwd=root, capture_output=True, text=True, env=clean_git_env(),
+        encoding="utf-8",
+    )
+    if proc.returncode != 0:
+        return set(), proc.stderr.strip() or "git log failed"
+    return {path for path in proc.stdout.splitlines() if path}, ""
 
 
 def read_hook_input() -> dict[str, Any]:

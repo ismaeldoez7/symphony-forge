@@ -151,6 +151,7 @@ def _record_launch(repo: Path, proc: subprocess.Popen[str], token: str,
         "task": task_id,
         "brief_sha256": hashlib.sha256(brief.read_bytes()).hexdigest(),
         "task_sha256": digest,
+        "write_scope": list(TASK["write_scope"]),
         "write": True,
         "model": "gpt-test",
         "effort": "medium",
@@ -295,7 +296,8 @@ def test_native_worker_patch_add_update_delete_and_move_is_admitted(repo, tmp_pa
     assert "deny" not in output, output
 
 
-def test_native_worker_reads_state_without_protected_write_authority(repo, tmp_path):
+def test_native_worker_reads_state_without_protected_write_authority(
+        repo, tmp_path, monkeypatch, capsys):
     brief, digest = _seed_contract(repo)
     proc, token, launch_id = _start_worker(repo, tmp_path, launch_id="launch-read")
     _record_launch(repo, proc, token, launch_id, brief, digest)
@@ -317,6 +319,29 @@ def test_native_worker_reads_state_without_protected_write_authority(repo, tmp_p
     ))
     assert "deny" in write_output and "never hand-written" in write_output
     assert brief.read_bytes() == protected_before
+
+    from forge_cli import codex_runtime, delegate
+    from forge_cli.stages import _require_successful_launch
+
+    row = json.loads(
+        (_control(repo) / "delegations.jsonl").read_text().splitlines()[-1]
+    )
+    row.update({
+        "launch_status": "succeeded", "exit_code": 0, "session_id": "session",
+        "output_path": str(_control(repo) / "native-runs" /
+                           f"{row['launch_id']}.jsonl"),
+        "stderr_path": str(_control(repo) / "native-runs" /
+                           f"{row['launch_id']}.stderr.log"),
+    })
+    row.pop("write_scope")
+    monkeypatch.setattr(delegate, "current_delegation", lambda *_a, **_k: row)
+    monkeypatch.setattr(codex_runtime, "parse_native_result", lambda _path: "session")
+    monkeypatch.setattr(codex_runtime, "native_argv_valid", lambda *_a: True)
+    with pytest.raises(SystemExit):
+        _require_successful_launch(
+            repo, "T1", {"started_at": "stage-1"}, TASK,
+        )
+    assert "no successful write launch" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("cleanup_succeeds", [True, False])

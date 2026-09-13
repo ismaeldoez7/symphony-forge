@@ -18354,6 +18354,12 @@ def test_review_consumers_include_complete_approved_inputs(
     seen = []
     review_tmp = tmp_path / "review-dataset-routing"
     review_tmp.mkdir()
+    finding = {
+        "title": "[quality] Preserve plain-source attribution",
+        "body": "Schema-valid plain source.", "priority": "P2",
+        "confidence": 0.9, "category": "bug", "source_attribution": None,
+        "code_location": {"file_path": "src/review-target.py", "line": 1},
+    }
 
     def fake_require_git(_base, _what, *args, **_kwargs):
         if args[:3] == ("worktree", "add", "--detach"):
@@ -18380,7 +18386,7 @@ def test_review_consumers_include_complete_approved_inputs(
                 "END FORGE ASSESSMENT performance\n"
                 "BEGIN FORGE ASSESSMENT security\nsafe\n"
                 "END FORGE ASSESSMENT security",
-            "findings": [],
+            "findings": [finding],
         }
         return report, json.dumps(report).encode()
 
@@ -18417,6 +18423,11 @@ def test_review_consumers_include_complete_approved_inputs(
     assert all(copied == dataset_bytes for _, _, copied in seen)
     assert all(b"### Approved task inputs" not in prompt for _, prompt, _ in seen)
     assert dataset_path.read_bytes() == dataset_bytes
+    invalid_attribution = copy.deepcopy(finding)
+    invalid_attribution["source_attribution"] = {"record_id": "mixed"}
+    with pytest.raises(SystemExit):
+        review_mod._tagged_finding(invalid_attribution)
+    assert "null source_attribution" in capsys.readouterr().out
 
     def refuse_detached_link(kind):
         review_case = tmp_path / f"review-{kind}"
@@ -19212,6 +19223,17 @@ def test_task_proof_ci_seal_and_later_mutation(repo, tmp_path):
     import check_task_proof
     assert not check_task_proof.proof_problems(repo, "ENG-1", "T1")
     tests = proof / "tests.json"
+    original_tests = tests.read_bytes()
+    data = json.loads(original_tests)
+    data["automated"]["summary"] = "temporarily rewritten after seal"
+    tests.write_text(json.dumps(data))
+    git(repo, "add", tests.relative_to(repo).as_posix())
+    git(repo, "commit", "-qm", "rewrite task proof after marker")
+    tests.write_bytes(original_tests)
+    git(repo, "add", tests.relative_to(repo).as_posix())
+    git(repo, "commit", "-qm", "restore task proof bytes")
+    assert check_task_proof.proof_problems(repo, "ENG-1", "T1")
+
     data = json.loads(tests.read_text())
     data["automated"]["status"] = "failed"
     tests.write_text(json.dumps(data))
@@ -21990,18 +22012,26 @@ def test_task_pr_ready_marker_commit_preserves_unrelated_index(repo, tmp_path):
     while not paused.exists() and time.monotonic() < deadline:
         time.sleep(0.05)
     assert paused.exists() and seal.poll() is None
+    lock_waiting = tmp_path / "publisher-lock-waiting"
     publisher_code = (
         "import json,sys; from pathlib import Path; "
         "root=Path(sys.argv[1]); sys.path.insert(0,str(root/'factory/scripts')); "
+        "waiting=Path(sys.argv[3]); "
         "from factory_lib import publish_review_generation; "
-        "publish_review_generation(root,'ENG-1','T1',json.loads(Path(sys.argv[2]).read_text()))"
+        "publish_review_generation(root,'ENG-1','T1',"
+        "json.loads(Path(sys.argv[2]).read_text()),"
+        "on_selection_lock_wait=lambda: waiting.write_text('waiting\\n'))"
     )
     publisher = subprocess.Popen(
-        [sys.executable, "-c", publisher_code, str(repo), str(candidate)], cwd=repo,
+        [sys.executable, "-c", publisher_code, str(repo), str(candidate),
+         str(lock_waiting)], cwd=repo,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
     )
-    time.sleep(0.3)
-    assert publisher.poll() is None and selected_path.read_bytes() == selected_before
+    deadline = time.monotonic() + 10
+    while not lock_waiting.exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert lock_waiting.exists() and publisher.poll() is None
+    assert selected_path.read_bytes() == selected_before
     release.write_text("release\n")
     out, _ = seal.communicate(timeout=120)
     assert seal.returncode == 0, out

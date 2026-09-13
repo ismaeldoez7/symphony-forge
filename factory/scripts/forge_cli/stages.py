@@ -1449,12 +1449,11 @@ def _require_successful_launch(base: Path, stage_id: str, stage: dict,
     transport = entry.get("transport") if entry else None
     if transport == "native":
         launch_scope = entry.get("write_scope")
-        if not (
+        scope_valid = (
             isinstance(launch_scope, list)
-            and all(isinstance(path, str) for path in launch_scope)
-        ):
-            # Legacy native rows predate the recorded launch scope.
-            launch_scope = task.get("write_scope") or []
+            and bool(launch_scope)
+            and all(isinstance(path, str) and path.strip() for path in launch_scope)
+        )
         expected_output = (delegations_path(base).parent / "native-runs" /
                            f"{entry.get('launch_id')}.jsonl")
         expected_stderr = (delegations_path(base).parent / "native-runs" /
@@ -1464,7 +1463,8 @@ def _require_successful_launch(base: Path, stage_id: str, stage: dict,
         except ValueError:
             session_id = ""
         argv_valid = (
-            native_argv_valid(entry, base, launch_scope)
+            scope_valid
+            and native_argv_valid(entry, base, launch_scope)
             and entry.get("write") is True
             and not entry.get("resume_session")
             and entry.get("brief_path") == brief.relative_to(base).as_posix()
