@@ -1,7 +1,7 @@
 {
   "ok": true,
-  "completed_at": "2026-09-13T18:33:28+00:00",
-  "commit": "4e8dd2e4f24654c368372fadb4119813f1609f33",
+  "completed_at": "2026-09-13T18:59:05+00:00",
+  "commit": "937233c7db4d43ec9d10e816eaa2ca2a3338df06",
   "results": [
     {
       "command": "python3 factory/scripts/check_dual_runtime.py",
@@ -18,9 +18,9 @@
       "phase": "typecheck"
     },
     {
-      "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with pytest-xdist --with psutil python -m pytest factory/tests -q -n 4 --dist worksteal",
+      "command": "AUTOREVIEW= UV_CACHE_DIR=/tmp/forge-ci-uv-cache UV_TOOL_DIR=/tmp/forge-ci-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest -q factory/tests/test_review_task_delta.py::test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes factory/tests/test_gates.py::test_review_preflight_uses_active_task_proof factory/tests/test_review_settled_contracts.py::test_reject_republishes_one_complete_pointer_selected_set",
       "exit_code": 0,
-      "stdout": "bringing up nodes...\nbringing up nodes...\n\n........................................................................ [  6%]\n........................................................................ [ 13%]\n........................................................................ [ 20%]\n........................................................................ [ 27%]\n........................................................................ [ 33%]\n........................................................................ [ 40%]\n........................................................................ [ 47%]\n........................................................................ [ 54%]\n........................................................................ [ 61%]\n........................................................................ [ 67%]\n.............s.......................................................... [ 74%]\n........................................................................ [ 81%]\n.....ss................................................................. [ 88%]\n........................................................................ [ 94%]\n......................................................                   [100%]\n1059 passed, 3 skipped in 1811.34s (0:30:11)\n",
+      "stdout": "...                                                                      [100%]\n3 passed in 40.12s\n",
       "stderr": "",
       "phase": "tests"
     }

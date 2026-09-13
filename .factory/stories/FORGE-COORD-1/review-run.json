@@ -1,7 +1,7 @@
 {
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
-  "review_run_id": "7eff056ef8e4bde28bd76ff223d7188bfe0f4785ab93d19d17da3456c9bac1a0",
-  "brief_sha256": "0204d65ae86dcf0023e350146b5077233b1171b4e8b73d53d58d4e41bd730ea7",
-  "branch_diff_digest": "659bedd9a3694cbac7781960af8c54b640cc8f960e361d5a8875bacce1e2b4b1",
-  "minted_at": "2026-09-13T11:13:18+00:00"
+  "review_run_id": "4d43e60515a6a5ee79a56b3ad4b3ba4d0e434d3ce09d78e4c30fcce59df61a7b",
+  "brief_sha256": "66e4dfe4d47d701d50251d1d21bdf4415278202d95ccd4a642f2e773ccd3288c",
+  "branch_diff_digest": "6d51c3352052b836e0e8adcd53af369812301192b22cebbebc0dcc3143ad3a34",
+  "minted_at": "2026-09-13T19:10:27+00:00"
 }
