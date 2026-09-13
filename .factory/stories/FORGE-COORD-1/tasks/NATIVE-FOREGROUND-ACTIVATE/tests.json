@@ -1,11 +1,15 @@
 {
-  "commit": "3ba105e54da7904dd6e99b6326f0776df0e63aab",
+  "commit": "5e9559e47934dc141f990da8eca9559bcda0c217",
   "automated": {
     "generated_by": "implementer",
     "status": "passed",
-    "summary": "At 3ba105e, all four findings from combined review d0efa136 are closed in the bounded ten-path cumulative repair: nested shell groups and process substitutions retain active raw-Codex detection, the public delegate effort no-op is removed while internal pinned argv remains, discarded proof-reader compatibility API is removed without changing marker-bound upgrades, and secondary lens tags refuse anywhere in normalized titles.",
+    "summary": "At 5e9559e, the bounded ten-path cumulative repair closes all four findings from combined review d0efa136 and keeps the complete combined review in one provider pass: the repeated current-task contract section is removed only from `_combined_prompt`, remains exactly once in mandatory `all.md`, and every lens, marker, verdict, helper-route, dataset, and full-diff semantic is preserved.",
     "blocking_findings": [],
     "commands_run": [
+      "Registered Sol/medium prompt-correction launch / session 01a09d23-b989-79d3-8c22-4e67d9da1e2b -> succeeded after changing only review.py and test_gates.py; test_review_consumers_include_complete_approved_inputs passed with 732 deselected and the two-path diff check was clean.",
+      "Registered Sol/medium line-budget correction / session 01a09d2a-8c3c-7b52-afd0-30b523f9ce9a -> succeeded after deleting only the redundant standalone `_skill_argv` test block; /tmp/forge-review-transport-test.xml records 1 test, 0 failures, 0 errors, 0 skips in 6.494s.",
+      "git diff --numstat 499c358..5e9559e over the ten authorized cumulative product/test paths -> 283 insertions and 95 deletions, 378 added-plus-deleted lines across exactly ten paths, within the 380-line limit; git diff --check is clean.",
+      "Parent-owned task close at b257e46 completed the authoritative 70 required selectors and five verify commands before releasing review. Since that proof, only the review.py prompt-composition correction and its test_gates.py integration assertions changed; the exact affected selector was rerun green at 5e9559e.",
       "Registered Sol/medium final correction launch launch-564774510005496e88a5285509a9946c / session 01a09d08-268b-7722-b148-7701cf533476 -> succeeded after changing only pre_tool_use.py, test_gates.py, and check_task_proof.py; required updated raw selector passed 1 test with 732 deselected in 14.64s and git diff --check was clean",
       "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_review_task_delta.py -k test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixed_output --junitxml=/tmp/test-review-tags.xml -> 1 passed, 0 failed, 0 errored, 0 skipped in 0.09s",
       "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_stop_less_often.py -k test_the_effort_escalation_harness_yaml_documents_is_reachable --junitxml=/tmp/test-effort.xml -> 1 passed, 0 failed, 0 errored, 0 skipped in 2.38s",
@@ -13,15 +17,14 @@
       "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_gates.py -k test_task_proof_ci_uses_sealed_selected_t1_not_later_t2_singleton --junitxml=/tmp/test-proof-sealed.xml -> 1 passed, 0 failed, 0 errored, 0 skipped in 12.19s",
       "git diff --numstat 499c358..3ba105e over the ten authorized cumulative paths -> 348 added-plus-deleted lines across exactly ten product/test paths, within the 380-line limit; git diff --check 499c358..3ba105e -> clean; _wrapped_codex_exec matches c462478 byte-for-byte",
       "Registered launch launch-32f37ea909254ad69830a7972e6a103c produced the first nine-file candidate and five green focused JUnit reports, then ignored the focused ownership note and entered the inherited full selector list; it was aborted after the known worker-sandbox ProcessDiscoveryError in test_native_zero_exit_without_completed_turn_is_failed. This is environment/process history, not successful full-suite proof and not a product failure.",
-      "Registered launch launch-dd7d98f3de644349a3a6118fb3af82ac was stopped when its broad objective made it re-certify the old raw matrix without the required group-boundary finish. It contributed no accepted product edit or proof.",
-      "Historical host/task-close proof at f954f17 completed the then-current 69 required selectors and five verify commands; the restored current contract has 70 selectors plus the same five verify commands, which the parent-owned task close will rerun at 3ba105e before formal review."
+      "Registered launch launch-dd7d98f3de644349a3a6118fb3af82ac was stopped when its broad objective made it re-certify the old raw matrix without the required group-boundary finish. It contributed no accepted product edit or proof."
     ],
     "tests_added_or_updated": [
       "factory/tests/test_gates.py",
       "factory/tests/test_review_task_delta.py",
       "factory/tests/test_stop_less_often.py"
     ],
-    "pass_fail_summary": "All five focused finding regressions are green with no skips, and the updated final raw-launch selector is green after the literal grouped-function cases were added. The redundant worker-wide attempt hit only the documented sandbox process-discovery limitation and was stopped; current-head cumulative verification remains parent-owned and will run through task close.",
+    "pass_fail_summary": "The authoritative 70-selector/five-command close proof passed at b257e46. The only later product change is the lossless combined-prompt composition correction; its exact existing integration selector is green at 5e9559e with no skips. Both registered workers succeeded, the cumulative ten-path diff is within budget, and no test failure remains.",
     "remaining_gaps": [],
     "reviewed_scope": [
       "factory/scripts/check_task_proof.py",
@@ -42,8 +45,8 @@
     "non_blocking_findings": [],
     "residual_risks": [],
     "manual_validation_steps": [],
-    "recorded_at": "2026-09-13T23:15:34+00:00",
-    "commit": "3ba105e54da7904dd6e99b6326f0776df0e63aab"
+    "recorded_at": "2026-09-13T23:51:19+00:00",
+    "commit": "5e9559e47934dc141f990da8eca9559bcda0c217"
   },
-  "updated_at": "2026-09-13T23:15:34+00:00"
+  "updated_at": "2026-09-13T23:51:19+00:00"
 }
