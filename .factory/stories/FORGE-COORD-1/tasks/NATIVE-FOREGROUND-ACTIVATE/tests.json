@@ -1,24 +1,25 @@
 {
-  "commit": "f954f177ba67f8a7711c7ed6ec36060d023764e7",
+  "commit": "07a82f805169837be323383a1e1af156fc23e989",
   "automated": {
     "generated_by": "implementer",
     "status": "passed",
-    "summary": "At f954f17, the final four-file closeout repair is green: committed-marker proof fails closed on local mismatch and malformed committed null data, sealed review input resolves from the marker-publication commit, and structured patch admission preserves operation roles so Add, Update, and Move destinations cannot follow symlink leaves while Delete and Move sources retain safe lexical behavior.",
+    "summary": "At 07a82f8, the final native-coordinator review fixes are green: raw builtin exec forms are denied only at active shell boundaries, quoted prose remains allowed, and worker symlink coverage now fails rather than skipping when the platform cannot create its required fixture.",
     "blocking_findings": [],
     "commands_run": [
-      "FACTORY_TEST_CMD='uv run --python 3.11 --with pytest --with psutil pytest -q [six final regression selectors]' ./forge task close NATIVE-FOREGROUND-ACTIVATE at f954f177ba67f8a7711c7ed6ec36060d023764e7 -> all five recorded verify commands and 69 required selector invocations completed; current verify.json recorded check_dual_runtime clean, check_factory_scaffold OK, and the six-selector focused verifier 9 passed in 86.65s; close then stopped only because the prior tests.json was still bound to aa12cd0",
-      "UV_CACHE_DIR=/tmp/forge-native-host-uv-cache UV_TOOL_DIR=/tmp/forge-native-host-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest -q [two process-sensitive selectors plus six final regression selectors] --junitxml=/tmp/NATIVE-FOREGROUND-ACTIVATE-host-regressions.xml -> 11 passed in 58.57s; JUnit reports 11 tests, 0 failures, 0 errors, 0 skipped",
-      "Registered current-contract Sol/medium delegation launch-f274237ba9d0404baba7c3575f00d4e5 / session 01a09c7b-7300-7471-b2d5-fd102233358d at task digest e36ffe37384cb8ed1c75d2332046aec14db78a0b98eaa8ea9dd364e2060c4fdd -> terminal succeeded; 67 required selector commands were green in the worker sandbox, while two process-table selectors and three corresponding three-file-suite cases were blocked only by sandbox sysctl permissions and were subsequently green in the host run and host task-close proof",
-      "git diff --numstat 499c358..f954f17 -- factory/scripts/factory_lib.py factory/scripts/pre_tool_use.py factory/tests/test_gates.py factory/tests/test_worker_admission.py -> 136 insertions and 20 deletions, 156 changed lines across exactly four product/test paths, within the 160-line repair budget; git diff --check 499c358..f954f17 -> clean",
-      "Historical broad proof at 4e8dd2e: FACTORY_TEST_CMD four-worker task-close verification -> 1059 passed, 3 skipped in 1811.34s; later Ubuntu fixture failures were repaired and the current f954f17 task-close proof reran the task's final required selector and verify contracts",
-      "Historical C8 protected-plan correlation at the then-current task-plan commit: launch launch-8fd15d00170a45bc9a642e6df6954532 / session 01a09b81-08e6-73b0-a9d0-d4e030513900 recorded the real protected-plan apply_patch denial, patch_executed=false, and identical task-plan SHA256 before and after; later task-plan amendments changed the contract text but did not weaken that protected-write boundary",
-      "GitHub PR 221 at f954f177ba67f8a7711c7ed6ec36060d023764e7 -> windows-hook-gates passed in 2m1s; scaffold-check remained in progress when this artifact was recorded and remains a merge gate rather than a local automated-test failure"
+      "UV_CACHE_DIR=/tmp/forge-native-host-uv-cache UV_TOOL_DIR=/tmp/forge-native-host-uv-tools uv run --python 3.11 --with pytest --with psutil pytest -q factory/tests/test_gates.py::test_codex_exec_ban_matches_invocations_not_prose factory/tests/test_worker_admission.py::test_worker_symlink_entry_is_denied --junitxml=/tmp/NATIVE-FOREGROUND-ACTIVATE-final-two.xml at 07a82f805169837be323383a1e1af156fc23e989 -> 3 passed in 13.54s; JUnit reports 3 tests, 0 failures, 0 errors, 0 skipped",
+      "git diff --numstat c462478..07a82f8 -- factory/scripts/factory_lib.py factory/scripts/pre_tool_use.py factory/tests/test_gates.py factory/tests/test_worker_admission.py -> 53 insertions and 6 deletions, 59 changed lines across the three final product/test paths",
+      "git diff --numstat 499c358..07a82f8 -- factory/scripts/factory_lib.py factory/scripts/pre_tool_use.py factory/tests/test_gates.py factory/tests/test_worker_admission.py -> 189 insertions and 26 deletions, 215 changed lines across exactly four product/test paths, within the amended 240-line cumulative repair budget; git diff --check 499c358..07a82f8 -> clean",
+      "Registered current-contract Sol/medium correction launch with terminal session 01a09cd3-898f-78c0-887d-4a3a840708a9 -> succeeded at the current task stage; the worker implemented and checked the final raw-exec and symlink-fixture corrections",
+      "At f954f17, FACTORY_TEST_CMD with the six then-final regression selectors ./forge task close NATIVE-FOREGROUND-ACTIVATE -> all five recorded verify commands and 69 required selector invocations completed; verify recorded check_dual_runtime clean, check_factory_scaffold OK, and the focused verifier 9 passed in 86.65s before close correctly stopped on stale automated evidence",
+      "At f954f17, UV_CACHE_DIR=/tmp/forge-native-host-uv-cache UV_TOOL_DIR=/tmp/forge-native-host-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest -q [two process-sensitive selectors plus six final regression selectors] --junitxml=/tmp/NATIVE-FOREGROUND-ACTIVATE-host-regressions.xml -> 11 passed in 58.48s; JUnit reports 11 tests, 0 failures, 0 errors, 0 skipped",
+      "Historical broad proof at 4e8dd2e: FACTORY_TEST_CMD four-worker task-close verification -> 1059 passed, 3 skipped in 1811.34s; later Ubuntu fixture failures were repaired and the task's 69-selector plus five-command contract was rerun at f954f17",
+      "GitHub PR 221 at f954f17: scaffold-check and windows-hook-gates passed; Linux scaffold-check owns the full worker-admission suite, while windows-hook-gates does not run factory/tests/test_worker_admission.py"
     ],
     "tests_added_or_updated": [
       "factory/tests/test_gates.py",
       "factory/tests/test_worker_admission.py"
     ],
-    "pass_fail_summary": "Current host proof is green for all final regressions and process-sensitive cases. The one worker-sandbox process-table limitation was reproduced as an environment restriction and cleared by the host run and the current task-close proof. No product test failure remains.",
+    "pass_fail_summary": "The current-head focused regression is green with no skipped cases. The task's full 69-selector and five-command proof was green at the immediately preceding repair commit; task close will rerun it at 07a82f8 before formal review.",
     "remaining_gaps": [],
     "reviewed_scope": [
       "factory/scripts/factory_lib.py",
@@ -33,8 +34,8 @@
     "non_blocking_findings": [],
     "residual_risks": [],
     "manual_validation_steps": [],
-    "recorded_at": "2026-09-13T21:16:01+00:00",
-    "commit": "f954f177ba67f8a7711c7ed6ec36060d023764e7"
+    "recorded_at": "2026-09-13T22:23:13+00:00",
+    "commit": "07a82f805169837be323383a1e1af156fc23e989"
   },
-  "updated_at": "2026-09-13T21:16:01+00:00"
+  "updated_at": "2026-09-13T22:23:13+00:00"
 }
