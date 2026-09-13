@@ -2,7 +2,7 @@
 issue: GATES-1
 title: Gates stale only on what they read
 status: approved
-saved: 2026-09-12T10:52:57+00:00
+saved: 2026-09-13T05:22:52+00:00
 story: GATES-1
 decisions_reviewed:
   - 0001-determinism-contract
@@ -62,6 +62,7 @@ decisions_reviewed:
   - 0065-ci-platform-evidence
   - 0066-closeout-binds-to-the-diff
   - 0067-rounds-rebind-to-their-gate
+  - 0068-worker-commands-may-reach-the-network
 ---
 
 # GATES-1 — Gates stale only on what they read

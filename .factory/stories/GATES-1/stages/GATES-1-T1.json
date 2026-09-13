@@ -1,14 +1,7 @@
 {
   "id": "GATES-1-T1",
   "title": "A question round belongs to its gate and story",
-  "status": "active",
-  "started_at": "2026-09-12T06:50:11+00:00",
-  "base_sha": "85182915839fcc8ba282e9af94bc05f4e633dd74",
-  "dirty_at_start": {
-    ".factory/stories/GATES-1/grills/tasks/GATES-1-T1.json": {
-      "digest": "64f3576ae8dac1ae634d54eea5e7c212d83d0b717a173ec107361433ada10691",
-      "git": "1 .M N... 100644 100644 100644 487419c965e54b7cd2236bca2079c7a39d1cbf3e 487419c965e54b7cd2236bca2079c7a39d1cbf3e .factory/stories/GATES-1/grills/tasks/GATES-1-T1.json\u0000\u0000100644 487419c965e54b7cd2236bca2079c7a39d1cbf3e 0\t.factory/stories/GATES-1/grills/tasks/GATES-1-T1.json\u0000\u0000H .factory/stories/GATES-1/grills/tasks/GATES-1-T1.json\u0000"
-    }
-  },
+  "status": "done",
+  "completed_at": "2026-09-13T05:34:04+00:00",
   "task_sha256": "a65a1b9ab6f8921d7229371ec487e97f5c1ba1ba1d6795257fc4d03ccab8b849"
 }
