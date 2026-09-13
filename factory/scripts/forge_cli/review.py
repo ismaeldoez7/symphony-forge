@@ -333,7 +333,7 @@ def _tagged_finding(finding: dict) -> tuple[
 ]:
     if not isinstance(finding, dict):
         fail("combined review findings must be objects")
-    if finding.get("source_attribution") is not None:
+    if "source_attribution" not in finding or finding["source_attribution"] is not None:
         fail("combined review plain-source findings require null source_attribution")
     title = finding.get("title")
     matches = [lens for lens, tag in zip(LENSES, LENS_TAGS)

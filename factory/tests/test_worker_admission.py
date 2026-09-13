@@ -139,7 +139,8 @@ def _start_worker(repo: Path, tmp_path: Path, *, launch_id: str = "launch-test",
 def _record_launch(repo: Path, proc: subprocess.Popen[str], token: str,
                    launch_id: str, brief: Path, digest: str, *, running=True,
                    task_id: str = "T1", mode: str = "",
-                   transport: str = "native") -> None:
+                   transport: str = "native",
+                   write_scope: list[str] | None = None) -> None:
     executable = str(Path(sys.executable).resolve())
     argv = (native_argv(executable, repo, "gpt-test", "medium", True)
             if transport == "native"
@@ -151,7 +152,7 @@ def _record_launch(repo: Path, proc: subprocess.Popen[str], token: str,
         "task": task_id,
         "brief_sha256": hashlib.sha256(brief.read_bytes()).hexdigest(),
         "task_sha256": digest,
-        "write_scope": list(TASK["write_scope"]),
+        "write_scope": list(write_scope or TASK["write_scope"]),
         "write": True,
         "model": "gpt-test",
         "effort": "medium",
@@ -199,8 +200,10 @@ def _invoke_worker(proc: subprocess.Popen[str], payload: dict) -> str:
 
 
 def test_known_native_launch_reads_delegation_ledger_once(tmp_path, monkeypatch):
+    import factory_lib
     import forge_cli.codex_runtime as codex_runtime
     import forge_cli.worker_admission as admission
+    from forge_cli import stages
 
     real_descends = admission._current_process_descends_from
 
@@ -212,6 +215,7 @@ def test_known_native_launch_reads_delegation_ledger_once(tmp_path, monkeypatch)
         "task": "T1",
         "brief_sha256": "brief-digest",
         "task_sha256": "task-digest",
+        "write_scope": ["src/"],
         "write": True,
         "model": "model",
         "effort": "medium",
@@ -256,9 +260,22 @@ def test_known_native_launch_reads_delegation_ledger_once(tmp_path, monkeypatch)
     brief.write_text("brief", encoding="utf-8")
     monkeypatch.setattr(admission, "brief_path", lambda *_a: brief)
     monkeypatch.setattr(admission, "sha256_of", lambda _path: "brief-digest")
+    decomposition = tmp_path / "decomposition.json"
+    decomposition.write_text(json.dumps({"tasks": [TASK]}), encoding="utf-8")
+    run_path = tmp_path / "run.json"
+    run_path.write_text(json.dumps({"story": "STORY-1"}), encoding="utf-8")
+    monkeypatch.setattr(factory_lib, "protected_decomposition_state_path",
+                        lambda _base: decomposition)
+    monkeypatch.setattr(admission, "load_stages", lambda _base: {"stages": [{
+        "id": "T1", "status": "active", "started_at": "stage-1",
+    }]})
+    monkeypatch.setattr(admission, "run_state_path", lambda _base: run_path)
+    monkeypatch.setattr(admission, "task_digest", lambda _task: "task-digest")
+    monkeypatch.setattr(stages, "stage_baseline", lambda *_a: "baseline")
+    classifications = []
     monkeypatch.setattr(
-        admission, "_stage_contract",
-        lambda *_a: ({"kind": "stage", "scope": ["src/"]}, ""),
+        admission, "classify_scope_entries",
+        lambda *args: classifications.append(args) or ["src/"],
     )
     native_validations = []
     monkeypatch.setattr(
@@ -272,7 +289,24 @@ def test_known_native_launch_reads_delegation_ledger_once(tmp_path, monkeypatch)
     assert grant == {"kind": "stage", "scope": ["src/"]}
     assert reason == ""
     assert calls == [tmp_path]
+    assert classifications == [(tmp_path, ["src/"], "baseline")]
     assert native_validations == [(rows[-1], tmp_path, ["src/"])]
+
+    original_rows = [dict(row) for row in rows]
+    for case in ("missing", "malformed", "mismatched", "changed"):
+        rows[:] = [dict(row) for row in original_rows]
+        for row in rows:
+            if case == "missing":
+                row.pop("write_scope")
+            elif case == "malformed":
+                row["write_scope"] = [""]
+            elif case == "mismatched":
+                row["write_scope"] = ["other/"]
+        if case == "changed":
+            rows[-1]["write_scope"] = ["other/"]
+        grant, reason = admission.live_worker_admission(tmp_path)
+        assert grant is None and reason and len(native_validations) == 1, case
+    rows[:] = original_rows
 
     def fail_process_inspection(_pid):
         raise SystemError("macOS sysctl denied")
@@ -431,7 +465,8 @@ def test_stage_worker_may_change_repo_marker_only_when_scope_names_it(repo, tmp_
         }],
     }), encoding="utf-8")
     proc, token, launch_id = _start_worker(repo, tmp_path)
-    _record_launch(repo, proc, token, launch_id, brief, digest)
+    _record_launch(repo, proc, token, launch_id, brief, digest,
+                   write_scope=marker_task["write_scope"])
     output = _invoke_worker(
         proc, _patch("*** Delete File: .factory/harness-source.json"),
     )

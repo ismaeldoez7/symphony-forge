@@ -120,7 +120,8 @@ def test_codex_hook_readiness_requires_exact_enabled_trusted_source(
     next(hook for hook in malformed if hook["eventName"] == "preToolUse")["matcher"] = "["
     monkeypatch.setattr(
         doctor, "_codex_hooks_inventory", lambda _binary, _base: (malformed, ""))
-    assert "matcher is invalid" in doctor.codex_hook_readiness(tmp_path)[1]
+    ready, detail = doctor.codex_hook_readiness(tmp_path)
+    assert not ready and "matcher is invalid" in detail
 
     sources = doctor.CODEX_SESSION_START_SOURCES
     for missing in sources:

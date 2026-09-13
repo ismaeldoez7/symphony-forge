@@ -39,7 +39,7 @@ def _combined_explanation(quality: str, performance: str, security: str) -> str:
 def _combined_finding(lens: str, title: str, path: str, line: int) -> dict:
     return {
         "title": f"[{lens}] {title}", "body": "evidence", "priority": "P2",
-        "confidence": 0.9, "category": "bug",
+        "confidence": 0.9, "category": "bug", "source_attribution": None,
         "code_location": {"file_path": path, "line": line},
     }
 
@@ -122,6 +122,7 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
         lambda report: report["findings"].append(
             _combined_finding("security", "  same   ISSUE ", "src/a.py", 3)),
         lambda report: report["findings"][0].update(title="Missing lens tag"),
+        lambda report: report["findings"][0].pop("source_attribution"),
         lambda report: report["findings"][0].update(source_attribution={}),
     )
     for mutate in mutators:

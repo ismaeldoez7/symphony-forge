@@ -131,6 +131,7 @@ def _publish(repo, blocking=(), *, recorded_at="2026-09-11T01:00:00+00:00"):
     delta = product_delta_digest(repo, review_base)
     raw_findings = [{"title": f"[security] {item['summary']}", "body": item["summary"],
                      "priority": "P1", "confidence": 1, "category": "security",
+                     "source_attribution": None,
                      "code_location": {"file_path": "src/work.py", "line": index}}
                     for index, item in enumerate(blocking, 1)]
     raw = json.dumps({"findings": raw_findings, "overall_explanation":

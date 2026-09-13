@@ -88,8 +88,9 @@ python3 factory/scripts/pr_ready.py
 ## Hard Gates
 
 Task proof lives in `.factory/stories/<key>/tasks/<id>/`:
-`verify.json`, `tests.json`,
-`reviews/{quality,performance,security}.json`. Plan, `run.json` and
+`verify.json`, `tests.json`, and `reviews/selected.json` with its immutable
+selected-generation lineage. Fixed lens files are diagnostic or migration
+input only. Plan, `run.json` and
 `decomposition.json` stay story-scoped. Review inputs and local/CI/board proof checks follow `docs/specs/dual-coordinator-parity.md`.
 
 A story ships with every task marker and clean proof on trunk.

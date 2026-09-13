@@ -707,13 +707,127 @@ CODEX_EXEC_INVOCATION = re.compile(
 
 def _wrapped_codex_exec(tokens: list[str]) -> bool:
     """Detect a literal Codex exec argv behind a command wrapper."""
-    for index, token in enumerate(tokens):
-        if Path(token).name == "codex" and CODEX_EXEC_INVOCATION.match(
-                shlex.join(tokens[index:])):
+    def literal_launch_after(start: int) -> bool:
+        return any(
+            Path(tokens[index]).name == "codex"
+            and CODEX_EXEC_INVOCATION.match(shlex.join(tokens[index:]))
+            for index in range(start, len(tokens))
+        )
+
+    def split_env_launch(value: str, tail: list[str]) -> bool:
+        try:
+            return _wrapped_codex_exec(["env", *shlex.split(value), *tail])
+        except ValueError:
+            return False
+
+    position = 0
+    while position < len(tokens):
+        name = Path(tokens[position]).name
+        if name == "codex" and CODEX_EXEC_INVOCATION.match(
+                shlex.join(tokens[position:])):
             return True
-        if Path(token).name in {"sh", "bash", "dash", "ksh", "zsh"}:
-            shell = Path(token).name
-            position = index + 1
+        if name in {"command", "nohup"}:
+            position += 1
+            while position < len(tokens) and tokens[position].startswith("-"):
+                option = tokens[position]
+                if option in {"--help", "--version"}:
+                    return False
+                if option == "--":
+                    position += 1
+                    break
+                if name == "command" and option[1:] and set(option[1:]) <= {"p", "v", "V"}:
+                    if set(option[1:]) & {"v", "V"}:
+                        return False
+                    position += 1
+                    continue
+                return literal_launch_after(position + 1)
+            continue
+        if name == "env":
+            position += 1
+            options = True
+            while position < len(tokens):
+                option = tokens[position]
+                if options and option in {"--help", "--version"}:
+                    return False
+                if options and option == "--":
+                    position += 1
+                    options = False
+                    continue
+                if not option.startswith("-") and "=" in option.split("/", 1)[0]:
+                    position += 1
+                    continue
+                if not options:
+                    break
+                if option in {"-S", "--split-string"}:
+                    if position + 1 >= len(tokens):
+                        return False
+                    return split_env_launch(tokens[position + 1], tokens[position + 2:])
+                if option.startswith("-S") and option != "-S":
+                    return split_env_launch(option[2:], tokens[position + 1:])
+                if option.startswith("--split-string="):
+                    return split_env_launch(option.split("=", 1)[1], tokens[position + 1:])
+                if option in {"-u", "--unset", "-C", "--chdir"}:
+                    position += 2
+                    continue
+                if option in {"-i", "--ignore-environment", "-0", "--null", "-v", "--debug"}:
+                    position += 1
+                    continue
+                if option.startswith(("-u", "-C", "--unset=", "--chdir=")):
+                    position += 1
+                    continue
+                if option.startswith("-"):
+                    return literal_launch_after(position + 1)
+                break
+            continue
+        if name == "nice":
+            position += 1
+            while position < len(tokens) and tokens[position].startswith(("-", "+")):
+                option = tokens[position]
+                if option in {"--help", "--version"}:
+                    return False
+                if option == "--":
+                    position += 1
+                    break
+                if option in {"-n", "--adjustment"}:
+                    position += 2
+                elif re.fullmatch(r"[+-]\d+", option) or option.startswith(
+                        ("-n", "--adjustment=")):
+                    position += 1
+                else:
+                    return literal_launch_after(position + 1)
+            continue
+        if name == "xargs":
+            position += 1
+            while position < len(tokens) and tokens[position].startswith("-"):
+                option = tokens[position]
+                if option in {"--help", "--version"}:
+                    return False
+                if option == "--":
+                    position += 1
+                    break
+                operand_options = {
+                    "-a", "--arg-file", "-d", "--delimiter", "-E", "--eof",
+                    "-I", "--replace", "-L", "--max-lines", "-n", "--max-args",
+                    "-P", "--max-procs", "-s", "--max-chars",
+                }
+                if option in operand_options:
+                    position += 2
+                elif option in {"-0", "--null", "-p", "--interactive", "-r",
+                                "--no-run-if-empty", "-t", "--verbose", "-x",
+                                "--exit", "--show-limits"} or any(
+                                    option.startswith(prefix)
+                                    for prefix in ("-a", "-d", "-E", "-I", "-L", "-n",
+                                                   "-P", "-s", "--arg-file=",
+                                                   "--delimiter=", "--eof=", "--replace=",
+                                                   "--max-lines=", "--max-args=",
+                                                   "--max-procs=", "--max-chars=")):
+                    position += 1
+                else:
+                    return literal_launch_after(position + 1)
+            continue
+        if name in {"sh", "bash", "dash", "ksh", "zsh"}:
+            shell = name
+            position += 1
             while position < len(tokens):
                 option = tokens[position]
                 if option == "--" or not option.startswith(("-", "+")):
@@ -744,6 +858,8 @@ def _wrapped_codex_exec(tokens: list[str]) -> bool:
                     if consumed_operand:
                         continue
                 position += 1
+            return False
+        return False
     return False
 
 check_bypass = ["pnpm test", "pnpm lint", "pnpm typecheck", "pnpm check:all"]
