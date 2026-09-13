@@ -1,67 +1,32 @@
 {
-  "generated_by": "griller",
-  "gate": "task",
   "verdict": "pass",
   "gaps": [
-    "The draft combined complete review used a P2 default while certification also required priority-filtered output to refuse, creating a deadlock in which legitimate P3 findings were either filtered into a non-certificate or never projected.",
-    "The draft required an exact raw-to-processed finding partition without defining whether the helper's documented path normalization occurs before or after identity comparison, leaving valid Windows and leading-dot paths ambiguous.",
-    "The draft required null source attribution for projection but did not distinguish accepted findings from attribution-rejected metadata, conflicting with the helper contract that preserves an exact non-null attribution object when rejecting it.",
-    "The protected Workflow still said any valid P0-P2 finding forces another fix batch, contradicting docs/QUALITY.md where only P0/P1 blocks certification and P2/P3 are recorded follow-ups.",
-    "The first resolution required a general accepted/rejected partition reconstruction even though every structurally valid result containing rejection or filter metadata is non-certifying and must already stop before projection.",
-    "The generic delegate brief told the final continuation worker to run every verify command, including native/process-heavy and full verification, even though the task plan assigns those checks to Main after the worker finishes the still-missing P3 entry-point changes.",
-    "The replacement worker declared focused completion without running three explicitly named selectors; Main ran them and proved the shared write_task_proof publish-review fixture still emits the obsolete bare helper report, making two selectors fail before their intended assertions.",
-    "Canonical zero-byte raw review output bypasses the origin-specific combined/rejection helper-report validator because validation is guarded by decoded truthiness.",
-    "The processed-report validator permits provider_report on a chunked top-level wrapper although the approved grammar permits it only on one-pass and individual pass wrappers.",
-    "The changed _task_action_state function contains well over ten independent paths across unrelated frontier decisions, violating the constitution blocking complexity rule.",
-    "The raw-Codex regex interprets shell metacharacters and substitution text inside quoted data as active command boundaries, causing benign data to be denied.",
-    "A committed task marker can enable missing task proof to fall back to fixed story/root verify, tests, and lens files, bypassing the selected-generation authority reserved for Portable upgrade.",
-    "Successor task startup treats dependency marker path existence on the fetched trunk as shipped without validating marker identity, ancestry, or ordinary task proof.",
-    "The first quote-context implementation carries an outer double quote into an active substitution body and misses a later real launch after a benign inner command.",
-    "Canonical decoded JSON null and numeric raw helper reports reach _actual_passes membership before an object guard and raise TypeError instead of a controlled refusal.",
-    "The first wrapper fix adds an ad hoc chunked provider_report check while leaving _validate_processed_report globally permissive, rather than expressing the approved variant through each caller required set.",
-    "The dependency-start regression does not yet exercise invalid JSON, non-object JSON, or invalid commit identity before the reconciled positive control.",
-    "The amended Workflow accidentally described standalone all-62/full-verify/formal-review followed by task close, duplicating the expensive proof that task close itself owns, and named the worker selectors only by shorthand."
+    "The current-plan C8 proof was stale, absent from the current automated report, and contradicted by old task-plan instructions about whether the worker writes a receipt.",
+    "The active story plan retained a 23-path complete-recovery expectation that omitted check_encoding_hygiene.py while the fifteenth task-plan amendment authorized that file.",
+    "The amended objective required changing check_encoding_hygiene.py while saying every production byte must remain unchanged.",
+    "The task plan accumulated superseded execution contracts, so historical worker commands and preservation clauses remained live inputs to workers and reviewers."
   ],
   "contradictions": [],
   "resolutions": [
-    "Amended the protected plan and decomposition so every complete three-lens entry point requests through P3, explicit lower complete thresholds refuse before helper launch, P2 and P3 findings project as non-blocking follow-ups, diagnostic single-lens thresholds remain non-certifying, and hard-coded P2 summary wording is removed.",
-    "Amended the protected plan and decomposition to structurally validate all documented metadata, refuse non-certifying status or rejection/filter metadata, and compare each eligible pass as exact ordered raw-findings == processed accepted-findings after only backslash-to-slash, leading-./ removal, and normalized POSIX path conversion; every other finding field and the non-finding core remain exact.",
-    "Amended the protected plan and decomposition so raw provider and rejection metadata accept either null or the exact six-field attribution object, attribution-rejected records add exactly one non-empty reason, and only accepted findings reaching lens projection require explicit null attribution.",
-    "Amended the external and protected task plan plus reviewer focus so only P0/P1 findings force another bounded fix batch; P2/P3 findings are resolved within the current bounded batch or explicitly deferred with a reason and revisit trigger, and proof with no P0/P1 blocker proceeds to sealing.",
-    "Applied the minimum-diff rule: validate those metadata shapes for a controlled refusal, then perform exact raw-to-accepted binding only for eligible findings/scoped-clean passes where rejection/filter partitions are necessarily empty. This preserves certification integrity without adding unreachable partition machinery.",
-    "Amended the protected plan and decomposition to allow the replacement worker only the six named focused review selectors and to prohibit native/process-heavy, all-declared-selector, full-verifier, formal-review, and closeout work. Main owns one coordinated task close after the bounded product commit, preserving verify-before-review without testing an incomplete patch.",
-    "Narrowed the protected objective to one exact test_gates.py fixture repair: serialize the empty four-field provider inside the genuine processed one-pass scoped-clean envelope, change no production or other test bytes, stay within nine changed lines and 480 total, then run precisely the three omitted node IDs.",
-    "Require origin-based raw helper validation for combined and rejection generations even when decoded bytes are empty; pin canonical empty base64, byte count, and SHA refusal in the existing recorder selector.",
-    "Remove unconditional provider_report allowance from processed wrappers; required fields retain it for one-pass/pass wrappers, while an extra chunked top-level field refuses in the existing malformed-output selector.",
-    "Keep _task_action_state orchestration and exact precedence but extract small private terminal-handoff, recorded-failure, proof-frontier, and live-handoff helpers, using one small ordered proof-state table without adding state or a public API.",
-    "Evaluate every CODEX_EXEC_INVOCATION candidate against quote, escape, backtick, and command-substitution context at both call sites, continuing past inert candidates so a later real launch still denies.",
-    "Delete the marker-triggered fixed-proof runtime branch; missing task proof enters the canonical fail-closed predicate, while the schema-valid marker-bound selected origin=upgrade route remains the sole migration exception.",
-    "Make task_marker_on_main validate marker identity and ancestry plus ordinary task proof from one exact fetched origin/trunk snapshot before allocation, retaining reconciled proof exemption only after marker validation.",
-    "Use a bounded stack for active $() and backtick bodies: save the outer context, parse the inner command with fresh quote/escape state, ignore inert closers, and restore only at the real close; pin the four demonstrated later-launch cases.",
-    "Guard the top-level helper value as an object before checking pass_reports and extend the existing raw recorder selector with null, number, list, and string inputs that all refuse without publication.",
-    "Remove provider_report from the unconditional allowed set; one-pass and pass callers already require it, while the chunked caller does not. Remove the redundant special-case check and retain the existing extra-field regression.",
-    "Extend the existing task-start selector with invalid syntax, a JSON scalar/list, and a nonexistent commit marker; assert the stable unshipped response and no branch/worktree allocation. Preserve production factory_lib.py bytes unless a case fails.",
-    "Rewrite Workflow around one coordinated task close after focused proof and product commit, and bind the continuation to four exact full pytest node IDs."
+    "Replaced the task plan with one current handover. It requires a dedicated registered zero-edit Sol/medium worker after approval to hash the exact protected plan, make one real harmless denied apply_patch attempt, write the current receipt, and lets Main bind launch/session/tool-call/hash correlation into the new automated report. The pin worker has no receipt obligation.",
+    "Used the existing task contract-amendment route named by the active story plan: the current saved/grilled/reapproved task plan explicitly updates the complete-recovery expectation from 23 to 24 paths by adding check_encoding_hygiene.py, already present in the recorded 77-path write scope. The existing task_parallelism scope amendment remains unchanged.",
+    "Corrected the objective, review budget, handover, and reviewer focus to preserve every other production and test byte while authorizing the one checker entry.",
+    "Replaced the 600-plus-line accumulated task-plan body with a 255-line current handover plus the recorder-rendered binding contract. Prior task-plan bodies remain archived in Git history and are explicitly superseded evidence, not current worker instructions."
   ],
   "open_items": [],
-  "summary": "Pass. The remaining defects are reduced to two demonstrated parser boundaries, one exact wrapper-seam cleanup, finite marker fixtures, and one process-wording correction. The four-path continuation preserves factory_lib.py, adds no representation or selector, and precedes any full proof.",
+  "summary": "Pass. One current handover now authorizes the 24th recovery path, separates current-plan C8 proof from the one-entry pin edit, preserves every other byte, and returns to the single resumable close sequence.",
   "inspected_refs": [
     ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
     ".factory/stories/FORGE-COORD-1/decomposition.json",
+    "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
     "docs/QUALITY.md",
-    "factory/scripts/forge.py",
-    "factory/scripts/forge_cli/close.py",
-    "factory/scripts/forge_cli/review.py",
-    "factory/tests/test_review_task_delta.py",
-    ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/reviews/generations/c5d5836588c7112997f3f64f552cb304d2b85f0040c804ef62a3346580471323.json",
-    "constitution/README.md",
+    "docs/decisions/0030-harness-source-is-product-in-its-own-repo.md",
+    "docs/decisions/0070-sol-specialized-workflow-models.md",
+    "factory/scripts/check_encoding_hygiene.py",
     "factory/scripts/factory_lib.py",
-    "factory/scripts/pre_tool_use.py",
-    "factory/scripts/forge_cli/tasks.py",
-    "factory/tests/test_gates.py",
-    "factory/tests/test_task_parallelism.py"
+    ".factory/stories/FORGE-COORD-1/tasks/NATIVE-FOREGROUND-ACTIVATE/tests.json"
   ],
-  "current_flow": "Approve the digest-bound amended task contract, commit its metadata before product work, and run one registered Sol/medium delegate to complete the nine-path certification patch. Main then verifies the exact line budget, focused regressions, genuine helper generations, all declared selectors, full verification, and the formal review loop. The thirteenth remediation validates review bytes and wrapper variants before publication, routes frontier state through small ordered helpers, classifies raw-Codex regex matches by active shell context, refuses missing task proof without fixed-file fallback, and validates fetched dependency marker/proof before successor allocation. Main then reruns complete proof and formal review. The fourteenth continuation closes active substitution context and non-object raw-report boundaries, expresses wrapper variants through required fields, completes marker fixtures, and returns to one coordinated task close.",
+  "current_flow": "Commit the current task contract, run one registered zero-edit C8 proof worker and correlate its exact current-plan denial, then run one registered Sol/medium worker that changes only the stale BYTE_PATH_ALLOWLIST entry and runs the encoding checker. Main commits the one-entry fix, reruns the eight focused selectors and checker, records current automated proof including C8, and resumes one forge task close through verify, formal review, and seal.",
   "criteria_map": {
     "NATIVE-FOREGROUND-ACTIVATE preserves the full target hook configuration and Claude parity: native hook JSON stays scoped, `.claude/settings.json` gains clear registration, `check_dual_runtime.py` verifies independent and both-adapter omissions, and official hook readiness remains trusted. As an explicitly additional user-requested overlay, First owns every current model-policy hunk without moving any original prepared path/hunk allocation: owning harness/launcher, active project profiles and guidance, all 15 committed team agent definitions, exact init/upgrade distribution proof, and same-plugin Luna/max doctor compatibility. Exploration uses Sol/low; planning, decomposition, architecture, plan validation and grills use Sol/high; implementation, technical test verification and autoreview fixes use Sol/medium, with formal Lite as Luna/max; formal autoreview and functional checking use Sol/high; no new actor uses Terra. Decision 0070 supersedes Decision 0062's model policy and amends only Decision 0031's model clause while preserving Lite lifecycle. The original Luna/max C8 evidence remains unchanged history, not selector authority. Ordinary `forge delegate` derives Sol/medium from harness.yaml; any retained effort input accepts only exact `medium` and rejects low/high/xhigh before launch. Review execution pins Codex to Sol/high and refuses an unreadable or known Terra-fallback helper before brief publication or launch. Shell-wrapped raw Codex detection consumes supported option operands before command detection: Bash `-o/+o`, `-O/+O`, `--rcfile`, `--init-file`, including whitespace-separated, clustered, and attached forms, and zsh `-o/+o`, including whitespace-separated and attached forms. Operand values remain data even when they contain `c`, `codex`, or shell-looking text. It treats `c` only as a real short option, stops at `--` or the first script operand, and refuses nested raw launch before execution. Direct and supported wrapped raw launches normalize both slash styles before comparing the platform basenames codex, codex.exe, and codex.cmd; quoted absolute Windows paths and executable suffixes cannot bypass the protected launch path. Raw detection remains quote-aware for whitespace-bearing global option operands and environment-assignment values in direct, wrapped, pipeline, and substitution forms; already-parsed Codex argv is classified directly without re-stringifying it. Raw-Codex regex candidates are accepted only at active shell boundaries: quoted or escaped assignment/query/pipeline data, single-quoted substitution text, and inert nested-shell data cannot deny, while active separators, later real launches, backticks, and command substitution inside double quotes still deny at both top-level and nested-shell checks. An active $() or backtick body uses fresh inner command context and restores its outer quote only at a real unquoted/unescaped close, so a later launch inside the body denies even under outer double quotes while nested, quoted, and escaped delimiters stay data.": "C1 preserves Decision 0070, Sol/medium delegation and every existing query/data/wrapper distinction while making raw-command words quote-aware and classifying parsed Codex argv directly; the existing selector covers direct, wrapped, pipeline and substitution forms.",
     "Process-bound admission remains truthful: foreground launch registers before stdin with terminal identity and writes exact UTF-8 prompt bytes independent of the host locale, zero-exit without completed turn is failed, and native write admission covers add/update/delete/move only after registration. Cancellation writes the existing durable revocation marker before cleanup signals; terminal success/failure plus dead process and released matching lock revoke completion; non-active stage incarnation revokes stage closure. Admission requires an exact starting/running row, live matching process ancestry, held matching lock, active matching stage and no explicit revocation; failed cleanup never invents success and no new completion tombstone is introduced. Worker admission and stage coverage use one immutable-baseline-aware scope rule: a Git tree or explicit trailing slash is a directory, while a blob, symlink, or absent path is exact. Exact equality remains allowed; descendants require directory classification, and the mutable working tree cannot widen authority. Native Codex receives binary stdin bytes equal to the exact multiline prompt encoded as UTF-8, with no platform newline translation. An ordinary terminal row certifies completion only when argv exactly matches the command derived from its own recorded and baseline-classified scope; scope-less legacy argv is never current selector authority. Structured patch normalization preserves an exact lexical symlink leaf so its authorized delete or move can proceed, while any symlinked or escaping ancestor still refuses.": "C2 preserves process, lock, brief, task, stage, revocation, UTF-8, exact terminal argv, lexical symlink-leaf and immutable-baseline scope checks; the ninth batch changes none of them.",
@@ -74,80 +39,6 @@
   },
   "decision": "keep",
   "new_abstractions": [],
-  "citations": [
-    {
-      "finding": "The draft combined complete review used a P2 default while certification also required priority-filtered output to refuse, creating a deadlock in which legitimate P3 findings were either filtered into a non-certificate or never projected.",
-      "source": "docs/QUALITY.md review-loop priority rules; factory/scripts/forge.py complete-review defaults; factory/scripts/forge_cli/close.py close default; factory/scripts/forge_cli/review.py helper invocation and projection"
-    },
-    {
-      "finding": "The draft required an exact raw-to-processed finding partition without defining whether the helper's documented path normalization occurs before or after identity comparison, leaving valid Windows and leading-dot paths ambiguous.",
-      "source": "installed autoreview helper path normalization and merge behavior; factory/scripts/forge_cli/review.py provider/pass validation; protected task plan Tenth bounded fixture and regression completion"
-    },
-    {
-      "finding": "The draft required null source attribution for projection but did not distinguish accepted findings from attribution-rejected metadata, conflicting with the helper contract that preserves an exact non-null attribution object when rejecting it.",
-      "source": "installed autoreview helper attribution rejection contract; factory/scripts/forge_cli/review.py source_attribution validation; protected task plan Tenth bounded fixture and regression completion"
-    },
-    {
-      "finding": "The protected Workflow still said any valid P0-P2 finding forces another fix batch, contradicting docs/QUALITY.md where only P0/P1 blocks certification and P2/P3 are recorded follow-ups.",
-      "source": "docs/QUALITY.md:47-73 blocking and non-blocking review-loop policy; protected task plan Workflow paragraph"
-    },
-    {
-      "finding": "The first resolution required a general accepted/rejected partition reconstruction even though every structurally valid result containing rejection or filter metadata is non-certifying and must already stop before projection.",
-      "source": "installed autoreview review_status precedence and rejection/filter metadata; protected task plan certification eligibility rule; constitution/README.md minimum-code rule"
-    },
-    {
-      "finding": "The generic delegate brief told the final continuation worker to run every verify command, including native/process-heavy and full verification, even though the task plan assigns those checks to Main after the worker finishes the still-missing P3 entry-point changes.",
-      "source": ".factory/briefs/NATIVE-FOREGROUND-ACTIVATE.md generic Verify commands section; protected task plan Eleventh bounded continuation; factory/scripts/forge_cli/close.py coordinated proof and review path"
-    },
-    {
-      "finding": "The replacement worker declared focused completion without running three explicitly named selectors; Main ran them and proved the shared write_task_proof publish-review fixture still emits the obsolete bare helper report, making two selectors fail before their intended assertions.",
-      "source": "parent pytest output for test_combined_review_publication_is_pointer_last_and_failure_atomic and test_single_lens_review_preserves_cli_without_publishing_an_incomplete_set; factory/tests/test_gates.py write_task_proof publish_review raw construction; protected task plan Twelfth bounded stale-fixture completion"
-    },
-    {
-      "finding": "Canonical zero-byte raw review output bypasses the origin-specific combined/rejection helper-report validator because validation is guarded by decoded truthiness.",
-      "source": "formal review generation c5d5836588c7112997f3f64f552cb304d2b85f0040c804ef62a3346580471323; factory/scripts/factory_lib.py validate_review_document; factory/tests/test_review_task_delta.py test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes"
-    },
-    {
-      "finding": "The processed-report validator permits provider_report on a chunked top-level wrapper although the approved grammar permits it only on one-pass and individual pass wrappers.",
-      "source": "formal review generation c5d5836588c7112997f3f64f552cb304d2b85f0040c804ef62a3346580471323; protected task-plan combined result grammar; factory/scripts/forge_cli/review.py processed wrapper validation"
-    },
-    {
-      "finding": "The changed _task_action_state function contains well over ten independent paths across unrelated frontier decisions, violating the constitution blocking complexity rule.",
-      "source": "constitution/README.md blocking cyclomatic-complexity rule; factory/prompts/reviewer.md; factory/scripts/factory_lib.py _task_action_state; independent frontier-complexity audit"
-    },
-    {
-      "finding": "The raw-Codex regex interprets shell metacharacters and substitution text inside quoted data as active command boundaries, causing benign data to be denied.",
-      "source": "formal review generation c5d5836588c7112997f3f64f552cb304d2b85f0040c804ef62a3346580471323; factory/scripts/pre_tool_use.py CODEX_EXEC_INVOCATION call sites; real-hook quote/substitution audit"
-    },
-    {
-      "finding": "A committed task marker can enable missing task proof to fall back to fixed story/root verify, tests, and lens files, bypassing the selected-generation authority reserved for Portable upgrade.",
-      "source": "Decision 0069 and protected task plan generation/binding contract; dual-coordinator-parity.md migration boundary; factory/scripts/factory_lib.py task_proof_problems; factory/tests/test_gates.py sealed proof fixture"
-    },
-    {
-      "finding": "Successor task startup treats dependency marker path existence on the fetched trunk as shipped without validating marker identity, ancestry, or ordinary task proof.",
-      "source": "dual-coordinator-parity.md workspace-before-JIT contract; factory/scripts/factory_lib.py task_marker_on_main and _valid_task_marker; factory/scripts/forge_cli/tasks.py successor allocation; two existing task-start fixtures"
-    },
-    {
-      "finding": "The first quote-context implementation carries an outer double quote into an active substitution body and misses a later real launch after a benign inner command.",
-      "source": "direct parent _active_codex_exec_match probes after launch-e087759b593740ef9deb196ba2fa3ebe; factory/scripts/pre_tool_use.py quote scanner; Fourteenth plan finite controls"
-    },
-    {
-      "finding": "Canonical decoded JSON null and numeric raw helper reports reach _actual_passes membership before an object guard and raise TypeError instead of a controlled refusal.",
-      "source": "direct parent validate_review_document probes with canonical null and integer raw bytes; factory/scripts/forge_cli/review.py _actual_passes"
-    },
-    {
-      "finding": "The first wrapper fix adds an ad hoc chunked provider_report check while leaving _validate_processed_report globally permissive, rather than expressing the approved variant through each caller required set.",
-      "source": "protected Thirteenth wrapper split; factory/scripts/forge_cli/review.py _validate_processed_report and _actual_passes; independent raw-shape audit"
-    },
-    {
-      "finding": "The dependency-start regression does not yet exercise invalid JSON, non-object JSON, or invalid commit identity before the reconciled positive control.",
-      "source": "protected Thirteenth dependency boundary; factory/tests/test_gates.py test_task_start_creates_before_jit_with_approved_identity current patch"
-    },
-    {
-      "finding": "The amended Workflow accidentally described standalone all-62/full-verify/formal-review followed by task close, duplicating the expensive proof that task close itself owns, and named the worker selectors only by shorthand.",
-      "source": "factory/scripts/forge_cli/close.py coordinated close path; prior resolved verification ownership; protected task plan Workflow and Fourteenth section"
-    }
-  ],
   "rounds": [
     {
       "question": "Strict-role specification amendment: should Decision 0053 make the coordinator wording neutral while preserving the enforced delegated-Codex-writer boundary and the bounded degraded-mode outage valve?",
@@ -159,14 +50,34 @@
       "frontier_empty": true
     }
   ],
+  "citations": [
+    {
+      "finding": "The current-plan C8 proof was stale, absent from the current automated report, and contradicted by old task-plan instructions about whether the worker writes a receipt.",
+      "source": "Decision 0070 current-plan protected-write proof; current task plan Current-plan protected-write proof; current tests.json"
+    },
+    {
+      "finding": "The active story plan retained a 23-path complete-recovery expectation that omitted check_encoding_hygiene.py while the fifteenth task-plan amendment authorized that file.",
+      "source": "active story plan lines 133 and 198 contract-amendment route and 23-path expectation; current task plan Binding scope correction; decomposition write_scope"
+    },
+    {
+      "finding": "The amended objective required changing check_encoding_hygiene.py while saying every production byte must remain unchanged.",
+      "source": "Decision 0030 harness source is product; current decomposition objective and review budget"
+    },
+    {
+      "finding": "The task plan accumulated superseded execution contracts, so historical worker commands and preservation clauses remained live inputs to workers and reviewers.",
+      "source": "docs/QUALITY.md bounded-recovery current-plan rule; current compact task plan Status and Main close sequence; Git history for superseded task plans"
+    }
+  ],
+  "generated_by": "griller",
+  "gate": "task",
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
-  "input_sha256": "b4f645bc7d43e2ed86b8fa6b0d5cda656b32cf012cdf2c60aeae32b57435f31f",
+  "input_sha256": "605c8071b0c9d677c2430201a98291970031f8b9738ed0c6c4f25923500c7fe9",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
-  "task_plan_sha256": "3a7f62aed5e9b97ad246acd2e45759f4c14229ba3598f57a610fc1801c03640d",
-  "recorded_at": "2026-09-13T12:14:43+00:00",
-  "commit": "705a020859c4cc974a718e79226883e4c8b05cca",
-  "approved_task_plan_sha256": "3a7f62aed5e9b97ad246acd2e45759f4c14229ba3598f57a610fc1801c03640d",
+  "task_plan_sha256": "fda8bcd9ae0f7825095fab2f5c472a0dbedabe903a93662830f3d22665aee7c0",
+  "recorded_at": "2026-09-13T12:49:35+00:00",
+  "commit": "7c82cfc0bbbb5a5025910fb1084952fd9a01e02f",
+  "approved_task_plan_sha256": "fda8bcd9ae0f7825095fab2f5c472a0dbedabe903a93662830f3d22665aee7c0",
   "approved_by": "User (approved recovery plan and directed proceed, 2026-09-12; authorized merge without pause, 2026-09-13)",
-  "approved_at": "2026-09-13T12:14:58+00:00"
+  "approved_at": "2026-09-13T12:49:47+00:00"
 }
