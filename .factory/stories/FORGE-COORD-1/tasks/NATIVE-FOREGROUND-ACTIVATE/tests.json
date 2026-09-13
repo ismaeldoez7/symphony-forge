@@ -1,9 +1,9 @@
 {
-  "commit": "a17510c65efce3ae94275dc25a7f322d659d15ee",
+  "commit": "aa12cd024ac07ace890f85232e84711d40bfec08",
   "automated": {
     "generated_by": "implementer",
     "status": "passed",
-    "summary": "At a17510c, the post-integration model/review correction and its closeout fixture repair are focused-green. The first full close at c9a85e9 truthfully failed only two imported fixtures after 1,057 passes; two independent read-only diagnoses showed production marker validation was correct. Registered Sol/medium workers updated those fixtures and restored AGENTS.md hygiene without changing runtime code.",
+    "summary": "At aa12cd0, the branch retains the green 4e8dd2e local full-suite proof and fixes all three clean-Ubuntu review-fixture failures without production code changes. Review helper fixtures now supply test-owned identities, and the rejection-lineage merge fixture proves its exact intended conflict.",
     "blocking_findings": [],
     "commands_run": [
       "Registered finite correction worker launch/session launch-65c670c937ff4e409cb97edcb5768d0c / 01a09b85-acdf-76a0-bcd5-a120857e7139 -> 3 existing projection/refusal/rejection-lineage selectors passed in 16.21s; terminal succeeded with exit_code 0",
@@ -16,16 +16,22 @@
       "Registered fixture worker 01a09bdb-ed37-76f2-8179-3d5e58c38b03 -> test_board_memo_reuses_git_facts_until_the_files_that_decide_them_change passed in 8.06s; test_story_closeout_requires_all_task_markers_and_completed_stories_reads_shipped passed in 31.80s; check_agents_hygiene.py and check_factory_scaffold.py passed",
       "Registered semantic correction worker 01a09be8-16ef-7942-bebc-93522eca9ab8 -> same two selectors passed in 3.23s and 25.93s; AGENTS hygiene and factory scaffold passed; git diff --check clean",
       "Main fixture baseline 4cd4916..a17510c product/documentation audit -> exactly AGENTS.md, factory/tests/test_board_load_time.py, factory/tests/test_gates.py; 30 added-plus-deleted lines; no non-.factory untracked paths",
-      "wc -l -c AGENTS.md -> 110 lines, 6999 bytes; post-approval human authorization and code-only Ponytail semantics retained"
+      "wc -l -c AGENTS.md -> 110 lines, 6999 bytes; post-approval human authorization and code-only Ponytail semantics retained",
+      "FACTORY_TEST_CMD four-worker task-close verification at 4e8dd2e -> 1059 passed, 3 skipped in 1811.34s; verify.json recorded green; close was intentionally interrupted during focused selectors before formal review after Ubuntu CI reported a known failing head",
+      "Ubuntu scaffold-check run 34773360292 at 4e8dd2e -> 3 failed, 1052 passed, 7 skipped in 774.82s; failures were personal autoreview resolution in two tests and dirty/unasserted intended merge state in the rejection-lineage fixture",
+      "Registered Ubuntu fixture worker 01a09c15-bfb2-7252-ba24-b3a0e9aa1263 -> all three target nodes passed in 24.44s on Python 3.11; git diff --check passed",
+      "AUTOREVIEW= UV_CACHE_DIR=/tmp/forge-ci-uv-cache UV_TOOL_DIR=/tmp/forge-ci-uv-tool uv run --python 3.11 --with pytest --with psutil pytest -q [three target nodes] -> 3 passed in 18.75s using ordinary process HOME",
+      "Main 0a8da40..aa12cd0 product audit -> exactly factory/tests/test_gates.py, factory/tests/test_review_settled_contracts.py, factory/tests/test_review_task_delta.py; 23 added-plus-deleted lines; no non-.factory untracked paths; git diff --check clean"
     ],
     "tests_added_or_updated": [
       "factory/tests/test_gate_table.py",
       "factory/tests/test_gates.py",
       "factory/tests/test_native_setup.py",
       "factory/tests/test_review_task_delta.py",
-      "factory/tests/test_board_load_time.py"
+      "factory/tests/test_board_load_time.py",
+      "factory/tests/test_review_settled_contracts.py"
     ],
-    "pass_fail_summary": "The prior full close recorded 1,057 passes, 3 skips, and 2 diagnosed fixture failures. After the repair, both failing nodes passed twice under registered workers; both CI hygiene/scaffold checks and diff checks passed. The final continuation is exactly three paths/30 lines. Full deterministic verification remains represented by verify.json and will be rerun by task close.",
+    "pass_fail_summary": "The last full local suite was green at 4e8dd2e. Ubuntu then isolated three fixture failures. After the aa12cd0 repair, all three failed nodes pass with AUTOREVIEW empty and ordinary HOME; the delta is exactly three test files/23 lines with no runtime change. Final deterministic proof and current CI remain owned by task close and the pushed PR.",
     "remaining_gaps": [],
     "reviewed_scope": [
       ".codex/config.toml",
@@ -42,7 +48,8 @@
       "factory/tests/test_gates.py",
       "factory/tests/test_native_setup.py",
       "factory/tests/test_review_task_delta.py",
-      "factory/tests/test_board_load_time.py"
+      "factory/tests/test_board_load_time.py",
+      "factory/tests/test_review_settled_contracts.py"
     ],
     "skills_used": [
       "forge",
@@ -51,11 +58,11 @@
     "non_blocking_findings": [],
     "residual_risks": [],
     "manual_validation_steps": [
-      "Inspect AGENTS.md to confirm every policy section remains and the file is 110 lines/6,999 bytes.",
-      "Inspect the board marker fixture identity and the T1 historical decomposition staging before resuming task close."
+      "Confirm the two helper tests construct test-owned safe helpers and do not consult a personal install.",
+      "Confirm the merge fixture commits lifecycle state and asserts src/work.py as the sole unmerged path before resolution."
     ],
-    "recorded_at": "2026-09-13T18:01:32+00:00",
-    "commit": "a17510c65efce3ae94275dc25a7f322d659d15ee"
+    "recorded_at": "2026-09-13T18:54:20+00:00",
+    "commit": "aa12cd024ac07ace890f85232e84711d40bfec08"
   },
-  "updated_at": "2026-09-13T18:01:32+00:00"
+  "updated_at": "2026-09-13T18:54:20+00:00"
 }
