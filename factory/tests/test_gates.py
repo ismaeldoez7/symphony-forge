@@ -18751,6 +18751,9 @@ def test_review_preflight_uses_active_task_proof(repo, tmp_path, monkeypatch):
     _write_complete_automated(repo)
     import forge_cli.review as review_mod
 
+    safe_helper = tmp_path / "autoreview"
+    safe_helper.write_text("safe helper\n")
+    monkeypatch.setattr(review_mod, "resolve_skill", lambda _explicit: safe_helper)
     seen = []
     original = review_mod.proof_path
 

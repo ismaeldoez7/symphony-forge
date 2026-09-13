@@ -293,7 +293,8 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
         _actual_passes(aggregate)
 
 
-def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(repo, tmp_path):
+def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(
+        repo, tmp_path, monkeypatch):
     from test_review_settled_contracts import _publish, _story
     from factory_lib import protected_decomposition_state_path, validate_review_document
     from forge_cli.review import _combined_prompt, _helper_identity, resolve_skill
@@ -304,6 +305,9 @@ def test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes(repo,
         protected_decomposition_state_path(repo).read_text())["tasks"]
         if item["id"] == "T2")
     prompt = _combined_prompt(task)
+    safe_helper = tmp_path / "autoreview"
+    safe_helper.write_text("safe helper\n")
+    monkeypatch.setenv("AUTOREVIEW", str(safe_helper))
     candidate["helper"] = _helper_identity(resolve_skill(None))[0]
     candidate["input"] = {
         "sha256": hashlib.sha256(prompt).hexdigest(), "bytes": len(prompt),

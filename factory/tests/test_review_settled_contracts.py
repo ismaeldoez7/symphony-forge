@@ -173,6 +173,8 @@ def _publish(repo, blocking=(), *, recorded_at="2026-09-11T01:00:00+00:00"):
 
 def test_reject_republishes_one_complete_pointer_selected_set(repo, tmp_path):
     _story(repo, tmp_path)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "commit lifecycle fixture state")
     branch = git(repo, "branch", "--show-current")
     stage = next(row for row in load_stages(repo)["stages"] if row["id"] == "T2")
     recorded_base = stage_baseline(repo, stage)
@@ -184,13 +186,19 @@ def test_reject_republishes_one_complete_pointer_selected_set(repo, tmp_path):
     trunk_commit = head(repo)
     git(repo, "update-ref", "refs/remotes/origin/main", trunk_commit)
     git(repo, "checkout", "-q", branch)
-    assert subprocess.run(
-        ["git", "merge", "-q", "--no-edit", "origin/main"], cwd=repo,
+    merge = subprocess.run(
+        ["git", "-c", "user.email=test@knacklabs.dev", "-c",
+         "user.name=Gate Tests", "merge", "-q", "--no-edit", "origin/main"], cwd=repo,
         capture_output=True, text=True,
-    ).returncode != 0
+    )
+    assert merge.returncode != 0
+    assert git(repo, "diff", "--name-only", "--diff-filter=U").splitlines() == [
+        "src/work.py"
+    ]
     (repo / "src/work.py").write_text("task work\n")
     git(repo, "add", "src/work.py")
     git(repo, "commit", "-qm", "resolve trunk merge")
+    _write_complete_automated(repo, "T2")
 
     _publish(repo)
     from forge_cli.review import _review_set_problem

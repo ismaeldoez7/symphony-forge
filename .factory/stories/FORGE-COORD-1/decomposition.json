@@ -5,7 +5,7 @@
     {
       "id": "NATIVE-FOREGROUND-ACTIVATE",
       "title": "Native foreground and complete first-task proof",
-      "objective": "Continue from locally verified commit 4e8dd2e4f24654c368372fadb4119813f1609f33 and preserve all production behavior. Repair only three clean-Ubuntu review-test fixtures: bind the recorder test to one temporary safe helper shared with its subprocess, bind the active-task preflight test to a temporary safe helper, and commit lifecycle fixture state before the rejection-lineage test's intentional divergent merge while asserting src/work.py is the exact unmerged path. The worker runs only those three nodes with no personal AUTOREVIEW/HOME dependency; Main owns diff audit, recorders, Git, restored cumulative proof, close, review, seal, PR and CI.",
+      "objective": "Continue from locally verified commit 4e8dd2e4f24654c368372fadb4119813f1609f33 and preserve all production behavior. Repair only three clean-Ubuntu review-test fixtures: bind the recorder test to one temporary safe helper shared with its subprocess, bind the active-task preflight test to a temporary safe helper, and commit lifecycle fixture state before the rejection-lineage test's intentional divergent merge while asserting src/work.py is the exact unmerged path. The worker runs only those three nodes with no personal AUTOREVIEW dependency; Main owns diff audit, recorders, Git, restored cumulative proof, close, review, seal, PR and CI.",
       "dependencies": [],
       "user_facing": false,
       "acceptance_criteria": [
@@ -490,7 +490,7 @@
         "Review the complete accumulated task delta against every acceptance criterion and constitution/09-agent-conduct.md sections 2 through 4. Preserve all prior native coordination, model selection, review projection, marker validation, and AGENTS hygiene behavior.",
         "For the Ubuntu continuation, require exactly three test paths relative to the recorded pre-delegation baseline. The recorder test must use the same test-owned safe helper in-process and in its subprocess; the active-task preflight test may patch only helper discovery; neither may depend on a personal ~/.codex skill.",
         "The rejection-lineage merge fixture must commit existing lifecycle state before branching, require merge failure, and assert git diff --name-only --diff-filter=U is exactly src/work.py before resolution. Reject skipped tests, production-code changes, an arbitrary nonzero merge, or hidden dirty state.",
-        "Require all three focused nodes under an empty HOME/AUTOREVIEW environment, exact diff proof, then a fresh deterministic close result and current Ubuntu CI before sealing/merge."
+        "Require all three focused nodes with AUTOREVIEW empty and the ordinary process HOME, exact diff proof, then a fresh deterministic close result and current Ubuntu CI before sealing/merge."
       ]
     },
     {
@@ -590,6 +590,6 @@
   "story": "FORGE-COORD-1",
   "epic": "symphony-forge",
   "plan_file": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-  "commit": "4e8dd2e4f24654c368372fadb4119813f1609f33",
+  "commit": "0a8da404ae492fac60f98959b7e8248434813c28",
   "plan_sha256": "c605101d86582523c618eb7fbe236ccc103b96743d039926f418dc6540a3fd7c"
 }
