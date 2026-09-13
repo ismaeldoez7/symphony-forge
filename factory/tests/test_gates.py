@@ -22167,6 +22167,33 @@ def test_task_proof_refuses_committed_non_object_marker(repo, tmp_path):
     assert problems == ["T1: task PR marker is invalid"]
 
 
+def test_task_proof_refuses_committed_null_marker(repo, tmp_path):
+    git(repo, "checkout", "-qb", "feat/null-task-marker")
+    marker = prepare_task_pr_ready(repo, tmp_path)
+    finish_task_for_pr_ready(repo)
+    write_task_proof(repo, "T1", publish_review=True)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "record T1 proof")
+    base = head(repo)
+    env, _, _ = task_pr_retry_env(tmp_path)
+    code, out = run(repo, "forge.py", "task", "pr-ready", "T1", env=env)
+    assert code == 0, out
+
+    marker.write_text("null\n", encoding="utf-8")
+    git(repo, "add", marker.relative_to(repo).as_posix())
+    git(repo, "commit", "-qm", "replace marker with JSON null")
+
+    lib = load_factory_lib(repo)
+    assert lib.task_proof_problems(repo, "ENG-1", STAGE_TASK) == [
+        "T1: task PR marker is invalid",
+    ]
+    import check_task_proof
+    assert check_task_proof.added_markers(repo, base) == [("ENG-1", "T1", {})]
+    assert check_task_proof.proof_problems(repo, "ENG-1", "T1") == [
+        "T1: task PR marker is invalid",
+    ]
+
+
 def test_task_pr_ready_refuses_changed_evidence_after_marker(
         repo, tmp_path):
     git(repo, "checkout", "-qb", "feat/task-pr-reseal")
