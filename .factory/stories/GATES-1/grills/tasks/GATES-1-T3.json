@@ -28,9 +28,9 @@
     "The plan claimed test_gates.py:8583 asserts the inverse of the new rule; it asserts behaviour this task PRESERVES, and the claim was true only of the deferred manifest design."
   ],
   "resolutions": [
-    "The confirmed spec's Behaviour section and criteria 1, 2, 3, 3b and 3c are rewritten to describe what this story delivers; the manifest is deferred as D-0033.",
+    "The confirmed spec's Behaviour section and criteria 1, 2, 3, 3b and 3c are rewritten to describe what this story delivers; the manifest is deferred as D-0035.",
     "Freshness moves behind one helper that also accepts the legacy digest, mirroring grounding_matches, and both consumers call it instead of comparing inline.",
-    "Decision 0055 is amended: the baseline binds a task once the tooling is configured, and configuring it is ledgered as D-0034 with an owner and a revisit trigger.",
+    "Decision 0055 is amended: the baseline binds a task once the tooling is configured, and configuring it is ledgered as D-0036 with an owner and a revisit trigger.",
     "The plan's false test claim is corrected and no test is replaced.",
     "Both owner reversals \u2014 decision staleness, and four tasks becoming five \u2014 are recorded as reversals with their reasoning rather than applied silently."
   ],
@@ -84,7 +84,7 @@
     },
     {
       "finding": "Decision 0055 requires Ruff and Pyright wired and blocking; nothing in the repo configures them, and every task since has either skipped it or contracted commands that cannot pass.",
-      "source": "docs/decisions/0055-enforced-static-quality-baseline.md \u2014 amended 2026-09-14 so the baseline binds once configured; D-0034 owns configuring it"
+      "source": "docs/decisions/0055-enforced-static-quality-baseline.md \u2014 amended 2026-09-14 so the baseline binds once configured; D-0036 owns configuring it"
     }
   ],
   "task_id": "GATES-1-T3",

@@ -336,12 +336,12 @@
         "That BOTH consumers go through the helper: leaving one inline comparison replants the seed",
         "That the spec body remains part of the digest, and a real product change still stales, so the gate is corrected rather than disabled",
         "That the exclusion SET is asserted rather than one example path",
-        "That no other gate moves: the prefix gates and the pre-stage task grill are out of scope, and D-0033 owns the manifest"
+        "That no other gate moves: the prefix gates and the pre-stage task grill are out of scope, and D-0035 owns the manifest"
       ],
       "review_budget": {
         "max_changed_files": 4,
         "max_changed_lines": 300,
-        "reason": "The shared exclusion passed inside requirements_digest, one freshness helper that also accepts the legacy digest, both consumers switched to it, and one new suite. The full manifest this task originally carried is deferred as D-0033 after reading showed the measured cascade had a one-argument cause; the owner reversed the decision-staleness ruling to allow it, and the confirmed spec is amended to match."
+        "reason": "The shared exclusion passed inside requirements_digest, one freshness helper that also accepts the legacy digest, both consumers switched to it, and one new suite. The full manifest this task originally carried is deferred as D-0035 after reading showed the measured cascade had a one-argument cause; the owner reversed the decision-staleness ruling to allow it, and the confirmed spec is amended to match."
       }
     },
     {

@@ -66,7 +66,7 @@ already read the spec 0067 came from.
 
 The full input manifest — a path-plus-digest list on every pass, recorder
 validation, one predicate shared by all six gates, the accepted-decision set
-comparison, and the bounded command-grammar check — is deferred as **D-0033**
+comparison, and the bounded command-grammar check — is deferred as **D-0035**
 with a revisit trigger. It is a coherent design for the prefix-based gates, but
 the cost actually measured on this story had a one-argument cause, and this is
 that argument.
@@ -143,5 +143,5 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 
 - `uv run --with pytest --with psutil python -m pytest factory/tests -q`
 
-**Review budget.** 4 files / 300 lines -- The shared exclusion passed inside requirements_digest, one freshness helper that also accepts the legacy digest, both consumers switched to it, and one new suite. The full manifest this task originally carried is deferred as D-0033 after reading showed the measured cascade had a one-argument cause; the owner reversed the decision-staleness ruling to allow it, and the confirmed spec is amended to match.
+**Review budget.** 4 files / 300 lines -- The shared exclusion passed inside requirements_digest, one freshness helper that also accepts the legacy digest, both consumers switched to it, and one new suite. The full manifest this task originally carried is deferred as D-0035 after reading showed the measured cascade had a one-argument cause; the owner reversed the decision-staleness ruling to allow it, and the confirmed spec is amended to match.
 <!-- /forge:contract -->

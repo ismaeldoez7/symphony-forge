@@ -47,7 +47,7 @@ here. And scope widening already has a sanctioned non-cascading path in
 
 **A gate stales when its inputs change, not when the tree moves.** The general
 form of this is an input manifest — a path-plus-digest list on every pass, with
-one freshness predicate reading it — and that design is deferred as D-0033 with a
+one freshness predicate reading it — and that design is deferred as D-0035 with a
 revisit trigger. Reading the machinery showed the cost this story was written to
 remove had a far smaller cause, and the manifest is not needed to remove it.
 
@@ -83,7 +83,7 @@ freshness question independently is the same shape as the defect above, and
 leaving one inline would replant it.
 
 A single predicate across ALL gates, the board and the next-step text is the
-deferred manifest design (D-0033), not this story.
+deferred manifest design (D-0035), not this story.
 
 **Passes recorded before this lands keep the behaviour they were recorded
 under.** Changing an exclusion changes the digest, so a stored value would stop
@@ -138,7 +138,7 @@ the behaviour.
 3c. A requirements pass recorded BEFORE this lands keeps its settled meaning:
    changing the digest's exclusions must not reinterpret stored records into
    staleness all at once. Asserted against a fixture recorded in the old shape.
-   (The general input-manifest design is deferred as D-0033.)
+   (The general input-manifest design is deferred as D-0035.)
 4. A stage review stamp survives a contract re-record that leaves the delta
    unchanged, asserted end to end through a stamp, a contract edit and a stage
    close, per decision 0066.

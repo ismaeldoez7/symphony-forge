@@ -130,7 +130,7 @@ per-gate floor intact; and a launch whose latest row is failed spending no
 allowance and blocking no further read.
 
 The full input manifest and the bounded command-grammar check are deferred as
-D-0033 with a revisit trigger — see the T3 entry for why the measured cost turned
+D-0035 with a revisit trigger — see the T3 entry for why the measured cost turned
 out to have a much smaller cause.
 
 ## Technical Approach
@@ -150,7 +150,7 @@ including commits whose only product change was a decision record this story
 itself wrote. The fix is to pass the shared definition, which is what the
 docstring already claims is universal.
 
-**The full manifest is deferred as D-0033.** A path-plus-digest list on every
+**The full manifest is deferred as D-0035.** A path-plus-digest list on every
 pass, recorder validation, one predicate shared by all six gates, the
 accepted-decision set comparison, the optional schema field, and the bounded
 command-grammar check. It remains a coherent design for the four prefix-based
@@ -288,7 +288,7 @@ two small mechanisms land independently of one another.
   guard is untouched per owner ruling.
 
   The full manifest — a path-plus-digest list on every pass, recorder validation,
-  and one predicate shared by all six gates — is deferred as D-0033 with a
+  and one predicate shared by all six gates — is deferred as D-0035 with a
   revisit trigger. It stays a coherent design for the four prefix-based gates,
   but no measured cost forces it yet. Acceptance criterion 8, the
   generated-command grammar check, goes with it; nothing in this story now
@@ -340,4 +340,4 @@ a task only once Ruff and Pyright are CONFIGURED and wired into verify and CI,
 and until then a task must not contract those commands — an unrunnable verify
 command fails at the seal, after implementation and review have already passed,
 which is exactly how T1's seal failed. Configuring the baseline is ledgered as
-D-0034 with an owner and a revisit trigger.
+D-0036 with an owner and a revisit trigger.
