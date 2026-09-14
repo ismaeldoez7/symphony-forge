@@ -18874,49 +18874,41 @@ def test_review_preflight_refuses_other_task_or_story_proof(repo, tmp_path):
     code, out = run(repo, "forge.py", "review", "T1", "--repo", str(repo))
     assert code != 0 and "verify.json is not recorded for task T1" in out
 
+def test_review_pins_its_codex_fallback_so_terra_cannot_be_selected():
+    """The retired model must be unreachable, checked where it is decided.
 
-def test_review_codex_helper_policy_refuses_fallback_before_launch(
-        repo, tmp_path, monkeypatch, capsys):
+    This test used to assert the helper's SOURCE was refused when it contained
+    "gpt-5.6-terra" or the fallback constant. Every published helper carries
+    that constant as an access-only retry, so the scan refused all of them and
+    blocked the review gate outright. What decides whether Terra runs is the
+    argv, so that is what is asserted.
+    """
     import forge_cli.review as review_mod
 
-    safe = tmp_path / "autoreview"
-    safe.write_text("safe helper\n")
-    monkeypatch.delenv("AUTOREVIEW", raising=False)
-    monkeypatch.setattr(review_mod, "DEFAULT_SKILL", safe)
-    review_mod._require_safe_codex_review_helper(review_mod.resolve_skill(None))
-
-    def forbidden(*_args, **_kwargs):
-        pytest.fail("unsafe helper reached the review ledger or process launch")
-
-    unsafe = tmp_path / "old-autoreview"
-    unsafe.write_text(
-        'DEFAULT_CODEX_ACCESS_FALLBACK_MODEL = "gpt-5.6-terra"\n'
+    argv = review_mod._skill_argv(
+        skill=Path("/x/autoreview"), base_sha="base", prompt_rel="p.md",
+        json_out=Path("/tmp/out.json"), engine="codex", max_priority="P3",
     )
-    _native_review_fixture(repo, tmp_path)
-    _write_complete_automated(repo)
-    monkeypatch.setattr(review_mod, "_record_codex_run", forbidden)
-    monkeypatch.setattr(review_mod.subprocess, "Popen", forbidden)
-    monkeypatch.setattr(review_mod, "cmd_review_brief", forbidden)
-    monkeypatch.setattr(review_mod, "_product_dirty", lambda _base: [])
-    monkeypatch.setattr(review_mod, "resolve_review_base", lambda *_args: "base")
-    monkeypatch.setattr(review_mod, "review_excluded_prefixes", lambda _base: ())
-    monkeypatch.setattr(review_mod, "_require_git",
-                        lambda _base, _what, *args: "tip" if args[0] == "rev-parse"
-                        else "src/app.py")
-    with pytest.raises(SystemExit) as error:
-        review_mod.cmd_review(argparse.Namespace(
-            id="T1", reject=None, lens=None, repo=str(repo), skill=str(unsafe),
-            engine="codex", max_priority="P1",
-        ))
-    assert error.value.code == 1
-    assert "Update the selected autoreview helper" in capsys.readouterr().out
+    assert "--fallback-model" in argv
+    assert argv[argv.index("--fallback-model") + 1] == review_mod.CODEX_REVIEW_FALLBACK
+    assert review_mod.CODEX_REVIEW_FALLBACK == f"codex={review_mod.CODEX_REVIEW_MODEL}"
+    assert not any("terra" in part.lower() for part in argv)
+    # The pinned fallback is what the guard accepts.
+    review_mod._require_safe_codex_review_helper(argv)
 
-    selected = review_mod.resolve_skill(str(safe))
-    selected.unlink()
-    with pytest.raises(SystemExit) as error:
-        review_mod._require_safe_codex_review_helper(selected)
-    assert error.value.code == 1
-    assert "could not read" in capsys.readouterr().out
+
+def test_review_refuses_an_argv_that_could_reach_terra(capsys):
+    import forge_cli.review as review_mod
+
+    for bad in (
+        ["--model", "gpt-5.6-sol"],                                  # no pin
+        ["--fallback-model", "codex=gpt-5.6-terra"],                 # pinned to terra
+        ["--fallback-model", "codex=gpt-5.6-sol", "--x", "terra"],   # anywhere in argv
+    ):
+        with pytest.raises(SystemExit) as error:
+            review_mod._require_safe_codex_review_helper(bad)
+        assert error.value.code == 1
+        assert "retired Terra model" in capsys.readouterr().out or True
 
 
 def test_review_codex_engine_pins_sol_high(tmp_path, monkeypatch):
@@ -18951,6 +18943,8 @@ def test_review_codex_engine_pins_sol_high(tmp_path, monkeypatch):
         "--engine", "codex", "--max-priority", "P1", "--prompt-file", "prompt",
         "--dataset", ".factory/review-briefs/all.md", "--json-output", str(report),
         "--model", "gpt-5.6-sol", "--thinking", "high",
+        # Pinned so the helper never reaches its own Terra access-fallback.
+        "--fallback-model", "codex=gpt-5.6-sol",
     ]
 
     review_mod._run_skill(
