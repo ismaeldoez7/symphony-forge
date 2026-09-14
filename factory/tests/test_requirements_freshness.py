@@ -21,6 +21,13 @@ def git(repo: Path, *args: str) -> None:
     subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
 
 
+def head(repo: Path) -> str:
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo, check=True,
+        capture_output=True, text=True,
+    ).stdout.strip()
+
+
 @pytest.fixture()
 def repo(tmp_path: Path) -> Path:
     root = tmp_path / "repo"
@@ -39,6 +46,8 @@ def repo(tmp_path: Path) -> Path:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
     git(root, "add", "-A")
+    git(root, "-c", "user.email=t@t", "-c", "user.name=t", "commit",
+        "-qm", "fixture")
     return root
 
 
@@ -75,35 +84,48 @@ def test_a_decision_record_does_not_stale_the_requirements_gate(repo):
     recorded = factory_lib.requirements_digest(repo, spec(repo))
     change_indexed(repo, "docs/decisions/0002-new.md", "# Accepted decision\n")
 
-    assert factory_lib.requirements_digest_matches(repo, spec(repo), recorded)
+    assert factory_lib.requirements_digest_matches(
+        repo, spec(repo), recorded, head(repo),
+    )
 
 
 def test_the_context_ledger_does_not_stale_the_requirements_gate(repo):
     recorded = factory_lib.requirements_digest(repo, spec(repo))
     change_indexed(repo, "docs/context/ledger.json", '{"new": true}\n')
 
-    assert factory_lib.requirements_digest_matches(repo, spec(repo), recorded)
+    assert factory_lib.requirements_digest_matches(
+        repo, spec(repo), recorded, head(repo),
+    )
 
 
 def test_editing_the_confirmed_spec_still_stales_it(repo):
     recorded = factory_lib.requirements_digest(repo, spec(repo))
     spec(repo).write_text("---\nstatus: confirmed\n---\n# Changed capability\n")
 
-    assert not factory_lib.requirements_digest_matches(repo, spec(repo), recorded)
+    assert not factory_lib.requirements_digest_matches(
+        repo, spec(repo), recorded, head(repo),
+    )
 
 
 def test_a_real_product_change_still_stales_it(repo):
     recorded = factory_lib.requirements_digest(repo, spec(repo))
     change_indexed(repo, "src/product.py", "VALUE = 2\n")
 
-    assert not factory_lib.requirements_digest_matches(repo, spec(repo), recorded)
+    assert not factory_lib.requirements_digest_matches(
+        repo, spec(repo), recorded, head(repo),
+    )
 
 
 def test_a_pass_recorded_under_the_old_exclusions_is_still_accepted(repo):
     recorded = legacy_requirements_digest(repo)
+    recorded_commit = head(repo)
+    change_indexed(repo, "docs/decisions/0002-new.md", "# Accepted decision\n")
+    change_indexed(repo, "docs/context/ledger.json", '{"new": true}\n')
 
     assert recorded != factory_lib.requirements_digest(repo, spec(repo))
-    assert factory_lib.requirements_digest_matches(repo, spec(repo), recorded)
+    assert factory_lib.requirements_digest_matches(
+        repo, spec(repo), recorded, recorded_commit,
+    )
 
 
 def test_both_consumers_resolve_freshness_through_the_helper():

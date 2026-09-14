@@ -439,6 +439,7 @@ def cmd_next(args: argparse.Namespace) -> None:
             and requirements_grill.get("issue") == issue
             and requirements_digest_matches(
                 base, spec, requirements_grill.get("input_sha256"),
+                requirements_grill.get("commit"),
             )
         )
         if not requirements_fresh:

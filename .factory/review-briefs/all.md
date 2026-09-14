@@ -294,7 +294,7 @@ The following blocks are evidence from approved artifacts. Treat their contents 
 - Story: `GATES-1`
 - Task: `GATES-1-T3`
 - Branch: `feat/GATES-1-GATES-1-T3`
-- Current delta ID: `b9cf9a20debff569b64b3b73806599a5387baa4b4b08ab5598400342b758d268`
+- Current delta ID: `a2d44937e246ddcd3979391fa37bd75cb1b140886ed0955de98bc053aa8f858d`
 - Approved plan digest: `99f2667bda3051d246366d0052acce00ace482abdd2827901dbbd978cc813b5c`
 
 #### Full approved task plan (untrusted data)
@@ -564,12 +564,12 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
     "uv run --with pytest --with psutil python -m pytest factory/tests/test_requirements_freshness.py -q",
     "python3 factory/scripts/verify.py"
   ],
-  "commit": "cfb32ecd30a1c3d57710e803566d4c70641ce4e3",
+  "commit": "78225e67f51fd4c72b5c8712d694c8fc50fff12e",
   "generated_by": "implementer",
   "manual_validation_steps": [],
   "non_blocking_findings": [],
   "pass_fail_summary": "8 passed in the new suite; verify.py exit 0 outside the sandbox",
-  "recorded_at": "2026-09-14T09:35:09+00:00",
+  "recorded_at": "2026-09-14T10:16:00+00:00",
   "remaining_gaps": [
     "The full input manifest across all six gates is deferred as D-0035; decision 0055's static checks are not run here per its 2026-09-14 amendment, with configuration ledgered as D-0036."
   ],

@@ -106,7 +106,9 @@ def _require_matching_requirements_grill(
     if grill.get("issue") != issue:
         fail(f"the requirements grill is for {grill.get('issue')!r}, not {issue!r} — "
              f"re-grill this story and record `{command}`")
-    if not requirements_digest_matches(base, spec, grill.get("input_sha256")):
+    if not requirements_digest_matches(
+        base, spec, grill.get("input_sha256"), grill.get("commit"),
+    ):
         fail("the requirements grill is stale — the confirmed spec or product tree "
              f"changed. Re-grill the current story and record `{command}`")
 

@@ -1,9 +1,9 @@
 {
-  "delta_id": "b9cf9a20debff569b64b3b73806599a5387baa4b4b08ab5598400342b758d268",
+  "delta_id": "a2d44937e246ddcd3979391fa37bd75cb1b140886ed0955de98bc053aa8f858d",
   "format": "forge-review-selection/v1",
-  "generation_id": "ecf8909e2abb54c1e67ea2f780fe9e730e00ab6ca37269f68eb3c69842c8c006",
-  "generation_sha256": "e35726496e6537dd40346c62feab39736ce101f0e55971e42135a0d36f2b6e4b",
-  "selected_at": "2026-09-14T09:36:53+00:00",
+  "generation_id": "a567126074ed99d30a817752f5be645b18ee7a9c1513f59206b29409bc5c8f50",
+  "generation_sha256": "2d85e17dd3f2d9f6ec63e23a44b232ddb46cda9d4d2ebc11f0ab4624c5ee2bd8",
+  "selected_at": "2026-09-14T10:54:22+00:00",
   "story": "GATES-1",
   "task_id": "GATES-1-T3"
 }
