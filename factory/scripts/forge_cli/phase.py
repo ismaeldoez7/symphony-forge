@@ -517,7 +517,9 @@ def cmd_next(args: argparse.Namespace) -> None:
         outcome = load_outcome(base) or {}
         # A task-level run proves itself per task; the story-scoped reads above
         # describe a story-level run and say nothing about it.
-        task_level = bool(state.get("base_main_sha")) and bool(decomp.get("tasks"))
+        from factory_lib import run_is_task_level
+        task_level = bool(decomp.get("tasks")) and run_is_task_level(
+            base, str(issue or ""), decomp.get("tasks"))
         task_closeout = []
         if task_level:
             from factory_lib import require_closeout_order
