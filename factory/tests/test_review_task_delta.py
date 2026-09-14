@@ -135,7 +135,9 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
         for whitespace in (" ", "\t", "\n", "\N{NO-BREAK SPACE}"):
             for title in (f"{tag}{whitespace}issue",
                           f"issue{whitespace}{tag}{whitespace}detail",
-                          f"issue{whitespace}{tag}"):
+                          f"issue{whitespace}{tag}",
+                          "[security],",
+                          "validation:[performance]"):
                 invalid = _processed(_provider_report(
                     _combined_explanation(
                         "VERDICT C1: implemented — src/a.py:1", "measured", "bounded"),

@@ -532,7 +532,7 @@ def _tagged_finding(finding: dict) -> tuple[
     )
     known_tags = {tag.strip().casefold() for tag in LENS_TAGS}
     if not clean_title or any(
-            token.casefold() in known_tags for token in clean_title.split()):
+            tag in clean_title.casefold() for tag in known_tags):
         fail("every combined review finding needs exactly one lens title tag")
     location = finding.get("code_location")
     if not isinstance(location, dict) or set(location) != {"file_path", "line"}:
