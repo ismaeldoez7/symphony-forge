@@ -10,6 +10,9 @@ hand the review to a nested Codex companion job (that re-triggers the same
 skill one indirection deeper and the companion write-guard refuses it), and
 never hand-write findings inline.
 
+Formal review uses `gpt-5.6-sol` at `high` reasoning. Route fixes back to the
+active `gpt-5.6-sol`/medium implementer and reuse that agent across review loops.
+
 Loop discipline (carried over from the retired subagent panel): scope-freeze —
 review the diff that exists, do not expand scope; verify findings against the
 actual code before reporting; stop after two fix-verify cycles.
@@ -140,5 +143,5 @@ python3 factory/scripts/record_review_from_json.py --aspect <quality|performance
 ```
 
 Afterwards — ONLY if the recorded decomposition has `user_facing: true` — run
-the `functional-checker` subagent (`factory/prompts/tester-functional.md`) and
+the Sol/high `functional-checker` subagent (`factory/prompts/tester-functional.md`) and
 record its result with `record_test_from_json.py --kind functional`.

@@ -20,6 +20,39 @@ import argparse
 import os
 from pathlib import Path
 
+
+def _native_dead_grill_status(args: argparse.Namespace) -> None:
+    """Render only already-dead native grill rows; never general job status."""
+    from factory_lib import repo_root
+    from forge_cli.codex_runtime import coordinator_runtime
+    from forge_cli.worker_admission import parse_native_grill_label
+
+    if coordinator_runtime() != "codex":
+        codex_status.cmd_status(args)
+        return
+    base = Path(args.repo).resolve() if args.repo else repo_root()
+    dead = [
+        row for row in codex_status.dead_launches(base)
+        if row.get("transport") == "native"
+        and row.get("launch_status") in {"starting", "running"}
+        and parse_native_grill_label(row.get("task")) is not None
+    ]
+    if not dead:
+        raise SystemExit(
+            "native Codex status is foreground-only; no eligible dead native grill "
+            "launch exists (live workers, implementation rows, cancel/resume and "
+            "plugin jobs are not supported in this release)"
+        )
+    for row in dead:
+        print(f"[DEAD GRILL] {row['task']} launch={row.get('launch_id')} "
+              f"pid={row.get('pid')} status={row.get('launch_status')}")
+        if row.get("output_path"):
+            print(f"             output: {row['output_path']}")
+        if row.get("stderr_path"):
+            print(f"             stderr: {row['stderr_path']}")
+        print("             rerun the corresponding `./forge grill run` command.")
+
+
 HOOK_SCRIPTS = {
     "post_tool_use": "post_tool_use.py",
     "pre_compact": "pre_compact.py",
@@ -220,14 +253,11 @@ def main() -> None:
         "--engine", default="codex",
         help="autoreview engine (default: codex -- the review is Codex's, 0011)")
     p_task_close.add_argument(
-        "--max-priority", default="P2", choices=["P0", "P1", "P2", "P3"],
-        help="lowest review priority to report (default: P2)")
+        "--max-priority", default="P3", choices=["P0", "P1", "P2", "P3"],
+        help="lowest review priority to report (default: P3)")
     p_task_close.add_argument(
         "--skill", help="path to the autoreview helper (default: $AUTOREVIEW "
                         "or ~/.codex/skills/autoreview/scripts/autoreview)")
-    p_task_close.add_argument(
-        "--sequential", action="store_true",
-        help="run the three review lenses one at a time instead of together")
     p_task_close.add_argument("--repo")
     p_task_close.set_defaults(func=close_mod.cmd_task_close)
     p_task_reopen = task_sub.add_parser(
@@ -596,7 +626,7 @@ def main() -> None:
                        help="flag a running job older than this (default: 20)")
     p_cxs.add_argument("--state-root", help="plugin job registry (testing)")
     p_cxs.add_argument("--repo")
-    p_cxs.set_defaults(func=codex_status.cmd_status)
+    p_cxs.set_defaults(func=_native_dead_grill_status)
 
     p_del = sub.add_parser("delegate", help="compose the brief and launch one task")
     p_del.add_argument("id", help="task id from the recorded decomposition")
@@ -606,12 +636,6 @@ def main() -> None:
                        help="background exploration only; active write stages refuse it")
     p_del.add_argument("--print-only", action="store_true",
                        help="print the argv without launching or recording evidence")
-    p_del.add_argument(
-        "--effort", default="",
-        choices=["", "low", "medium", "high", "xhigh"],
-        help="raise the reasoning effort above the harness.yaml floor for this "
-             "run — harness.yaml names migrations, cross-domain work and "
-             "security-sensitive changes as the cases that warrant it")
     p_del.add_argument("--repo")
     p_del.set_defaults(func=delegate_mod.cmd_delegate)
 
@@ -626,15 +650,11 @@ def main() -> None:
         "--engine", default="codex",
         help="autoreview engine (default: codex — the review is Codex's, 0011)")
     p_review.add_argument(
-        "--max-priority", default="P2", choices=["P0", "P1", "P2", "P3"],
-        help="lowest priority to report (default: P2, not the P0-only default)")
+        "--max-priority", default="P3", choices=["P0", "P1", "P2", "P3"],
+        help="lowest priority to report (default: P3)")
     p_review.add_argument(
         "--skill", help="path to the autoreview helper (default: $AUTOREVIEW "
                         "or ~/.codex/skills/autoreview/scripts/autoreview)")
-    p_review.add_argument(
-        "--sequential", action="store_true",
-        help="run the three lenses one at a time instead of together (the "
-             "default runs them concurrently; FORGE_REVIEW_SEQUENTIAL=1 too)")
     p_review.add_argument(
         "--reject", metavar="MATCH",
         help="do not run: move the one recorded blocking finding of --lens whose "

@@ -5,8 +5,8 @@ One command replaces the hand-assembled skill invocation the coordinator used
 to get wrong: it pins the task tip in a clean detached worktree (so harness
 writes in the main tree cannot abort the run), reviews the WHOLE task diff from
 the task's recorded base (branch mode; `--mode commit` would see only the last
-commit), runs the autoreview skill once per lens with Codex as the engine,
-drops findings on harness bookkeeping paths, derives each lens artifact, parses
+commit), runs the autoreview skill once with Codex as the engine, drops findings
+on harness bookkeeping paths, derives each lens artifact, parses
 the quality verdicts from the reviewer's prose, and records all three through
 the existing schema-validated recorder. It always ends by printing the exact
 next command.
@@ -14,21 +14,24 @@ next command.
 from __future__ import annotations
 
 import argparse
+import base64
+import copy
+import hashlib
 import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 import threading
-import time
 import uuid
-from pathlib import Path
+import unicodedata
+from pathlib import Path, PurePosixPath
 
 from factory_lib import (
-    branch_diff_digest, clean_git_env, evidence_path, load_json,
-    proof_read_path,
+    branch_diff_digest, clean_git_env, head_sha, load_json, product_delta_digest,
     proof_path, protected_decomposition_state_path, repo_root, run_state_path,
     safe_factory_write_bytes, schema_path,
 )
@@ -42,6 +45,7 @@ from .review_brief import (
 from .tasks import _git, _require_git
 
 LENSES = ("quality", "performance", "security")
+REVIEW_DATASET_REL = ".factory/review-briefs/all.md"
 # Harness bookkeeping is never the subject of a product review.
 HARNESS_PREFIXES = (".factory/", "plans/", "docs/decisions/")
 # The recorder's contract_verdicts shape: {contract_id, verdict, evidence}.
@@ -51,6 +55,11 @@ VERDICT_LINE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 DEFAULT_SKILL = Path.home() / ".codex" / "skills" / "autoreview" / "scripts" / "autoreview"
+CODEX_REVIEW_MODEL = "gpt-5.6-sol"
+CODEX_REVIEW_THINKING = "high"
+CODEX_HELPER_FIX = (
+    "Update the selected autoreview helper to a version without Codex Terra fallback"
+)
 
 COMMON_PREAMBLE = """\
 You are one lens of a three-lens code review. You see ONLY the diff bundle for
@@ -106,6 +115,23 @@ VERDICT <contract-id>: implemented|partial|missing — <file:line evidence>
 Every listed contract must get a line. Do not rename contract ids.
 """
 
+SECTION_MARKERS = tuple(
+    (lens, f"BEGIN FORGE ASSESSMENT {lens}", f"END FORGE ASSESSMENT {lens}")
+    for lens in LENSES
+)
+LENS_TAGS = tuple(f"[{lens}] " for lens in LENSES)
+REPORT_FIELDS = {
+    "findings", "overall_correctness", "overall_explanation", "overall_confidence",
+}
+FINDING_FIELDS = {
+    "title", "body", "priority", "confidence", "category", "code_location",
+    "source_attribution",
+}
+REPORT_METADATA_FIELDS = {
+    "scope_rejected_findings", "priority_filtered_findings", "attribution_rejected_findings",
+    "missing_required_findings", "available_source_records"}
+ATTRIBUTION_FIELDS = {"target", "record_id", "source_id", "side", "column", "excerpt"}
+
 
 def resolve_skill(explicit: str | None) -> Path:
     """The autoreview skill helper: --skill, $AUTOREVIEW, the standard install,
@@ -124,6 +150,52 @@ def resolve_skill(explicit: str | None) -> Path:
     fail("autoreview skill not found: install it under ~/.codex/skills/autoreview "
          "or set AUTOREVIEW to its scripts/autoreview path")
     raise AssertionError("unreachable")
+
+
+def _require_safe_codex_review_helper(skill: Path) -> None:
+    try:
+        source = skill.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        fail(f"{CODEX_HELPER_FIX}: could not read {skill}")
+    if ("DEFAULT_CODEX_ACCESS_FALLBACK_MODEL" in source
+            or "gpt-5.6-terra" in source):
+        fail(CODEX_HELPER_FIX)
+
+
+def _helper_identity(skill: Path) -> tuple[dict[str, str], tuple[int, int]]:
+    try:
+        resolved = skill.resolve(strict=True)
+        info = resolved.stat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            fail(f"autoreview helper is not a regular single-link file: {resolved}")
+        body = resolved.read_bytes()
+        after = resolved.stat()
+    except (OSError, RuntimeError):
+        fail(f"could not resolve the autoreview helper as one regular file: {skill}")
+    if (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns) != (
+        after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns,
+    ):
+        fail("autoreview helper changed while its identity was captured")
+    digest = hashlib.sha256(body).hexdigest()
+    version = digest
+    version_path = resolved.parent.parent / ".upstream-sha"
+    try:
+        version_info = version_path.lstat()
+    except FileNotFoundError:
+        pass
+    except OSError:
+        fail(f"could not read autoreview helper version: {version_path}")
+    else:
+        if not stat.S_ISREG(version_info.st_mode) or version_info.st_nlink != 1:
+            fail(f"autoreview helper version is invalid: {version_path}")
+        try:
+            version = version_path.read_text(encoding="utf-8").strip()
+        except (OSError, UnicodeError):
+            fail(f"could not read autoreview helper version: {version_path}")
+        if not re.fullmatch(r"[0-9a-f]{40,64}", version):
+            fail(f"autoreview helper version is invalid: {version_path}")
+    return ({"path": str(resolved), "version": version, "sha256": digest},
+            (info.st_dev, info.st_ino))
 
 
 def review_excluded_prefixes(base: Path) -> tuple[str, ...]:
@@ -178,8 +250,435 @@ def _lens_prompt(task: dict, lens: str, base: Path | None = None) -> bytes:
              COMMON_PREAMBLE, LENS_FOCUS[lens], LEFTOVER_INSTRUCTION]
     if lens == "quality":
         lines += [QUALITY_VERDICT_FORMAT, VERDICT_INSTRUCTION, ""]
-    lines += _task_section(task, base)
+    lines += _task_section(task, None)
     return ("\n".join(lines).rstrip() + "\n").encode()
+
+
+def _combined_prompt(task: dict) -> bytes:
+    contracts = [
+        str(contract.get("id")) for contract in task.get("plan_contracts") or []
+        if isinstance(contract, dict) and isinstance(contract.get("id"), str)
+    ]
+    minimum = [
+        "BEGIN FORGE ASSESSMENT quality",
+        *(f"VERDICT {contract}: implemented — file:line evidence" for contract in contracts),
+        "quality assessment", "END FORGE ASSESSMENT quality",
+        "BEGIN FORGE ASSESSMENT performance", "performance assessment",
+        "END FORGE ASSESSMENT performance", "BEGIN FORGE ASSESSMENT security",
+        "security assessment", "END FORGE ASSESSMENT security",
+    ]
+    if len("\n".join(minimum)) > 3000:
+        fail("combined review boilerplate cannot fit the helper's 3000-character "
+             "overall_explanation limit; reduce the approved contract count")
+    combined_verdict_format = QUALITY_VERDICT_FORMAT.replace(
+        'listed under "Plan contracts" below',
+        f'listed under the target task\'s "Plan contracts" in {REVIEW_DATASET_REL}',
+    )
+    lines = [
+        f"# Review brief — {task.get('id', '')} — combined review", "",
+        COMMON_PREAMBLE.replace("one lens of a three-lens", "the three-lens"),
+        "The target task's complete Plan contracts and Reviewer focus are supplied "
+        f"in `{REVIEW_DATASET_REL}`; use that dataset for task-specific review "
+        "requirements.", "",
+        "Assess quality, performance, and security in one provider pass. In every "
+        "provider pass, overall_explanation must contain these exact full-line "
+        "markers once, in this order, with a non-empty assessment between each pair:",
+        "", "BEGIN FORGE ASSESSMENT quality", "<quality assessment>",
+        "END FORGE ASSESSMENT quality", "BEGIN FORGE ASSESSMENT performance",
+        "<performance assessment>", "END FORGE ASSESSMENT performance",
+        "BEGIN FORGE ASSESSMENT security", "<security assessment>",
+        "END FORGE ASSESSMENT security", "",
+        "Put VERDICT lines only inside the quality assessment, never in surrounding "
+        "prose or the performance or security assessments.", "",
+        "Prefix every finding title with exactly one matching token: [quality] , "
+        "[performance] , or [security] .", "", LENS_FOCUS["quality"],
+        combined_verdict_format, VERDICT_INSTRUCTION, "", LENS_FOCUS["performance"],
+        LENS_FOCUS["security"], LEFTOVER_INSTRUCTION, "",
+    ]
+    return ("\n".join(lines).rstrip() + "\n").encode()
+
+
+def _pass_sections(report: dict) -> tuple[dict[str, str], list[str]]:
+    explanation = report.get("overall_explanation")
+    if not isinstance(explanation, str) or len(explanation) > 3000:
+        fail("combined review pass needs overall_explanation within 3000 characters")
+    lines = explanation.splitlines()
+    positions: list[int] = []
+    sections: dict[str, str] = {}
+    for lens, begin, end in SECTION_MARKERS:
+        if lines.count(begin) != 1 or lines.count(end) != 1:
+            fail(f"combined review pass needs exact full-line {begin} and {end} markers")
+        start, stop = lines.index(begin), lines.index(end)
+        if stop <= start + 1:
+            fail(f"combined review {lens} assessment is empty")
+        body = "\n".join(lines[start + 1:stop]).strip()
+        if not body:
+            fail(f"combined review {lens} assessment is empty")
+        positions.extend((start, stop))
+        sections[lens] = body
+    if positions != sorted(positions):
+        fail("combined review lens sections are not in quality, performance, security order")
+    qs, qe, ps, pe, ss, se = positions
+    non_quality = (lines[:qs], lines[qe + 1:ps], lines[ps + 1:pe],
+                   lines[pe + 1:ss], lines[ss + 1:se], lines[se + 1:])
+    if any(VERDICT_LINE.search("\n".join(span)) for span in non_quality):
+        fail("combined review VERDICT lines must appear only in the quality assessment")
+    if len(set(sections.values())) != len(LENSES):
+        fail("combined review copied one lens assessment into another lens")
+    return sections, lines
+
+
+def _valid_confidence(value: object) -> bool:
+    return (isinstance(value, (int, float)) and not isinstance(value, bool)
+            and 0 <= value <= 1)
+
+
+def _normalized_helper_path(value: object) -> str:
+    if not isinstance(value, str) or not value:
+        fail("combined review finding has invalid file_path")
+    normalized = value.replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    path = PurePosixPath(normalized)
+    result = path.as_posix()
+    if (not result or path.is_absolute() or ".." in path.parts
+            or re.match(r"^[A-Za-z]:/", result)):
+        fail("combined review finding has invalid file_path")
+    return result
+
+
+def _validate_helper_finding(finding: object, *, accepted: bool) -> dict:
+    if not isinstance(finding, dict) or set(finding) != FINDING_FIELDS:
+        fail("combined review finding has invalid fields")
+    if (not isinstance(finding.get("title"), str) or not finding["title"] or
+            len(finding["title"]) > 140):
+        fail("combined review finding has invalid title")
+    if (not isinstance(finding.get("body"), str) or not finding["body"] or
+            len(finding["body"]) > 2000):
+        fail("combined review finding has invalid body")
+    if (not isinstance(finding.get("priority"), str)
+            or finding["priority"] not in {"P0", "P1", "P2", "P3"}):
+        fail("combined review finding has invalid priority")
+    if not _valid_confidence(finding.get("confidence")):
+        fail("combined review finding has invalid confidence")
+    if (not isinstance(finding.get("category"), str) or finding["category"] not in
+            {"bug", "security", "regression", "test_gap", "maintainability"}):
+        fail("combined review finding has invalid category")
+    location = finding.get("code_location")
+    if (not isinstance(location, dict) or set(location) != {"file_path", "line"}
+            or not isinstance(location.get("line"), int)
+            or isinstance(location["line"], bool) or location["line"] < 1):
+        fail("combined review finding has invalid code_location")
+    _normalized_helper_path(location.get("file_path"))
+    attribution = finding.get("source_attribution")
+    if accepted and attribution is not None:
+        fail("combined review accepted findings require null source_attribution")
+    if attribution is not None and (
+            not isinstance(attribution, dict) or set(attribution) != ATTRIBUTION_FIELDS
+            or not all(isinstance(attribution.get(field), str)
+                       for field in ATTRIBUTION_FIELDS - {"column"})
+            or attribution["target"] not in {"index", "working_tree"}
+            or attribution["side"] not in {"present", "removed"}
+            or not isinstance(attribution.get("column"), int)
+            or isinstance(attribution["column"], bool) or attribution["column"] < 1):
+        fail("combined review finding has invalid source_attribution")
+    return finding
+
+
+def _validate_provider_report(report: object) -> dict:
+    if not isinstance(report, dict) or set(report) != REPORT_FIELDS:
+        fail("combined review report has invalid fields")
+    if (not isinstance(report.get("overall_correctness"), str) or
+            report["overall_correctness"] not in {"patch is correct", "patch is incorrect"}):
+        fail("combined review report has invalid overall_correctness")
+    explanation = report.get("overall_explanation")
+    if not isinstance(explanation, str) or not explanation or len(explanation) > 3000:
+        fail("combined review report needs overall_explanation within 3000 characters")
+    if not _valid_confidence(report.get("overall_confidence")):
+        fail("combined review report has invalid overall_confidence")
+    findings = report.get("findings")
+    if not isinstance(findings, list):
+        fail("combined review report findings must be a list")
+    for finding in findings:
+        _validate_helper_finding(finding, accepted=False)
+    return report
+
+
+def _validate_processed_report(report: object, required: set[str]) -> dict:
+    allowed = REPORT_FIELDS | required | REPORT_METADATA_FIELDS
+    if (not isinstance(report, dict) or not REPORT_FIELDS | required <= set(report)
+            or set(report) - allowed):
+        fail("combined review helper wrapper has invalid fields")
+    _validate_provider_report({field: report[field] for field in REPORT_FIELDS})
+    if "provider_report" in report:
+        _validate_provider_report(report["provider_report"])
+    for finding in report["findings"]:
+        _validate_helper_finding(finding, accepted=True)
+    sample = {"overall_correctness": "patch is correct", "overall_explanation": "ok",
+              "overall_confidence": 1}
+    for field in ("scope_rejected_findings", "priority_filtered_findings"):
+        if field in report:
+            _validate_provider_report({**sample, "findings": report[field]})
+    if "attribution_rejected_findings" in report:
+        rejected = report["attribution_rejected_findings"]
+        if not isinstance(rejected, list):
+            fail("combined review attribution metadata must be a list")
+        if not all(isinstance(finding, dict) and
+                   set(finding) == FINDING_FIELDS | {"attribution_rejection_reason"} and
+                   isinstance(finding["attribution_rejection_reason"], str) and
+                   finding["attribution_rejection_reason"] for finding in rejected):
+            fail("combined review attribution metadata is invalid")
+        _validate_provider_report({**sample, "findings": [
+            {key: value for key, value in finding.items()
+             if key != "attribution_rejection_reason"} for finding in rejected]})
+    missing = report.get("missing_required_findings")
+    if "missing_required_findings" in report and (not isinstance(missing, list) or not all(
+            isinstance(item, str) and item for item in missing)):
+        fail("combined review missing-required metadata is invalid")
+    available = report.get("available_source_records")
+    if "available_source_records" in report and (not isinstance(available, list) or not all(
+            isinstance(item, str) for item in available)):
+        fail("combined review available-source metadata is invalid")
+    return report
+
+
+def _validate_certifying_wrapper(report: dict) -> None:
+    if (not report["findings"] and report["overall_correctness"] == "patch is incorrect") or any(
+            field in report for field in (
+            "scope_rejected_findings", "priority_filtered_findings",
+            "attribution_rejected_findings", "missing_required_findings")):
+        fail("combined review helper result is non-certifying")
+    provider = report["provider_report"]
+    if any(report[field] != provider[field]
+           for field in REPORT_FIELDS - {"findings"}):
+        fail("combined review processed result does not match its raw provider report")
+    normalized = copy.deepcopy(provider["findings"])
+    for finding in normalized:
+        finding["code_location"]["file_path"] = _normalized_helper_path(
+            finding["code_location"]["file_path"])
+    if report["findings"] != normalized:
+        fail("combined review accepted findings do not match its raw provider report")
+
+
+def _validate_review_status(report: dict) -> None:
+    status = report.get("review_status")
+    statuses = {"incomplete", "findings", "filtered", "incorrect", "scoped-clean"}
+    if not isinstance(status, str) or status not in statuses:
+        fail("combined review report has invalid review_status")
+    incomplete = ("scope_rejected_findings", "missing_required_findings",
+                  "attribution_rejected_findings")
+    expected = ("incomplete" if any(report.get(field) for field in incomplete)
+        else "findings" if report["findings"]
+        else "filtered" if report.get("priority_filtered_findings")
+        else "incorrect" if report["overall_correctness"] == "patch is incorrect"
+        else "scoped-clean")
+    if status != expected:
+        fail("combined review report has invalid review_status")
+
+
+def _actual_passes(report: object) -> list[tuple[str, dict]]:
+    if not isinstance(report, dict):
+        fail("combined review helper wrapper has invalid fields")
+    if "pass_reports" not in report:
+        processed = _validate_processed_report(report, {"provider_report", "review_status"})
+        _validate_provider_report(processed["provider_report"])
+        _validate_review_status(processed)
+        if processed["review_status"] not in {"findings", "scoped-clean"}:
+            fail("combined review helper result is non-certifying")
+        _validate_certifying_wrapper(processed)
+        return [("pass 1/1", processed)]
+    _validate_processed_report(report, {"pass_reports", "review_status"})
+    _validate_review_status(report)
+    if report["review_status"] not in {"findings", "scoped-clean"} or any(
+            field in report for field in REPORT_METADATA_FIELDS - {"available_source_records"}):
+        fail("combined review helper result is non-certifying")
+    entries = report.get("pass_reports")
+    if not isinstance(entries, list) or not entries:
+        fail("combined review pass_reports must be a non-empty list")
+    total = len(entries)
+    passes: list[tuple[str, dict]] = []
+    for index, entry in enumerate(entries, 1):
+        expected = f"chunk {index}/{total}"
+        if (not isinstance(entry, dict) or set(entry) != {"label", "report"}
+                or entry.get("label") != expected or not isinstance(entry.get("report"), dict)):
+            fail(f"combined review pass order must be {expected}")
+        wrapper = _validate_processed_report(entry["report"], {"provider_report"})
+        _validate_provider_report(wrapper["provider_report"])
+        _validate_certifying_wrapper(wrapper)
+        passes.append((expected, wrapper))
+    expected_correctness = ("patch is incorrect" if report["findings"] or any(
+        item["overall_correctness"] == "patch is incorrect" for _, item in passes)
+        else "patch is correct")
+    if report["overall_correctness"] != expected_correctness:
+        fail("combined review aggregate correctness does not match its passes")
+    return passes
+
+
+def _helper_bounded_field(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    suffix = "\n\n[truncated]"
+    return text[:max(0, limit - len(suffix))] + suffix
+
+
+def _tagged_finding(finding: dict) -> tuple[
+    str, dict, tuple[str, int, int, str], tuple[str, int, str, str]
+]:
+    if not isinstance(finding, dict):
+        fail("combined review findings must be objects")
+    if "source_attribution" not in finding or finding["source_attribution"] is not None:
+        fail("combined review plain-source findings require null source_attribution")
+    title = finding.get("title")
+    matches = [lens for lens, tag in zip(LENSES, LENS_TAGS)
+               if isinstance(title, str) and title.startswith(tag)]
+    if len(matches) != 1:
+        fail("every combined review finding needs exactly one lens title tag")
+    lens = matches[0]
+    clean_title = " ".join(
+        unicodedata.normalize("NFC", title[len(f"[{lens}] "):]).split()
+    )
+    known_tags = {tag.strip().casefold() for tag in LENS_TAGS}
+    if not clean_title or any(
+            tag in clean_title.casefold() for tag in known_tags):
+        fail("every combined review finding needs exactly one lens title tag")
+    location = finding.get("code_location")
+    if not isinstance(location, dict) or set(location) != {"file_path", "line"}:
+        fail("combined review finding needs one exact file_path and line")
+    raw_path, line = location.get("file_path"), location.get("line")
+    if (not isinstance(raw_path, str) or not raw_path or "\\" in raw_path
+            or PurePosixPath(raw_path).is_absolute() or any(
+                part in {"", ".."} for part in raw_path.split("/")
+            ) or not isinstance(line, int) or isinstance(line, bool) or line < 1):
+        fail("combined review finding location must be a repository-relative POSIX path and line")
+    normalized_path = unicodedata.normalize("NFC", PurePosixPath(raw_path).as_posix())
+    display_title = clean_title
+    normalized_title = display_title.casefold()
+    tagged_title = " ".join(
+        unicodedata.normalize("NFC", title).split()).casefold()
+    projected = copy.deepcopy(finding)
+    projected["title"] = display_title
+    projected["code_location"] = {"file_path": normalized_path, "line": line}
+    return (
+        lens, projected, (normalized_path, line, line, normalized_title),
+        (normalized_path, line, str(finding.get("category")), tagged_title),
+    )
+
+
+def _project_combined_report(
+    task: dict, report: dict, scope: list[str], base_sha: str, tip_sha: str,
+    skills_used: list[str], all_tasks: list[dict], started: dict[str, str],
+    excluded: tuple[str, ...] = HARNESS_PREFIXES,
+) -> dict[str, dict]:
+    if not isinstance(report, dict):
+        fail("combined review result must be a JSON object")
+    passes = _actual_passes(report)
+    sections = [_pass_sections(provider)[0] for _, provider in passes]
+    pass_findings: list[dict[str, list[dict]]] = []
+    fingerprint_lenses: dict[tuple[str, int, int, str], str] = {}
+    retained: list[tuple[str, dict]] = []
+    retained_raw: list[dict] = []
+    projected_fingerprints: set[tuple[str, int, int, str]] = set()
+    seen_merge_keys: set[tuple[str, int, str, str]] = set()
+    for label, provider in passes:
+        if not isinstance(provider.get("findings", []), list):
+            fail("combined review pass findings must be a list")
+        by_lens: dict[str, list[dict]] = {lens: [] for lens in LENSES}
+        for finding in provider.get("findings", []):
+            lens, clean, fingerprint, merge_key = _tagged_finding(finding)
+            prior_lens = fingerprint_lenses.setdefault(fingerprint, lens)
+            if prior_lens != lens:
+                fail("combined review contains a cross-lens duplicate normalized finding")
+            if fingerprint not in projected_fingerprints:
+                projected_fingerprints.add(fingerprint)
+                retained.append((lens, clean))
+                by_lens[lens].append(clean)
+            if merge_key not in seen_merge_keys:
+                seen_merge_keys.add(merge_key)
+                merged = copy.deepcopy(finding)
+                if "pass_reports" in report:
+                    merged["body"] = _helper_bounded_field(
+                        f"{label}:\n\n{merged['body']}", 2000,
+                    )
+                retained_raw.append(merged)
+        pass_findings.append(by_lens)
+    findings = report.get("findings", [])
+    if not isinstance(findings, list):
+        fail("combined review findings must be a list")
+    for finding in findings:
+        _tagged_finding(finding)
+    if findings != retained_raw:
+        fail("combined review merged findings do not match its ordered provider passes")
+    projected: dict[str, list[dict]] = {lens: [] for lens in LENSES}
+    for lens, clean in retained:
+        projected[lens].append(clean)
+    artifacts: dict[str, dict] = {}
+    for lens in LENSES:
+        lens_report = {
+            "overall_explanation": "\n\n".join(section[lens] for section in sections),
+            "findings": projected[lens],
+            "pass_reports": [
+                {"label": label, "report": {
+                    "overall_explanation": section[lens],
+                    "findings": pass_projection[lens],
+                }}
+                for (label, _provider), section, pass_projection
+                in zip(passes, sections, pass_findings)
+            ],
+        }
+        artifacts[lens] = _artifact(
+            lens, task, lens_report, scope, base_sha, tip_sha, skills_used,
+            all_tasks, started, excluded,
+            verdict_texts=[section["quality"] for section in sections]
+            if lens == "quality" else None,
+        )
+    return artifacts
+
+
+def rederive_combined_lenses(base: Path, candidate: dict) -> dict[str, dict]:
+    """Project a combined candidate again from current authoritative task state."""
+    from .stages import load_stages, stage_baseline, task_for
+
+    task_id = str(candidate.get("task_id") or "")
+    task = task_for(base, task_id)
+    stages = load_stages(base).get("stages") or []
+    stage = next((item for item in stages if item.get("id") == task_id), {})
+    if not task or not stage:
+        fail("combined review generation needs its recorded task and stage")
+    tip_sha = str(candidate.get("inspected_commit") or "")
+    state = load_json(run_state_path(base), default={})
+    base_sha = resolve_review_base(base, stage, state, tip_sha)
+    excluded = review_excluded_prefixes(base)
+    scope = sorted(
+        path for path in _require_git(
+            base, "listing the task diff", "diff", "--name-only",
+            f"{base_sha}...{tip_sha}",
+        ).splitlines()
+        if path.strip() and not path.startswith(excluded)
+    )
+    decomposition = load_json(protected_decomposition_state_path(base), default={})
+    all_tasks = [item for item in decomposition.get("tasks") or []
+                 if isinstance(item, dict)]
+    started = {item.get("id"): item.get("status") for item in stages
+               if isinstance(item, dict)}
+    skills_used: list[str] = []
+    if task.get("user_facing"):
+        review_schema = json.loads(schema_path(base, "review").read_text(encoding="utf-8"))
+        skills_used = list((review_schema.get("required_skills") or {}).get(
+            "user_facing", []))
+    raw = base64.b64decode(candidate["raw_result"]["data"], validate=True)
+    report = json.loads(raw.decode("utf-8"))
+    artifacts = _project_combined_report(
+        task, report, scope, base_sha, tip_sha, skills_used, all_tasks, started,
+        excluded,
+    )
+    for artifact in artifacts.values():
+        artifact.update({
+            "review_run_id": candidate.get("review_run_id"),
+            "brief_sha256": candidate.get("brief_sha256"),
+            "branch_diff_digest": candidate.get("delta_id"),
+            "commit": tip_sha,
+        })
+    return artifacts
 
 
 def resolve_review_base(base: Path, stage: dict, state: dict, tip_sha: str) -> str:
@@ -243,6 +742,9 @@ def _structured(finding: dict) -> dict:
         "category": str(finding.get("category", "maintainability")),
         "area": _area(str(location.get("file_path", ""))),
         "summary": summary,
+        "file_path": str(location.get("file_path", "")),
+        "line": location.get("line"),
+        "title": str(finding.get("title", "")).strip(),
     }
 
 
@@ -258,18 +760,16 @@ def _score(blocking: int, non_blocking: int) -> int:
 
 def recorded_review_totals(base: Path, story: str, task_id: str,
                            lenses: list[str] | tuple[str, ...]) -> tuple[int, int, dict]:
-    """Blocking and non-blocking counts from the recorded lens artifacts.
-
-    The one source every gate agrees on: `stage done`, `task pr-ready` and CI
-    all read these files. A verdict computed anywhere else can disagree with
-    them, and did.
-    """
-    recorded: dict[str, dict] = {}
-    for lens in lenses:
-        artifact = load_json(
-            proof_path(base, story, f"reviews/{lens}.json", task_id=task_id),
-            default={})
-        recorded[lens] = artifact if isinstance(artifact, dict) else {}
+    """Counts from the one selected immutable generation."""
+    from factory_lib import read_selected_review_generation
+    generation, _selection, problems = read_selected_review_generation(
+        base, story, task_id,
+    )
+    recorded = (
+        {lens: generation["lenses"].get(lens, {}) for lens in lenses}
+        if isinstance(generation, dict) and not problems else
+        {lens: {} for lens in lenses}
+    )
     blocking = sum(len(a.get("blocking_findings") or []) for a in recorded.values())
     caveats = sum(len(a.get("non_blocking_findings") or []) for a in recorded.values())
     return blocking, caveats, recorded
@@ -350,12 +850,15 @@ def _verdict_texts(reviewed: dict) -> list[str]:
 
 def _contract_verdicts(
     task: dict, reviewed: dict, all_tasks: list[dict], started: dict[str, str],
+    *, verdict_texts: list[str] | None = None,
 ) -> list[dict]:
     """Verdicts for the reviewed task come from the reviewer; contracts of other
     tasks already done are attested as shipped at their own seal; contracts of
     tasks that have not started are not required (recorder, decision 0049)."""
     out: list[dict] = []
-    parsed = _parse_verdicts(_verdict_texts(reviewed))
+    parsed = _parse_verdicts(
+        verdict_texts if verdict_texts is not None else _verdict_texts(reviewed)
+    )
     for contract in task.get("plan_contracts") or []:
         cid = contract.get("id")
         if not isinstance(cid, str):
@@ -386,6 +889,7 @@ def _artifact(
     lens: str, task: dict, report: dict, scope: list[str], base_sha: str,
     tip_sha: str, skills_used: list[str], all_tasks: list[dict],
     started: dict[str, str], excluded: tuple[str, ...] = HARNESS_PREFIXES,
+    *, verdict_texts: list[str] | None = None,
 ) -> dict:
     findings = [
         f for f in report.get("findings", [])
@@ -399,8 +903,8 @@ def _artifact(
                          str(report.get("overall_explanation", "")).strip())
     summary = (
         f"{lens} lens over {task.get('id')} ({len(scope)} product path(s), "
-        f"{base_sha[:7]}..{tip_sha[:7]}, Codex via the autoreview skill at "
-        f"--max-priority P2): {len(blocking)} blocking, {len(non_blocking)} "
+        f"{base_sha[:7]}..{tip_sha[:7]}, Codex via the autoreview skill): "
+        f"{len(blocking)} blocking, {len(non_blocking)} "
         f"non-blocking. {explanation}"
     ).strip()[:3000]
     artifact = {
@@ -416,7 +920,7 @@ def _artifact(
     }
     if lens == "quality":
         artifact["contract_verdicts"] = _contract_verdicts(
-            task, report, all_tasks, started)
+            task, report, all_tasks, started, verdict_texts=verdict_texts)
     return artifact
 
 
@@ -523,16 +1027,22 @@ def _close_codex_run(root: Path, run_id: str, returncode) -> None:
 
 def _skill_argv(skill: Path, base_sha: str, prompt_rel: str, json_out: Path,
                 engine: str, max_priority: str) -> list[str]:
-    return [
+    argv = [
         sys.executable, str(skill), "--mode", "branch", "--base", base_sha,
         "--engine", engine, "--max-priority", max_priority,
-        "--prompt-file", prompt_rel, "--json-output", str(json_out),
+        "--prompt-file", prompt_rel, "--dataset", REVIEW_DATASET_REL,
+        "--json-output", str(json_out),
     ]
+    if engine == "codex":
+        argv.extend([
+            "--model", CODEX_REVIEW_MODEL, "--thinking", CODEX_REVIEW_THINKING,
+        ])
+    return argv
 
 
 def _run_skill(skill: Path, worktree: Path, base_sha: str, prompt_rel: str,
                json_out: Path, engine: str, max_priority: str,
-               ledger_root: Path | None = None) -> dict:
+               ledger_root: Path | None = None, *, return_raw: bool = False):
     argv = _skill_argv(skill, base_sha, prompt_rel, json_out, engine, max_priority)
     # The ledger goes to the REPO's control dir: the review worktree is removed
     # when the review ends and its control dir pruned with it, so rows written
@@ -560,154 +1070,12 @@ def _run_skill(skill: Path, worktree: Path, base_sha: str, prompt_rel: str,
         fail(f"autoreview exited {returncode} for {prompt_rel}; see its output above")
     if not json_out.is_file():
         fail(f"autoreview produced no JSON for {prompt_rel} (the run aborted?)")
-    return json.loads(json_out.read_text(encoding="utf-8"))
-
-
-def lenses_may_run_together(skill: Path) -> tuple[bool, str]:
-    """Whether three copies of the review skill can start at once.
-
-    The skill scans every outgoing review pack with TruffleHog, and TruffleHog
-    checks for a newer release on every start and swaps its own binary in
-    place. Three lenses launched together are three scanners starting within
-    the same second: on Windows the second and third find the binary locked,
-    exit non-zero, and the skill's `--fail-on-scan-errors` turns that into
-    "could not complete the scan" -- the lens dies and the close with it (two
-    closes on WF-1 T3, 2026-09-12). Upstream fixed it twice: `--no-update`
-    on the scanner (2026-08-27), then no scanner at all (2026-09-08). A copy
-    installed before that still collides, so it is read here rather than
-    assumed: until `forge doctor --fix` refreshes it, the lenses run one at
-    a time -- slow, but never a dead close.
-    """
+    raw = json_out.read_bytes()
     try:
-        text = skill.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        return False, f"cannot read the review skill at {skill}: {exc}"
-    if "trufflehog" not in text.lower():
-        return True, "the review skill runs no scanner that could collide"
-    # The scan is one argv list starting at the resolved binary; the update
-    # flag has to sit inside that same call, not anywhere in the file.
-    start = text.find("trufflehog_bin,")
-    if start < 0:
-        start = text.lower().find("trufflehog")
-    window = text[start:start + 2500]
-    end = window.find("]")
-    call = window[:end] if end > 0 else window
-    if "--no-update" in call:
-        return True, "the review skill runs TruffleHog with --no-update"
-    return False, ("the installed review skill lets TruffleHog self-update on "
-                   "every start, and three scanners starting together collide "
-                   "on its binary; `forge doctor --fix` refreshes the skill "
-                   "(upstream passed --no-update on 2026-08-27 and dropped the "
-                   f"scanner on 2026-09-08); the scan call is in {skill}"),
-
-
-def review_log_dir(base: Path, task_id: str) -> Path:
-    """Where each lens's streamed output lands when lenses run together.
-
-    Beside the run ledger in git's control directory, not under .factory/:
-    nothing in the product tree changes, so a review never dirties the
-    working copy or needs an ignore rule.
-    """
-    return codex_runs_path(base).parent / "review-logs" / task_id
-
-
-def review_log_path(base: Path, task_id: str, lens: str) -> Path:
-    return review_log_dir(base, task_id) / f"{lens}.log"
-
-
-def run_lenses(skill: Path, worktree: Path, base_sha: str, lenses: list[str],
-               prompts: dict[str, tuple[str, bytes]], tmp: Path, engine: str,
-               max_priority: str, *, parallel: bool, log_dir: Path,
-               ledger_root: Path | None = None,
-               heartbeat_every: float = 60.0) -> dict[str, dict]:
-    """Release every lens and return its report, keyed by lens.
-
-    Sequential keeps the old shape: one lens at a time, stdio inherited so the
-    skill's heartbeat is the watch. Parallel launches all of them at once --
-    each with its own ledger row, pid, prompt, output file and log -- and
-    prints one combined heartbeat. Nothing downstream needs one lens before
-    another; the artifacts are recorded only after all have returned. If one
-    lens crashes the others are still waited for and reaped, then the failure
-    names the lens and its log, so a crash never orphans a running review.
-    """
-    if not parallel or len(lenses) == 1:
-        reports: dict[str, dict] = {}
-        for lens in lenses:
-            reports[lens] = _run_skill(
-                skill, worktree, base_sha, prompts[lens][0], tmp / f"{lens}.json",
-                engine, max_priority, ledger_root=ledger_root)
-        return reports
-
-    ledger = ledger_root or worktree  # same rule as _run_skill
-    log_dir.mkdir(parents=True, exist_ok=True)
-    launched: dict[str, dict] = {}
-    try:
-        for lens in lenses:
-            json_out = tmp / f"{lens}.json"
-            argv = _skill_argv(skill, base_sha, prompts[lens][0], json_out,
-                               engine, max_priority)
-            log = (log_dir / f"{lens}.log").open("wb")
-            run_id = _record_codex_run(ledger, prompts[lens][0], argv)
-            process = subprocess.Popen(
-                argv, cwd=worktree, stdout=log, stderr=subprocess.STDOUT,
-                env={**os.environ, "PYTHONUTF8": "1"})
-            _stamp_codex_run(ledger, run_id, pid=process.pid)
-            launched[lens] = {"process": process, "run_id": run_id, "log": log,
-                              "json": json_out, "started": time.monotonic(),
-                              "returncode": None}
-        print(f"lenses running together: {', '.join(lenses)} -- one heartbeat "
-              f"line per {int(heartbeat_every)}s; each lens's own output is in "
-              f"{log_dir.as_posix()}/<lens>.log", flush=True)
-
-        last_beat = time.monotonic()
-        while any(item["returncode"] is None for item in launched.values()):
-            for lens, item in launched.items():
-                if item["returncode"] is not None:
-                    continue
-                code = item["process"].poll()
-                if code is None:
-                    continue
-                item["returncode"] = code
-                _close_codex_run(ledger, item["run_id"], code)
-                item["log"].close()
-                took = int(time.monotonic() - item["started"])
-                print(f"== {lens} lens finished (exit {code}, {took}s) ==", flush=True)
-            now = time.monotonic()
-            if now - last_beat >= heartbeat_every:
-                last_beat = now
-                status = " · ".join(
-                    f"{lens} {int(now - item['started'])}s"
-                    for lens, item in launched.items() if item["returncode"] is None)
-                print(f"review still running: {status}", flush=True)
-            time.sleep(1.0)
-    finally:
-        # A KeyboardInterrupt or a fail() above must not leave lenses running.
-        for lens, item in launched.items():
-            if item["returncode"] is None:
-                try:
-                    item["process"].terminate()
-                except OSError:
-                    pass
-                _close_codex_run(ledger, item["run_id"], None)
-            try:
-                item["log"].close()
-            except OSError:
-                pass
-
-    crashed = [lens for lens, item in launched.items()
-               if item["returncode"] not in (0, 1)]  # 1 == findings, not an error
-    if crashed:
-        where = ", ".join(f"{lens} (exit {launched[lens]['returncode']}, "
-                          f"{(log_dir / f'{lens}.log').as_posix()})" for lens in crashed)
-        fail(f"autoreview crashed on {where}; the other lens(es) finished and "
-             "were reaped. Read the log, fix the cause, rerun the review.")
-    reports = {}
-    for lens, item in launched.items():
-        if not item["json"].is_file():
-            fail(f"autoreview produced no JSON for the {lens} lens (the run "
-                 f"aborted?); see {(log_dir / f'{lens}.log').as_posix()}")
-        reports[lens] = json.loads(item["json"].read_text(encoding="utf-8"))
-    return reports
+        parsed = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        fail(f"autoreview produced invalid UTF-8 JSON for {prompt_rel}: {exc}")
+    return (parsed, raw) if return_raw else parsed
 
 
 def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
@@ -720,9 +1088,11 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
     `cite` names the decision, plan line or sealed contract. The finding stays
     in the artifact under `rejected_findings` with the reason, so the record
     shows what was raised and why it did not block."""
-    from factory_lib import append_ledger_record, dump_json, now_iso
-    from .lessons import lessons_path, load_lessons
-    from .stages import load_stages, stamp_stage_review
+    from factory_lib import (
+        effective_review_base, now_iso, product_delta_digest,
+        publish_review_generation, read_selected_review_generation,
+        review_finding_fingerprint,
+    )
 
     if lens not in LENSES:
         fail(f"--lens must be one of {', '.join(LENSES)}")
@@ -741,20 +1111,17 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
              "task whose stage is DONE (never this task's own or a pending task's), "
              "or a `## ` section of the story plan; a finding no settled text "
              "contradicts is a defect to fix, not to reject.")
-    rel = f"reviews/{lens}.json"
-    path = proof_path(base, story, rel, task_id=task_id)
-    artifact = load_json(path, default={})
-    if not artifact:
-        fail(f"no recorded {lens} review for {task_id}; run `forge review {task_id}`")
-    if artifact.get("task_id") not in (None, task_id):
-        fail(f"the recorded {lens} review belongs to task {artifact.get('task_id')}, "
-             f"not {task_id}; rerun `forge review {task_id}` first")
-    # A finding on a tree that is no longer the branch's is not this diff's
-    # finding: refuse before touching the record, so a rejection can never
-    # be applied to an artifact the next review will overwrite anyway.
-    if artifact.get("branch_diff_digest") != branch_diff_digest(base):
-        fail(f"the recorded {lens} review predates the current branch diff; run "
-             f"`forge review {task_id}` on this tree, then reject what it raises")
+    delta_id = product_delta_digest(base, effective_review_base(base, task_id))
+    generation, selection, problems = read_selected_review_generation(
+        base, story, task_id, expected_delta_id=delta_id,
+    )
+    if problems or not isinstance(generation, dict) or not isinstance(selection, dict):
+        fail("cannot reject from selected proof: " + "; ".join(
+            problems or ["no selected complete review generation"]
+        ))
+    if generation.get("origin") not in {"combined", "rejection"}:
+        fail("review rejection requires the selected combined or rejection generation")
+    artifact = generation["lenses"][lens]
     needle = match.strip().lower()
     hits = [f for f in artifact.get("blocking_findings") or []
             if needle in json.dumps(f).lower()]
@@ -770,20 +1137,9 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
              "finding it sets aside. Cite the decision, contract or section that "
              "actually contradicts it, or fix the finding.")
     at = now_iso()
-    artifact["blocking_findings"] = [
-        f for f in artifact["blocking_findings"] if f is not finding]
-    artifact.setdefault("rejected_findings", []).append({
-        "finding": finding, "reason": reason.strip(), "cite": cite.strip(),
-        "rejected_at": at, "rejected_by": by.strip(), "task_id": task_id,
-    })
-    blocking = len(artifact["blocking_findings"])
-    non_blocking = len(artifact.get("non_blocking_findings") or [])
-    artifact["score"] = _score(blocking, non_blocking)
-    artifact["recommendation"] = _recommendation(blocking, non_blocking)
-    dump_json(proof_path(base, story, rel, task_id=task_id, for_write=True), artifact)
+    candidate = copy.deepcopy(generation)
+    candidate.pop("generation_id")
     area = str(finding.get("area", "")).strip() if isinstance(finding, dict) else ""
-    # `area` is a directory for structured findings; a file-shaped value (an
-    # extension in its last segment) is kept as the file itself.
     if not area:
         applies_to = ["**"]
     elif "." in area.rsplit("/", 1)[-1]:
@@ -796,44 +1152,79 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
         "topic": f"rejected-review-finding-{lens}",
         "lesson": f"Not a defect ({cite.strip()}): {reason.strip()} — raised as "
                   f"\"{summary}\"",
-        "source": f"review reject {task_id} {lens} at {at}",
+        "source": f"review reject {task_id} {lens}",
         "applies_to": applies_to,
         "severity": "medium",
         "generated_by": by.strip(),
-        "added_at": at,
     }
-    existing = load_lessons(base)
-    if not any(l.get("lesson", "").strip().lower() == lesson["lesson"].lower()
-               for l in existing):
-        record_id = f"{at.replace(':', '').replace('-', '')}-{lesson['topic']}"
-        append_ledger_record(lessons_path(base), lesson, record_id)
+    lesson_body = (json.dumps(
+        lesson, indent=2, sort_keys=True, ensure_ascii=False,
+    ) + "\n").encode("utf-8")
+    lesson_sha = hashlib.sha256(lesson_body).hexdigest()
+    lesson_rel = f"plans/lessons/review-rejection-{lesson_sha}.json"
+    history = copy.deepcopy((generation.get("rejection") or {}).get("history") or [])
+    history.append({
+        "finding_fingerprint": review_finding_fingerprint(finding),
+        "reason": reason.strip(), "citation": cite.strip(), "actor": by.strip(),
+        "lesson_path": lesson_rel, "lesson_sha256": lesson_sha,
+    })
+    candidate.pop("rejection", None)
+    candidate.pop("upgrade", None)
+    candidate["origin"] = "rejection"
+    candidate["recorded_at"] = at
+    candidate["rejection"] = {
+        "source_generation_id": generation["generation_id"],
+        "source_generation_sha256": selection["generation_sha256"],
+        "root_generation_id": (generation.get("rejection") or {}).get(
+            "root_generation_id", generation["generation_id"]),
+        "history": history,
+    }
+    updated = candidate["lenses"][lens]
+    updated["blocking_findings"] = [
+        f for f in updated["blocking_findings"] if f != finding]
+    updated.setdefault("rejected_findings", []).append({
+        "finding": finding, "reason": reason.strip(), "cite": cite.strip(),
+        "rejected_at": at, "rejected_by": by.strip(), "task_id": task_id,
+    })
+    blocking = len(updated["blocking_findings"])
+    non_blocking = len(updated.get("non_blocking_findings") or [])
+    updated["score"] = _score(blocking, non_blocking)
+    updated["recommendation"] = _recommendation(blocking, non_blocking)
+    publish_review_generation(
+        base, story, task_id, candidate,
+        expected_source_id=generation["generation_id"], update_stamp=True,
+        lesson_records=[(lesson_rel, lesson_body)],
+    )
     print(f"Rejected {lens} finding: {summary}\n  reason: {reason.strip()}\n  "
           f"cite: {resolved} (shared terms: {', '.join(shared[:4])})\n  "
           f"ledgered as a lesson for {', '.join(applies_to)}")
-    # A rejection only ever REMOVES one finding; it stamps the stage only when
-    # the review set is complete and current — every lens recorded for THIS
-    # task on THIS branch diff — so a lone lens or a stale run cannot seal.
-    problem = _review_set_problem(base, story, task_id)
-    stage = next((s for s in load_stages(base).get("stages", [])
-                  if s.get("id") == task_id), {})
-    if problem:
-        print(f"No stamp: {problem}")
-    elif stage.get("status") in ("active", "done"):
-        stamp_stage_review(base, task_id, lenses=LENSES)
-        print(f"No lens blocks any more; stage {task_id} review stamp recorded. "
-              + ("`./forge stage done` then " if stage.get("status") == "active" else "")
-              + f"`./forge task pr-ready {task_id}`.")
-    return artifact
+    if blocking:
+        print(f"No stamp: {blocking} blocking {lens} finding(s) remain")
+    else:
+        problem = _review_set_problem(base, story, task_id)
+        if problem:
+            print(f"No stamp: {problem}")
+        else:
+            from .stages import load_stages
+            stage = next((item for item in load_stages(base).get("stages", [])
+                          if item.get("id") == task_id), {})
+            print(f"No lens blocks any more; stage {task_id} review stamp recorded. "
+                  + ("`./forge stage done` then " if stage.get("status") == "active" else "")
+                  + f"`./forge task pr-ready {task_id}`.")
+    return updated
 
 
 def rejected_findings_report(base: Path, story: str, task_id: str) -> str:
     """Markdown for the PR body: every finding the task's review rejected on a
     citation, so the human merging sees what was set aside and why. A
     rejection is the coordinator's call; this is where a person checks it."""
+    from factory_lib import read_selected_review_generation
+    generation, _selection, problems = read_selected_review_generation(base, story, task_id)
+    if problems or not isinstance(generation, dict):
+        return ""
     lines: list[str] = []
     for lens in LENSES:
-        recorded = load_json(
-            proof_path(base, story, f"reviews/{lens}.json", task_id=task_id), default={})
+        recorded = generation["lenses"].get(lens, {})
         for entry in recorded.get("rejected_findings") or []:
             if not isinstance(entry, dict):
                 continue
@@ -852,26 +1243,15 @@ def rejected_findings_report(base: Path, story: str, task_id: str) -> str:
 
 
 def _review_set_problem(base: Path, story: str, task_id: str) -> str:
-    """Why the recorded lens artifacts cannot seal `task_id` right now — empty
-    when every lens is recorded for this task against the current branch diff
-    with no blocking finding left."""
-    current = branch_diff_digest(base)
-    for lens in LENSES:
-        recorded = load_json(
-            proof_path(base, story, f"reviews/{lens}.json", task_id=task_id), default={})
-        if not recorded:
-            return f"the {lens} lens is not recorded; run `forge review {task_id}`"
-        if recorded.get("task_id") != task_id:
-            return (f"the {lens} lens was recorded for "
-                    f"{recorded.get('task_id') or 'an earlier task'}; run "
-                    f"`forge review {task_id}`")
-        if recorded.get("branch_diff_digest") != current:
-            return (f"the {lens} lens predates the current branch diff; run "
-                    f"`forge review {task_id}` on this tree")
-        if recorded.get("blocking_findings"):
-            return (f"{len(recorded['blocking_findings'])} blocking {lens} "
-                    "finding(s) remain")
-    return ""
+    """Why the selected generation cannot seal this task; empty when clean."""
+    from factory_lib import (
+        effective_review_base, product_delta_digest, selected_review_problems,
+    )
+    problems = selected_review_problems(
+        base, story, task_id,
+        product_delta_digest(base, effective_review_base(base, task_id)),
+    )
+    return problems[0] if problems else ""
 
 
 def _cite_resolves(base: Path, story: str, cite: str, task_id: str = "") -> tuple[str, str]:
@@ -957,17 +1337,16 @@ def cmd_review(args: argparse.Namespace) -> None:
     outcome = review_task(
         base, args.id, lens=getattr(args, "lens", None),
         engine=getattr(args, "engine", "codex"),
-        max_priority=getattr(args, "max_priority", "P2"),
+        max_priority=getattr(args, "max_priority", "P3"),
         skill=getattr(args, "skill", None),
-        parallel=not getattr(args, "sequential", False),
     )
     print(_next_hint(args.id, outcome["stage_status"], outcome["blocking"],
                      outcome["caveats"]))
 
 
 def review_task(base: Path, task_id: str, *, lens: str | None = None,
-                engine: str = "codex", max_priority: str = "P2",
-                skill: str | None = None, parallel: bool | None = None) -> dict:
+                engine: str = "codex", max_priority: str = "P3",
+                skill: str | None = None) -> dict:
     """Release the three-lens review for one task and record its proof.
 
     Returns {"blocking", "caveats", "stamped", "stage_status"}. `cmd_review`
@@ -1003,9 +1382,8 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
     if not isinstance(story, str) or not story:
         fail("review requires an active story")
     for artifact in ("verify.json", "tests.json"):
-        # Proof follows the writer: a per-task run records under the task.
-        if not proof_read_path(base, story, artifact).is_file():
-            fail(f"{artifact} is not recorded for {story}; review runs after "
+        if not proof_path(base, story, artifact, task_id=args.id).is_file():
+            fail(f"{artifact} is not recorded for task {args.id}; review runs after "
                  "`python3 factory/scripts/verify.py` and "
                  "`record_test_from_json.py --kind automated`")
 
@@ -1020,8 +1398,21 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
     if not scope:
         fail(f"no product paths changed between {base_sha[:12]} and HEAD — nothing to review")
 
+    skill = resolve_skill(getattr(args, "skill", None))
+    engine = getattr(args, "engine", "codex")
+    if engine == "codex":
+        _require_safe_codex_review_helper(skill)
+    if not args.lens and args.max_priority != "P3":
+        fail("complete three-lens review requires --max-priority P3")
+
     # Mint the branch review run the recorder binds every artifact to.
-    cmd_review_brief(argparse.Namespace(id=None, all=True, repo=str(base)))
+    cmd_review_brief(argparse.Namespace(
+        id=None, all=True, repo=str(base), review_task=args.id,
+    ))
+    dataset_body = (base / REVIEW_DATASET_REL).read_bytes()
+    token = load_json(base / ".factory" / "stories" / story / "review-run.json", default={})
+    if token.get("task_id") != args.id:
+        fail("review-run token does not match the reviewed task")
 
     decomposition = load_json(protected_decomposition_state_path(base), default={})
     all_tasks = [t for t in decomposition.get("tasks") or [] if isinstance(t, dict)]
@@ -1030,19 +1421,22 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
         schema = json.loads(schema_path(base, "review").read_text(encoding="utf-8"))
         skills_used = list((schema.get("required_skills") or {}).get("user_facing", []))
 
-    skill = resolve_skill(getattr(args, "skill", None))
     lenses = [args.lens] if getattr(args, "lens", None) else list(LENSES)
     prompts: dict[str, tuple[str, bytes]] = {}
-    for lens in lenses:
-        rel = f"review-briefs/{args.id}.{lens}.md"
-        body = _lens_prompt(task, lens, base)
+    prompt_names = lenses if args.lens else ["combined"]
+    for name in prompt_names:
+        rel = f"review-briefs/{args.id}.{name}.md"
+        body = _lens_prompt(task, name, base) if args.lens else _combined_prompt(task)
         if not safe_factory_write_bytes(base, rel, body):
             fail(f"could not write .factory/{rel}")
-        prompts[lens] = (f".factory/{rel}", body)
+        prompts[name] = (f".factory/{rel}", body)
 
     tmp = Path(tempfile.mkdtemp(prefix="forge-review-"))
     worktree = tmp / "wt"
-    reports: dict[str, dict] = {}
+    reviewed: dict = {}
+    raw_result = b""
+    helper_before: dict[str, str] = {}
+    helper_file_before: tuple[int, int] = (0, 0)
     try:
         # A clean detached checkout at the task tip: the skill refuses to finish
         # if the reviewed tree changes mid-run, and the main tree is exactly
@@ -1051,94 +1445,128 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
         _require_git(base, "creating the review worktree", "worktree", "add",
                      "--detach", str(worktree), tip_sha)
         review_tip = product_only_tip(worktree, base_sha)
-        for lens in lenses:
-            rel, body = prompts[lens]
+        detached_writes = [(REVIEW_DATASET_REL, dataset_body), *prompts.values()]
+        for rel, _body in detached_writes:
             target = worktree / rel
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(body)
-        # Together by default: the lenses share nothing but the diff they
-        # read. FORGE_REVIEW_SEQUENTIAL=1 or --sequential restores one at a
-        # time (an account that rate-limits three sessions, or a debug run).
-        together = (parallel if parallel is not None
-                    else not os.environ.get("FORGE_REVIEW_SEQUENTIAL"))
-        if together and len(lenses) > 1:
-            together, why = lenses_may_run_together(skill)
-            if not together:
-                print(f"lenses run one at a time: {why}", flush=True)
-        for lens in lenses:
-            print(f"== {lens} lens: releasing Codex over {len(scope)} path(s) "
-                  f"({base_sha[:7]}..{review_tip[:7]}, task tip {tip_sha[:7]})"
-                  f"{' ==' if together and len(lenses) > 1 else ' — watch the heartbeat below =='}",
-                  flush=True)
-        reports = run_lenses(
-            skill, worktree, base_sha, lenses, prompts, tmp, args.engine,
-            args.max_priority, parallel=together,
-            log_dir=review_log_dir(base, args.id), ledger_root=base)
+            for index, path in enumerate((worktree / Path(*Path(rel).parts[:part]))
+                                         for part in range(1, len(Path(rel).parts) + 1)):
+                try:
+                    info = path.lstat()
+                except FileNotFoundError:
+                    continue
+                except OSError:
+                    fail(f"unsafe detached review destination: {target}")
+                leaf = index == len(Path(rel).parts) - 1
+                if ((leaf and (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1))
+                        or (not leaf and not stat.S_ISDIR(info.st_mode))):
+                    fail(f"unsafe detached review destination: {target}")
+        for rel, body in detached_writes:
+            factory_rel = Path(rel).relative_to(".factory").as_posix()
+            if not safe_factory_write_bytes(worktree, factory_rel, body):
+                fail(f"unsafe detached review destination: {worktree / rel}")
+        name = prompt_names[0]
+        print(f"== {name} review: releasing Codex over {len(scope)} path(s) "
+              f"({base_sha[:7]}..{review_tip[:7]}, task tip {tip_sha[:7]}) ==",
+              flush=True)
+        helper_before, helper_file_before = _helper_identity(skill)
+        result = _run_skill(
+            skill, worktree, base_sha, prompts[name][0], tmp / f"{name}.json",
+            engine, args.max_priority, ledger_root=base, return_raw=not args.lens,
+        )
+        if args.lens:
+            reviewed = result
+        else:
+            reviewed, raw_result = result
+        helper_after, helper_file_after = _helper_identity(skill)
+        if helper_after != helper_before or helper_file_after != helper_file_before:
+            fail("autoreview helper identity changed during the review; nothing published")
+        if head_sha(base) != tip_sha or _product_dirty(base) \
+                or product_delta_digest(base, base_sha) \
+                != token.get("branch_diff_digest"):
+            fail("task product changed during the review; nothing published")
     finally:
         _git(base, "worktree", "remove", "--force", str(worktree))
         _git(base, "worktree", "prune")
 
     recorder = base / "factory" / "scripts" / "record_review_from_json.py"
-    outcome: dict[str, dict] = {}
-    for lens in lenses:
-        artifact = _artifact(lens, task, reports[lens], scope, base_sha, tip_sha,
-                             skills_used, all_tasks, started, excluded)
-        # A rejection is part of the task's review record: a later round must
-        # not erase it (the ledgered lesson keeps the reviewer from re-raising
-        # it; the artifact keeps the human able to see it was set aside).
-        previous = load_json(
-            proof_path(base, story, f"reviews/{lens}.json", task_id=args.id), default={})
-        carried = [r for r in previous.get("rejected_findings") or []
-                   if isinstance(r, dict) and r.get("task_id") == args.id]
-        if carried:
-            artifact["rejected_findings"] = carried
-        payload = tmp / f"{lens}.artifact.json"
+    if args.lens:
+        artifact = _artifact(
+            args.lens, task, reviewed, scope, base_sha, tip_sha, skills_used,
+            all_tasks, started, excluded,
+        )
+        payload = tmp / f"{args.lens}.artifact.json"
         payload.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
         proc = subprocess.run(
-            [sys.executable, str(recorder), "--aspect", lens, "--task", args.id,
-             "--input", str(payload)],
-            cwd=base, capture_output=True, text=True, encoding="utf-8",
-            env={**os.environ, "PYTHONUTF8": "1"},
+            [sys.executable, str(recorder), "--aspect", args.lens, "--task", args.id,
+             "--input", str(payload)], cwd=base, capture_output=True, text=True,
+            encoding="utf-8", env={**os.environ, "PYTHONUTF8": "1"},
         )
         if proc.returncode != 0:
-            fail(f"recording the {lens} artifact failed:\n"
+            fail(f"recording the diagnostic {args.lens} artifact failed:\n"
                  f"{proc.stdout.strip()}\n{proc.stderr.strip()}")
-        outcome[lens] = artifact
+        recorded = {args.lens: artifact}
+    else:
+        from factory_lib import now_iso
+        from .stages import stage_baseline
+        artifacts = _project_combined_report(
+            task, reviewed, scope, base_sha, tip_sha, skills_used, all_tasks,
+            started, excluded,
+        )
+        for artifact in artifacts.values():
+            artifact.update({
+                "review_run_id": token.get("review_run_id"),
+                "brief_sha256": token.get("brief_sha256"),
+                "branch_diff_digest": token.get("branch_diff_digest"),
+                "commit": tip_sha,
+            })
+        prompt_body = prompts["combined"][1]
+        candidate = {
+            "format": "forge-review-generation/v1", "origin": "combined",
+            "generated_by": "autoreview", "story": story, "task_id": args.id,
+            "review_run_id": token.get("review_run_id"),
+            "brief_sha256": token.get("brief_sha256"),
+            "inspected_commit": tip_sha,
+            "delta_id": token.get("branch_diff_digest"),
+            "helper": helper_before,
+            "input": {"sha256": hashlib.sha256(prompt_body).hexdigest(),
+                      "bytes": len(prompt_body)},
+            "raw_result": {"encoding": "base64",
+                           "sha256": hashlib.sha256(raw_result).hexdigest(),
+                           "bytes": len(raw_result),
+                           "data": base64.b64encode(raw_result).decode("ascii")},
+            "lenses": artifacts, "recorded_at": now_iso(),
+        }
+        payload = tmp / "combined.generation.json"
+        payload.write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
+        proc = subprocess.run(
+            [sys.executable, str(recorder), "--set", "--task", args.id,
+             "--input", str(payload)], cwd=base, capture_output=True, text=True,
+            encoding="utf-8", env={
+                **os.environ, "PYTHONUTF8": "1", "AUTOREVIEW": str(skill.resolve()),
+            },
+        )
+        if proc.returncode != 0:
+            fail(f"recording the combined review generation failed:\n"
+                 f"{proc.stdout.strip()}\n{proc.stderr.strip()}")
+        recorded = artifacts
     shutil.rmtree(tmp, ignore_errors=True)
 
-    # Count what was RECORDED, not what was composed. The recorder turns a
-    # partial or missing contract verdict into a blocking finding, and CI
-    # reads the recorded file; counting the pre-record artifact printed
-    # "blocking=0", stamped the stage, and let CI refuse it (WF-1 T2).
-    blocking_total, caveats_total, recorded = recorded_review_totals(
-        base, story, args.id, lenses)
+    blocking_total = sum(len(a.get("blocking_findings") or []) for a in recorded.values())
+    caveats_total = sum(len(a.get("non_blocking_findings") or []) for a in recorded.values())
     for lens, artifact in recorded.items():
         print(f"{lens:<12} score {str(artifact.get('score', '?')):>2}  "
               f"{str(artifact.get('recommendation', '')):<21}"
               f" blocking={len(artifact.get('blocking_findings') or [])} "
               f"non-blocking={len(artifact.get('non_blocking_findings') or [])}")
-    print(f"Recorded {len(outcome)} review artifact(s) for {args.id} under "
-          f".factory/stories/{story}/reviews/.")
-    # ONE review per task: a run with no blocking finding is the stage's review
-    # stamp as well (bound to this exact tree), so `stage done` and
-    # `task pr-ready` seal on it; no separate stage-local autoreview loop.
-    if not blocking_total and len(lenses) == len(LENSES):
-        from .stages import stamp_stage_review
-        stamp_stage_review(base, args.id, lenses=lenses)
-        print(f"Stage {args.id} review stamp recorded (tree "
-              f"{tip_sha[:12]}; {len(lenses)} lenses).")
-    elif not blocking_total:
-        print(f"NOTE: a single-lens run does not stamp the stage; run all lenses "
-              f"(`./forge review {args.id}`) for the seal.")
+    if args.lens:
+        print(f"Recorded one diagnostic {args.lens} artifact for {args.id}; selected "
+              "proof and its stamp are unchanged.")
     else:
-        # A blocking review on a tree an earlier run stamped clean revokes that
-        # stamp: the seal must reflect the latest verdict, not the first.
-        from .stages import revoke_stage_review_stamp
-        if revoke_stage_review_stamp(base, args.id):
-            print(f"Stage {args.id}'s earlier review stamp revoked: this run blocks.")
+        print(f"Published one complete review generation for {args.id}; selected.json "
+              "was replaced after generation readback.")
     return {
         "blocking": blocking_total,
         "caveats": caveats_total,
-        "stamped": bool(not blocking_total and len(lenses) == len(LENSES)),
+        "stamped": bool(not args.lens and not blocking_total),
         "stage_status": str(started.get(args.id)),
     }
