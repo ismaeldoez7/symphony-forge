@@ -10,7 +10,7 @@ from pathlib import Path
 from factory_lib import (
     client_signoff, evidence_path, head_sha, load_json, load_review_artifacts,
     repo_root, require_all_stages_done, require_coherent_review_run,
-    requirements_digest, run_state_path, task_frontier_state,
+    requirements_digest_matches, run_state_path, task_frontier_state,
     proof_read_path,
 )
 
@@ -437,7 +437,9 @@ def cmd_next(args: argparse.Namespace) -> None:
             and requirements_grill.get("verdict") == "pass"
             and requirements_grill.get("commit")
             and requirements_grill.get("issue") == issue
-            and requirements_grill.get("input_sha256") == requirements_digest(base, spec)
+            and requirements_digest_matches(
+                base, spec, requirements_grill.get("input_sha256"),
+            )
         )
         if not requirements_fresh:
             if native_coordinator:

@@ -3726,13 +3726,31 @@ def _product_tree_digest_now(root: Path, treeish: str,
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def requirements_digest(root: Path, spec_path: Path) -> str:
-    """Bind a confirmed spec body to the current product tree."""
+def _requirements_digest(root: Path, spec_path: Path,
+                         exclude: tuple[str, ...]) -> str:
     raw = spec_path.read_bytes()
     frontmatter = re.match(br"\A---\r?\n.*?\r?\n---\r?\n", raw, re.DOTALL)
     body = raw[frontmatter.end():] if frontmatter else raw
-    payload = body + b"\x00" + product_tree_digest(root).encode("ascii")
+    payload = body + b"\x00" + product_tree_digest(
+        root, exclude=exclude,
+    ).encode("ascii")
     return hashlib.sha256(payload).hexdigest()
+
+
+def requirements_digest(root: Path, spec_path: Path) -> str:
+    """Bind a confirmed spec body to the current product tree."""
+    return _requirements_digest(root, spec_path, product_excluded_prefixes(root))
+
+
+def requirements_digest_matches(root: Path, spec_path: Path, recorded: str) -> bool:
+    """Accept current requirements proof and proof made with old exclusions."""
+    if not recorded:
+        return False
+    if recorded == requirements_digest(root, spec_path):
+        return True
+    return recorded == _requirements_digest(
+        root, spec_path, (".factory/", "plans/"),
+    )
 
 
 GROUNDING_CONTRACT_FIELDS = (
