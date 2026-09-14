@@ -1,8 +1,8 @@
 {
-  "commit": "d640f934d1474482d67143f469cc5bb8e2c82814",
+  "commit": "05772e2d3318dbe79b3711ec8be9d597db5c017f",
   "automated": {
     "generated_by": "implementer",
-    "status": "pass",
+    "status": "passed",
     "summary": "Eight tests pin both directions of the requirements gate's freshness. The exclusion is asserted as a SET against product_excluded_prefixes rather than one example path, so the next list to drift is caught. A decision record and the context ledger no longer stale a recorded pass; editing the confirmed spec body and changing a real product file both still do, so the gate is corrected rather than disabled. A pass recorded under the old exclusions is still accepted, which is what stops this change reinterpreting every in-flight story as stale at once. Both consumers are asserted to resolve through the shared helper, and the prefix gates and the pre-stage task grill are asserted unchanged.",
     "blocking_findings": [],
     "commands_run": [
@@ -32,8 +32,8 @@
     "non_blocking_findings": [],
     "residual_risks": [],
     "manual_validation_steps": [],
-    "recorded_at": "2026-09-14T13:32:49+00:00",
-    "commit": "d640f934d1474482d67143f469cc5bb8e2c82814"
+    "recorded_at": "2026-09-14T14:12:11+00:00",
+    "commit": "05772e2d3318dbe79b3711ec8be9d597db5c017f"
   },
-  "updated_at": "2026-09-14T13:32:49+00:00"
+  "updated_at": "2026-09-14T14:12:11+00:00"
 }
