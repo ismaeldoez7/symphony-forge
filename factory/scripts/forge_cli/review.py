@@ -1772,10 +1772,12 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
               f"({base_sha[:7]}..{review_tip[:7]}, task tip {tip_sha[:7]}) ==",
               flush=True)
         helper_before, helper_file_before = _helper_identity(skill)
+        # The launcher travels only when there is one, so a runner that knows
+        # nothing of it (a test double, an older override) keeps working.
         result = _run_skill(
             skill, worktree, base_sha, prompts[name][0], tmp / f"{name}.json",
             engine, args.max_priority, ledger_root=base, return_raw=not args.lens,
-            codex_bin=codex_bin,
+            **({"codex_bin": codex_bin} if codex_bin else {}),
         )
         if args.lens:
             reviewed = result

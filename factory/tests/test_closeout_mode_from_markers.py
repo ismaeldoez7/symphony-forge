@@ -88,3 +88,46 @@ def test_the_pointer_field_still_wins_inside_a_task_worktree(repo, tmp_path):
     pointer["base_main_sha"] = git(repo, "rev-parse", "origin/main")
     (control / "run.json").write_text(json.dumps(pointer))
     assert run_is_task_level(repo) is True
+
+
+def test_an_adopted_marker_closes_without_proof_and_readopt_makes_one(repo, tmp_path):
+    """The PR gate and the frontier already accept a `reconciled` marker without
+    proof; closeout must agree, or a story of adopted tasks never closes. And a
+    task whose trunk marker is real but whose proof predates the current
+    predicate (WF-1 after the review-generation change) is re-adopted with
+    `forge task reconcile --readopt`, reason on the timeline."""
+    from test_gates import fake_gh_env, story_state
+    from factory_lib import task_proof_problems
+    from forge_cli.events import load_events
+    _two_task_story(repo, tmp_path)
+    git(repo, "config", "user.email", "test@knacklabs.dev")
+    git(repo, "config", "user.name", "Gate Tests")
+    tasks = json.loads((delegation_ledger(repo).parent / "decomposition.json").read_text())["tasks"]
+    t1 = next(t for t in tasks if t["id"] == "T1")
+    publish_task_marker(repo, "ENG-1", "T1")           # a real marker on the trunk ...
+    marker = story_state(repo) / "tasks" / "T1" / "pr-ready.json"
+    payload = json.loads(marker.read_text())
+    payload.pop("reconciled")                           # ... sealed, not adopted
+    marker.write_text(json.dumps(payload) + "\n")
+    git(repo, "add", marker.relative_to(repo).as_posix())
+    git(repo, "commit", "-q", "-m", "seal T1")
+    git(repo, "push", "-q", "origin", "HEAD:main")
+    assert any("T1" in p for p in task_proof_problems(repo, "ENG-1", t1))
+
+    gh_env, _argv = fake_gh_env(tmp_path)
+    code, out = run(repo, "forge.py", "task", "reconcile", "T1", "--readopt", "short",
+                    env=gh_env)
+    assert code != 0 and "a dozen characters" in out, out
+    code, out = run(repo, "forge.py", "task", "reconcile", "T1",
+                    "--readopt", "proof predates the review-generation format", env=gh_env)
+    assert code == 0, out
+    readopted = json.loads(marker.read_text())
+    assert readopted == {**payload, "reconciled": True}  # identity untouched
+    assert marker.relative_to(repo).as_posix() in git(
+        repo, "show", "--name-only", "--format=", "HEAD")
+    assert "re-adopted" in git(repo, "log", "-1", "--format=%s")
+    assert any("re-adopted: proof predates" in str(e.get("detail", ""))
+               for e in load_events(repo) if e.get("event") == "stage-reconciled")
+    # Committed and adopted: closeout asks this task for no proof at all.
+    assert task_proof_problems(repo, "ENG-1", t1) == []
+    assert not any("T1" in p for p in require_closeout_order(repo))

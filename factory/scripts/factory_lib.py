@@ -2128,6 +2128,13 @@ def task_proof_problems(
         )
         if marker_problem:
             return [marker_problem]
+        # An ADOPTED marker (`forge task reconcile`) is work that reached the
+        # trunk before the harness could prove it. The PR gate
+        # (check_task_proof) and the frontier (task_marker_on_main) already
+        # accept it without proof; story closeout must say the same, or a story
+        # of adopted tasks can never close (WF-1, 2026-09-14).
+        if marker_context is not None and marker_context.get("reconciled") is True:
+            return []
 
     expected_head = inspected_head or head_sha(root) or ""
     proof_base = ""
@@ -2350,7 +2357,23 @@ def require_closeout_order(root: Path) -> list[str]:
     # decomposition-level key, so reading one silently found nothing and the
     # gate passed everything.
     from forge_cli.review_brief import declared_contracts
-    declared = [c["id"] for c in declared_contracts(decomposition)]
+    # An adopted task (committed `reconciled` marker) is accepted without proof,
+    # its contracts included: there is no quality review of it to read.
+    adopted: set[str] = set()
+    for t in tasks:
+        task_id = str(t.get("id") or "")
+        try:
+            committed = _read_git_json(
+                root, f".factory/stories/{key}/tasks/{task_id}/pr-ready.json", "HEAD")
+        except SystemExit:
+            committed = None
+        if isinstance(committed, dict) and committed.get("reconciled") is True:
+            adopted.add(task_id)
+    declared = [
+        c["id"] for t in tasks if str(t.get("id") or "") not in adopted
+        for c in t.get("plan_contracts") or []
+        if isinstance(c, dict) and isinstance(c.get("id"), str)
+    ] if adopted else [c["id"] for c in declared_contracts(decomposition)]
     if declared:
         # A contract is verified wherever the proof for it actually lives: in a
         # task-level run that is the owning task's quality review, in a

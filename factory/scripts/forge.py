@@ -296,6 +296,12 @@ def main() -> None:
         help="the task's original branch for the marker (default: "
              "feat/<story>-<task>)",
     )
+    p_task_reconcile.add_argument(
+        "--readopt", metavar="REASON",
+        help="the task's marker is already on the trunk but its recorded proof "
+             "cannot satisfy the current proof predicate (a proof-format change, "
+             "or proof that never reached the trunk): re-mark that marker adopted, "
+             "with REASON on the timeline, so closeout reads it as adopted work")
     p_task_reconcile.add_argument("--repo")
     p_task_reconcile.set_defaults(func=tasks_mod.cmd_task_reconcile)
     p_task_plan = task_sub.add_parser("plan", help="manage a task plan")
