@@ -57,8 +57,15 @@ VERDICT_LINE = re.compile(
 DEFAULT_SKILL = Path.home() / ".codex" / "skills" / "autoreview" / "scripts" / "autoreview"
 CODEX_REVIEW_MODEL = "gpt-5.6-sol"
 CODEX_REVIEW_THINKING = "high"
+# Terra is retired, so the review must never fall back to it. The helper ships
+# DEFAULT_CODEX_ACCESS_FALLBACK_MODEL = "gpt-5.6-terra" and selects it whenever
+# codex runs on its own default model with no fallback override. Pinning the
+# fallback to the review model removes that branch: the helper takes our value
+# and never reaches its own default.
+CODEX_REVIEW_FALLBACK = f"codex={CODEX_REVIEW_MODEL}"
 CODEX_HELPER_FIX = (
-    "Update the selected autoreview helper to a version without Codex Terra fallback"
+    "the review must pin its Codex fallback so the retired Terra model cannot be "
+    "selected"
 )
 
 COMMON_PREAMBLE = """\
@@ -152,14 +159,28 @@ def resolve_skill(explicit: str | None) -> Path:
     raise AssertionError("unreachable")
 
 
-def _require_safe_codex_review_helper(skill: Path) -> None:
-    try:
-        source = skill.read_text(encoding="utf-8")
-    except (OSError, UnicodeError):
-        fail(f"{CODEX_HELPER_FIX}: could not read {skill}")
-    if ("DEFAULT_CODEX_ACCESS_FALLBACK_MODEL" in source
-            or "gpt-5.6-terra" in source):
-        fail(CODEX_HELPER_FIX)
+def _require_safe_codex_review_helper(argv: list[str]) -> None:
+    """Terra must not be reachable for a review.
+
+    This used to scan the helper's SOURCE for "gpt-5.6-terra" or its fallback
+    constant and refuse the helper outright. The shipped helper carries that
+    constant as an access-only retry it selects only when codex runs on its own
+    default model, so the scan refused every published version and blocked the
+    review gate entirely — no available helper could satisfy it.
+
+    What matters is whether Terra can be SELECTED, and that is decided by the
+    argv we build. Pinning --fallback-model to the review model means the
+    helper uses ours and never reaches its own default, whatever its source
+    happens to contain.
+    """
+    if "--fallback-model" not in argv:
+        fail(f"{CODEX_HELPER_FIX}: no --fallback-model in the review argv")
+    fallback = argv[argv.index("--fallback-model") + 1]
+    if "terra" in fallback.lower() or fallback != CODEX_REVIEW_FALLBACK:
+        fail(f"{CODEX_HELPER_FIX}: fallback is {fallback!r}, "
+             f"expected {CODEX_REVIEW_FALLBACK!r}")
+    if any("terra" in part.lower() for part in argv):
+        fail(f"{CODEX_HELPER_FIX}: a retired model appears in the review argv")
 
 
 def _helper_identity(skill: Path) -> tuple[dict[str, str], tuple[int, int]]:
@@ -1036,7 +1057,9 @@ def _skill_argv(skill: Path, base_sha: str, prompt_rel: str, json_out: Path,
     if engine == "codex":
         argv.extend([
             "--model", CODEX_REVIEW_MODEL, "--thinking", CODEX_REVIEW_THINKING,
+            "--fallback-model", CODEX_REVIEW_FALLBACK,
         ])
+        _require_safe_codex_review_helper(argv)
     return argv
 
 
@@ -1400,8 +1423,10 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
 
     skill = resolve_skill(getattr(args, "skill", None))
     engine = getattr(args, "engine", "codex")
-    if engine == "codex":
-        _require_safe_codex_review_helper(skill)
+    # The Terra check now inspects the argv each lens is launched with, in
+    # _skill_argv, where the fallback is pinned. Checking it here would only
+    # re-read the helper's source, which is what blocked every published
+    # version of it.
     if not args.lens and args.max_priority != "P3":
         fail("complete three-lens review requires --max-priority P3")
 

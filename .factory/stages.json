@@ -4,14 +4,12 @@
     {
       "id": "GATES-1-T1",
       "title": "A question round belongs to its gate and story",
-      "status": "done",
-      "task_sha256": "9b16215dc5a5621a18ee9a46e05704d8125144efb717c50dbe051f6f36efb371"
+      "status": "done"
     },
     {
       "id": "GATES-1-T2",
       "title": "Both grill guards read the ledger the same way",
-      "status": "done",
-      "task_sha256": "d1f7831fa00339af6830472898f9197c411ec58237da4ffa5c03c8107e76f2df"
+      "status": "done"
     },
     {
       "id": "GATES-1-T3",
