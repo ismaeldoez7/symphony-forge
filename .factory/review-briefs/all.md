@@ -42,7 +42,7 @@ For each contract, emit a verdict — implemented | partial | missing — with f
 - Review the complete accumulated task delta against every acceptance criterion and constitution/09-agent-conduct.md sections 2 through 4. Treat every prior marker, review-brief, structured-patch, raw-exec, symlink-skip, compatibility-leftover, and lens-tag finding as blocking history and require each to be closed.
 - For the final shell correction, require no `active_group_boundary` helper and require the exact `(?<![\w=(@?!+*$])\(\s*` alternative in CODEX_EXEC_INVOCATION, the literal `f(){(codex exec x);}; f` denial and its nested-$() counterpart. Preserve the depth-aware frames, quote, escape, nested-substitution and backtick handling, the complete exec option grammar, and `_wrapped_codex_exec` exactly as at c462478 without a generic shell parser.
 - Require the check_task_proof proof_problems docstring to describe selected task proof plus the marker-bound upgrade exception with no legacy-fallback claim. Require no public `forge delegate --effort` surface or dead override branch while preserving harness-derived Sol/medium and internal companion/runtime effort argv. Require the shared proof predicate to expose only the live marker parameter, with no discarded compatibility readers or CI closures, while preserving valid origin=upgrade migration provenance and validation.
-- Require any complete secondary lens tag token at the beginning, middle, or end of the normalized title to refuse across whitespace variants, while plain and custom-bracket titles remain valid. Require `_combined_prompt` to retain every combined lens/marker/verdict instruction and accurately point to the target Plan contracts and Reviewer focus in mandatory `all.md`, where the complete task section occurs exactly once; standalone lens prompts, helper argv, full dataset, full diff, and provider semantics remain unchanged. Keep the post-499c358 ten-path cumulative repair at exactly 378 changed lines.
+- Require any complete secondary lens tag token at the beginning, middle, or end of the normalized title to refuse across whitespace and punctuation adjacency, while plain, custom, and similar bracketed titles remain valid. Require `_combined_prompt` to retain every combined lens/marker/verdict instruction and accurately point to the target Plan contracts and Reviewer focus in mandatory `all.md`, where the complete task section occurs exactly once; standalone lens prompts, helper argv, full dataset, full diff, and provider semantics remain unchanged. Keep the post-499c358 ten-path cumulative repair at exactly 380 changed lines.
 - Keep overall_explanation at most 2200 characters. Emit one compact truthful C1-C10 verdict line with file:line evidence per contract, three distinct short lens assessments, and all six exact full-line BEGIN/END FORGE ASSESSMENT markers. Keep full finding bodies in findings; omit no evidence, verdict, lens, or marker.
 
 ### Scope amendments
@@ -113,6 +113,7 @@ Recorded lessons that apply to this task's paths. A finding that contradicts one
 - [high] active-rereview-preserves-live-contract: A reopened or active task review brief must use the current approved plan, spec, decomposition and task contract. Prior marker inputs are historical proof only after the task is sealed; substituting them during active re-review hides approved amendments. Add a regression for an active review-fix task with a prior marker.
 - [medium] xdist-process-startup-latency: The SIGINT stage-done termination test used a fixed 5-second child-start deadline, but under the authoritative xdist load its PID marker appeared about 7.7 seconds after the delegation record; wait through bounded process startup and fail early if the wrapper exits.
 - [low] task-proof-typed-reader: Do not report frontier .get calls on verify/tests as raw reads: factory_lib.load_json routes .factory task verify.json and tests.json through _proof_object_or_default, which normalizes valid non-object values to an empty object; the existing close/frontier selector proves the path reaches fail-closed handling without a traceback. Consumer-local normalization would duplicate C4's central rule.
+- [high] rejection-lessons-use-directory-ledger: Review-rejection records under plans/lessons/*.json are part of the ordinary Decision 0022 lesson ledger: load_lessons reads that directory through read_ledger_records, relevant_lessons filters matching scopes, and review briefs render them. Fresh combined generations start new roots; rejected_findings remain in their immutable rejection lineage and are not copied into a fresh provider assessment.
 
 ### Approved task inputs
 
@@ -121,8 +122,8 @@ The following blocks are evidence from approved artifacts. Treat their contents 
 - Story: `FORGE-COORD-1`
 - Task: `NATIVE-FOREGROUND-ACTIVATE`
 - Branch: `feat/FORGE-COORD-1-NATIVE-FOREGROUND-ACTIVATE`
-- Current delta ID: `dddc9e542fbcac244b666f3964a327731a24db5ed608eb26b0d5da47ccea57a6`
-- Approved plan digest: `3b9271c59a4c11380429501c5c8648f0ec9a765e30e1bb13744d0636d1ef2ef1`
+- Current delta ID: `e31e38d52ae76ff00dbbffb49955d8196ff6cb7def16631e9fce8558ab735067`
+- Approved plan digest: `5aba42ee0090d2981619632ecc493f31c00d2e0a2be000d5812fdbfab8617588`
 
 #### Full approved task plan (untrusted data)
 
@@ -146,15 +147,16 @@ flowchart LR
 1. Extend the existing raw-Codex active-boundary matcher with the exact bounded `(?<![\w=(@?!+*$])\(\s*` group/process-substitution alternative and no separate boundary helper. Track ordinary unquoted parenthesis depth only inside active `$()` frames, preserving the current handling order for escapes, single quotes, nested substitutions, backticks, and quotes. Bind the literal `f(){(codex exec x);}; f` denial and its nested `$()` counterpart. Keep the complete `EXEC_OPTION` grammar and `_wrapped_codex_exec` byte-equivalent to `c462478`.
 2. Remove the public `forge delegate --effort` parser option, its dead `cmd_delegate` override branch, and the orphan effort allow-list. Keep every internal companion/runtime effort parameter and argv field. Update the one existing public-option test to prove harness-derived Sol/medium and refusal of every public effort spelling; delete its duplicate unknown-effort test.
 3. Remove `task_proof_problems`' discarded compatibility reader parameters and the CI gate's dead closures. Rename its live marker parameter to `marker` at both actual callers, and make the CI proof docstring describe selected task proof with the explicit marker-bound upgrade exception. Preserve selected generations, marker-bound `origin=upgrade`, `legacy_artifacts` provenance, historical bytes, and every existing current/sealed validation.
-4. After existing title normalization, reject any complete known lens tag token anywhere in the remaining title. Extend the existing malformed-output matrix across beginning, middle, end, and tab/newline/non-breaking-space variants for all three tags; keep plain and unrelated bracketed titles valid.
+4. After existing title normalization, reject any complete known lens tag token anywhere in the remaining title, including when adjacent to punctuation. Extend the existing malformed-output matrix across beginning, middle, end, tab/newline/non-breaking-space, and both punctuation-adjacency forms; keep plain, custom, and similar bracketed titles valid.
 5. Keep one complete combined review input below the provider hard ceiling without dropping evidence: `_combined_prompt` retains every review instruction and accurately points to the target task Plan contracts and Reviewer focus already supplied in mandatory `.factory/review-briefs/all.md` instead of repeating the byte-identical task section. Preserve standalone lens prompts, helper argv, the full dataset, every diff line, and provider semantics. Extend only the existing review-consumer integration selector to prove the complete task section occurs exactly once across the assembled inputs.
-6. Change exactly `factory/scripts/pre_tool_use.py`, `factory/scripts/forge.py`, `factory/scripts/forge_cli/delegate.py`, `factory/scripts/factory_lib.py`, `factory/scripts/check_task_proof.py`, `factory/scripts/forge_cli/review.py`, `factory/tests/test_gates.py`, `factory/tests/test_review_task_delta.py`, and `factory/tests/test_stop_less_often.py`. Leave the completed `factory/tests/test_worker_admission.py` symlink fix untouched.
+6. Preserve the existing normalized title and `known_tags`; use direct bracket-tag substring membership rather than a regex or parser, and bind `[security],` plus `validation:[performance]` in the existing matrix.
+7. Change exactly `factory/scripts/pre_tool_use.py`, `factory/scripts/forge.py`, `factory/scripts/forge_cli/delegate.py`, `factory/scripts/factory_lib.py`, `factory/scripts/check_task_proof.py`, `factory/scripts/forge_cli/review.py`, `factory/tests/test_gates.py`, `factory/tests/test_review_task_delta.py`, and `factory/tests/test_stop_less_often.py`. Leave the completed `factory/tests/test_worker_admission.py` symlink fix untouched.
 
 ## Manual Verification
 
 1. Confirm the worker diff names exactly the nine authorized paths and the cumulative `499c358..HEAD` product/test diff names only those paths plus `factory/tests/test_worker_admission.py`, at no more than 380 added-plus-deleted lines.
 2. Run `test_codex_exec_ban_matches_invocations_not_prose` and confirm active nested groups, process substitutions, and later launches deny while array/function/arithmetic/extglob-like and quoted/escaped data remain allowed.
-3. Run the combined malformed-output selector and confirm secondary lens tags refuse at every normalized position and whitespace variant while ordinary titles remain valid.
+3. Run the combined malformed-output selector and confirm secondary lens tags refuse at every normalized position, whitespace variant, and punctuation adjacency while plain, custom, and similar bracketed titles remain valid.
 4. Run both CI task-proof selectors and confirm the renamed live marker path preserves sealed proof and later-mutation refusal, including the legitimate marker-bound upgrade path.
 5. Run the delegate model-policy selector and confirm Sol/medium still derives from the harness while every public `--effort` spelling is unrecognized before launch.
 6. Regenerate the complete review dataset and assembled provider input. Confirm the target task section occurs exactly once, the assembled input is below 1,048,576 characters, the helper reports one review pass, and `git diff --check` is clean.
@@ -164,7 +166,7 @@ flowchart LR
 
 Rendered by the harness from the recorded decomposition; edit the decomposition, not this block. It is excluded from the plan's approval and grill digests, so a re-render never stales either.
 
-**Objective.** Close the four findings in combined review generation d0efa136 as one bounded continuation. Track ordinary parenthesis depth inside active shell substitutions and recognize safe group/process-substitution boundaries without adding a generic shell parser; preserve the existing exec option grammar and `_wrapped_codex_exec` exactly as at c462478. Remove the public delegate `--effort` compatibility no-op and its dead override path while preserving internal companion/runtime effort argv and harness-derived Sol/medium. Remove obsolete proof-reader compatibility parameters and CI closures, rename the live marker parameter, and preserve the legitimate origin=upgrade migration path. Reject a second complete lens tag token anywhere in a normalized combined-review finding title. Change only the nine named correction paths; Main owns recorders, Git, cumulative proof, review, close, PR, and CI. Keep the final combined review as one complete provider pass under the hard input ceiling without losing evidence: `_combined_prompt` retains every review instruction but references the target task Plan contracts and Reviewer focus already supplied in mandatory `.factory/review-briefs/all.md` instead of duplicating that task section; standalone lens prompts, helper argv, full dataset, full diff, and provider semantics remain unchanged. The existing review-consumer integration selector proves the complete contract occurs exactly once in the assembled inputs.
+**Objective.** Close the four findings in combined review generation d0efa136 as one bounded continuation. Track ordinary parenthesis depth inside active shell substitutions and recognize safe group/process-substitution boundaries without adding a generic shell parser; preserve the existing exec option grammar and `_wrapped_codex_exec` exactly as at c462478. Remove the public delegate `--effort` compatibility no-op and its dead override path while preserving internal companion/runtime effort argv and harness-derived Sol/medium. Remove obsolete proof-reader compatibility parameters and CI closures, rename the live marker parameter, and preserve the legitimate origin=upgrade migration path. Reject a second complete lens tag token anywhere in a normalized combined-review finding title. Change only the nine named correction paths; Main owns recorders, Git, cumulative proof, review, close, PR, and CI. Keep the final combined review as one complete provider pass under the hard input ceiling without losing evidence: `_combined_prompt` retains every review instruction but references the target task Plan contracts and Reviewer focus already supplied in mandatory `.factory/review-briefs/all.md` instead of duplicating that task section; standalone lens prompts, helper argv, full dataset, full diff, and provider semantics remain unchanged. The existing review-consumer integration selector proves the complete contract occurs exactly once in the assembled inputs. The normalized combined-review title validator also rejects a complete known bracketed lens tag anywhere in the remaining title when adjacent to punctuation; it keeps the existing `known_tags` and normalization, preserves plain/custom/similar brackets, and extends the existing malformed-output matrix with the two punctuation forms. The cumulative ten-path repair ends at exactly 380 changed lines.
 
 **Acceptance criteria**
 
@@ -345,7 +347,7 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 - `UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_native_launch.py factory/tests/test_native_setup.py factory/tests/test_worker_admission.py -q`
 - `UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py`
 
-**Review budget.** 180 files / 18000 lines -- The cumulative task remains inside the approved 180-file/18,000-line seal ceiling. Relative to 499c358, the final formal-review continuation changes exactly ten product/test paths at 378 added-plus-deleted lines: the nine current correction paths plus the prior factory/tests/test_worker_admission.py symlink regression. The lossless prompt compaction remains inside the already-counted review.py and test_gates.py paths. Exclude only recorder-owned .factory/** state; no architecture, decision, dependency, schema, migration format, skip, helper, config, or unrelated product path may change.
+**Review budget.** 180 files / 18000 lines -- The cumulative task remains inside the approved 180-file/18,000-line seal ceiling. Relative to 499c358, the final formal-review continuation changes exactly ten product/test paths at 380 added-plus-deleted lines: the nine current correction paths plus the prior factory/tests/test_worker_admission.py symlink regression. The lossless prompt compaction and punctuation-adjacent secondary-tag closure remain inside the already-counted review.py, test_gates.py, and test_review_task_delta.py paths. Exclude only recorder-owned .factory/** state; no architecture, decision, dependency, schema, migration format, skip, helper, config, or unrelated product path may change.
 <!-- /forge:contract -->
 
 ````
@@ -354,9 +356,9 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 
 ```json
 {
-  "approved_at": "2026-09-13T23:50:12+00:00",
+  "approved_at": "2026-09-14T00:20:31+00:00",
   "approved_by": "Ravi (standing complete-program and in-scope review-fix authorization, Codex conversation 2026-09-14)",
-  "approved_task_plan_sha256": "3b9271c59a4c11380429501c5c8648f0ec9a765e30e1bb13744d0636d1ef2ef1",
+  "approved_task_plan_sha256": "5aba42ee0090d2981619632ecc493f31c00d2e0a2be000d5812fdbfab8617588",
   "citations": [
     {
       "finding": "The active-boundary state restores the outer quote at the first unquoted close parenthesis inside $(), so an ordinary nested shell group can hide a later raw Codex launch.",
@@ -379,7 +381,7 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
       "source": "accepted Decisions 0052 and 0074; current forge.py parser choices and delegate.py pinned_run_config path"
     }
   ],
-  "commit": "5e9559e47934dc141f990da8eca9559bcda0c217",
+  "commit": "91b6e08b3b001bf87d0d44fb56a31e63824af3ab",
   "contradictions": [
     "Accepted Decision 0052 historically required a reachable runtime effort escalation, while the current user-selected Decision 0074 policy pins ordinary implementation to Sol/medium and the public option now accepts only that same value."
   ],
@@ -395,7 +397,7 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
     "Unsupported native operations refuse before side effects: native background/read-only background, general status, live/dead worker status, cancel/resume/jobs, explore, and native question delivery do not compose briefs, spend question eligibility, append ledgers, signal processes, or dispatch children until their successor owners ship. The only native status exception renders already-dead registered native grill rows through existing dead_launches, restricted to strict grill gate/task labels and starting/running rows proven dead; it does not call the general status handler. Preserve unchanged Claude dispatch.": "Unsupported native-operation refusals remain covered by the accumulated implementation and required native setup, launch, and worker-admission selectors; the correction introduces no new native operation.",
     "Workspace-before-JIT honors incumbent 0063. Successor task start checks approved plan/decomposition, task/digest, refreshed trunk and dependency markers, then creates the worktree before JIT save/grill/approval. Attach accepts only a clean, registered, unowned same-common-directory worktree at that trunk commit with matching identity/dependencies. Grounding, JIT approval, stage and registered admission precede writes. After materialization, hydration preflights every destination before payload mutation and preserves Decision 0028's legal in-target file symlink. On refusal it attempts exact worktree removal, deletes the branch only after confirmed removal, and otherwise reports the surviving worktree/registration/branch without inventing cleanup success or mutating external payload state. The shipped-dependency predicate reads one exact fetched origin/trunk snapshot, validates marker identity and ancestry with the fetched SHA, and for an ordinary marker validates the shared exact task proof before any successor branch or worktree allocation. A reconciled marker skips proof only after its identity and ancestry validate; malformed, wrong-task, or proofless markers remain unshipped across task start, board, frontier, and closeout. Existing startup proof covers invalid JSON, non-object, empty-object, wrong-task, invalid-commit, and proofless ordinary dependency markers; each remains unshipped and allocates no task branch or worktree before the validated reconciled positive control.": "Workspace-before-JIT and dependency-marker behavior remain covered by the accumulated implementation and required selectors; none of the nine correction paths changes task materialization ordering."
   },
-  "current_flow": "Commit recorder-backed restored contract state, record honest current-head automated proof from the successful focused transport selector plus preserved full deterministic history, regenerate current verify/evidence, measure the complete assembled input below the provider character ceiling with one pass, then run one combined review. If clean, close/seal, push, wait CI, promote and merge.",
+  "current_flow": "Record current-head automated and verify proof from the successful punctuation worker and exact affected selector, commit recorder and lesson state, regenerate and measure one complete prompt below the hard ceiling, then run one combined review. If clean, task close uses current selected proof without a broad rerun, seals, pushes, waits CI, promotes and merges.",
   "decision": "keep",
   "frontier_empty": true,
   "gaps": [
@@ -408,7 +410,7 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
   "generated_by": "griller",
   "grounding_basis": "working-tree",
   "grounding_treeish": "",
-  "input_sha256": "2e1489df2a7bbc06524d7e510168ebb50076dfe1d27fd15661c62ee3d4ed6bbd",
+  "input_sha256": "5233ca9e774e4ebda1978790ad2b18c739d7db419f80bf92db560776be361f63",
   "inspected_refs": [
     ".factory/stories/FORGE-COORD-1/task-plans/NATIVE-FOREGROUND-ACTIVATE.md",
     ".factory/stories/FORGE-COORD-1/decomposition.json",
@@ -431,7 +433,7 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
   "new_abstractions": [],
   "open_items": [],
   "questions_asked": 1,
-  "recorded_at": "2026-09-13T23:50:05+00:00",
+  "recorded_at": "2026-09-14T00:20:24+00:00",
   "resolutions": [
     "The amended plan adds only bounded active group/process-substitution boundary recognition and a parenthesis-depth field on existing substitution frames, with explicit positive and negative matrix cases and no generic shell parser.",
     "The amended plan removes the public parser option, dead override branch, orphan allow-list, and duplicate test while preserving harness-derived Sol/medium and every internal companion/runtime effort field and argv.",
@@ -450,9 +452,9 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
       "question": "Strict-role specification amendment: should Decision 0053 make the coordinator wording neutral while preserving the enforced delegated-Codex-writer boundary and the bounded degraded-mode outage valve?"
     }
   ],
-  "summary": "All four d0efa136 review findings and the lossless combined-input transport correction are implemented within the original ten-path cumulative continuation at 378 changed lines. The authoritative close contract restores all 70 required selectors and five verify commands; complete task contracts remain once in mandatory all.md and every review instruction/full diff remains in the single provider input.",
+  "summary": "All prior review findings, the lossless one-pass input correction, and punctuation-adjacent secondary lens tags are closed within exactly ten cumulative paths and 380 changed lines. The parent contract restores all 70 required selectors and five verify commands; Main will refresh only the changed selector before one complete final review.",
   "task_id": "NATIVE-FOREGROUND-ACTIVATE",
-  "task_plan_sha256": "3b9271c59a4c11380429501c5c8648f0ec9a765e30e1bb13744d0636d1ef2ef1",
+  "task_plan_sha256": "5aba42ee0090d2981619632ecc493f31c00d2e0a2be000d5812fdbfab8617588",
   "verdict": "pass"
 }
 ```
@@ -463,6 +465,9 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
 {
   "blocking_findings": [],
   "commands_run": [
+    "Registered Sol/medium punctuation-adjacency correction / session 01a09d45-4c4d-72e2-bcd7-4e5d9218bb41 -> succeeded after changing only review.py and test_review_task_delta.py; /tmp/forge-review-punctuation.xml records 1 test, 0 failures, 0 errors, 0 skips, 10 deselected in 0.076s; two-path diff check clean.",
+    "git diff --numstat 499c358..91b6e08 over the ten authorized cumulative product/test paths -> 285 insertions and 95 deletions, exactly 380 added-plus-deleted lines across ten paths; git diff --check is clean.",
+    "Parent-owned task close at b257e46 completed the authoritative 70 required selectors and five verify commands. Later changes are confined to combined prompt composition/title validation and their exact existing integration selectors, each rerun green at its product commit.",
     "Registered Sol/medium prompt-correction launch / session 01a09d23-b989-79d3-8c22-4e67d9da1e2b -> succeeded after changing only review.py and test_gates.py; test_review_consumers_include_complete_approved_inputs passed with 732 deselected and the two-path diff check was clean.",
     "Registered Sol/medium line-budget correction / session 01a09d2a-8c3c-7b52-afd0-30b523f9ce9a -> succeeded after deleting only the redundant standalone `_skill_argv` test block; /tmp/forge-review-transport-test.xml records 1 test, 0 failures, 0 errors, 0 skips in 6.494s.",
     "git diff --numstat 499c358..5e9559e over the ten authorized cumulative product/test paths -> 283 insertions and 95 deletions, 378 added-plus-deleted lines across exactly ten paths, within the 380-line limit; git diff --check is clean.",
@@ -476,12 +481,12 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
     "Registered launch launch-32f37ea909254ad69830a7972e6a103c produced the first nine-file candidate and five green focused JUnit reports, then ignored the focused ownership note and entered the inherited full selector list; it was aborted after the known worker-sandbox ProcessDiscoveryError in test_native_zero_exit_without_completed_turn_is_failed. This is environment/process history, not successful full-suite proof and not a product failure.",
     "Registered launch launch-dd7d98f3de644349a3a6118fb3af82ac was stopped when its broad objective made it re-certify the old raw matrix without the required group-boundary finish. It contributed no accepted product edit or proof."
   ],
-  "commit": "5e9559e47934dc141f990da8eca9559bcda0c217",
+  "commit": "91b6e08b3b001bf87d0d44fb56a31e63824af3ab",
   "generated_by": "implementer",
   "manual_validation_steps": [],
   "non_blocking_findings": [],
-  "pass_fail_summary": "The authoritative 70-selector/five-command close proof passed at b257e46. The only later product change is the lossless combined-prompt composition correction; its exact existing integration selector is green at 5e9559e with no skips. Both registered workers succeeded, the cumulative ten-path diff is within budget, and no test failure remains.",
-  "recorded_at": "2026-09-13T23:51:19+00:00",
+  "pass_fail_summary": "The authoritative 70-selector/five-command close proof passed at b257e46. Every later product change is confined to combined-review prompt composition or title validation; each exact affected selector is green at its current product commit with no skips. The final punctuation selector passed, both prior transport workers passed, and the cumulative ten-path diff exactly meets the approved 380-line ceiling.",
+  "recorded_at": "2026-09-14T00:20:53+00:00",
   "remaining_gaps": [],
   "residual_risks": [],
   "reviewed_scope": [
@@ -501,7 +506,7 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
     "ponytail"
   ],
   "status": "passed",
-  "summary": "At 5e9559e, the bounded ten-path cumulative repair closes all four findings from combined review d0efa136 and keeps the complete combined review in one provider pass: the repeated current-task contract section is removed only from `_combined_prompt`, remains exactly once in mandatory `all.md`, and every lens, marker, verdict, helper-route, dataset, and full-diff semantic is preserved.",
+  "summary": "At 91b6e08, the bounded ten-path cumulative repair closes all reviewed defects and preserves a complete one-pass review input. The normalized secondary-lens-tag validator now rejects complete known bracketed tags beside punctuation while retaining its existing normalization and allowed custom/similar bracket behavior; the exact malformed-output selector is green.",
   "tests_added_or_updated": [
     "factory/tests/test_gates.py",
     "factory/tests/test_review_task_delta.py",

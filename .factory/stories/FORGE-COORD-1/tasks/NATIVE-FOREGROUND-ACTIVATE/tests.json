@@ -1,11 +1,14 @@
 {
-  "commit": "5e9559e47934dc141f990da8eca9559bcda0c217",
+  "commit": "91b6e08b3b001bf87d0d44fb56a31e63824af3ab",
   "automated": {
     "generated_by": "implementer",
     "status": "passed",
-    "summary": "At 5e9559e, the bounded ten-path cumulative repair closes all four findings from combined review d0efa136 and keeps the complete combined review in one provider pass: the repeated current-task contract section is removed only from `_combined_prompt`, remains exactly once in mandatory `all.md`, and every lens, marker, verdict, helper-route, dataset, and full-diff semantic is preserved.",
+    "summary": "At 91b6e08, the bounded ten-path cumulative repair closes all reviewed defects and preserves a complete one-pass review input. The normalized secondary-lens-tag validator now rejects complete known bracketed tags beside punctuation while retaining its existing normalization and allowed custom/similar bracket behavior; the exact malformed-output selector is green.",
     "blocking_findings": [],
     "commands_run": [
+      "Registered Sol/medium punctuation-adjacency correction / session 01a09d45-4c4d-72e2-bcd7-4e5d9218bb41 -> succeeded after changing only review.py and test_review_task_delta.py; /tmp/forge-review-punctuation.xml records 1 test, 0 failures, 0 errors, 0 skips, 10 deselected in 0.076s; two-path diff check clean.",
+      "git diff --numstat 499c358..91b6e08 over the ten authorized cumulative product/test paths -> 285 insertions and 95 deletions, exactly 380 added-plus-deleted lines across ten paths; git diff --check is clean.",
+      "Parent-owned task close at b257e46 completed the authoritative 70 required selectors and five verify commands. Later changes are confined to combined prompt composition/title validation and their exact existing integration selectors, each rerun green at its product commit.",
       "Registered Sol/medium prompt-correction launch / session 01a09d23-b989-79d3-8c22-4e67d9da1e2b -> succeeded after changing only review.py and test_gates.py; test_review_consumers_include_complete_approved_inputs passed with 732 deselected and the two-path diff check was clean.",
       "Registered Sol/medium line-budget correction / session 01a09d2a-8c3c-7b52-afd0-30b523f9ce9a -> succeeded after deleting only the redundant standalone `_skill_argv` test block; /tmp/forge-review-transport-test.xml records 1 test, 0 failures, 0 errors, 0 skips in 6.494s.",
       "git diff --numstat 499c358..5e9559e over the ten authorized cumulative product/test paths -> 283 insertions and 95 deletions, 378 added-plus-deleted lines across exactly ten paths, within the 380-line limit; git diff --check is clean.",
@@ -24,7 +27,7 @@
       "factory/tests/test_review_task_delta.py",
       "factory/tests/test_stop_less_often.py"
     ],
-    "pass_fail_summary": "The authoritative 70-selector/five-command close proof passed at b257e46. The only later product change is the lossless combined-prompt composition correction; its exact existing integration selector is green at 5e9559e with no skips. Both registered workers succeeded, the cumulative ten-path diff is within budget, and no test failure remains.",
+    "pass_fail_summary": "The authoritative 70-selector/five-command close proof passed at b257e46. Every later product change is confined to combined-review prompt composition or title validation; each exact affected selector is green at its current product commit with no skips. The final punctuation selector passed, both prior transport workers passed, and the cumulative ten-path diff exactly meets the approved 380-line ceiling.",
     "remaining_gaps": [],
     "reviewed_scope": [
       "factory/scripts/check_task_proof.py",
@@ -45,8 +48,8 @@
     "non_blocking_findings": [],
     "residual_risks": [],
     "manual_validation_steps": [],
-    "recorded_at": "2026-09-13T23:51:19+00:00",
-    "commit": "5e9559e47934dc141f990da8eca9559bcda0c217"
+    "recorded_at": "2026-09-14T00:20:53+00:00",
+    "commit": "91b6e08b3b001bf87d0d44fb56a31e63824af3ab"
   },
-  "updated_at": "2026-09-13T23:51:19+00:00"
+  "updated_at": "2026-09-14T00:20:53+00:00"
 }

@@ -27,5 +27,18 @@
     }
   },
   "task_sha256": "d3728cec5c5340cda760ad3c5efcf2461aa125ae28a562aa57816815dd402a2a",
-  "incomplete": "Final cheap-family audit: the compositional SHELL_WORD now covers escaped and concatenated fragments, but its double-quoted ordinary branch still includes backslash instead of consuming backslash-plus-next as the sole escape unit. Use the approved pattern shape with escaped non-newline units and ordinary nonquote/nonbackslash units. Combined projection also still accepts the exact lone second tag '[quality]  [security]' because LENS_TAGS includes trailing spaces; reject equality with each stripped tag as well as a tagged prefix, and add that case to the existing mutator table. Keep all current green family cases."
+  "incomplete": "Final cheap-family audit: the compositional SHELL_WORD now covers escaped and concatenated fragments, but its double-quoted ordinary branch still includes backslash instead of consuming backslash-plus-next as the sole escape unit. Use the approved pattern shape with escaped non-newline units and ordinary nonquote/nonbackslash units. Combined projection also still accepts the exact lone second tag '[quality]  [security]' because LENS_TAGS includes trailing spaces; reject equality with each stripped tag as well as a tagged prefix, and add that case to the existing mutator table. Keep all current green family cases.",
+  "local_review_stamp": {
+    "stage_id": "NATIVE-FOREGROUND-ACTIVATE",
+    "base_sha": "e17f44f850b7d1574c7438bf641c69c70e5dcd38",
+    "delta_id": "dddc9e542fbcac244b666f3964a327731a24db5ed608eb26b0d5da47ccea57a6",
+    "contract_sha256": "f94664d4802c3a15179caffb79b0b3d757a1789b807ad4cbee662c34d6ffa734",
+    "recorded_at": "2026-09-14T00:12:08+00:00",
+    "generated_by": "autoreview",
+    "lenses": [
+      "quality",
+      "performance",
+      "security"
+    ]
+  }
 }
