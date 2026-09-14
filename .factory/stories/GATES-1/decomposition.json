@@ -4,7 +4,7 @@
   "story": "GATES-1",
   "epic": "accountable-engineering",
   "plan_file": "plans/active/GATES-1-gates-stale-only-on-what-they-read.md",
-  "plan_sha256": "3a74443d237dd5064bb6dfca2bb70950789fa24524d03a245a08c3888ccf9f48",
+  "plan_sha256": "677fa998a064cf76c02e3b2b94261022cb14cee725af4d640f0de54fbb2c0127",
   "tasks": [
     {
       "id": "GATES-1-T1",
@@ -379,5 +379,5 @@
     }
   ],
   "project": "",
-  "commit": "e17f44f850b7d1574c7438bf641c69c70e5dcd38"
+  "commit": "27babfa94bc63434ce8682d21b6ae2ec7570ba4e"
 }
