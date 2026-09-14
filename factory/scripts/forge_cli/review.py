@@ -57,16 +57,14 @@ VERDICT_LINE = re.compile(
 DEFAULT_SKILL = Path.home() / ".codex" / "skills" / "autoreview" / "scripts" / "autoreview"
 CODEX_REVIEW_MODEL = "gpt-5.6-sol"
 CODEX_REVIEW_THINKING = "high"
-# Terra is retired, so the review must never fall back to it. The helper ships
-# DEFAULT_CODEX_ACCESS_FALLBACK_MODEL = "gpt-5.6-terra" and selects it whenever
-# codex runs on its own default model with no fallback override. Pinning the
-# fallback to the review model removes that branch: the helper takes our value
-# and never reaches its own default.
-CODEX_REVIEW_FALLBACK = f"codex={CODEX_REVIEW_MODEL}"
-CODEX_HELPER_FIX = (
-    "the review must pin its Codex fallback so the retired Terra model cannot be "
-    "selected"
-)
+# Terra is retired and this review never asks for it. It cannot be ruled out by
+# flag: the helper's --fallback-model is claude-only ("--fallback-model is only
+# supported for claude"), and its codex access-retry triggers whenever codex runs
+# on the helper's own default model — which IS gpt-5.6-sol, the model pinned
+# here. So the retry is reachable only when the account cannot reach Sol, in
+# which case the review would otherwise fail outright. What is enforceable, and
+# what is enforced, is that no retired model is ever requested.
+CODEX_HELPER_FIX = "the review must not request a retired model"
 
 COMMON_PREAMBLE = """\
 You are one lens of a three-lens code review. You see ONLY the diff bundle for
@@ -160,25 +158,24 @@ def resolve_skill(explicit: str | None) -> Path:
 
 
 def _require_safe_codex_review_helper(argv: list[str]) -> None:
-    """Terra must not be reachable for a review.
+    """The review must not request a retired model.
 
     This used to scan the helper's SOURCE for "gpt-5.6-terra" or its fallback
     constant and refuse the helper outright. The shipped helper carries that
-    constant as an access-only retry it selects only when codex runs on its own
-    default model, so the scan refused every published version and blocked the
-    review gate entirely — no available helper could satisfy it.
+    constant as an access-only retry, so the scan refused every published
+    version and blocked the review gate entirely.
 
-    What matters is whether Terra can be SELECTED, and that is decided by the
-    argv we build. Pinning --fallback-model to the review model means the
-    helper uses ours and never reaches its own default, whatever its source
-    happens to contain.
+    A first attempt to pin --fallback-model was wrong too: that flag is
+    claude-only and the helper exits on it for codex. The codex access-retry has
+    no CLI lever at all. So the enforceable rule is the honest one — the review
+    pins Sol and never requests a retired model.
     """
-    if "--fallback-model" not in argv:
-        fail(f"{CODEX_HELPER_FIX}: no --fallback-model in the review argv")
-    fallback = argv[argv.index("--fallback-model") + 1]
-    if "terra" in fallback.lower() or fallback != CODEX_REVIEW_FALLBACK:
-        fail(f"{CODEX_HELPER_FIX}: fallback is {fallback!r}, "
-             f"expected {CODEX_REVIEW_FALLBACK!r}")
+    if "--model" not in argv:
+        fail(f"{CODEX_HELPER_FIX}: the review argv does not pin a model")
+    model = argv[argv.index("--model") + 1]
+    if model != CODEX_REVIEW_MODEL:
+        fail(f"{CODEX_HELPER_FIX}: model is {model!r}, "
+             f"expected {CODEX_REVIEW_MODEL!r}")
     if any("terra" in part.lower() for part in argv):
         fail(f"{CODEX_HELPER_FIX}: a retired model appears in the review argv")
 
@@ -1057,7 +1054,6 @@ def _skill_argv(skill: Path, base_sha: str, prompt_rel: str, json_out: Path,
     if engine == "codex":
         argv.extend([
             "--model", CODEX_REVIEW_MODEL, "--thinking", CODEX_REVIEW_THINKING,
-            "--fallback-model", CODEX_REVIEW_FALLBACK,
         ])
         _require_safe_codex_review_helper(argv)
     return argv
