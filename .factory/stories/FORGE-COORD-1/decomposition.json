@@ -21,8 +21,84 @@
         "Review regression tests are hermetic on clean Ubuntu. The review-set recorder test supplies one test-owned safe helper to both in-process identity derivation and the subprocess recorder; the active-task proof preflight test replaces only helper discovery with a test-owned safe helper; and the rejection-lineage fixture commits existing lifecycle state before its intentional divergent merge and requires src/work.py to be the exact unmerged path before resolution. The three focused nodes pass with no personal AUTOREVIEW installation, without skips or production-code changes."
       ],
       "write_scope": [
+        ".claude/CLAUDE.md",
+        ".claude/settings.json",
+        ".codex/agents/AGENTS.md",
+        ".codex/agents/architect.toml",
+        ".codex/agents/backend.toml",
+        ".codex/agents/debugger.toml",
+        ".codex/agents/docs-decomposer.toml",
+        ".codex/agents/explorer.toml",
+        ".codex/agents/frontend.toml",
+        ".codex/agents/functional-checker.toml",
+        ".codex/agents/griller.toml",
+        ".codex/agents/lite.toml",
+        ".codex/agents/performance.toml",
+        ".codex/agents/planner-high.toml",
+        ".codex/agents/planner.toml",
+        ".codex/agents/refactorer.toml",
+        ".codex/agents/security.toml",
+        ".codex/agents/tester.toml",
+        ".codex/config.toml",
+        ".codex/explore.config.toml",
+        ".codex/hooks.json",
+        "AGENTS.md",
+        "README.md",
+        "WORKFLOW.md",
+        "docs/FACTORY.md",
+        "docs/QUALITY.md",
+        "docs/ROLES.md",
+        "docs/architecture/dual-coordinator-parity.md",
+        "docs/decisions/0062-luna-max-exploration-and-implementation.md",
+        "docs/decisions/0070-sol-specialized-workflow-models.md",
+        "docs/degraded-mode.md",
+        "docs/getting-started.md",
+        "docs/product/BRIEF.md",
+        "docs/specs/dual-coordinator-parity.md",
+        "docs/specs/strict-role-split.md",
+        "factory/prompts/griller.md",
+        "factory/prompts/implementer.md",
+        "factory/prompts/planner.md",
+        "factory/prompts/reviewer.md",
+        "factory/schemas/delegation.json",
+        "factory/schemas/review-set.json",
+        "factory/scripts/check_dual_runtime.py",
+        "factory/scripts/check_encoding_hygiene.py",
+        "factory/scripts/check_task_proof.py",
+        "factory/scripts/factory_lib.py",
+        "factory/scripts/forge.py",
+        "factory/scripts/forge_cli/close.py",
+        "factory/scripts/forge_cli/codex_runtime.py",
+        "factory/scripts/forge_cli/delegate.py",
+        "factory/scripts/forge_cli/doctor.py",
+        "factory/scripts/forge_cli/phase.py",
+        "factory/scripts/forge_cli/readiness.py",
         "factory/scripts/forge_cli/review.py",
-        "factory/tests/test_review_task_delta.py"
+        "factory/scripts/forge_cli/review_brief.py",
+        "factory/scripts/forge_cli/stages.py",
+        "factory/scripts/forge_cli/tasks.py",
+        "factory/scripts/forge_cli/upgrade.py",
+        "factory/scripts/forge_cli/worker_admission.py",
+        "factory/scripts/pre_tool_use.py",
+        "factory/scripts/record_review_from_json.py",
+        "factory/scripts/session_start.py",
+        "factory/scripts/stop_continue.py",
+        "factory/skills/forge.md",
+        "factory/tests/test_gate_table.py",
+        "factory/tests/test_board_load_time.py",
+        "factory/tests/test_gates.py",
+        "factory/tests/test_close_binds_to_the_diff.py",
+        "factory/tests/test_grill_release.py",
+        "factory/tests/test_native_launch.py",
+        "factory/tests/test_native_setup.py",
+        "factory/tests/test_proof_read_path.py",
+        "factory/tests/test_review_lenses_in_parallel.py",
+        "factory/tests/test_review_settled_contracts.py",
+        "factory/tests/test_review_task_delta.py",
+        "factory/tests/test_stop_less_often.py",
+        "factory/tests/test_worker_admission.py",
+        "harness.yaml",
+        "plans/exploration/coordinator-parity-preparation/lean-delivery-graph.json"
       ],
       "plan_contracts": [
         {
@@ -78,26 +154,376 @@
       ],
       "required_tests": [
         {
+          "id": "test_review_consumers_include_complete_approved_inputs",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_proof_consumers_share_complete_predicate",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_seal_refuses_incomplete_proof_before_mutation",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_start_creates_before_jit_with_approved_identity",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_native_unshipped_operations_refuse_before_dispatch",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_preflight_uses_active_task_proof",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_preflight_refuses_other_task_or_story_proof",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_foreground_cleanup_revokes_admission_before_signals",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_native_worker_reads_state_without_protected_write_authority",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_dual_runtime_checker_requires_each_session_start_source",
+          "path": "factory/tests/test_native_setup.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_native_worker_patch_add_update_delete_and_move_is_admitted",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_any_protected_revocation_marker_denies_admission",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_native_launch_registers_before_stdin_and_records_terminal_identity",
+          "path": "factory/tests/test_native_launch.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_native_zero_exit_without_completed_turn_is_failed",
+          "path": "factory/tests/test_native_launch.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_codex_hook_readiness_requires_exact_enabled_trusted_source",
+          "path": "factory/tests/test_native_setup.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_model_policy_selects_sol_work_and_luna_lite",
+          "path": "factory/tests/test_native_setup.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_active_model_policy_has_no_forbidden_execution_surface",
+          "path": "factory/tests/test_gate_table.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_project_agents_init_upgrade_and_preserve_client_additions",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_doctor_repairs_only_exact_plugin_max_source",
+          "path": "factory/tests/test_native_setup.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_codex_helper_policy_refuses_fallback_before_launch",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_codex_engine_pins_sol_high",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_planning_lock_forces_plan_mode",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_codex_exec_ban_matches_invocations_not_prose",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_product_dirty_preserves_porcelain_status_prefix",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_session_start_routes_native_questions_to_main_chat",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_all_bounds_sealed_task_inputs_after_successor_product",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_proof_ci_uses_sealed_selected_t1_not_later_t2_singleton",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_native_log_open_failure_releases_lock_without_lifecycle_rows",
+          "path": "factory/tests/test_native_launch.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_known_native_launch_reads_delegation_ledger_once",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_current_claude_companion_token_resolves_protected_worker",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_active_task_frontier_routes_current_handoff_and_proof",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_next_prose_reconciles_handoffs_without_blind_retry",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_lean_stop_allows_authenticated_registered_worker_handoff",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_lean_stop_allows_authenticated_live_native_read_only_grill",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_lean_stop_does_not_exempt_untrusted_or_non_grill_launch",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_next_early_grill_guidance_uses_gate_floor_and_stops_native",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_next_only_offers_signoff_grill_for_complete_inputs",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_next_native_requirements_question_stops_at_unsupported_delivery",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_pr_ready_retry_reuses_unchanged_committed_marker",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_pr_ready_refuses_changed_evidence_after_marker",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_pr_ready_marker_commit_preserves_unrelated_index",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_brief_mints_run_id_and_lenses_echo_it",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_pr_ready_refuses_incoherent_lens_set",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_combined_review_projects_tagged_lenses_and_preserves_ordered_pass_verdicts",
+          "path": "factory/tests/test_review_task_delta.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
           "id": "test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixed_output",
           "path": "factory/tests/test_review_task_delta.py",
           "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_combined_review_publication_is_pointer_last_and_failure_atomic",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_single_lens_review_preserves_cli_without_publishing_an_incomplete_set",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_reject_republishes_one_complete_pointer_selected_set",
+          "path": "factory/tests/test_review_settled_contracts.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_a_task_run_does_not_fall_back_to_the_story_copy",
+          "path": "factory/tests/test_proof_read_path.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_default_review_uses_one_helper_and_publishes_one_generation",
+          "path": "factory/tests/test_review_lenses_in_parallel.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_generation_id_recomputes_and_tamper_refuses",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_generation_retry_and_collision_are_safe",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_selected_upgrade_generation_requires_exact_sealed_binding",
+          "path": "factory/tests/test_review_settled_contracts.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_rejection_compare_and_swap_refuses_interleaved_selection",
+          "path": "factory/tests/test_review_settled_contracts.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_board_task_progress_uses_selected_generation_only",
+          "path": "factory/tests/test_proof_read_path.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_close_and_frontier_use_selected_current_delta",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_set_recorder_validates_origin_specific_shape_and_raw_bytes",
+          "path": "factory/tests/test_review_task_delta.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_review_helper_identity_mismatch_refuses_publication",
+          "path": "factory/tests/test_review_lenses_in_parallel.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_the_stamp_survives_everything_that_is_not_the_diff",
+          "path": "factory/tests/test_close_binds_to_the_diff.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_closed_in_scope_degraded_window_is_the_stages_write_launch",
+          "path": "factory/tests/test_seal_measures.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_quality_review_requires_contract_verdicts",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_the_effort_escalation_harness_yaml_documents_is_reachable",
+          "path": "factory/tests/test_stop_less_often.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_board_memo_reuses_git_facts_until_the_files_that_decide_them_change",
+          "path": "factory/tests/test_board_load_time.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-closeout-uv-cache UV_TOOL_DIR=/tmp/forge-closeout-uv-tool uv run --with pytest --with psutil pytest -q {path}::{id} --junitxml={report}"
+        },
+        {
+          "id": "test_story_closeout_requires_all_task_markers_and_completed_stories_reads_shipped",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-closeout-uv-cache UV_TOOL_DIR=/tmp/forge-closeout-uv-tool uv run --with pytest --with psutil pytest -q {path}::{id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_proof_refuses_working_tree_marker_different_from_head",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_proof_allows_mixed_product_and_metadata_commits",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_worker_add_or_update_symlink_leaf_is_denied",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_worker_symlink_entry_is_denied",
+          "path": "factory/tests/test_worker_admission.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_proof_refuses_committed_null_marker",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-review-p1-uv-cache UV_TOOL_DIR=/tmp/forge-review-p1-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
+        },
+        {
+          "id": "test_task_proof_ci_seal_and_later_mutation",
+          "path": "factory/tests/test_gates.py",
+          "command": "UV_CACHE_DIR=/tmp/forge-review-final-uv-cache UV_TOOL_DIR=/tmp/forge-review-final-uv-tool uv run --python 3.11 --with pytest --with psutil python -m pytest {path} -k {id} --junitxml={report}"
         }
       ],
       "verify_commands": [
+        "python3 factory/scripts/check_agents_hygiene.py",
+        "python3 factory/scripts/check_factory_scaffold.py",
+        "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/check_encoding_hygiene.py",
+        "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python -m pytest factory/tests/test_native_launch.py factory/tests/test_native_setup.py factory/tests/test_worker_admission.py -q",
+        "UV_CACHE_DIR=/tmp/forge-lean-uv-cache UV_TOOL_DIR=/tmp/forge-lean-uv-tools uv run --python 3.11 --with pytest --with psutil python factory/scripts/verify.py",
         "python3 -c \"import subprocess,sys; actual=set(subprocess.check_output(['git','diff','--name-only','acf284c','--',':!.factory/**',':!plans/**'],text=True).splitlines()); expected={'factory/scripts/forge_cli/review.py','factory/tests/test_review_task_delta.py'}; print('correction paths',sorted(actual)); sys.exit(0 if actual==expected else 1)\"",
-        "python3 -c \"import subprocess,sys; rows=[line.split('\\t') for line in subprocess.check_output(['git','diff','--numstat','499c358..HEAD','--',':!.factory/**',':!plans/**'],text=True).splitlines()]; expected={'factory/scripts/check_task_proof.py','factory/scripts/factory_lib.py','factory/scripts/forge.py','factory/scripts/forge_cli/delegate.py','factory/scripts/forge_cli/review.py','factory/scripts/pre_tool_use.py','factory/tests/test_gates.py','factory/tests/test_review_task_delta.py','factory/tests/test_stop_less_often.py','factory/tests/test_worker_admission.py'}; actual={row[2] for row in rows}; total=sum(int(row[0])+int(row[1]) for row in rows); print('cumulative paths',sorted(actual),'lines',total); sys.exit(0 if actual==expected and total<=400 else 1)\"",
+        "python3 -c \"import subprocess,sys; rows=[line.split('\\t') for line in subprocess.check_output(['git','diff','--numstat','499c358','--',':!.factory/**',':!plans/**'],text=True).splitlines()]; expected={'factory/scripts/check_task_proof.py','factory/scripts/factory_lib.py','factory/scripts/forge.py','factory/scripts/forge_cli/delegate.py','factory/scripts/forge_cli/review.py','factory/scripts/pre_tool_use.py','factory/tests/test_gates.py','factory/tests/test_review_task_delta.py','factory/tests/test_stop_less_often.py','factory/tests/test_worker_admission.py'}; actual={row[2] for row in rows}; total=sum(int(row[0])+int(row[1]) for row in rows); print('cumulative paths',sorted(actual),'lines',total); sys.exit(0 if actual==expected and total<=400 else 1)\"",
         "git diff --check"
       ],
       "review_budget": {
         "max_changed_files": 180,
         "max_changed_lines": 18000,
-        "reason": "The cumulative task remains inside the approved 180-file/18,000-line seal ceiling. Relative to 499c358, the formal-review continuation may change only the existing ten product/test paths and no more than 400 added-plus-deleted lines. This last correction is confined to review.py and test_review_task_delta.py: reject verdict grammar in every non-quality span, align the combined prompt with that rule, and cover the six placements in the existing selector. Exclude only recorder-owned .factory/** state; no architecture, decision, dependency, schema, migration format, skip, helper, config, or unrelated product path may change."
+        "reason": "The cumulative task remains inside the approved 180-file/18,000-line seal ceiling. Relative to 499c358, the formal-review continuation may change only the existing ten product/test paths and no more than 400 added-plus-deleted lines. This last correction is confined to review.py and test_review_task_delta.py: reject verdict grammar in every non-quality span, align the combined prompt with that rule, and cover the six placements in the existing selector. Exclude only recorder-owned .factory/** state; no architecture, decision, dependency, schema, migration format, skip, helper, config, or unrelated product path may change. Final closure also runs the pinned acf284c exact-two-path check, the pinned 499c358 exact-ten-path and 400-line check including the working tree, and git diff --check in addition to the parent five verify commands."
       },
       "reviewer_focus": [
         "Review the complete accumulated task delta against every acceptance criterion and constitution/09-agent-conduct.md sections 2 through 4. Treat every prior marker, review-brief, structured-patch, raw-exec, symlink-skip, compatibility-leftover, and lens-tag finding as blocking history and require each to be closed.",
         "For the final shell correction, require no `active_group_boundary` helper and require the exact `(?<![\\w=(@?!+*$])\\(\\s*` alternative in CODEX_EXEC_INVOCATION, the literal `f(){(codex exec x);}; f` denial and its nested-$() counterpart. Preserve the depth-aware frames, quote, escape, nested-substitution and backtick handling, the complete exec option grammar, and `_wrapped_codex_exec` exactly as at c462478 without a generic shell parser.",
         "Require the check_task_proof proof_problems docstring to describe selected task proof plus the marker-bound upgrade exception with no legacy-fallback claim. Require no public `forge delegate --effort` surface or dead override branch while preserving harness-derived Sol/medium and internal companion/runtime effort argv. Require the shared proof predicate to expose only the live marker parameter, with no discarded compatibility readers or CI closures, while preserving valid origin=upgrade migration provenance and validation.",
-        "Require every VERDICT_LINE match to appear inside the quality assessment: preface, quality/performance interstitial, performance body, performance/security interstitial, security body, and epilogue must all refuse. Require separate original prefix/suffix span scans so no joined boundary can synthesize a match. Require the combined provider prompt to state the same placement rule. Preserve quality parsing, exact markers, ordinary prose, standalone lens prompts, helper argv, full dataset, full diff, and provider semantics. Keep the post-499c358 ten-path cumulative repair within 400 changed lines.",
+        "Require every VERDICT_LINE match, including VERDICT and its contract id split across a newline, to appear inside the quality assessment: preface, quality/performance interstitial, performance body, performance/security interstitial, security body, and epilogue must all refuse. Require separate original prefix/suffix span scans so no joined boundary can synthesize a match. Require the combined provider prompt to state the same placement rule. Preserve quality parsing, exact markers, ordinary prose, standalone lens prompts, helper argv, full dataset, full diff, and provider semantics. Keep the post-499c358 ten-path cumulative repair within 400 changed lines. The existing malformed-output selector must also contain exactly one local import of _combined_prompt and assert that its output contains the exact quality-only instruction; this is the remaining two-line acceptance gap. Do not alter the current production implementation or six split-line placement cases. Preserve both forms at the same 400-line total by assigning the ordinary single-line verdict for the preface case and the newline-split verdict for the other five cases inside the existing prose loop; move rather than add a test line.",
         "Keep overall_explanation at most 2200 characters. Emit one compact truthful C1-C10 verdict line with file:line evidence per contract, three distinct short lens assessments, and all six exact full-line BEGIN/END FORGE ASSESSMENT markers. Keep full finding bodies in findings; omit no evidence, verdict, lens, or marker."
       ]
     },
@@ -198,6 +624,6 @@
   "story": "FORGE-COORD-1",
   "epic": "symphony-forge",
   "plan_file": "plans/active/FORGE-COORD-1-either-claude-or-codex-coordinates-the-same-forge-workflow.md",
-  "commit": "acf284c782494984ed56ac416cc83e2cd960364b",
+  "commit": "44a7a3bdc42fa228f891a609a3510abd15d0cbf0",
   "plan_sha256": "c605101d86582523c618eb7fbe236ccc103b96743d039926f418dc6540a3fd7c"
 }
