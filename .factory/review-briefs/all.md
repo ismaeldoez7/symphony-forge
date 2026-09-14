@@ -564,12 +564,12 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
     "uv run --with pytest --with psutil python -m pytest factory/tests/test_requirements_freshness.py -q",
     "python3 factory/scripts/verify.py"
   ],
-  "commit": "cb05cc381aeeeead14aef6a01db4a2661f6bfe1a",
+  "commit": "cfb32ecd30a1c3d57710e803566d4c70641ce4e3",
   "generated_by": "implementer",
   "manual_validation_steps": [],
   "non_blocking_findings": [],
   "pass_fail_summary": "8 passed in the new suite; verify.py exit 0 outside the sandbox",
-  "recorded_at": "2026-09-14T09:14:16+00:00",
+  "recorded_at": "2026-09-14T09:35:09+00:00",
   "remaining_gaps": [
     "The full input manifest across all six gates is deferred as D-0035; decision 0055's static checks are not run here per its 2026-09-14 amendment, with configuration ledgered as D-0036."
   ],
