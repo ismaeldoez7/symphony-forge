@@ -10,11 +10,12 @@
     {
       "id": "GATES-1-T2",
       "title": "Both grill guards read the ledger the same way",
-      "status": "pending"
+      "status": "done",
+      "task_sha256": "d1f7831fa00339af6830472898f9197c411ec58237da4ffa5c03c8107e76f2df"
     },
     {
       "id": "GATES-1-T3",
-      "title": "One producer says what a gate read, and one predicate says if it is stale",
+      "title": "The requirements gate joins the one definition of product",
       "status": "pending"
     },
     {
