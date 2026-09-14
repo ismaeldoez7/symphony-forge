@@ -1,6 +1,7 @@
 {
-  "review_run_id": "1dc110f27362ba773ebf72288ed2c9d33c70e6490a6c484032dcab6b1f8c079f",
-  "brief_sha256": "0ef98f5606a5fa86c70d3259f29d7b92aaab386c7c8923f13136b4d7b41b1819",
-  "branch_diff_digest": "2b1c0be8d62ce66ee1121035887209ed7c7e25936587679d845890648a66e5b3",
-  "minted_at": "2026-09-12T12:15:21+00:00"
+  "task_id": "GATES-1-T3",
+  "review_run_id": "607a5fcf9222e4527877cb3587abdca0c6c2c5d503f4599a961b50cc2c06e686",
+  "brief_sha256": "a7bc5dbe3de14bf1b30aefce93ff25b46974a7d52574d717e1e78124d18b9138",
+  "branch_diff_digest": "b9cf9a20debff569b64b3b73806599a5387baa4b4b08ab5598400342b758d268",
+  "minted_at": "2026-09-14T09:14:21+00:00"
 }
