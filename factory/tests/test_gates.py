@@ -18874,7 +18874,7 @@ def test_review_preflight_refuses_other_task_or_story_proof(repo, tmp_path):
     code, out = run(repo, "forge.py", "review", "T1", "--repo", str(repo))
     assert code != 0 and "verify.json is not recorded for task T1" in out
 
-def test_review_pins_its_codex_fallback_so_terra_cannot_be_selected():
+def test_review_pins_sol_and_never_requests_a_retired_model():
     """The retired model must be unreachable, checked where it is decided.
 
     This test used to assert the helper's SOURCE was refused when it contained
@@ -18889,10 +18889,10 @@ def test_review_pins_its_codex_fallback_so_terra_cannot_be_selected():
         skill=Path("/x/autoreview"), base_sha="base", prompt_rel="p.md",
         json_out=Path("/tmp/out.json"), engine="codex", max_priority="P3",
     )
-    assert "--fallback-model" in argv
-    assert argv[argv.index("--fallback-model") + 1] == review_mod.CODEX_REVIEW_FALLBACK
-    assert review_mod.CODEX_REVIEW_FALLBACK == f"codex={review_mod.CODEX_REVIEW_MODEL}"
+    assert argv[argv.index("--model") + 1] == review_mod.CODEX_REVIEW_MODEL
     assert not any("terra" in part.lower() for part in argv)
+    # --fallback-model is claude-only; passing it for codex aborts the helper.
+    assert "--fallback-model" not in argv
     # The pinned fallback is what the guard accepts.
     review_mod._require_safe_codex_review_helper(argv)
 
@@ -18901,9 +18901,9 @@ def test_review_refuses_an_argv_that_could_reach_terra(capsys):
     import forge_cli.review as review_mod
 
     for bad in (
-        ["--model", "gpt-5.6-sol"],                                  # no pin
-        ["--fallback-model", "codex=gpt-5.6-terra"],                 # pinned to terra
-        ["--fallback-model", "codex=gpt-5.6-sol", "--x", "terra"],   # anywhere in argv
+        ["--engine", "codex"],                          # no model pinned
+        ["--model", "gpt-5.6-terra"],                   # a retired model requested
+        ["--model", "gpt-5.6-sol", "--x", "terra"],     # retired model anywhere
     ):
         with pytest.raises(SystemExit) as error:
             review_mod._require_safe_codex_review_helper(bad)
@@ -18943,8 +18943,6 @@ def test_review_codex_engine_pins_sol_high(tmp_path, monkeypatch):
         "--engine", "codex", "--max-priority", "P1", "--prompt-file", "prompt",
         "--dataset", ".factory/review-briefs/all.md", "--json-output", str(report),
         "--model", "gpt-5.6-sol", "--thinking", "high",
-        # Pinned so the helper never reaches its own Terra access-fallback.
-        "--fallback-model", "codex=gpt-5.6-sol",
     ]
 
     review_mod._run_skill(
