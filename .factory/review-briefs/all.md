@@ -564,12 +564,12 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
     "uv run --with pytest --with psutil python -m pytest factory/tests/test_requirements_freshness.py -q",
     "python3 factory/scripts/verify.py"
   ],
-  "commit": "c24baad274de30d9c4f9a08a833d346480cae988",
+  "commit": "05772e2d3318dbe79b3711ec8be9d597db5c017f",
   "generated_by": "implementer",
   "manual_validation_steps": [],
   "non_blocking_findings": [],
   "pass_fail_summary": "8 passed in the new suite; verify.py exit 0 outside the sandbox",
-  "recorded_at": "2026-09-14T12:17:45+00:00",
+  "recorded_at": "2026-09-14T14:12:11+00:00",
   "remaining_gaps": [
     "The full input manifest across all six gates is deferred as D-0035; decision 0055's static checks are not run here per its 2026-09-14 amendment, with configuration ledgered as D-0036."
   ],
@@ -580,7 +580,7 @@ Rendered by the harness from the recorded decomposition; edit the decomposition,
     "factory/scripts/forge_cli/phase.py",
     "factory/tests/test_requirements_freshness.py"
   ],
-  "status": "pass",
+  "status": "passed",
   "summary": "Eight tests pin both directions of the requirements gate's freshness. The exclusion is asserted as a SET against product_excluded_prefixes rather than one example path, so the next list to drift is caught. A decision record and the context ledger no longer stale a recorded pass; editing the confirmed spec body and changing a real product file both still do, so the gate is corrected rather than disabled. A pass recorded under the old exclusions is still accepted, which is what stops this change reinterpreting every in-flight story as stale at once. Both consumers are asserted to resolve through the shared helper, and the prefix gates and the pre-stage task grill are asserted unchanged.",
   "tests_added_or_updated": [
     "factory/tests/test_requirements_freshness.py::test_requirements_digest_uses_the_shared_exclusion_definition",
