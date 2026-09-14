@@ -4,7 +4,7 @@
   "story": "GATES-1",
   "epic": "accountable-engineering",
   "plan_file": "plans/active/GATES-1-gates-stale-only-on-what-they-read.md",
-  "plan_sha256": "677fa998a064cf76c02e3b2b94261022cb14cee725af4d640f0de54fbb2c0127",
+  "plan_sha256": "3f01ce2837c7d1f3d88f390abb7929023f32c30db70216af8f34859d8e64fe87",
   "tasks": [
     {
       "id": "GATES-1-T1",
@@ -342,7 +342,10 @@
         "max_changed_files": 4,
         "max_changed_lines": 300,
         "reason": "The shared exclusion passed inside requirements_digest, one freshness helper that also accepts the legacy digest, both consumers switched to it, and one new suite. The full manifest this task originally carried is deferred as D-0035 after reading showed the measured cascade had a one-argument cause; the owner reversed the decision-staleness ruling to allow it, and the confirmed spec is amended to match."
-      }
+      },
+      "dependencies": [
+        "GATES-1-T1"
+      ]
     },
     {
       "id": "GATES-1-T4",
@@ -358,7 +361,10 @@
       "depends_on": [
         "GATES-1-T3"
       ],
-      "user_facing": false
+      "user_facing": false,
+      "dependencies": [
+        "GATES-1-T3"
+      ]
     },
     {
       "id": "GATES-1-T5",
@@ -375,9 +381,12 @@
       "depends_on": [
         "GATES-1-T2"
       ],
-      "user_facing": false
+      "user_facing": false,
+      "dependencies": [
+        "GATES-1-T2"
+      ]
     }
   ],
   "project": "",
-  "commit": "27babfa94bc63434ce8682d21b6ae2ec7570ba4e"
+  "commit": "4672acf4f8828054cc3356c8ba10231a672c504e"
 }
