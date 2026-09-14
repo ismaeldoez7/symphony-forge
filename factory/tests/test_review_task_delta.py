@@ -113,6 +113,8 @@ def test_combined_review_projects_tagged_lenses_and_preserves_ordered_pass_verdi
 
 
 def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixed_output(capsys):
+    from forge_cli.review import _combined_prompt
+    assert b"Put VERDICT lines only inside the quality assessment" in _combined_prompt({})
     provider = _provider_report("preface\n" + _combined_explanation(
             "VERDICT C1: implemented — src/a.py:1", "measured", "bounded",
         ).replace(
@@ -130,6 +132,17 @@ def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixe
         ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, (),
     )
     assert lenses["quality"]["contract_verdicts"][0]["verdict"] == "implemented"
+
+    for prose in ("preface", "quality follow-up", "measured", "performance follow-up", "bounded", "epilogue"):
+        verdict = ("VERDICT C1: implemented — src/a.py:1" if prose == "preface"
+                   else "VERDICT\nC1: implemented — src/a.py:1")
+        invalid = copy.deepcopy(provider)
+        invalid["overall_explanation"] = invalid["overall_explanation"].replace(prose, verdict)
+        with pytest.raises(SystemExit):
+            _project_combined_report(
+                {"id": "T1", "plan_contracts": [{"id": "C1"}]},
+                _processed(invalid, review_status="findings"),
+                ["src/a.py"], "a" * 40, "b" * 40, [], [], {}, ())
 
     for tag in ("[quality]", "[performance]", "[security]"):
         for whitespace in (" ", "\t", "\n", "\N{NO-BREAK SPACE}"):

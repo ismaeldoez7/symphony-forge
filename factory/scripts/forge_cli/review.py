@@ -288,6 +288,8 @@ def _combined_prompt(task: dict) -> bytes:
         "<performance assessment>", "END FORGE ASSESSMENT performance",
         "BEGIN FORGE ASSESSMENT security", "<security assessment>",
         "END FORGE ASSESSMENT security", "",
+        "Put VERDICT lines only inside the quality assessment, never in surrounding "
+        "prose or the performance or security assessments.", "",
         "Prefix every finding title with exactly one matching token: [quality] , "
         "[performance] , or [security] .", "", LENS_FOCUS["quality"],
         combined_verdict_format, VERDICT_INSTRUCTION, "", LENS_FOCUS["performance"],
@@ -316,6 +318,11 @@ def _pass_sections(report: dict) -> tuple[dict[str, str], list[str]]:
         sections[lens] = body
     if positions != sorted(positions):
         fail("combined review lens sections are not in quality, performance, security order")
+    qs, qe, ps, pe, ss, se = positions
+    non_quality = (lines[:qs], lines[qe + 1:ps], lines[ps + 1:pe],
+                   lines[pe + 1:ss], lines[ss + 1:se], lines[se + 1:])
+    if any(VERDICT_LINE.search("\n".join(span)) for span in non_quality):
+        fail("combined review VERDICT lines must appear only in the quality assessment")
     if len(set(sections.values())) != len(LENSES):
         fail("combined review copied one lens assessment into another lens")
     return sections, lines
