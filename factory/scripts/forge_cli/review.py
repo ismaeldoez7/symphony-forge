@@ -1705,8 +1705,6 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
 
     skill = resolve_skill(getattr(args, "skill", None))
     engine = getattr(args, "engine", "codex")
-    if not args.lens:
-        _require_current_review_helper(skill)
     # The Terra check now inspects the argv each lens is launched with, in
     # _skill_argv, where the fallback is pinned. Checking it here would only
     # re-read the helper's source, which is what blocked every published
@@ -1793,6 +1791,8 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
         print(f"== {name} review: releasing Codex over {len(scope)} path(s) "
               f"({base_sha[:7]}..{review_tip[:7]}, task tip {tip_sha[:7]}) ==",
               flush=True)
+        if not args.lens:
+            _require_current_review_helper(skill)
         helper_before, helper_file_before = _helper_identity(skill)
         # The launcher travels only when there is one, so a runner that knows
         # nothing of it (a test double, an older override) keeps working.
