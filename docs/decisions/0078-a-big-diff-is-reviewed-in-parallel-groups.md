@@ -61,6 +61,11 @@ and the stamp; their bytes are not sent to the reviewer.
   one `plan-contract-partial|missing` blocker per such verdict, fail-closed,
   as the per-aspect recorder always did; `forge review` reports what was
   recorded, not what was projected.
+- Found by the new close test and fixed here: after a post-seal fix,
+  `task close` reopened, reviewed and re-sealed, but the seal's pre-seal
+  proof check rendered the brief section from the previous marker's
+  commit and refused the resealed task. A pre-seal check now reads the
+  current inputs, as the brief it checks was written from.
 - The reviewer never sees a lockfile diff; `package.json` changes are still
   reviewed. A folder named `generated/` is treated as generated output.
 - `FORGE_REVIEW_SPLIT_BYTES` lowers the split point for probes and tests.

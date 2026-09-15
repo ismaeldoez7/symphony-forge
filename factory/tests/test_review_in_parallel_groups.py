@@ -436,7 +436,7 @@ def test_the_contracts_describe_one_pass_parallel_groups_and_p3_depth():
                     "--max-priority P3", "VERDICT <contract-id>"):
         assert current in reviewer, current
     assert "parallel groups" in quality and "0078" in quality
-    assert "0078" in agents and "parallel groups" in agents
+    assert "0078" in agents  # one pointer; AGENTS.md is capped at 7000 bytes
     assert decision.is_file() and "one immutable record" in decision.read_text(encoding="utf-8")
     prompt = review_mod._combined_prompt({"id": "T1", "plan_contracts": TASK_CONTRACTS}).decode()
     assert "FINDING FORM" in prompt and "missing context is not proof" in prompt
