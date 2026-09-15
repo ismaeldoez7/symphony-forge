@@ -1664,22 +1664,22 @@ def _marker_publication_commit(
     selected review with the first seal's ("selected review pointer changed
     after task marker", CI 2026-09-15)."""
     def blob(treeish: str) -> str:
-        proc = subprocess.run(
+        resolved = subprocess.run(
             ["git", "rev-parse", "--verify", "--quiet", f"{treeish}:{marker_path}"],
             cwd=root, capture_output=True, text=True, env=clean_git_env(),
             encoding="utf-8",
         )
-        return proc.stdout.strip() if proc.returncode == 0 else ""
+        return resolved.stdout.strip() if resolved.returncode == 0 else ""
 
     current = blob(inspected_head)
     if not current:
         return ""
-    proc = subprocess.run(
+    history = subprocess.run(
         ["git", "log", "--reverse", "--format=%H", inspected_head, "--", marker_path],
         cwd=root, capture_output=True, text=True, env=clean_git_env(),
         encoding="utf-8",
     )
-    commits = proc.stdout.split() if proc.returncode == 0 else []
+    commits = history.stdout.split() if history.returncode == 0 else []
     return next((commit for commit in commits if blob(commit) == current), "")
 
 
