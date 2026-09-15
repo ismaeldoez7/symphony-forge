@@ -2128,6 +2128,13 @@ def task_proof_problems(
         )
         if marker_problem:
             return [marker_problem]
+        # An ADOPTED marker (`forge task reconcile`) is work that reached the
+        # trunk before the harness could prove it. The PR gate
+        # (check_task_proof) and the frontier (task_marker_on_main) already
+        # accept it without proof; story closeout must say the same, or a story
+        # of adopted tasks can never close (WF-1, 2026-09-14).
+        if marker_context is not None and marker_context.get("reconciled") is True:
+            return []
 
     expected_head = inspected_head or head_sha(root) or ""
     proof_base = ""
@@ -2230,6 +2237,38 @@ def task_proof_problems(
     )
 
 
+def run_is_task_level(root: Path, key: str = "", tasks: list[dict] | None = None) -> bool:
+    """Whether this story ships task by task (per-task PRs and markers) or as
+    one story -- the one answer every closeout gate must agree on.
+
+    The pointer's `base_main_sha` says so only inside a task worktree: `forge
+    task start` writes it there, and nothing writes it into the story's own
+    pointer. So a story whose every task had shipped as its own PR was still
+    classed story-level at closeout and asked for the story-wide verify,
+    three-lens review and functional pass that the per-task flow retired
+    (WF-1, 2026-09-14). The markers are the evidence: a story-level run cannot
+    produce one, so a task marker on the trunk -- or committed in this tree --
+    means task-level.
+    """
+    state = load_json(run_state_path(root), default={})
+    if state.get("base_main_sha"):
+        return True
+    key = key or _active_story_key(root)
+    if tasks is None:
+        decomposition = load_json(protected_decomposition_state_path(root), default={})
+        tasks = [t for t in decomposition.get("tasks", []) if isinstance(t, dict)]
+    ids = [str(t.get("id") or "") for t in tasks if t.get("id")]
+    if not key or not ids:
+        return False
+    try:
+        if any((root / task_marker_path(key, task_id)).is_file() for task_id in ids):
+            return True
+    except ValueError:
+        return False
+    fetch_trunk(root, default_trunk_branch(root))
+    return any(task_marker_on_main(root, key, task_id, refresh=False) for task_id in ids)
+
+
 def require_closeout_order(root: Path) -> list[str]:
     """Story closeout, sourced from the proof its TASKS produced.
 
@@ -2271,10 +2310,10 @@ def require_closeout_order(root: Path) -> list[str]:
     # Selecting on the run mode is what keeps both flows working. Requiring
     # per-task proof everywhere would strand every story-level run — a
     # deadlock, since a story-level run cannot produce task markers at all.
-    task_level = bool(load_json(run_state_path(root), default={}).get("base_main_sha"))
     key = _active_story_key(root)
     decomposition = load_json(protected_decomposition_state_path(root), default={})
     tasks = [t for t in decomposition.get("tasks", []) if isinstance(t, dict)]
+    task_level = run_is_task_level(root, key, tasks)
 
     if task_level and tasks:
         for task in tasks:
@@ -2318,7 +2357,23 @@ def require_closeout_order(root: Path) -> list[str]:
     # decomposition-level key, so reading one silently found nothing and the
     # gate passed everything.
     from forge_cli.review_brief import declared_contracts
-    declared = [c["id"] for c in declared_contracts(decomposition)]
+    # An adopted task (committed `reconciled` marker) is accepted without proof,
+    # its contracts included: there is no quality review of it to read.
+    adopted: set[str] = set()
+    for t in tasks:
+        task_id = str(t.get("id") or "")
+        try:
+            committed = _read_git_json(
+                root, f".factory/stories/{key}/tasks/{task_id}/pr-ready.json", "HEAD")
+        except SystemExit:
+            committed = None
+        if isinstance(committed, dict) and committed.get("reconciled") is True:
+            adopted.add(task_id)
+    declared = [
+        c["id"] for t in tasks if str(t.get("id") or "") not in adopted
+        for c in t.get("plan_contracts") or []
+        if isinstance(c, dict) and isinstance(c.get("id"), str)
+    ] if adopted else [c["id"] for c in declared_contracts(decomposition)]
     if declared:
         # A contract is verified wherever the proof for it actually lives: in a
         # task-level run that is the owning task's quality review, in a
@@ -2984,7 +3039,11 @@ def _publish_immutable_review_file(root: Path, destination: Path, body: bytes) -
         return
     if not _safe_review_leaf(root, temporary, required=False, create_parents=True):
         raise SystemExit(f"unsafe review generation temporary path: {temporary}")
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    # O_BINARY: on Windows a descriptor without it is text-mode, every newline
+    # in the body lands as CRLF, and the readback below refused every
+    # generation (temporary readback differs): no review could publish.
+    flags = (os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+             | getattr(os, "O_BINARY", 0))
     descriptor = os.open(temporary, flags, 0o600)
     try:
         info = os.fstat(descriptor)
@@ -3022,8 +3081,9 @@ def _replace_review_selection(root: Path, destination: Path, selection: dict) ->
     temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
     if not _safe_review_leaf(root, temporary, required=False, create_parents=True):
         raise SystemExit(f"unsafe review selection temporary path: {temporary}")
-    descriptor = os.open(
-        temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600,
+    descriptor = os.open(  # O_BINARY: see _publish_immutable_review_file
+        temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_BINARY", 0), 0o600,
     )
     try:
         view = memoryview(body)
@@ -4180,8 +4240,6 @@ def task_stage_record(root: Path, task_id: str) -> dict:
 
 def _task_schedule(root: Path) -> tuple[list[dict], dict[str, dict], set[str]]:
     """Tasks in declaration order, their stages, and the ids already done."""
-    run_state = load_json(run_state_path(root), default={})
-    is_task_level = bool(run_state.get("base_main_sha"))
     tasks = load_json(
         protected_decomposition_state_path(root), default={}
     ).get("tasks", [])
@@ -4192,6 +4250,7 @@ def _task_schedule(root: Path) -> tuple[list[dict], dict[str, dict], set[str]]:
         if isinstance(stage, dict)
     }
     key = _active_story_key(root)
+    is_task_level = run_is_task_level(root, key, [t for t in tasks if isinstance(t, dict)])
     done = {
         candidate.get("id")
         for candidate in tasks

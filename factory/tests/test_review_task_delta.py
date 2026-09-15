@@ -114,7 +114,7 @@ def test_combined_review_projects_tagged_lenses_and_preserves_ordered_pass_verdi
 
 def test_combined_review_refuses_incomplete_noncontiguous_missing_copied_or_mixed_output(capsys):
     from forge_cli.review import _combined_prompt
-    assert b"Put VERDICT lines only inside the quality assessment" in _combined_prompt({})
+    assert b"a verdict is a finding record" in _combined_prompt({})
     provider = _provider_report("preface\n" + _combined_explanation(
             "VERDICT C1: implemented — src/a.py:1", "measured", "bounded",
         ).replace(

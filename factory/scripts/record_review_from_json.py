@@ -134,11 +134,16 @@ if args.set:
     expected_helper, _helper_file = _helper_identity(resolve_skill(None))
     if payload.get("helper") != expected_helper:
         raise SystemExit("review generation helper does not match the installed helper")
-    prompt = _combined_prompt(task)
-    expected_input = {
-        "sha256": hashlib.sha256(prompt).hexdigest(), "bytes": len(prompt),
-    }
-    if payload.get("input") != expected_input:
+    # The brief has two forms: the reviewer read the tree it judged, or it saw
+    # only the diff bundle (another engine, codex off PATH, or
+    # FORGE_REVIEW_EMPTY_WORKSPACE). Either is the current combined prompt.
+    accepted_inputs = []
+    for repo_readable in (True, False):
+        prompt = _combined_prompt(task, repo_readable=repo_readable)
+        accepted_inputs.append({
+            "sha256": hashlib.sha256(prompt).hexdigest(), "bytes": len(prompt),
+        })
+    if payload.get("input") not in accepted_inputs:
         raise SystemExit("review generation input does not match the current combined prompt")
     if payload.get("lenses") != rederive_combined_lenses(root, payload):
         raise SystemExit("review generation lenses do not match the raw helper result")
