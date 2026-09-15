@@ -157,9 +157,9 @@ VERDICT_RECORD = re.compile(
     re.IGNORECASE,
 )
 VERDICT_RECORD_FORMAT = """\
-CONTRACT VERDICTS (mandatory, machine-parsed). For EVERY plan contract listed
-under the target task's "Plan contracts" in {dataset}, add one finding RECORD,
-never a line in overall_explanation:
+CONTRACT VERDICTS (mandatory, machine-parsed). For EVERY plan contract
+listed under the target task's "Plan contracts" in {dataset}, add one finding
+RECORD, never a line in overall_explanation:
 
 - title: exactly `[quality] VERDICT <contract-id>: implemented|partial|missing`
 - body: the file:line you read and one sentence of evidence (the tree is
