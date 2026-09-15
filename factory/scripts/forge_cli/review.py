@@ -145,6 +145,31 @@ VERDICT <contract-id>: implemented|partial|missing — <file:line evidence>
 Every listed contract must get a line. Do not rename contract ids.
 """
 
+# A verdict as a finding RECORD: the combined review's summary box is capped at
+# 3,000 characters by the helper's schema, and one VERDICT line per contract
+# inside it overflowed on WF-1A T1 (3,027 characters, cut mid-word before the
+# security end marker; the hour-long run was refused). A record has its own
+# 2,000-character body and there is no limit on how many records a pass
+# carries, so the box no longer grows with the plan (decision 0077).
+VERDICT_RECORD = re.compile(
+    r"^VERDICT\s+(?P<id>[A-Za-z0-9._:-]+)\s*:\s*"
+    r"(?P<verdict>implemented|partial|missing)\s*$",
+    re.IGNORECASE,
+)
+VERDICT_RECORD_FORMAT = """\
+CONTRACT VERDICTS (mandatory, machine-parsed). For EVERY plan contract of the
+target task, add one finding RECORD, never a line in overall_explanation:
+
+- title: exactly `[quality] VERDICT <contract-id>: implemented|partial|missing`
+- body: the file:line you read and one sentence of evidence (the tree is
+  readable; a verdict on code the diff does not show is read, not guessed)
+- code_location: that file and line; priority: P3; category: maintainability
+
+Every listed contract must get a record, in every pass. Do not rename contract
+ids. A verdict record is not a defect: it is lifted out of the findings before
+they are counted. Keep overall_explanation to the three short assessments.
+"""
+
 SECTION_MARKERS = tuple(
     (lens, f"BEGIN FORGE ASSESSMENT {lens}", f"END FORGE ASSESSMENT {lens}")
     for lens in LENSES
@@ -324,21 +349,19 @@ def _combined_prompt(task: dict, *, repo_readable: bool = True) -> bytes:
         str(contract.get("id")) for contract in task.get("plan_contracts") or []
         if isinstance(contract, dict) and isinstance(contract.get("id"), str)
     ]
+    # The box holds markers and three short assessments only; verdicts are
+    # records (VERDICT_RECORD_FORMAT), so this never depends on len(contracts).
     minimum = [
-        "BEGIN FORGE ASSESSMENT quality",
-        *(f"VERDICT {contract}: implemented — file:line evidence" for contract in contracts),
-        "quality assessment", "END FORGE ASSESSMENT quality",
+        "BEGIN FORGE ASSESSMENT quality", "quality assessment",
+        "END FORGE ASSESSMENT quality",
         "BEGIN FORGE ASSESSMENT performance", "performance assessment",
         "END FORGE ASSESSMENT performance", "BEGIN FORGE ASSESSMENT security",
         "security assessment", "END FORGE ASSESSMENT security",
     ]
     if len("\n".join(minimum)) > 3000:
         fail("combined review boilerplate cannot fit the helper's 3000-character "
-             "overall_explanation limit; reduce the approved contract count")
-    combined_verdict_format = QUALITY_VERDICT_FORMAT.replace(
-        'listed under "Plan contracts" below',
-        f'listed under the target task\'s "Plan contracts" in {REVIEW_DATASET_REL}',
-    )
+             "overall_explanation limit")
+    del contracts
     lines = [
         f"# Review brief — {task.get('id', '')} — combined review", "",
         (COMMON_PREAMBLE if repo_readable else DIFF_ONLY_PREAMBLE).replace(
@@ -354,11 +377,12 @@ def _combined_prompt(task: dict, *, repo_readable: bool = True) -> bytes:
         "<performance assessment>", "END FORGE ASSESSMENT performance",
         "BEGIN FORGE ASSESSMENT security", "<security assessment>",
         "END FORGE ASSESSMENT security", "",
-        "Put VERDICT lines only inside the quality assessment, never in surrounding "
-        "prose or the performance or security assessments.", "",
+        "Keep each assessment short, a few sentences: overall_explanation is capped "
+        "at 3000 characters in total and holds ONLY these three assessments. Never "
+        "write VERDICT lines in it; a verdict is a finding record.", "",
         "Prefix every finding title with exactly one matching token: [quality] , "
         "[performance] , or [security] .", "", LENS_FOCUS["quality"],
-        combined_verdict_format, VERDICT_INSTRUCTION, "", LENS_FOCUS["performance"],
+        VERDICT_RECORD_FORMAT, "", LENS_FOCUS["performance"],
         LENS_FOCUS["security"], LEFTOVER_INSTRUCTION, "",
     ]
     return ("\n".join(lines).rstrip() + "\n").encode()
@@ -645,6 +669,7 @@ def _project_combined_report(
     retained_raw: list[dict] = []
     projected_fingerprints: set[tuple[str, int, int, str]] = set()
     seen_merge_keys: set[tuple[str, int, str, str]] = set()
+    verdict_lines: list[str] = []
     for label, provider in passes:
         if not isinstance(provider.get("findings", []), list):
             fail("combined review pass findings must be a list")
@@ -654,10 +679,24 @@ def _project_combined_report(
             prior_lens = fingerprint_lenses.setdefault(fingerprint, lens)
             if prior_lens != lens:
                 fail("combined review contains a cross-lens duplicate normalized finding")
+            record = VERDICT_RECORD.match(clean["title"])
+            if record and lens != "quality":
+                fail("a VERDICT record carries the [quality] tag; found one under "
+                     f"[{lens}]: {clean['title']}")
             if fingerprint not in projected_fingerprints:
                 projected_fingerprints.add(fingerprint)
-                retained.append((lens, clean))
-                by_lens[lens].append(clean)
+                if record:
+                    # Lifted out of the findings: it feeds contract_verdicts
+                    # and is never a defect, whatever priority it carries.
+                    where = clean["code_location"]
+                    at = f"{where['file_path']}:{where['line']}"
+                    body = " ".join(str(clean.get("body", "")).split())
+                    verdict_lines.append(
+                        f"VERDICT {record['id']}: {record['verdict'].lower()} — "
+                        + (body if at in body else f"{at} {body}"))
+                else:
+                    retained.append((lens, clean))
+                    by_lens[lens].append(clean)
             if merge_key not in seen_merge_keys:
                 seen_merge_keys.add(merge_key)
                 merged = copy.deepcopy(finding)
@@ -694,7 +733,8 @@ def _project_combined_report(
         artifacts[lens] = _artifact(
             lens, task, lens_report, scope, base_sha, tip_sha, skills_used,
             all_tasks, started, excluded,
-            verdict_texts=[section["quality"] for section in sections]
+            verdict_texts=[*(section["quality"] for section in sections),
+                           *verdict_lines]
             if lens == "quality" else None,
         )
     return artifacts
