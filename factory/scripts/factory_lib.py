@@ -1674,12 +1674,12 @@ def _marker_publication_commit(
     current = blob(inspected_head)
     if not current:
         return ""
-    history = subprocess.run(
+    proc = subprocess.run(
         ["git", "log", "--reverse", "--format=%H", inspected_head, "--", marker_path],
         cwd=root, capture_output=True, text=True, env=clean_git_env(),
         encoding="utf-8",
     )
-    commits = history.stdout.split() if history.returncode == 0 else []
+    commits = proc.stdout.split() if proc.returncode == 0 else []
     return next((commit for commit in commits if blob(commit) == current), "")
 
 
