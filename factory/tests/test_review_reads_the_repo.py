@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+
+import pytest
 import sys
 from pathlib import Path
 
@@ -275,3 +277,23 @@ def test_the_contract_records_that_the_review_reads_the_tree():
     workflow = (HARNESS / "WORKFLOW.md").read_text(encoding="utf-8")
     assert "INSIDE the reviewed" in workflow and "read-only (0076)" in workflow
     assert list((HARNESS / "docs" / "decisions").glob("0076-*.md"))
+
+
+def test_an_outdated_helper_is_refused_before_the_run_not_after(repo, tmp_path, monkeypatch, capsys):
+    """WF-1A T1 (2026-09-14): the installed helper predated the combined review
+    output; the run took an hour and the recorder then refused its 29 findings.
+    The helper is checked for the fields the recorder reads before anything
+    launches, and the message names the fix."""
+    _built(repo, tmp_path)
+    old = tmp_path / "old-autoreview.py"
+    old.write_text(FAKE_SKILL.replace('"review_status"', '"status"')
+                   .replace('"provider_report"', '"provider"'), encoding="utf-8")
+    seen = tmp_path / "seen"
+    monkeypatch.setenv("FAKE_SKILL_SEEN", str(seen))
+    with pytest.raises(SystemExit):
+        review_task(repo, "T1", skill=str(old), engine="claude")
+    printed = capsys.readouterr().out
+    assert "predates the combined review output" in printed
+    assert "review_status, provider_report" in printed
+    assert "forge doctor --fix" in printed
+    assert not seen.exists()  # nothing was launched

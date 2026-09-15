@@ -205,6 +205,26 @@ def _require_safe_codex_review_helper(argv: list[str]) -> None:
         fail(f"{CODEX_HELPER_FIX}: a retired model appears in the review argv")
 
 
+# What the recorder reads from a combined run. An installed helper that does
+# not write these ran for an hour on WF-1A T1 (2026-09-14) and its 29
+# findings were then refused at record time; the coordinator triaged them
+# from the log by hand. Refuse before the run instead.
+REQUIRED_HELPER_OUTPUT = ("review_status", "provider_report")
+
+
+def _require_current_review_helper(skill: Path) -> None:
+    try:
+        source = skill.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        fail(f"could not read the autoreview helper at {skill}")
+    missing = [key for key in REQUIRED_HELPER_OUTPUT if key not in source]
+    if missing:
+        fail(f"the installed autoreview helper at {skill} predates the combined "
+             f"review output the recorder reads (it never writes "
+             f"{', '.join(missing)}); a run would finish and then be refused at "
+             "record time. Run `./forge doctor --fix` to refresh it, then retry.")
+
+
 def _helper_identity(skill: Path) -> tuple[dict[str, str], tuple[int, int]]:
     try:
         resolved = skill.resolve(strict=True)
@@ -1685,6 +1705,8 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
 
     skill = resolve_skill(getattr(args, "skill", None))
     engine = getattr(args, "engine", "codex")
+    if not args.lens:
+        _require_current_review_helper(skill)
     # The Terra check now inspects the argv each lens is launched with, in
     # _skill_argv, where the fallback is pinned. Checking it here would only
     # re-read the helper's source, which is what blocked every published
