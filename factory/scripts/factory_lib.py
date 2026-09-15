@@ -1656,7 +1656,8 @@ def _marker_publication_commit(
     root: Path, marker_path: str, *, inspected_head: str = "HEAD",
 ) -> str:
     """The commit that published the marker AS IT IS at `inspected_head`: the
-    earliest commit on the way there whose marker blob is the current one.
+    newest commit that changed the marker and left it with its current blob,
+    i.e. the one that introduced the current content.
 
     This used to be the first commit that ever ADDED the file. A reseal after
     a post-seal fix rewrites the marker in place, so that commit published
@@ -1675,7 +1676,7 @@ def _marker_publication_commit(
     if not current:
         return ""
     proc = subprocess.run(
-        ["git", "log", "--reverse", "--format=%H", inspected_head, "--", marker_path],
+        ["git", "log", "--format=%H", inspected_head, "--", marker_path],
         cwd=root, capture_output=True, text=True, env=clean_git_env(),
         encoding="utf-8",
     )
