@@ -157,8 +157,9 @@ VERDICT_RECORD = re.compile(
     re.IGNORECASE,
 )
 VERDICT_RECORD_FORMAT = """\
-CONTRACT VERDICTS (mandatory, machine-parsed). For EVERY plan contract of the
-target task, add one finding RECORD, never a line in overall_explanation:
+CONTRACT VERDICTS (mandatory, machine-parsed). For EVERY plan contract listed
+under the target task's "Plan contracts" in {dataset}, add one finding RECORD,
+never a line in overall_explanation:
 
 - title: exactly `[quality] VERDICT <contract-id>: implemented|partial|missing`
 - body: the file:line you read and one sentence of evidence (the tree is
@@ -382,7 +383,8 @@ def _combined_prompt(task: dict, *, repo_readable: bool = True) -> bytes:
         "write VERDICT lines in it; a verdict is a finding record.", "",
         "Prefix every finding title with exactly one matching token: [quality] , "
         "[performance] , or [security] .", "", LENS_FOCUS["quality"],
-        VERDICT_RECORD_FORMAT, "", LENS_FOCUS["performance"],
+        VERDICT_RECORD_FORMAT.format(dataset=REVIEW_DATASET_REL), "",
+        LENS_FOCUS["performance"],
         LENS_FOCUS["security"], LEFTOVER_INSTRUCTION, "",
     ]
     return ("\n".join(lines).rstrip() + "\n").encode()
