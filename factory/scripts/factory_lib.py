@@ -1655,33 +1655,41 @@ def _committed_task_marker(
 def _marker_publication_commit(
     root: Path, marker_path: str, *, inspected_head: str = "HEAD",
 ) -> str:
-    """The commit that published the marker AS IT IS at `inspected_head`: the
-    newest commit that changed the marker and left it with its current blob,
-    i.e. the one that introduced the current content.
-
-    This used to be the first commit that ever ADDED the file. A reseal after
-    a post-seal fix rewrites the marker in place, so that commit published
-    the previous seal, and every proof reader then compared the current
-    selected review with the first seal's ("selected review pointer changed
-    after task marker", CI 2026-09-15)."""
-    def blob(treeish: str) -> str:
-        resolved = subprocess.run(
-            ["git", "rev-parse", "--verify", "--quiet", f"{treeish}:{marker_path}"],
-            cwd=root, capture_output=True, text=True, env=clean_git_env(),
-            encoding="utf-8",
+    """The commit that published the marker's CURRENT SEAL: the earliest
+    commit on the way to `inspected_head` whose marker names the same sealed
+    `commit`. A later rewrite of the same seal's metadata does not move it
+    (proof stays pinned to the publication); a reseal after a post-seal fix
+    names a new commit and moves it to that seal's publication. Before
+    2026-09-15 this was the first commit that ever added the file, so every
+    proof reader compared a resealed task's selected review with the FIRST
+    seal's ("selected review pointer changed after task marker"). A file
+    without a sealed `commit` (a review generation) resolves as before."""
+    def sealed(treeish: str) -> str | None:
+        shown = subprocess.run(
+            ["git", "show", f"{treeish}:{marker_path}"],
+            cwd=root, capture_output=True, env=clean_git_env(),
         )
-        return resolved.stdout.strip() if resolved.returncode == 0 else ""
+        if shown.returncode != 0:
+            return None
+        try:
+            document = json.loads(shown.stdout.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
+        value = document.get("commit") if isinstance(document, dict) else None
+        return value if isinstance(value, str) and value else None
 
-    current = blob(inspected_head)
-    if not current:
-        return ""
     proc = subprocess.run(
-        ["git", "log", "--format=%H", inspected_head, "--", marker_path],
+        ["git", "log", "--reverse", "--format=%H", inspected_head, "--", marker_path],
         cwd=root, capture_output=True, text=True, env=clean_git_env(),
         encoding="utf-8",
     )
     commits = proc.stdout.split() if proc.returncode == 0 else []
-    return next((commit for commit in commits if blob(commit) == current), "")
+    if not commits:
+        return ""
+    current = sealed(inspected_head)
+    if current is None:
+        return commits[0]
+    return next((commit for commit in commits if sealed(commit) == current), "")
 
 
 def _proof_commit_problems(
