@@ -1655,14 +1655,32 @@ def _committed_task_marker(
 def _marker_publication_commit(
     root: Path, marker_path: str, *, inspected_head: str = "HEAD",
 ) -> str:
+    """The commit that published the marker AS IT IS at `inspected_head`: the
+    earliest commit on the way there whose marker blob is the current one.
+
+    This used to be the first commit that ever ADDED the file. A reseal after
+    a post-seal fix rewrites the marker in place, so that commit published
+    the previous seal, and every proof reader then compared the current
+    selected review with the first seal's ("selected review pointer changed
+    after task marker", CI 2026-09-15)."""
+    def blob(treeish: str) -> str:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", f"{treeish}:{marker_path}"],
+            cwd=root, capture_output=True, text=True, env=clean_git_env(),
+            encoding="utf-8",
+        )
+        return proc.stdout.strip() if proc.returncode == 0 else ""
+
+    current = blob(inspected_head)
+    if not current:
+        return ""
     proc = subprocess.run(
-        ["git", "log", "--diff-filter=A", "--reverse", "--format=%H",
-         inspected_head, "--", marker_path],
+        ["git", "log", "--reverse", "--format=%H", inspected_head, "--", marker_path],
         cwd=root, capture_output=True, text=True, env=clean_git_env(),
         encoding="utf-8",
     )
-    commits = proc.stdout.splitlines() if proc.returncode == 0 else []
-    return commits[0].strip() if commits else ""
+    commits = proc.stdout.split() if proc.returncode == 0 else []
+    return next((commit for commit in commits if blob(commit) == current), "")
 
 
 def _proof_commit_problems(
