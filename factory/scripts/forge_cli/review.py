@@ -216,7 +216,7 @@ def _require_current_review_helper(skill: Path) -> None:
     try:
         source = skill.read_text(encoding="utf-8")
     except (OSError, UnicodeError):
-        fail(f"could not read the autoreview helper at {skill}")
+        return  # an unreadable or absent helper is refused by _helper_identity
     missing = [key for key in REQUIRED_HELPER_OUTPUT if key not in source]
     if missing:
         fail(f"the installed autoreview helper at {skill} predates the combined "
