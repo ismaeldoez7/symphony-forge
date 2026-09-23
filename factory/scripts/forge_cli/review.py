@@ -1,15 +1,11 @@
 """forge review <task-id> — release Codex for a task's three-lens review and
-record the three artifacts as that task's proof (decisions 0011, 0049).
+record the three artifacts as that task's proof (accepted decisions 0011,
+0054 and 0069).
 
-One command replaces the hand-assembled skill invocation the coordinator used
-to get wrong: it pins the task tip in a clean detached worktree (so harness
-writes in the main tree cannot abort the run), reviews the WHOLE task diff from
-the task's recorded base (branch mode; `--mode commit` would see only the last
-commit), runs the autoreview skill once with Codex as the engine, drops findings
-on harness bookkeeping paths, derives each lens artifact, parses
-the quality verdicts from the reviewer's prose, and records all three through
-the existing schema-validated recorder. It always ends by printing the exact
-next command.
+One command pins the task tip in a clean detached worktree, reviews the WHOLE
+task diff from its recorded base, releases one three-lens run for a small diff
+or parallel groups for a diff the helper would chunk (0078), and records one
+selected generation through the schema-validated recorder.
 """
 from __future__ import annotations
 
@@ -31,20 +27,24 @@ import unicodedata
 from pathlib import Path, PurePosixPath
 
 from factory_lib import (
-    branch_diff_digest, clean_git_env, head_sha, load_json, product_delta_digest,
+    head_sha, load_json, product_delta_digest,
     proof_path, protected_decomposition_state_path, repo_root, run_state_path,
     safe_factory_write_bytes, schema_path,
 )
 
 from .common import fail
 from .review_brief import (
-    LEFTOVER_INSTRUCTION, VERDICT_INSTRUCTION, _task_section, cmd_review_brief,
+    LEFTOVER_INSTRUCTION, VERDICT_INSTRUCTION, _current_decision_inputs,
+    _task_section, cmd_review_brief, render_review_dataset,
 )
 # Reuse the task module's git helpers rather than adding another lossless
 # capture site: theirs is already reviewed and content-pinned for path output.
 from .tasks import _git, _require_git
 
 LENSES = ("quality", "performance", "security")
+PLAN_CONTRACT_BLOCKER_CATEGORIES = {
+    "plan-contract-partial", "plan-contract-missing",
+}
 REVIEW_DATASET_REL = ".factory/review-briefs/all.md"
 # Harness bookkeeping is never the subject of a product review.
 HARNESS_PREFIXES = (".factory/", "plans/", "docs/decisions/")
@@ -55,13 +55,15 @@ VERDICT_LINE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 DEFAULT_SKILL = Path.home() / ".codex" / "skills" / "autoreview" / "scripts" / "autoreview"
-CODEX_REVIEW_MODEL = "gpt-5.6-sol"
+CODEX_REVIEW_MODEL = "gpt-6-sol"
 CODEX_REVIEW_THINKING = "high"
 # Terra is retired and this review never asks for it. It cannot be ruled out by
 # flag: the helper's --fallback-model is claude-only ("--fallback-model is only
 # supported for claude"), and its codex access-retry triggers whenever codex runs
-# on the helper's own default model — which IS gpt-5.6-sol, the model pinned
-# here. So the retry is reachable only when the account cannot reach Sol, in
+# on the helper's OWN default model, which is still gpt-5.6-sol -- the helper is
+# an external skill and this pin does not change it. Because we now pass --model
+# explicitly, codex runs on gpt-6-sol rather than the helper default, so the
+# access-retry is reachable only when the account cannot reach gpt-6-sol, in
 # which case the review would otherwise fail outright. What is enforceable, and
 # what is enforced, is that no retired model is ever requested.
 CODEX_HELPER_FIX = "the review must not request a retired model"
@@ -111,13 +113,14 @@ deliverable is a blocking finding even when the rest is clean. Flag
 single-responsibility violations and incoherent file/folder organisation against
 the reviewer focus (never a mandated layout). Structure-for-growth in shared
 infrastructure is NOT over-engineering; reserve that finding for speculative
-abstraction. Enforce the minimal-diff discipline (a new dependency where the
+abstraction or a concrete P0/P1 risk. Enforce the minimal-diff discipline (a new dependency where the
 stdlib suffices, reimplementing an existing helper, sprawl where a surgical
 change would do) — but a diff that drops validation, error handling, security, or
 accessibility to look smaller is the OPPOSITE finding. The constitution's coding
 standards are law: flag deviations you can see in the diff. Assess cyclomatic
 complexity of every changed function; genuinely knotted control flow (roughly
->10 independent paths) is blocking and must name its decomposition.
+>10 independent paths) is a P0/P1 finding only when it creates a concrete
+correctness, security, or operational risk, and must name its decomposition.
 """,
     "performance": """\
 LENS: PERFORMANCE. Hot paths, algorithmic complexity, query fanout (N+1),
@@ -362,7 +365,8 @@ def _lens_prompt(task: dict, lens: str, base: Path | None = None, *,
     return ("\n".join(lines).rstrip() + "\n").encode()
 
 
-def _combined_prompt(task: dict, *, repo_readable: bool = True) -> bytes:
+def _combined_prompt(task: dict, *, repo_readable: bool = True,
+                     semantic_identity: str = "") -> bytes:
     contracts = [
         str(contract.get("id")) for contract in task.get("plan_contracts") or []
         if isinstance(contract, dict) and isinstance(contract.get("id"), str)
@@ -379,14 +383,27 @@ def _combined_prompt(task: dict, *, repo_readable: bool = True) -> bytes:
     if len("\n".join(minimum)) > 3000:
         fail("combined review boilerplate cannot fit the helper's 3000-character "
              "overall_explanation limit")
-    del contracts
+    chunk_verdict_rule = (
+        "In a chunked run, each quality pass emits a VERDICT record only for "
+        "contracts it can judge from that pass's evidence. If a contract's "
+        "evidence is absent from this chunk, omit its record; do not call it "
+        "partial or missing solely because this chunk lacks its files. "
+        "A genuine observed defect remains partial or missing. Across all passes "
+        "every target contract must have an implemented verdict; an unverdicted "
+        "contract fails closed. In a one-pass run, verdict every contract.\n"
+    )
     lines = [
         f"# Review brief — {task.get('id', '')} — combined review", "",
         (COMMON_PREAMBLE if repo_readable else DIFF_ONLY_PREAMBLE).replace(
             "one lens of a three-lens", "the three-lens"),
         "The target task's complete Plan contracts and Reviewer focus are supplied "
         f"in `{REVIEW_DATASET_REL}`; use that dataset for task-specific review "
-        "requirements.", "",
+        "requirements. The rendered dataset is the authoritative review input for "
+        "task lifecycle and evidence records intentionally omitted from the synthetic "
+        "review checkout. Use those rendered records; do not call task proof, an event, "
+        "or lifecycle evidence absent solely because its original `.factory` path is "
+        "absent. Report any real contradiction between the product tree and the rendered "
+        "evidence.", "",
         "Assess quality, performance, and security in one provider pass. In every "
         "provider pass, overall_explanation must contain these exact full-line "
         "markers once, in this order, with a non-empty assessment between each pair:",
@@ -400,10 +417,13 @@ def _combined_prompt(task: dict, *, repo_readable: bool = True) -> bytes:
         "write VERDICT lines in it; a verdict is a finding record.", "",
         "Prefix every finding title with exactly one matching token: [quality] , "
         "[performance] , or [security] .", "", FINDING_FORM, "", LENS_FOCUS["quality"],
-        VERDICT_RECORD_FORMAT.format(dataset=REVIEW_DATASET_REL), "",
+        VERDICT_RECORD_FORMAT.format(dataset=REVIEW_DATASET_REL),
+        chunk_verdict_rule, "",
         LENS_FOCUS["performance"],
         LENS_FOCUS["security"], LEFTOVER_INSTRUCTION, "",
     ]
+    if semantic_identity:
+        lines.extend(["Reviewed meaning SHA-256: " + semantic_identity, ""])
     return ("\n".join(lines).rstrip() + "\n").encode()
 
 
@@ -671,6 +691,90 @@ def _actual_passes(report: object) -> list[tuple[str, dict]]:
     return passes
 
 
+def _scope_only_rejected_findings(report: object) -> tuple[list[dict], list[dict]]:
+    """Validate an exit-2 result whose only incomplete state is scope.
+
+    Retained local and rejected findings are audit input, not accepted review
+    proof. The caller may use them only as untrusted leads for a fresh pass.
+    """
+    other_metadata = REPORT_METADATA_FIELDS - {
+        "scope_rejected_findings", "available_source_records"}
+
+    def normalized(findings: list[dict], *, accepted: bool) -> list[dict]:
+        values = []
+        for finding in copy.deepcopy(findings):
+            _validate_helper_finding(finding, accepted=accepted)
+            finding["code_location"]["file_path"] = _normalized_helper_path(
+                finding["code_location"]["file_path"])
+            values.append(finding)
+        return values
+
+    def ordered(findings: list[dict]) -> list[str]:
+        return sorted(json.dumps(finding, sort_keys=True, ensure_ascii=False)
+                      for finding in findings)
+
+    def validate_pass(processed: dict) -> tuple[list[dict], list[dict]]:
+        if any(field in processed for field in other_metadata):
+            fail("combined review helper exit 2 contains non-scope rejection metadata")
+        provider = processed["provider_report"]
+        _pass_sections(provider)
+        for finding in copy.deepcopy(provider["findings"]):
+            finding["code_location"]["file_path"] = _normalized_helper_path(
+                finding["code_location"]["file_path"])
+            lens, clean, _fingerprint, _merge_key = _tagged_finding(finding)
+            if VERDICT_RECORD.match(clean["title"]) and lens != "quality":
+                fail("a VERDICT record carries the [quality] tag")
+        if any(processed[field] != provider[field]
+               for field in REPORT_FIELDS - {"findings"}):
+            fail("combined review processed result does not match its raw provider report")
+        rejected = processed.get("scope_rejected_findings") or []
+        raw = normalized(provider["findings"], accepted=False)
+        retained = normalized(processed["findings"], accepted=True)
+        refused = normalized(rejected, accepted=False)
+        if ordered(raw) != ordered([*retained, *refused]):
+            fail("combined review processed scope result does not match its raw provider report")
+        return retained, refused
+
+    if not isinstance(report, dict):
+        fail("combined review helper wrapper has invalid fields")
+    if "pass_reports" not in report:
+        processed = _validate_processed_report(
+            report, {"provider_report", "review_status"})
+        _validate_provider_report(processed["provider_report"])
+        _validate_review_status(processed)
+        rejected = processed.get("scope_rejected_findings")
+        if processed["review_status"] != "incomplete" or not rejected:
+            fail("combined review helper exit 2 is not a scope-only rejection")
+        return validate_pass(processed)
+
+    aggregate = _validate_processed_report(report, {"pass_reports", "review_status"})
+    _validate_review_status(aggregate)
+    rejected = aggregate.get("scope_rejected_findings")
+    if (aggregate["review_status"] != "incomplete" or not rejected
+            or any(field in aggregate for field in other_metadata)):
+        fail("combined review helper exit 2 is not a scope-only rejection")
+    entries = aggregate.get("pass_reports")
+    if not isinstance(entries, list) or not entries:
+        fail("combined review pass_reports must be a non-empty list")
+    retained: list[dict] = []
+    refused: list[dict] = []
+    for index, entry in enumerate(entries, 1):
+        expected = f"chunk {index}/{len(entries)}"
+        if (not isinstance(entry, dict) or set(entry) != {"label", "report"}
+                or entry.get("label") != expected):
+            fail(f"combined review pass order must be {expected}")
+        processed = _validate_processed_report(entry.get("report"), {"provider_report"})
+        _validate_provider_report(processed["provider_report"])
+        local, rejected_from_pass = validate_pass(processed)
+        retained.extend(local)
+        refused.extend(rejected_from_pass)
+    if ordered(normalized(rejected, accepted=False)) != ordered(refused):
+        fail("combined review aggregate scope metadata does not match its passes")
+    if ordered(normalized(aggregate["findings"], accepted=True)) != ordered(retained):
+        fail("combined review aggregate findings do not match its passes")
+    return retained, refused
+
+
 def _helper_bounded_field(text: str, limit: int) -> str:
     if len(text) <= limit:
         return text
@@ -826,7 +930,7 @@ def _project_combined_report(
 
 def rederive_combined_lenses(base: Path, candidate: dict) -> dict[str, dict]:
     """Project a combined candidate again from current authoritative task state."""
-    from .stages import load_stages, stage_baseline, task_for
+    from .stages import load_stages, task_for
 
     task_id = str(candidate.get("task_id") or "")
     task = task_for(base, task_id)
@@ -1053,7 +1157,8 @@ def _contract_verdicts(
 ) -> list[dict]:
     """Verdicts for the reviewed task come from the reviewer; contracts of other
     tasks already done are attested as shipped at their own seal; contracts of
-    tasks that have not started are not required (recorder, decision 0049)."""
+    tasks that have not started are not required under the accepted per-task
+    proof model (recorder, decisions 0054 and 0069)."""
     out: list[dict] = []
     parsed = _parse_verdicts(
         verdict_texts if verdict_texts is not None else _verdict_texts(reviewed)
@@ -1378,9 +1483,23 @@ def reject_finding(base: Path, task_id: str, lens: str, match: str, *,
         fail("review rejection requires the selected combined or rejection generation")
     artifact = generation["lenses"][lens]
     needle = match.strip().lower()
-    hits = [f for f in artifact.get("blocking_findings") or []
-            if needle in json.dumps(f).lower()]
+    actionable = [
+        f for f in artifact.get("blocking_findings") or []
+        if isinstance(f, dict)
+        and f.get("category") not in PLAN_CONTRACT_BLOCKER_CATEGORIES
+    ]
+    hits = [f for f in actionable if needle in json.dumps(f).lower()]
     if not hits:
+        contract_hits = [
+            f for f in artifact.get("blocking_findings") or []
+            if isinstance(f, dict)
+            and f.get("category") in PLAN_CONTRACT_BLOCKER_CATEGORIES
+            and needle in json.dumps(f).lower()
+        ]
+        if contract_hits:
+            fail("plan-contract partial/missing verdicts are required acceptance "
+                 "blockers and cannot be rejected as host defect findings; "
+                 f"implement the contract and rerun `./forge task close {task_id}`")
         fail(f"no blocking {lens} finding matches {match!r}")
     if len(hits) > 1:
         fail(f"{len(hits)} blocking {lens} findings match {match!r}; narrow it")
@@ -1566,6 +1685,45 @@ def blocking_with_triage(base: Path, story: str, task_id: str, *,
     return out
 
 
+def actionable_blocking_with_triage(
+        base: Path, story: str, task_id: str, *, generation: dict | None = None,
+) -> list[tuple[str, dict, dict | None]]:
+    """Selected-generation P0/P1 defect rows and their host triage.
+
+    Review recording normalizes reviewer P0/P1 findings into
+    ``blocking_findings``. Partial and missing plan-contract verdicts are
+    synthetic acceptance blockers added to that list afterward; they must be
+    fixed and re-reviewed, but are not defect claims for the host to triage.
+    """
+    return [
+        row for row in blocking_with_triage(
+            base, story, task_id, generation=generation,
+        )
+        if row[1].get("category") not in PLAN_CONTRACT_BLOCKER_CATEGORIES
+    ]
+
+
+def untriaged_actionable_blocking(
+        base: Path, story: str, task_id: str, *, generation: dict | None = None,
+) -> tuple[int, int]:
+    """(untriaged, total) actionable blockers in the selected generation."""
+    rows = actionable_blocking_with_triage(
+        base, story, task_id, generation=generation,
+    )
+    return sum(1 for _, _, triage in rows if triage is None), len(rows)
+
+
+def triage_workflow(task_id: str) -> str:
+    """The exact host workflow required before a review-fix delegation."""
+    return (
+        f'`./forge review {task_id} --triage "<finding text>" '
+        '--lens <quality|performance|security> --real --evidence <file:line> '
+        '--instance <file:line> [--instance <file:line> ...] --by <agent>`; '
+        'when the cited code disproves it, use the same command with '
+        '`--not-a-defect --evidence <file:line> --reason "<why>" --by <agent>`'
+    )
+
+
 def untriaged_blocking(base: Path, story: str, task_id: str) -> tuple[int, int]:
     """(untriaged, total) blocking findings recorded for the task."""
     rows = blocking_with_triage(base, story, task_id)
@@ -1615,9 +1773,23 @@ def triage_finding(base: Path, task_id: str, lens: str, match: str, *, real: boo
         ) + f"; run `forge review {task_id}` on this tree, then triage what it raises")
     artifact = (generation.get("lenses") or {}).get(lens) or {}
     needle = match.strip().lower()
-    hits = [f for f in artifact.get("blocking_findings") or []
-            if needle in json.dumps(f).lower()]
+    actionable = [
+        f for f in artifact.get("blocking_findings") or []
+        if isinstance(f, dict)
+        and f.get("category") not in PLAN_CONTRACT_BLOCKER_CATEGORIES
+    ]
+    hits = [f for f in actionable if needle in json.dumps(f).lower()]
     if not hits:
+        contract_hits = [
+            f for f in artifact.get("blocking_findings") or []
+            if isinstance(f, dict)
+            and f.get("category") in PLAN_CONTRACT_BLOCKER_CATEGORIES
+            and needle in json.dumps(f).lower()
+        ]
+        if contract_hits:
+            fail("plan-contract partial/missing verdicts are required acceptance "
+                 "blockers, not host defect triage; implement the contract and "
+                 f"rerun `./forge task close {task_id}`")
         fail(f"no blocking {lens} finding matches {match!r}")
     if len(hits) > 1:
         fail(f"{len(hits)} blocking {lens} findings match {match!r}; narrow it")
@@ -1863,7 +2035,7 @@ def _review_in_groups(base: Path, tmp: Path, worktree: Path, base_sha: str,
         (briefs / f"{label}.brief.txt").write_text(note, encoding="utf-8")
         specs.append({
             "label": label, "worktree": group_dir, "base": group_base, "paths": paths,
-            "codex_bin": str(write_launcher(launcher_root / label, group_dir))
+            "codex_bin": str(write_launcher(launcher_root / label, group_dir.resolve()))
             if readable else None, "note": note,
         })
         print(f"  {label}: {len(paths)} path(s), {sum(sizes[p] for p in paths) // 1000} KB "
@@ -1880,14 +2052,138 @@ def _review_in_groups(base: Path, tmp: Path, worktree: Path, base_sha: str,
 
     done = run_groups(groups=specs, prompt_rel=prompt_rel, log_dir=briefs,
                       ledger_root=base, argv_for=argv_for, validate=would_record)
-    merged = merge_group_reports(
-        [wrapper for group in done for wrapper in flatten_passes(group["report"])])
+    merged = merge_group_reports([
+        wrapper
+        for group in done
+        for report in group["accepted_reports"]
+        for wrapper in flatten_passes(report)
+    ])
     return merged, (json.dumps(merged, indent=2) + "\n").encode("utf-8")
+
+
+def pre_review_proof_problems(
+    base: Path, story: str, task_id: str, base_sha: str, tip_sha: str, *,
+    proof_context: dict[str, object] | None = None,
+) -> list[str]:
+    """Validate only proof needed before first review; review itself is absent."""
+    from factory_lib import _proof_commit_problems
+    from .readiness import tests_passed, verify_passed
+    from .stages import (
+        _proof_receipt, load_stages, product_tree_snapshot, proof_identity,
+        protected_authority_snapshot, task_for,
+    )
+    verify = load_json(
+        proof_path(base, story, "verify.json", task_id=task_id), default={},
+    )
+    tests = load_json(
+        proof_path(base, story, "tests.json", task_id=task_id), default={},
+    )
+    automated = tests.get("automated") if isinstance(tests, dict) else None
+    problems = []
+    if not isinstance(verify, dict) or not verify_passed(verify):
+        problems.append(f"verify.json is not passing for task {task_id}")
+    if (not isinstance(automated, dict) or automated.get("status") != "passed"
+            or not tests_passed(automated)):
+        problems.append(f"tests.json automated proof is not passing for task {task_id}")
+    if not problems:
+        problems.extend(_proof_commit_problems(
+            base, task_id, [("verify", verify), ("tests", tests)],
+            base=base_sha, seal=tip_sha,
+        ))
+    task = task_for(base, task_id)
+    stage = next(
+        (row for row in load_stages(base).get("stages", [])
+         if isinstance(row, dict) and row.get("id") == task_id),
+        None,
+    )
+    if task and stage:
+        product_tree = product_tree_snapshot(base)
+        context_problems: list[str] = []
+        context_proofs = None
+        if proof_context is not None:
+            if not isinstance(proof_context, dict):
+                context_problems.append("close proof context is malformed")
+            else:
+                expected_product = proof_context.get("product_tree")
+                if expected_product != product_tree:
+                    same_product = (
+                        isinstance(expected_product, dict)
+                        and isinstance(product_tree, dict)
+                        and {
+                            key: value for key, value in expected_product.items()
+                            if key != "head"
+                        } == {
+                            key: value for key, value in product_tree.items()
+                            if key != "head"
+                        }
+                    )
+                    if same_product:
+                        # Close may commit only its proof/evidence before
+                        # review. Refresh the in-memory snapshot for that
+                        # metadata-only HEAD move after rechecking every
+                        # product byte and index/worktree identity above.
+                        proof_context["product_tree"] = product_tree
+                    else:
+                        context_problems.append(
+                            "close proof context product tree changed before review"
+                        )
+            try:
+                authority_tree = protected_authority_snapshot(base)
+            except (OSError, ValueError, SystemExit) as exc:
+                context_problems.append(
+                    f"close proof context authority could not be read: {exc}"
+                )
+            else:
+                if (isinstance(proof_context, dict)
+                        and proof_context.get("authority_tree") != authority_tree):
+                    context_problems.append(
+                        "close proof context protected authority changed before review"
+                    )
+            if isinstance(proof_context, dict):
+                context_proofs = proof_context.get("proofs")
+                if not isinstance(context_proofs, dict):
+                    context_problems.append("close proof context has no proof identities")
+        problems.extend(context_problems)
+        probe_memo = {}
+        for kind in ("verify", "tests"):
+            current = proof_identity(
+                base, task, kind, product_tree=product_tree,
+                tool_probe_memo=probe_memo,
+            )
+            receipt = _proof_receipt(base, task_id, kind)
+            ordinary_match = (
+                current.get("reusable") is True
+                and receipt.get("status") == "passed"
+                and receipt.get("identity") == current.get("identity")
+                and receipt.get("inputs") == current.get("inputs")
+            )
+            context_entry = (
+                context_proofs.get(kind)
+                if isinstance(context_proofs, dict) else None
+            )
+            close_match = (
+                not context_problems
+                and isinstance(context_entry, dict)
+                and context_entry.get("status") == "passed"
+                and context_entry.get("executed") is True
+                and receipt.get("status") == "passed"
+                and receipt.get("identity") == context_entry.get("identity")
+                and receipt.get("inputs") == context_entry.get("inputs")
+                and current.get("identity") == context_entry.get("identity")
+                and current.get("inputs") == context_entry.get("inputs")
+            )
+            if not ordinary_match and not close_match:
+                problems.append(
+                    f"{kind} proof receipt identity is stale for task {task_id}; "
+                    "rerun task proof before review"
+                )
+    return problems
 
 
 def review_task(base: Path, task_id: str, *, lens: str | None = None,
                 engine: str = "codex", max_priority: str = "P3",
-                skill: str | None = None) -> dict:
+                skill: str | None = None,
+                proof_context: dict[str, object] | None = None) -> dict:
     """Release the three-lens review for one task and record its proof.
 
     Returns {"blocking", "caveats", "stamped", "stage_status"}. `cmd_review`
@@ -1926,12 +2222,16 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
         if not proof_path(base, story, artifact, task_id=args.id).is_file():
             fail(f"{artifact} is not recorded for task {args.id}; review runs after "
                  f"the proof -- `./forge task close {args.id}` runs and records "
-                 "it before it reviews (0079); by hand, "
-                 "`python3 factory/scripts/verify.py` and "
-                 "`record_test_from_json.py --kind automated`")
+                 "it once before review (0079).")
 
     tip_sha = _require_git(base, "resolving HEAD", "rev-parse", "--verify", "HEAD^{commit}")
     base_sha = resolve_review_base(base, stage, state, tip_sha)
+    freshness = pre_review_proof_problems(
+        base, story, args.id, base_sha, tip_sha, proof_context=proof_context,
+    )
+    if freshness:
+        fail("review proof preflight failed before helper launch:\n"
+             + "\n".join(freshness))
     excluded = review_excluded_prefixes(base)
     scope = sorted(
         p for p in _require_git(base, "listing the task diff", "diff",
@@ -1952,11 +2252,28 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
     if not args.lens and args.max_priority != "P3":
         fail("complete three-lens review requires --max-priority P3")
 
+    from .stages import reviewed_meaning_identity
+    helper_before, helper_file_before = _helper_identity(skill)
+    decision_inputs = _current_decision_inputs(base)
+    prospective_dataset = render_review_dataset(base, args.id)
+    for item in decision_inputs:
+        marker = str(item["sha256"]).encode("ascii")
+        if marker not in prospective_dataset:
+            fail("reviewed dataset omitted an accepted decision input; "
+                 "nothing published")
+    meaning = reviewed_meaning_identity(
+        base, stage, task, helper_before,
+        review_dataset=prospective_dataset,
+    )
     # Mint the branch review run the recorder binds every artifact to.
     cmd_review_brief(argparse.Namespace(
         id=None, all=True, repo=str(base), review_task=args.id,
     ))
     dataset_body = (base / REVIEW_DATASET_REL).read_bytes()
+    if dataset_body != prospective_dataset \
+            or reviewed_meaning_identity(base, stage, task, helper_before) != meaning:
+        fail("reviewed meaning changed while rendering the reviewer dataset; "
+             "nothing published")
     token = load_json(base / ".factory" / "stories" / story / "review-run.json", default={})
     if token.get("task_id") != args.id:
         fail("review-run token does not match the reviewed task")
@@ -1974,7 +2291,9 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
     for name in prompt_names:
         rel = f"review-briefs/{args.id}.{name}.md"
         body = (_lens_prompt(task, name, base, repo_readable=readable) if args.lens
-                else _combined_prompt(task, repo_readable=readable))
+                else _combined_prompt(
+                    task, repo_readable=readable,
+                    semantic_identity=meaning["semantic_identity"]))
         if not safe_factory_write_bytes(base, rel, body):
             fail(f"could not write .factory/{rel}")
         prompts[name] = (f".factory/{rel}", body)
@@ -1983,8 +2302,6 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
     worktree = tmp / "wt"
     reviewed: dict = {}
     raw_result = b""
-    helper_before: dict[str, str] = {}
-    helper_file_before: tuple[int, int] = (0, 0)
     try:
         # A clean detached checkout at the task tip: the skill refuses to finish
         # if the reviewed tree changes mid-run, and the main tree is exactly
@@ -2010,8 +2327,22 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
                   "ship and stay in scope, their bytes are not reviewed: "
                   f"{', '.join(noise[:4])}{' ...' if len(noise) > 4 else ''}",
                   flush=True)
-        detached_writes = [(REVIEW_DATASET_REL, dataset_body), *prompts.values()]
+        detached_writes = [
+            (REVIEW_DATASET_REL, dataset_body), *prompts.values(),
+            *[(str(item["detached"]), bytes(item["body"]))
+              for item in decision_inputs],
+        ]
         _write_detached(worktree, detached_writes)
+        for item in decision_inputs:
+            context_path = worktree / str(item["detached"])
+            try:
+                context_body = context_path.read_bytes()
+            except OSError as exc:
+                fail(f"detached review decision context is unreadable: "
+                     f"{context_path} ({exc})")
+            if context_body != item["body"]:
+                fail("detached review decision context changed while preparing "
+                     "the reviewer worktree; nothing published")
         name = prompt_names[0]
         codex_bin = None
         from factory_lib import git_control_dir
@@ -2020,7 +2351,7 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
             # The launcher lives in the control dir, never in the reviewed tree
             # (the skill refuses an in-repo binary), and its launch.log stays
             # after the review folder is removed.
-            codex_bin = str(write_launcher(launcher_root, worktree))
+            codex_bin = str(write_launcher(launcher_root, worktree.resolve()))
             print("review runs inside the reviewed worktree, read-only: a verdict "
                   "on unchanged code is read, not guessed (0076)", flush=True)
         else:
@@ -2039,7 +2370,6 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
               flush=True)
         if not args.lens:
             _require_current_review_helper(skill)
-        helper_before, helper_file_before = _helper_identity(skill)
         if len(groups) > 1:
             def _would_record(parsed: dict) -> None:
                 _project_combined_report(task, parsed, scope, base_sha, tip_sha,
@@ -2069,6 +2399,10 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
                 or product_delta_digest(base, base_sha) \
                 != token.get("branch_diff_digest"):
             fail("task product changed during the review; nothing published")
+        if (base / REVIEW_DATASET_REL).read_bytes() != dataset_body \
+                or reviewed_meaning_identity(base, stage, task, helper_before) != meaning:
+            fail("reviewer dataset or current reviewed meaning changed during the review; "
+                 "nothing published")
     finally:
         _git(base, "worktree", "remove", "--force", str(worktree))
         for group_dir in sorted(tmp.glob("group-*")):
@@ -2095,7 +2429,6 @@ def review_task(base: Path, task_id: str, *, lens: str | None = None,
         recorded = {args.lens: artifact}
     else:
         from factory_lib import now_iso
-        from .stages import stage_baseline
         artifacts = _project_combined_report(
             task, reviewed, scope, base_sha, tip_sha, skills_used, all_tasks,
             started, excluded,

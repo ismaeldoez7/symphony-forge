@@ -26,6 +26,7 @@ def _lifecycle(repo: Path, launch_id: str, statuses: tuple[str, ...]) -> Path:
             fh.write(json.dumps({
                 "launch_id": launch_id,
                 "task": "grill-plan",
+                "story": "ENG-1",
                 "at": f"2026-09-07T10:00:0{index}+00:00",
                 "launch_status": status,
                 "write": False,
@@ -33,81 +34,108 @@ def _lifecycle(repo: Path, launch_id: str, statuses: tuple[str, ...]) -> Path:
     return path
 
 
-def _rounds(repo: Path) -> int:
-    from forge_cli.grill import _rounds_since_last_pass  # noqa: E402
-
-    return _rounds_since_last_pass(repo, "grill-plan", "plan", "")
-
-
 def _repeat_read_is_refused(repo: Path) -> bool:
     from forge_cli.grill import _refuse_a_second_cold_read  # noqa: E402
 
     try:
-        _refuse_a_second_cold_read(repo, "grill-plan", "plan", "", "")
+        _refuse_a_second_cold_read(repo, "grill-plan", "plan", "")
     except SystemExit:
         return True
     return False
 
 
-def test_a_failed_lifecycle_does_not_count_toward_the_cap(repo: Path):
-    _seed(repo)
-    _lifecycle(repo, "failed", ("starting", "running", "failed"))
-
-    assert _rounds(repo) == 0
-
-
-def test_a_failed_lifecycle_does_not_block_the_repeat_read_guard(repo: Path):
+def test_a_failed_terminal_launch_does_not_consume_the_cold_read(repo: Path):
     _seed(repo)
     _lifecycle(repo, "failed", ("starting", "running", "failed"))
 
     assert not _repeat_read_is_refused(repo)
 
 
-def test_a_succeeded_lifecycle_still_counts(repo: Path):
+def test_a_succeeded_terminal_launch_refuses_another_cold_read(repo: Path):
     _seed(repo)
     _lifecycle(repo, "succeeded", ("starting", "running", "succeeded"))
 
-    assert _rounds(repo) == 1
+    assert _repeat_read_is_refused(repo)
 
 
-def test_a_launch_still_in_flight_counts(repo: Path):
+def test_a_host_native_preparation_consumes_the_cold_read(repo: Path):
+    """Preparing the cold reader is the native release budget boundary.
+
+    The host owns ``spawn_agent``, so Forge never receives a child-process
+    terminal row.  Allowing a second preparation would therefore release a
+    second independent reader before the first result is recorded.
+    """
+    _seed(repo)
+    path = _lifecycle(repo, "native-preparation", ("prepared",))
+    row = json.loads(path.read_text(encoding="utf-8"))
+    row.update({
+        "transport": "host-native",
+        "preparation_id": "native-preparation",
+        "artifact_sha256": "a" * 64,
+    })
+    path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+
+    assert _repeat_read_is_refused(repo)
+
+
+def test_starting_and_running_launches_block_an_overlapping_cold_read(
+        repo: Path, monkeypatch):
     _seed(repo)
     _lifecycle(repo, "starting", ("starting",))
     _lifecycle(repo, "running", ("running",))
+    from forge_cli import codex_status  # noqa: E402
+    monkeypatch.setattr(codex_status, "dead_launches", lambda _base: [])
 
-    assert _rounds(repo) == 2
+    assert _repeat_read_is_refused(repo)
 
 
-def test_both_guards_agree_on_the_same_collapsed_view(repo: Path, monkeypatch):
+def test_dead_starting_or_running_launch_does_not_consume_cold_read(
+        repo: Path, monkeypatch):
+    _seed(repo)
+    _lifecycle(repo, "stale", ("starting", "running"))
+    from forge_cli import codex_status  # noqa: E402
+    monkeypatch.setattr(
+        codex_status, "dead_launches",
+        lambda _base: [{"launch_id": "stale"}],
+    )
+
+    assert not _repeat_read_is_refused(repo)
+
+
+def test_cold_read_exclusion_holds_the_exact_gate_task_lock(repo: Path):
+    from forge_cli import delegate  # noqa: E402
+
+    key = "grill-task-T1"
+    path = delegate.delegation_lock_path(repo, key, namespace="grill")
+    with delegate.delegation_exclusion(
+            repo, key, kind="grill-cold-read", namespace="grill"):
+        assert delegate._lock_is_held(path)
+
+
+def test_launch_lifecycle_rows_are_collapsed_by_launch_id(repo: Path):
     _seed(repo)
     _lifecycle(repo, "failed", ("starting", "running", "failed"))
     _lifecycle(repo, "succeeded", ("starting", "running", "succeeded"))
-    _lifecycle(repo, "starting", ("starting",))
-    _lifecycle(repo, "running", ("running",))
 
     from forge_cli import grill  # noqa: E402
 
-    original = grill._latest_launch_rows
-    calls: list[tuple[Path, str, str]] = []
-
-    def tracked(base: Path, ledger_id: str, since: str) -> list[dict]:
-        calls.append((base, ledger_id, since))
-        return original(base, ledger_id, since)
-
-    monkeypatch.setattr(grill, "_latest_launch_rows", tracked)
-    assert _rounds(repo) == 3
+    latest = grill._latest_launch_rows(
+        repo, "grill-plan", "", story="ENG-1",
+    )
+    assert [(row["launch_id"], row["launch_status"]) for row in latest] == [
+        ("failed", "failed"),
+        ("succeeded", "succeeded"),
+    ]
     assert _repeat_read_is_refused(repo)
-    assert calls == [(repo, "grill-plan", ""), (repo, "grill-plan", "")]
 
 
-def test_no_new_ledger_field_is_written(repo: Path):
+def test_reading_the_guard_does_not_write_a_new_ledger_field(repo: Path):
     _seed(repo)
     path = _lifecycle(repo, "failed", ("starting", "running", "failed"))
     before = path.read_text(encoding="utf-8")
 
-    assert _rounds(repo) == 0
     assert not _repeat_read_is_refused(repo)
     assert path.read_text(encoding="utf-8") == before
     assert all(set(json.loads(line)) == {
-        "launch_id", "task", "at", "launch_status", "write",
+        "launch_id", "task", "story", "at", "launch_status", "write",
     } for line in before.splitlines())

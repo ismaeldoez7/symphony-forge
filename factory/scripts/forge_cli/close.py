@@ -35,8 +35,11 @@ def _stop(step: str, why: str, then: str) -> None:
     fail(f"close stopped at {step}: {why}\n  NEXT: {then}")
 
 
-def _commit_task_proof(base: Path, story: str, task_id: str,
-                       proof: tuple[dict, dict, list[str]]) -> tuple[dict, dict, list[str]]:
+def _commit_task_proof(
+        base: Path, story: str, task_id: str,
+        proof: tuple[dict, dict, list[str]], *,
+        proof_context: dict[str, object] | None = None,
+) -> tuple[dict, dict, list[str]]:
     """Ship the proof close just recorded as its own commit, before the review.
 
     Every sealed-state reader reads a task's evidence at the commit the marker
@@ -49,7 +52,7 @@ def _commit_task_proof(base: Path, story: str, task_id: str,
     is replaced.
     """
     from factory_lib import task_evidence_path
-    from .stages import product_tree_snapshot
+    from .stages import product_tree_snapshot, protected_authority_snapshot
     from .tasks import _require_git
 
     rels = [
@@ -69,18 +72,26 @@ def _commit_task_proof(base: Path, story: str, task_id: str,
     if ({key: value for key, value in after.items() if key != "head"}
             != {key: value for key, value in proof_tree.items() if key != "head"}):
         fail(f"{task_id}: product tree moved while the task proof was committed")
+    current_authority = protected_authority_snapshot(base)
+    if current_authority != authority_tree:
+        fail(f"{task_id}: protected Forge authority moved while the task proof "
+             "was committed")
+    if proof_context is not None:
+        proof_context["product_tree"] = after
+        proof_context["authority_tree"] = current_authority
     print(f"{task_id}: task proof committed ({after.get('head', '')[:12]}).")
-    return after, authority_tree, misses
+    return after, current_authority, misses
 
 
 def cmd_task_close(args: argparse.Namespace) -> None:
     from .review import _product_dirty, review_task
     from .stages import (
-        _find, _finish_stage, load_stages, reopen_stage_for_review_fix,
+        _find, _finish_stage, _measure, _require_successful_launch,
+        load_stages, reopen_stage_for_review_fix,
         run_stage_proof, stamp_is_fresh, task_for,
     )
     from .tasks import seal_task
-    from .delegate import delegation_exclusion
+    from .delegate import delegation_exclusion, load_delegations
 
     base = Path(args.repo).resolve() if args.repo else repo_root()
     task_id = args.id
@@ -124,11 +135,25 @@ def cmd_task_close(args: argparse.Namespace) -> None:
             print(f"{task_id} reopened: the diff moved since it was sealed.")
 
     if stage.get("status") == "active":
+        # These checks do not need proof or a review. Keep the final checks in
+        # _finish_stage too: the stage or product can change while proof runs.
+        load_delegations(base)
+        measured = _measure(base, task_id, stage, task)
+        if strays := measured.get("strays"):
+            print(f"NOTE: {task_id} preflight measured paths outside write_scope: "
+                  f"{', '.join(strays)}. This scope measurement is advisory.",
+                  flush=True)
+        _require_successful_launch(base, task_id, stage, task)
+
         # 5. Proof first. A failing required test is the cheapest stop there
         #    is, and finding it after a review turned every test fix into a
         #    review as well.
+        proof_context: dict[str, object] = {}
         proof = _commit_task_proof(
-            base, story, task_id, run_stage_proof(base, task_id, task))
+            base, story, task_id,
+            run_stage_proof(base, task_id, task, proof_context=proof_context),
+            proof_context=proof_context,
+        )
 
         # 6. Review only if no stamp covers THIS delta.
         if not stamp_is_fresh(base, stage, task):
@@ -146,12 +171,43 @@ def cmd_task_close(args: argparse.Namespace) -> None:
             outcome = review_task(
                 base, task_id, engine=getattr(args, "engine", "codex"),
                 max_priority=getattr(args, "max_priority", "P3"),
-                skill=getattr(args, "skill", None))
+                skill=getattr(args, "skill", None),
+                proof_context=proof_context)
             if outcome["blocking"]:
-                _stop("review", f"{outcome['blocking']} blocking finding(s)",
-                      f"delegate the fixes (`./forge delegate {task_id}`), commit, "
-                      "run close again -- it reviews the whole task delta, "
-                      "base to tip, and records one new generation")
+                from .review import (
+                    selected_generation, triage_workflow,
+                    untriaged_actionable_blocking,
+                )
+                generation = selected_generation(base, story, task_id)
+                left, total = untriaged_actionable_blocking(
+                    base, story, task_id, generation=generation,
+                )
+                generation_id = str(
+                    (generation or {}).get("generation_id") or "unknown"
+                )
+                if left:
+                    then = (
+                        f"triage every actionable finding before delegation: "
+                        f"{triage_workflow(task_id)}. Then delegate the fixes "
+                        f"(`./forge delegate {task_id}`), commit, and run close "
+                        "again -- it reviews the whole task delta, base to tip, "
+                        "and records one new generation"
+                    )
+                else:
+                    then = (
+                        "no host defect triage is required; implement the remaining "
+                        "plan-contract acceptance blocker(s) via "
+                        f"`./forge delegate {task_id}`, commit, and run close again "
+                        "-- it reviews the whole task delta, base to tip, and records "
+                        "one new generation"
+                    )
+                _stop(
+                    "review",
+                    f"selected generation {generation_id}: {outcome['blocking']} "
+                    f"blocking finding(s); {left} of {total} actionable P0/P1 "
+                    "defect finding(s) untriaged",
+                    then,
+                )
             stage = _find(load_stages(base), task_id)
         else:
             print(f"{task_id}: review stamp covers this diff ({delta_id[:12]}); "

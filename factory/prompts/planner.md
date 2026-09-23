@@ -8,14 +8,15 @@ FIRST, READ THE SYSTEM YOU ARE PLANNING AGAINST. Before writing a rule that
 mentions a type, an enum, a route, a permission code, a migration or a
 decision, open it. Not the architecture note describing it — the file.
 Architecture docs record the system as designed and drift from what was built;
-the cold reader checks what was built, so every gap costs a round. Delegate
+the independent cold reader checks what was built, so every gap becomes a
+finding the plan must disposition. Delegate
 BREADTH to a read-only Codex run when the question is "how does this whole flow
 hang together", and look up specific facts yourself: a summary of a type is not
 the type.
 
 This binds harder for a TASK plan than for a story plan. A task plan names the
 exact surfaces the implementer writes against, so a fact taken from a drifted
-doc does not cost a grill round — it costs a worker paused mid-implementation
+doc costs a worker paused mid-implementation
 against a contract that asked for something that is not there.
 
 Inputs:
@@ -91,8 +92,8 @@ Rules:
   assumptions, present competing interpretations instead of picking
   silently, and every choice in the plan leads with ONE recommendation and
   its reasoning — never an option menu without a stance. Narration budget
-  (conduct §8): the plan presentation and grill rounds are full-prose gate
-  surfaces; between them, narrate one line per state change, report findings
+  (conduct §8): the plan presentation and cold-read findings are full-prose gate
+  surfaces; between gates, narrate one line per state change, report findings
   in full, and omit process chatter.
 - **Simplicity applies to the PLAN, not just the code.** Propose the
   smallest plan that satisfies the acceptance criteria: every task must
@@ -102,7 +103,7 @@ Rules:
   simpler technical approach, the plan SAYS SO and why — that rejection is
   a Decision. The grill hunts simpler shapes; a plan that over-builds fails
   it before any code exists.
-- Planning uses `gpt-5.6-sol` at `high` reasoning.
+- Planning uses `gpt-6-sol` at `high` reasoning.
 - Treat the in-repo docs as the system of record.
 - Run `./forge findings patterns` before drafting. If a RECURRING class
   touches this story's area, the plan must either include the consolidation
@@ -141,30 +142,35 @@ Rules:
   follow `factory/prompts/griller.md --gate plan` directly — interrogating it
   against the story's `acceptance_criteria` (roadmap), accepted decisions,
   and the architecture docs. Resolve findings into the plan or new decision
-  records, then record:
-  `python3 factory/scripts/record_grill_from_json.py --gate plan`.
+  records, then record the complete payload bound to the exact draft:
+  `python3 factory/scripts/record_grill_from_json.py --gate plan --input
+  <grill-json> --input-digest <plan-file>`. For a native Codex result, use
+  `python3 factory/scripts/record_grill_from_json.py --gate plan --input
+  <grill-json> --input-digest <plan-file> --cold-result <path>
+  --preparation-id <id>`.
 - Save the grilled plan into the repo, bound to its roadmap story:
   `python3 factory/scripts/forge.py plan save --from <plan-file> --story
   <story-key>`. This records it as `awaiting-approval`.
-- The grilled plan is now on the board (`awaiting-approval`) — the human reviews
-  it THERE, not as a plan-mode dump in chat. After the human confirms approval
-  in chat, run `./forge plan approve --by "<their name>"`, then rerun
-  `plan save` with the unchanged plan. `update_run.py` refuses implementation
-  until this digest-bound approval makes `plan_status` approved.
-- **Approval LOCKS the contract until the PR opens.** At the moment of approval,
-  hold this rule for the whole story: from sign-off until the PR is opened, any
-  deviation from the approved contract — amending acceptance criteria, changing
-  write_scope, inserting/reordering/removing a task, re-scoping — is NEVER a
-  silent edit. The flow STOPS and goes back to the human:
-  - **Task not started / active (in-flight), not yet shipped:** amend its
-    contract, then re-present to the human, `plan approve --by`, and re-grill
-    before the next delegate/stage close (the recorder marks the grill +
-    approval stale to force this).
-  - **Task done but NOT shipped:** `./forge task reopen <id>` moves it back to
-    active — then re-grill and re-implement.
-  - **Task done AND shipped (merged):** it is immutable; add a NEW follow-up
-    task, never rewrite it.
-  - **Adding a task to the story:** a graph amendment — human approval is
-    mandatory before it runs.
-  You (the coordinator) own this clarity: recognise the deviation, stop, and ask
-  the human. Never reshuffle the graph or re-scope a task on your own authority.
+- Saving leaves the grilled plan at `awaiting-approval`. Present the exact final
+  artifact in native Plan Mode. A successful Claude `ExitPlanMode` binds its exact
+  plan input; Codex uses the completed id-keyed `approve_plan_<digest>` question
+  `Approve exact plan digest <digest>?` with `Approve plan / Request changes / Stop`, and records
+  approval through the shared recorder. Never use the board, a manual approve
+  command, or a second unchanged save as approval evidence. `update_run.py`
+  refuses implementation until native approval binds the final digest.
+- **Approval locks the grounding contract until the PR opens.** Before stage
+  start, an edit to an already approved plan records the finding-bound
+  amendment bridge against the existing cold proof, then returns directly to
+  native Plan Mode for fresh approval of the exact amended digest. Do not launch
+  another cold grill solely because the approved bytes changed. After stage
+  start, record mechanically implied `write_scope`, `required_tests`,
+  `verify_commands` and review-budget corrections honestly; stage measurement
+  enforces them without another cold grill or human approval when the objective,
+  acceptance criteria, plan contracts, `user_facing`, intent and material scope
+  choice are unchanged. A material new choice, changed intent or scope, graph
+  amendment, missing authority or contradiction stops for the human: amend the
+  affected contract and present the exact final artifact through native Plan Mode
+  before the next delegate or stage close. Preserve the ordered graph; a new
+  task needs human approval before it runs. For done/unshipped work,
+  `./forge task reopen <id>` precedes amendment and re-implementation. Shipped
+  work is immutable; add a follow-up task.

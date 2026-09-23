@@ -11,6 +11,7 @@ behave. Each level below is a level further from the change.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tomllib
@@ -26,16 +27,14 @@ from forge_cli.roadmap import heal_items  # noqa: E402
 
 
 # --------------------------------------------------------------------------
-# L1 — the table itself. A row that cannot say where its artifact lives or how
-#      many rounds it needs is the exact shape of both shipped bugs.
+# L1 — the table itself. Every live gate resolves its own artifact.
 # --------------------------------------------------------------------------
 
-def test_every_gate_can_be_located_and_has_a_floor():
+def test_every_live_gate_can_be_located():
     assert set(gate_names()) == {
-        "spec", "signoff", "epics", "requirements", "plan", "task"}
+        "spec", "signoff", "epics", "plan", "task"}
     for name, gate in GATES.items():
         assert callable(gate.locate), f"{name} has no way to find its artifact"
-        assert gate.min_rounds >= 1, f"{name} is gated but unfloored"
         assert gate.describes.strip()
 
 
@@ -47,7 +46,7 @@ def test_a_gate_cannot_be_declared_with_a_blank_column():
     from grill_gates import Gate
     assert all(f.default is not None or True for f in fields(Gate))
     with pytest.raises(TypeError):
-        Gate("halfbuilt", "no locator, no floor")  # type: ignore[call-arg]
+        Gate("halfbuilt", "no locator")  # type: ignore[call-arg]
 
 
 def test_the_table_is_the_only_list_of_gates():
@@ -66,33 +65,24 @@ def test_the_table_is_the_only_list_of_gates():
         assert name in prose, f"schema does not mention {name}"
 
 
-def test_the_floor_is_stated_as_a_floor_everywhere_it_appears():
-    # A minimum read as a target is how a one-round grill passes for a
-    # converged one. Said once in the table, carried into the brief and into
-    # the recorder's refusal.
-    from grill_gates import FLOOR_IS_NOT_A_TARGET
-    assert "not a target" in FLOOR_IS_NOT_A_TARGET
-    scripts = HARNESS / "factory" / "scripts"
-    assert "FLOOR_IS_NOT_A_TARGET" in (
-        scripts / "forge_cli" / "grill.py").read_text(encoding="utf-8")
-    assert "FLOOR_IS_NOT_A_TARGET" in (
-        scripts / "record_grill_from_json.py").read_text(encoding="utf-8")
-
-
 # --------------------------------------------------------------------------
 # L2 — the runner. Four of six gates used to stop at "no artifact resolver
 #      yet", which is what pushed the coordinator off the ledgered path.
 # --------------------------------------------------------------------------
 
-def _grill(repo: Path, *args: str):
+def _grill(repo: Path, *args: str, env: dict[str, str] | None = None):
+    # Same rule as test_gates.run: the coordinator hosting pytest must not
+    # decide which dispatch contract a fixture exercises. Default to the Claude
+    # companion; native cases opt in with env={"FORGE_COORDINATOR": "codex"}.
     proc = subprocess.run(
         [sys.executable, str(repo / "factory" / "scripts" / "forge.py"),
          "grill", "run", *args, "--print-only"],
-        cwd=repo, capture_output=True, text=True)
+        cwd=repo, capture_output=True, text=True,
+        env={**os.environ, "FORGE_COORDINATOR": "claude", **(env or {})})
     return proc.returncode, proc.stdout + proc.stderr
 
 
-def _grill_launched(repo: Path, *args: str):
+def _grill_launched(repo: Path, *args: str, env: dict[str, str] | None = None):
     """For assertions about a SUCCESSFUL release.
 
     Composing the argv needs the Codex companion installed, which a CI runner
@@ -100,7 +90,7 @@ def _grill_launched(repo: Path, *args: str):
     companion exists; the same ground is covered in-process, with no install,
     by test_gate_table_e2e.py.
     """
-    code, out = _grill(repo, *args)
+    code, out = _grill(repo, *args, env=env)
     if code != 0 and "Codex companion installation" in out:
         pytest.skip("no Codex companion installed in this environment")
     return code, out
@@ -140,15 +130,21 @@ def test_the_plan_gate_grills_a_draft_that_is_not_saved_yet(repo: Path):
 
 def test_every_grill_goes_out_cold_and_read_only(repo: Path):
     # The grill's whole authority is that a fresh context read it. A grill
-    # released with write access, or on the author's own model, is not one.
+    # released with write access, or without the configured griller role, is
+    # not one. Native dispatch inherits that role's pinned model policy rather
+    # than duplicating model/effort overrides at the call site.
     draft = repo / "draft-plan.md"
     draft.write_text("# Draft\n", encoding="utf-8")
     for args in (("--gate", "plan", "--file", "draft-plan.md"),
                  ("--gate", "signoff")):
-        code, out = _grill_launched(repo, *args)
+        code, out = _grill_launched(
+            repo, *args, env={"FORGE_COORDINATOR": "codex"})
         assert code == 0, out
         assert "Write access: NO" in out
-        assert "gpt-5.6-sol" in out and "high" in out
+        descriptor = json.loads(out.splitlines()[-1])
+        assert descriptor["agent_type"] == "griller"
+        assert descriptor["write"] is False
+        assert "model" not in descriptor and "effort" not in descriptor
 
 
 def test_active_model_policy_has_no_forbidden_execution_surface():
@@ -163,21 +159,22 @@ def test_active_model_policy_has_no_forbidden_execution_surface():
         if isinstance(row, dict) and "config_file" in row
     }
     expected_roles = {
-        "architect": ("gpt-5.6-sol", "high"),
-        "backend": ("gpt-5.6-sol", "medium"),
-        "debugger": ("gpt-5.6-sol", "medium"),
-        "docs-decomposer": ("gpt-5.6-sol", "high"),
-        "explorer": ("gpt-5.6-sol", "low"),
-        "frontend": ("gpt-5.6-sol", "medium"),
-        "functional-checker": ("gpt-5.6-sol", "high"),
-        "griller": ("gpt-5.6-sol", "high"),
-        "lite": ("gpt-5.6-luna", "max"),
-        "performance": ("gpt-5.6-sol", "high"),
-        "planner": ("gpt-5.6-sol", "high"),
-        "planner-high": ("gpt-5.6-sol", "high"),
-        "refactorer": ("gpt-5.6-sol", "medium"),
-        "security": ("gpt-5.6-sol", "high"),
-        "tester": ("gpt-5.6-sol", "medium"),
+        "architect": ("gpt-6-sol", "high"),
+        "coder": ("gpt-6-luna", "max"),
+        "debugger": ("gpt-6-sol", "high"),
+        "docs-decomposer": ("gpt-6-sol", "high"),
+        "explorer": ("gpt-6-sol", "medium"),
+        "frontend": ("gpt-6-luna", "max"),
+        "functional-checker": ("gpt-6-sol", "high"),
+        "griller": ("gpt-6-sol", "high"),
+        "lite": ("gpt-6-luna", "max"),
+        "performance": ("gpt-6-sol", "high"),
+        "planner": ("gpt-6-sol", "high"),
+        "planner-high": ("gpt-6-sol", "high"),
+        "refactorer": ("gpt-6-luna", "max"),
+        "security": ("gpt-6-sol", "high"),
+        "tester": ("gpt-6-luna", "max"),
+        "worker": ("gpt-6-luna", "max"),
     }
     actual_roles = {
         name: (row["model"], row["model_reasoning_effort"])
@@ -198,15 +195,16 @@ def test_active_model_policy_has_no_forbidden_execution_surface():
         "lite": mode_run_config(HARNESS, "lite")[:2],
         **actual_roles,
     }
-    assert active["implementation"] == ("gpt-5.6-sol", "medium")
-    assert active["explore"] == ("gpt-5.6-sol", "low")
-    assert active["grill"] == ("gpt-5.6-sol", "high")
-    assert active["lite"] == ("gpt-5.6-luna", "max")
-    assert all(model != "gpt-5.6-terra" for model, _ in active.values())
+    assert active["implementation"] == ("gpt-6-sol", "medium")
+    assert active["explore"] == ("gpt-6-sol", "medium")
+    assert active["grill"] == ("gpt-6-sol", "high")
+    assert active["lite"] == ("gpt-6-luna", "max")
+    assert all(not (model == "gpt-6-luna" and effort == "low")
+               for model, effort in active.values())
 
     harness = (HARNESS / "harness.yaml").read_text(encoding="utf-8")
-    assert "/codex:rescue --model gpt-5.6-sol --effort low" in harness
-    assert "validation: \"/codex:rescue --model gpt-5.6-sol --effort high" in harness
+    assert "/codex:rescue --model gpt-6-sol --effort medium" in harness
+    assert "validation: \"/codex:rescue --model gpt-6-sol --effort high" in harness
 
 
 def test_the_brief_carries_the_artifact_itself(repo: Path):
@@ -223,69 +221,16 @@ def test_the_brief_carries_the_artifact_itself(repo: Path):
 
 
 # --------------------------------------------------------------------------
-# L3 — the recorder. signoff and epics skipped the round check entirely.
+# L4 — recorded grills stay self-contained, and grill rows share a ledger with
+#      delegations.
 # --------------------------------------------------------------------------
 
-def _grill_payload(gate: str, verdict: str = "pass") -> str:
-    # Schema-valid in every OTHER respect, so the refusal under test is the
-    # round floor and not a schema complaint standing in for it.
-    return json.dumps({
-        "generated_by": "griller", "gate": gate, "verdict": verdict,
-        "gaps": [], "contradictions": [], "resolutions": [], "rounds": [],
-    })
-
-
-def test_no_gate_records_with_zero_rounds(repo: Path):
-    # The bug in one assertion: `if gate in GATE_ROUND_FLOORS` skipped signoff
-    # and epics, so both accepted a grill with nothing behind it.
-    for name in gate_names():
-        args = ["--gate", name]
-        if name == "task":
-            args += ["--task", "T1"]
-        code, _out = run(repo, "record_grill_from_json.py", *args,
-                         stdin=_grill_payload(name))
-        assert code != 0, f"{name} accepted an empty grill"
-
-
-def test_the_two_unfloored_gates_now_refuse_on_the_rounds(repo: Path):
-    # signoff and epics are the two that regressed, and the only two whose
-    # other preconditions a bare repo satisfies — so they are the ones that
-    # can prove the refusal is the ROUND floor rather than something upstream
-    # of it standing in.
-    (repo / "roadmap-input.json").write_text(
-        json.dumps({"generated_by": "docs-decomposer", "epics": [], "items": []}),
-        encoding="utf-8")
-    for name, extra in (("signoff", []),
-                        ("epics", ["--input-digest", "roadmap-input.json"])):
-        code, out = run(repo, "record_grill_from_json.py", "--gate", name,
-                        *extra, stdin=_grill_payload(name))
-        assert code != 0, f"{name} accepted an empty grill"
-        assert "logged round" in out, f"{name} refused for the wrong reason: {out}"
-
-
-def test_the_refusal_says_the_floor_is_not_the_bar(repo: Path):
-    code, out = run(repo, "record_grill_from_json.py",
-                    "--gate", "signoff", stdin=_grill_payload("signoff"))
-    assert code != 0
-    assert "not a target" in out
-
-
-# --------------------------------------------------------------------------
-# L4 — the blast radius. Raising a floor must not invalidate grills already
-#      recorded and passed, and grill rows share a ledger with delegations.
-# --------------------------------------------------------------------------
-
-def test_a_recorded_grill_is_never_re_counted_later(repo: Path):
-    # require_grill is what every handover gate calls months afterwards. If it
-    # re-counted rounds, raising a floor would retroactively break repos that
-    # had already passed the gate — a silent, remote failure.
+def test_a_recorded_grill_never_reintroduces_retired_round_authority(repo: Path):
     source = (HARNESS / "factory" / "scripts" / "factory_lib.py").read_text(
         encoding="utf-8")
     body = source[source.index("def require_grill("):]
     body = body[:body.index("\ndef ", 10)]
-    assert "rounds" not in body, (
-        "require_grill now inspects rounds — raising a floor would retro-break "
-        "already-passing repos, so the floor needs a version gate")
+    assert "rounds" not in body
 
 
 def test_a_grill_row_can_never_satisfy_a_task_stage(repo: Path):

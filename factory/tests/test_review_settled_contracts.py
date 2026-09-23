@@ -22,7 +22,7 @@ import pytest
 
 from test_gates import (  # noqa: I001 — test_gates puts factory/scripts on sys.path
     DECOMP, STAGE_TASK, _write_complete_automated, git, head, intake,
-    record_skeleton_then_frontier, record_task_grill, repo, run, save_plan,
+    load_factory_lib, record_skeleton_then_frontier, record_task_grill, repo, run, save_plan,
     sign_off, skeletal_stage_task, write_stages,
 )
 from factory_lib import (  # noqa: E402
@@ -35,7 +35,10 @@ from forge_cli.findings import _finding_rows  # noqa: E402
 from forge_cli.review import (  # noqa: E402
     LENSES, _project_combined_report, rejected_findings_report,
 )
-from forge_cli.review_brief import _plan_section_bodies, _task_section  # noqa: E402
+from forge_cli import review_brief  # noqa: E402
+from forge_cli.review_brief import (  # noqa: E402
+    _plan_section_bodies, _task_section, render_review_brief,
+)
 from forge_cli.stages import load_stages, stage_baseline, task_digest  # noqa: E402
 
 __all__ = ["repo"]
@@ -48,6 +51,31 @@ def test_plan_sections_are_picked_by_header_word():
     assert [h for h, _ in picked] == ["Decisions", "Owner rulings (Ravi)"]
     assert picked[0][1] == "0154 amended; 0118."
     assert picked[1][1] == "- rows are recoverable-only"
+
+
+def _fixture_approve_t2(repo) -> None:
+    lib = load_factory_lib(repo)
+    plan = lib.evidence_path(repo, "ENG-1", "task-plans/T2.md")
+    digest = lib.plan_digest_without_assumptions(plan)
+    grill_path = lib.evidence_path(repo, "ENG-1", "grills/tasks/T2.json")
+    grill = load_json(grill_path)
+    session, event = "fixture-session-T2", "fixture-event-T2"
+    approved_at = "2026-09-10T00:00:00+00:00"
+    grill.update({
+        "approved_task_plan_sha256": digest, "approved_by": "human-via-Claude",
+        "approved_at": approved_at, "approval_runtime": "claude",
+        "approval_session_id": session, "approval_event_id": event,
+    })
+    lib.dump_json(grill_path, grill)
+    replay_key = hashlib.sha256(f"claude\0{session}\0{event}".encode()).hexdigest()
+    lib.dump_json(lib.evidence_path(
+        repo, "ENG-1", f"approval-events/{replay_key}.json", for_write=True,
+    ), {
+        "approved_plan_sha256": digest, "approved_by": "human-via-Claude",
+        "approved_at": approved_at, "runtime": "claude",
+        "session_id": session, "event_id": event, "plan_kind": "task",
+        "story": "ENG-1", "task": "T2",
+    })
 
 
 def _story(repo, tmp_path, *, t1_status: str = "done") -> None:
@@ -98,8 +126,9 @@ def _story(repo, tmp_path, *, t1_status: str = "done") -> None:
     stages = load_stages(repo)
     stages["stages"][1]["status"] = "active"
     write_stages(repo, stages)
-    code, out = record_task_grill(repo, t2)
+    code, out = record_task_grill(repo, t2, approve=False)
     assert code == 0, out
+    _fixture_approve_t2(repo)
     _write_complete_automated(repo, "T2")
 
 
@@ -111,6 +140,7 @@ def test_brief_carries_plan_decisions_and_sealed_contracts(repo, tmp_path):
         protected_decomposition_state_path(repo), default={})["tasks"] if t["id"] == "T2")
     code, out = record_task_grill(repo, task)
     assert code == 0, out
+    _fixture_approve_t2(repo)
     brief = "\n".join(_task_section(task, repo))
     assert "Settled — do not relitigate" in brief
     assert "0154 (amended): old rows are not listed." in brief
@@ -120,6 +150,50 @@ def test_brief_carries_plan_decisions_and_sealed_contracts(repo, tmp_path):
     _story_pending["stages"][0]["status"] = "pending"
     write_stages(repo, _story_pending)
     assert "T1-AC1" not in "\n".join(_task_section(task, repo))
+
+
+def test_branch_brief_deduplicates_only_identical_settled_blocks(
+        repo, tmp_path):
+    _story(repo, tmp_path)
+    lib = load_factory_lib(repo)
+    decomposition_path = protected_decomposition_state_path(repo)
+    decomposition = load_json(decomposition_path)
+    t1 = next(task for task in decomposition["tasks"] if task["id"] == "T1")
+    t1["plan_contracts"][0]["statement"] += " " + ("settled-context " * 120)
+    t2 = next(task for task in decomposition["tasks"] if task["id"] == "T2")
+    t3 = {**t2, "id": "T3", "title": "third", "plan_contracts": [{
+        "id": "T3-AC1", "source": "plan#ac",
+        "statement": "third contract",
+    }]}
+    decomposition["tasks"].append(t3)
+    lib.dump_json(decomposition_path, decomposition)
+    stages = load_stages(repo)
+    stages["stages"].append({
+        "id": "T3", "title": "third", "status": "pending",
+        "task_sha256": task_digest(t3), "base_sha": stages["stages"][0]["base_sha"],
+        "started_at": "2026-09-09T02:00:00+00:00", "dirty_at_start": {},
+    })
+    write_stages(repo, stages)
+    tasks = decomposition["tasks"]
+
+    body, _inputs, _reviewed = render_review_brief(
+        repo, tasks, "# review", all_tasks=True, reviewed_task="T2",
+    )
+    rendered = body.decode("utf-8")
+    t1 = next(task for task in tasks if task["id"] == "T1")
+    settled_t1 = "\n".join(review_brief._settled_section(repo, t1)) + "\n"
+    settled_t2 = "\n".join(review_brief._settled_section(repo, t2)) + "\n"
+    settled_t3 = "\n".join(review_brief._settled_section(repo, t3)) + "\n"
+    assert settled_t1 != settled_t2 == settled_t3
+    assert settled_t1 in rendered
+    assert rendered.count(settled_t2) == 1
+    assert "same settled context as Task `T2`" in rendered
+    assert all(f"{task['id']}-AC1" in rendered for task in tasks)
+
+    reference = "\n".join(review_brief._settled_reference("T2")).rstrip()
+    assert reference in rendered
+    expanded = rendered.replace(reference, settled_t2.rstrip(), 1)
+    assert len(body) < len(expanded.encode("utf-8"))
 
 
 def _publish(repo, blocking=(), *, recorded_at="2026-09-11T01:00:00+00:00"):
@@ -168,6 +242,9 @@ def _publish(repo, blocking=(), *, recorded_at="2026-09-11T01:00:00+00:00"):
         "raw_result": {"encoding": "base64", "sha256": hashlib.sha256(raw).hexdigest(),
                        "bytes": len(raw), "data": base64.b64encode(raw).decode()},
         "lenses": lenses, "recorded_at": recorded_at}
+    from forge_cli.stages import reviewed_meaning_identity
+    meaning = reviewed_meaning_identity(repo, stage, task, candidate["helper"])
+    candidate["input"] = {"sha256": meaning["identity"], "bytes": meaning["bytes"]}
     return publish_review_generation(repo, "ENG-1", "T2", candidate)
 
 
@@ -338,6 +415,77 @@ def test_selected_upgrade_generation_requires_exact_sealed_binding(repo, tmp_pat
         repo, "ENG-1", "T2", sealed_commit="f" * 40)[2]
     assert "exact sealed binding" in read_selected_review_generation(
         repo, "ENG-1", "T2", sealed_commit="e" * 40)[2][0]
+
+
+def test_locationless_contract_verdict_has_stable_rejection_identity():
+    from forge_cli.review import _contract_blocker
+
+    finding = _contract_blocker(
+        {"source": "plans/active/story.md#AC17", "statement": "fixture proof"},
+        {"contract_id": "T2-AC17", "verdict": "missing",
+         "evidence": "the reviewer emitted no verdict"},
+    )
+    fingerprint = review_finding_fingerprint(finding)
+    assert fingerprint == review_finding_fingerprint(copy.deepcopy(finding))
+    malformed = {**finding, "summary": "copied ordinary finding"}
+    with pytest.raises(SystemExit, match="file_path, line, and title"):
+        review_finding_fingerprint(malformed)
+
+
+def test_locationless_contract_blocker_cannot_be_rejected(
+        repo, tmp_path):
+    """A plan-contract blocker is an unmet acceptance criterion: it is built,
+    never rejected as a host defect finding (owner ruling, 2026-09-23).
+
+    Rejection lineage, stale-source and broken-source reads are covered for
+    ordinary findings by test_reject_republishes_one_complete_pointer_selected_set.
+    """
+    from forge_cli.review import _contract_blocker
+
+    _story(repo, tmp_path)
+    combined, _pointer = _publish(repo)
+    finding = _contract_blocker(
+        {"source": "plans/active/story.md#T2-AC1",
+         "statement": "the next slice runs green"},
+        {"contract_id": "T2-AC1", "verdict": "missing",
+         "evidence": "the reviewer emitted no verdict"},
+    )
+    candidate = copy.deepcopy(combined)
+    candidate.pop("generation_id")
+    candidate["recorded_at"] = "2026-09-11T02:00:00+00:00"
+    quality = candidate["lenses"]["quality"]
+    quality["blocking_findings"] = [finding]
+    quality["score"] = 7
+    quality["recommendation"] = "request-changes"
+    quality["contract_verdicts"] = [{
+        "contract_id": "T2-AC1", "verdict": "missing",
+        "evidence": "the reviewer emitted no verdict",
+    }]
+    root, _root_pointer = publish_review_generation(
+        repo, "ENG-1", "T2", candidate,
+    )
+    pointer_path = repo / ".factory/stories/ENG-1/tasks/T2/reviews/selected.json"
+    before = pointer_path.read_bytes()
+
+    code, output = run(
+        repo, "forge.py", "review", "T2", "--reject", "T2-AC1",
+        "--lens", "quality", "--reason", "contract is covered by the fix",
+        "--evidence", "src/work.py:1", "--by", "autoreview",
+    )
+    assert code != 0, output
+    assert "cannot be rejected as host defect findings" in output
+    assert pointer_path.read_bytes() == before
+    selected, _selection, problems = read_selected_review_generation(
+        repo, "ENG-1", "T2",
+    )
+    assert not problems
+    assert selected["generation_id"] == root["generation_id"]
+    assert selected["origin"] != "rejection"
+
+    stale = read_selected_review_generation(
+        repo, "ENG-1", "T2", expected_delta_id="f" * 64,
+    )[2]
+    assert any("stale" in problem for problem in stale)
 
 
 def test_rejection_compare_and_swap_refuses_interleaved_selection(

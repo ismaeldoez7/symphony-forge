@@ -46,10 +46,10 @@ BYTE_PATH_ALLOWLIST: tuple[tuple[ContentPin, str], ...] = (
     (_pin("factory/scripts/forge_cli/project.py", "8a2e66903fca9ef3a2c5c2ad0bc8bda60d14cf90c9d6f3e664bf62e6c8dc746a", 2), "git ls-tree paths"), (_pin("factory/scripts/forge_cli/quickfix.py", "8a2e66903fca9ef3a2c5c2ad0bc8bda60d14cf90c9d6f3e664bf62e6c8dc746a"), "decoded git path bytes"),
     (_pin("factory/scripts/forge_cli/sanitise.py", "8a2e66903fca9ef3a2c5c2ad0bc8bda60d14cf90c9d6f3e664bf62e6c8dc746a"), "decoded git path bytes"), (_pin("factory/scripts/forge_cli/sanitise.py", "8a2e66903fca9ef3a2c5c2ad0bc8bda60d14cf90c9d6f3e664bf62e6c8dc746a", 1), "git rm path diagnostics"),
     (_pin("factory/scripts/forge_cli/stages.py", "8a2e66903fca9ef3a2c5c2ad0bc8bda60d14cf90c9d6f3e664bf62e6c8dc746a"), "decoded git path bytes"), (_pin("factory/scripts/forge_cli/upgrade.py", "3def57d2ef8e58b66ac3627b03d1e5c44b28f79f74b9d5cb67626f631442ebc2", 1), "decoded git path bytes"),
+    (_pin("factory/scripts/forge_cli/upgrade.py", "c36e2c3589d0a87faa21c473cc0130346f62d0fb6503eb4c41fb95217d87dda5"), "resume symlink target bytes"),
     (_pin("factory/scripts/forge_cli/upgrade.py", "17a81292ed3b54775bd2b53fcc5dd8b93e3fefc9ff5de344227374a4affcfb8a"), "indexed symlink target bytes"), (_pin("factory/scripts/forge_cli/upgrade.py", "bc670a317ffe7404fcaa6c76ea386577280b024002ec91e653eaca942c29bad1"), "indexed symlink path bytes"),
-    (_pin("factory/scripts/forge_cli/upgrade.py", "3def57d2ef8e58b66ac3627b03d1e5c44b28f79f74b9d5cb67626f631442ebc2"), "decoded git path bytes"), (_pin("factory/scripts/forge_cli/upgrade.py", "a0dca3a357e54399cdff638e3221989d819a7ab5326a2855a2635ffd80778eb1"), "git status paths"),
+    (_pin("factory/scripts/forge_cli/upgrade.py", "3def57d2ef8e58b66ac3627b03d1e5c44b28f79f74b9d5cb67626f631442ebc2"), "decoded git path bytes"), (_pin("factory/scripts/forge_cli/upgrade.py", "e7b730a595dde31704ca26b6941be09a2c4788668fe7cce19fa75be66f0d1a3a"), "git status paths"),
     (_pin("factory/scripts/forge_cli/upgrade.py", "df519031f73eaa05f29a2400e047d6df86e063ffc9d6da960673d1b58377bf7e"), "git path output"),
-    (_pin("factory/scripts/pr_ready.py", "8a2e66903fca9ef3a2c5c2ad0bc8bda60d14cf90c9d6f3e664bf62e6c8dc746a"), "git freshness paths"), (_pin("factory/scripts/pr_ready.py", "8a2e66903fca9ef3a2c5c2ad0bc8bda60d14cf90c9d6f3e664bf62e6c8dc746a"), "git freshness paths"),
     (_pin("factory/scripts/pre_tool_use.py", "b8f1600045705ee2e7878b4a4335e7a58250f20286e39a8edc3bf2a01806f15b"), "git path output"), (_pin("factory/scripts/pre_tool_use.py", "0bb8fafe2022eacf21fe2b83887b18a12e0d176180642715b5a25d288ab39d1d"), "git unmerged paths"), (_pin("factory/scripts/pre_tool_use.py", "b8f1600045705ee2e7878b4a4335e7a58250f20286e39a8edc3bf2a01806f15b"), "git context-ledger staging paths"),
     # Task-level shipping (0047): lossless git subprocess captures.
     (_pin("factory/scripts/factory_lib.py", "70743b2c238d8a02f270f4bcdf7735b12f01ba8e074faefa8a4950542098b038"), "git fetch origin/main output"),
@@ -71,15 +71,16 @@ BYTE_MODE_ALLOWLIST: tuple[tuple[ContentPin, str], ...] = (
 # Filled with exact file:line call sites after the sweep.  Only diagnostics,
 # console reconfiguration, and worker-log read-back belong here.
 REPLACE_ALLOWLIST: tuple[ContentPin, ...] = (
-    _pin("factory/scripts/forge_cli/doctor.py", "0bb8fafe2022eacf21fe2b83887b18a12e0d176180642715b5a25d288ab39d1d", 1), _pin("factory/scripts/forge_cli/delegate.py", "52b16e4813cdf0877d46fa535febf6dd5ef5d75b88de4a4c0a833fea81959ea7"),
+    _pin("factory/scripts/forge_cli/doctor.py", "0bb8fafe2022eacf21fe2b83887b18a12e0d176180642715b5a25d288ab39d1d", 1),
     _pin("factory/scripts/forge_cli/stages.py", "20fceedc51a075e792fba9e0338f98ea4e99aab8019144bce770e4601c5ee20a", 1), _pin("factory/scripts/forge_cli/stages.py", "c94d0727342455ffac97fce3c6865421242c03f535b7ebff0c45ae878685e01f"),
     _pin("factory/scripts/check_dual_runtime.py", "5f0fbd72b30fb35378eb98dabfb9013ab557d8ee9a608724f3c63f47ff53bf6b"), _pin("factory/scripts/factory_lib.py", "1f62e74bfdb6534a502d82f64cc6ebd68fcb44b1a36cf2465eaebb501b65e21e"),
     _pin("factory/scripts/forge_cli/doctor.py", "7933c69760f07d3e06776759505c9d3d9c08627fc9ee47f8bdc751b7e27f68ad"), _pin("factory/scripts/check_repo_budget.py", "5f0fbd72b30fb35378eb98dabfb9013ab557d8ee9a608724f3c63f47ff53bf6b"), _pin("factory/scripts/check_dual_runtime.py", "4ad7ceb903808af0a648da708763f94e38e697eceee6faf9401bbf0f9a384659"),
     _pin("factory/scripts/forge_cli/stages.py", "20fceedc51a075e792fba9e0338f98ea4e99aab8019144bce770e4601c5ee20a"), _pin("factory/scripts/forge_cli/doctor.py", "0bb8fafe2022eacf21fe2b83887b18a12e0d176180642715b5a25d288ab39d1d", 3), _pin("factory/scripts/forge_cli/doctor.py", "0bb8fafe2022eacf21fe2b83887b18a12e0d176180642715b5a25d288ab39d1d"),
-    _pin("factory/scripts/forge_cli/delegate.py", "01f73bb886befe6848bc4c69342e27095bd0f7bafd5d0eee1e48c787a15b8b60"), _pin("factory/scripts/factory_lib.py", "5f0fbd72b30fb35378eb98dabfb9013ab557d8ee9a608724f3c63f47ff53bf6b"), _pin("factory/scripts/check_agents_hygiene.py", "5f0fbd72b30fb35378eb98dabfb9013ab557d8ee9a608724f3c63f47ff53bf6b"),
+    _pin("factory/scripts/factory_lib.py", "5f0fbd72b30fb35378eb98dabfb9013ab557d8ee9a608724f3c63f47ff53bf6b"), _pin("factory/scripts/check_agents_hygiene.py", "5f0fbd72b30fb35378eb98dabfb9013ab557d8ee9a608724f3c63f47ff53bf6b"),
     _pin("factory/scripts/forge_cli/doctor.py", "8a2e66903fca9ef3a2c5c2ad0bc8bda60d14cf90c9d6f3e664bf62e6c8dc746a", 2), _pin("factory/scripts/forge_cli/doctor.py", "8a2e66903fca9ef3a2c5c2ad0bc8bda60d14cf90c9d6f3e664bf62e6c8dc746a"),
     _pin("factory/scripts/forge_cli/doctor.py", "8a2e66903fca9ef3a2c5c2ad0bc8bda60d14cf90c9d6f3e664bf62e6c8dc746a", 1), _pin("factory/scripts/check_factory_scaffold.py", "5f0fbd72b30fb35378eb98dabfb9013ab557d8ee9a608724f3c63f47ff53bf6b"), _pin("factory/scripts/forge_cli/common.py", "8a2e66903fca9ef3a2c5c2ad0bc8bda60d14cf90c9d6f3e664bf62e6c8dc746a"),
     _pin("factory/scripts/factory_lib.py", "1f62e74bfdb6534a502d82f64cc6ebd68fcb44b1a36cf2465eaebb501b65e21e"), _pin("factory/scripts/forge_cli/stages.py", "c94d0727342455ffac97fce3c6865421242c03f535b7ebff0c45ae878685e01f", 1),
+    _pin("factory/scripts/forge_cli/delegate.py", "e4c2f7c74cff7d12401b557a6aab9414b73f056ce45c8912bc320daddbfba752"),
 )
 
 STDIN_ALLOWLIST: tuple[ContentPin, ...] = (

@@ -37,24 +37,47 @@ three `factory/schemas/review.json` lens records, then replaces the task's
 
 - **quality** — correctness, regressions, maintainability-as-risk, test
   gaps, contract drift, over-engineering (constitution-mandated structure
-  exempt), and **cyclomatic complexity** — assessed on EVERY review, with
-  excessively tangled control flow a blocking `cyclomatic-complexity`
-  finding; for user-facing diffs touching motion, the `review-animations`
-  skill feeds this lens (harness.yaml `ui_guidance`)
+  exempt), and **cyclomatic complexity** — assessed on EVERY review. Excessive
+  branching is blocking only when it creates a concrete P0/P1 correctness,
+  security, or operational risk; otherwise it is a follow-up. For user-facing
+  diffs touching motion, the `review-animations` skill feeds this lens
+  (harness.yaml `ui_guidance`)
 - **performance** — hot paths, algorithmic complexity, query fanout, I/O
   amplification, memory churn, concurrency bottlenecks; measured evidence
   distinguished from inference
 - **security** — OWASP-style trust boundaries, authn/authz, secrets,
   injection, data exposure, unsafe defaults, abuse paths
 
-The proof runs once per tree. `task close` runs the contract's verify
+`task close` owns one integrated proof attempt: it runs the contract's verify
 commands and required tests, records the run as the task's `verify.json` and
-`tests.json` bound to the product tree digest and the contract, and commits
-the two files before the review, ahead of the marker commit; a close over an
-unchanged tree and contract reuses the record. The worker runs the same commands while it works so it can
-fix what fails; nobody re-runs them by hand before close (0079).
+`tests.json` bound to the product tree and contract, and commits changed proof
+files before review, ahead of the marker commit. A later close may reuse a
+passing receipt only when the command, environment, tool, distribution,
+generated-input, and product identities are all complete and unchanged;
+unknown command shapes remain conservative and run again. Workers run focused
+checks while implementing so they can fix what fails; the coordinator does
+not run the task-wide proof by hand before close (0079).
 
 Never review inline in the coordinating session; never nest reviewers.
+Forge-managed autoreview is an authenticated, externally maintained black box;
+it may invoke Codex or agents internally. The raw/direct/nested `codex exec`
+ban applies to general or manual delegation and does not prohibit the review
+helper's authenticated internal implementation.
+
+Before approval, one independent cold grill reads the exact original plan.
+In native Codex, `forge grill run ...` prepares one self-contained griller
+descriptor. Main puts the complete descriptor, including any context metadata,
+in the actual `spawn_agent` message, then records the exact returned JSON with
+`record_grill_from_json.py --cold-result <path> --preparation-id <id>` plus the
+gate/task arguments. The recorder validates the result/preparation binding;
+native proof does not depend on a helper PID or process lifecycle. Claude keeps
+the command-managed cold-reader lifecycle.
+Every reported gap or contradiction has one ordered `finding_dispositions`
+entry, and every change to the final artifact has an explained `amendments`
+entry. Native human approval binds the resulting final digest. This is
+adversarial contract review, not one of the three implementation-review lenses;
+it has no requirements-only pass, human-round floor, or synthetic
+`frontier_empty` question.
 
 The run is the task's ONLY review: with no blocking (P0/P1) finding it
 stamps the stage — bound to the reviewed tree — and `stage done` and
@@ -79,6 +102,12 @@ below when a retry makes no progress.
 
 - **Blocking findings** cannot be deferred or shipped past: readiness refuses
   them, so two of those three options never existed.
+- **Host triage** applies to the selected generation's actionable P0/P1 defect
+  findings. `forge delegate` refuses a write launch until each is triaged;
+  `forge next` and `forge task close` name the selected generation, count, and
+  exact `forge review <id> --triage ...` workflow first. Synthetic partial or
+  missing plan-contract verdict blockers still require implementation and a
+  clean re-review, but they are acceptance proof rather than host defect triage.
 - **Non-blocking findings** are recorded follow-ups. Resolve them within the
   current fix batch or explicitly defer them with a reason and revisit trigger.
   Do not start another full review solely to remove an unchanged, recorded
@@ -123,8 +152,8 @@ report that concrete blocker; do not manufacture another review cycle.
   records the artifact; autoreview's quality lens checks coverage honestly
 
 ### functional-checker (conditional)
-- model: `gpt-5.6-sol`, reasoning `high`, `workspace-write` when tooling needs
-  artifacts, otherwise `read-only`
+- model: `gpt-6-sol`, reasoning `high`, `danger-full-access` as pinned by the
+  committed functional-checker profile and Decision 0081
 - contract: `factory/prompts/tester-functional.md` +
   `factory/schemas/test-functional.json` (`generated_by: functional-checker`)
 - runs only when the decomposition records `user_facing: true`; the ship
@@ -142,6 +171,24 @@ Proof is stored under the task that produced it:
 Complete review recording requires `--set --task <id>` and never falls back to
 story-level or fixed lens files. Fixed `{quality,performance,security}.json`
 files are diagnostic or one-time migration inputs only.
+
+Successful tests, verify, and selected review may be reused only through their
+existing stage receipts. Test identity includes product bytes, exact command,
+selectors, test configuration, and tool versions. Verify identity includes
+product bytes, argv, configuration, tool versions, and generated semantic
+input byte hashes. Supported Python and `uv run` receipts bind the resolved
+interpreter and requested distribution metadata; an unavailable or unknown
+runner shape is never reusable. Review additionally requires the existing
+stamp-token delta binding and
+the current reviewed-meaning identity: approved semantic task brief, effective
+acceptance/security/migration semantics, substantive automated evidence,
+review instructions/helper/configuration, generated semantic inputs, and the
+product delta. Recorder timestamps and explicitly canonicalized bookkeeping may
+reuse; unknown, partial, or changed substantive input forces a fresh run while
+the original raw provenance stays immutable.
+The immutable selected generation `input` separately hashes the exact combined
+prompt bytes sent to the helper; it is never replaced by the semantic reuse
+digest in `local_review_stamp.reviewed_meaning`.
 
 This used to be one set of artifacts per STORY, rewritten by each task in
 turn: a story's review described whichever task ran last, and a task PR could

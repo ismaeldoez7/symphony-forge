@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import csv
 import hashlib
 import json
 import os
@@ -19,6 +20,7 @@ import re
 import shlex
 import shutil
 import signal
+import stat
 import subprocess
 import tempfile
 import uuid
@@ -27,13 +29,13 @@ from pathlib import Path
 
 from factory_lib import (
     active_story_key, clean_git_env, decomposition_state_path, dump_json,
-    git_control_dir, head_sha, load_json, now_iso,
-    product_tree_digest,
+    evidence_path, factory_dir, git_control_dir, head_sha, load_json, now_iso,
+    raw_run_state,
+    plan_digest_without_assumptions, product_tree_digest,
     protected_decomposition_state_path, repo_root, require_approved_plan_digest,
     require_ready_task, require_task_worktree, run_state_path,
     safe_factory_write_json, sha256_of, story_dir, task_digest,
-    task_evidence_path, validate_payload,
-    proof_read_path,
+    proof_path, proof_read_path, task_evidence_path, validate_payload,
 )
 
 from .common import fail
@@ -232,7 +234,7 @@ def write_stages(base: Path, data: dict) -> None:
     alone, so two parallel task PRs never rewrite the same file; the story
     worktree writes every record plus the `.factory/stages.json` mirror."""
     dump_json(authoritative_stages_path(base), data)
-    own_task = load_json(run_state_path(base), default={}).get("task_id")
+    own_task = raw_run_state(base).get("task_id")
     own_task = own_task if isinstance(own_task, str) else ""
     if not own_task:
         safe_factory_write_json(base, stages_path(base).name, data)
@@ -288,7 +290,8 @@ def write_skeleton(base: Path, issue: str, tasks: list[dict]) -> None:
                           if k in ("status", "started_at", "completed_at",
                                    "base_sha", "dirty_at_start", "task_sha256",
                                    "incomplete", "local_review_stamp",
-                                   "contract_changed", "reopen_base_sha")})
+                                   "contract_changed", "reopen_base_sha",
+                                   "proof_receipts")})
             stage["title"] = task["title"]
         stages.append(stage)
     write_stages(base, {"issue": issue, "stages": stages})
@@ -298,7 +301,7 @@ def load_stages(base: Path) -> dict:
     protected = authoritative_stages_path(base)
     if protected.is_file():
         data = load_json(protected, default={})
-        current_issue = load_json(run_state_path(base), default={}).get("issue_key")
+        current_issue = raw_run_state(base).get("issue_key")
         # No active story means no active stage: leftover authority from a
         # shipped story (its clear never ran, or a stale git-local file) must
         # not report a phantom active stage that blocks every new work window.
@@ -328,11 +331,6 @@ def clear_story_authority(base: Path) -> list[str]:
         shutil.rmtree(locks)
         removed.append("locks/")
     return removed
-
-
-def pending_stages(base: Path) -> list[dict]:
-    return [s for s in load_stages(base).get("stages", [])
-            if s.get("status") != "done"]
 
 
 def _git(base: Path, *args: str) -> str:
@@ -1004,61 +1002,232 @@ def stage_review_binding(base: Path, stage: dict, task: dict) -> dict[str, str]:
     }
 
 
-def _legacy_stamp_binding(base: Path, stage: dict, task: dict) -> dict[str, str]:
-    """The pre-delta binding, kept so a stamp recorded under it can be
-    accepted -- and converted -- when it is still fresh by its own rule."""
-    from .delegate import current_delegation
-    task_sha256 = task_digest(task)
-    launch = current_delegation(
-        base, stage.get("id", ""), stage_started_at=stage.get("started_at", ""),
-        task_sha256=task_sha256, ignore_lock=True,
-    )
-    brief_sha256 = launch.get("brief_sha256", "") if launch else ""
+_BOOKKEEPING_KEYS = {
+    "at", "recorded_at", "updated_at", "selected_at", "completed_at",
+    "approved_at",
+    "generated_by", "commit",
+}
+
+
+def _canonical_review_value(value):
+    if isinstance(value, dict):
+        return {key: _canonical_review_value(item)
+                for key, item in sorted(value.items())}
+    if isinstance(value, list):
+        return [_canonical_review_value(item) for item in value]
+    return value
+
+
+def _canonical_review_envelope(value, *, nested: frozenset[str] = frozenset()):
+    """Remove recorder metadata only from known artifact envelope levels."""
+    if not isinstance(value, dict):
+        return _canonical_review_value(value)
     return {
-        "stage_id": stage.get("id", ""),
-        "task_sha256": task_sha256,
-        "brief_sha256": brief_sha256 if isinstance(brief_sha256, str) else "",
-        "base_sha": stage_baseline(base, stage),
-        "product_tree_digest": product_tree_digest(base),
+        key: (_canonical_review_envelope(item)
+              if key in nested else _canonical_review_value(item))
+        for key, item in sorted(value.items())
+        if key not in _BOOKKEEPING_KEYS
     }
 
 
-def stamp_is_fresh(base: Path, stage: dict, task: dict) -> bool:
-    """Does the stage's review stamp cover the diff as it stands?
+def _canonical_review_dataset(dataset: bytes) -> bytes:
+    """Ignore recorder bookkeeping only inside the two rendered JSON artifacts."""
+    try:
+        text = dataset.decode("utf-8")
+    except UnicodeDecodeError:
+        return dataset
+    headings = {
+        "#### Full grill and approval record (untrusted data)": frozenset(),
+        "#### Full task-owned automated report (implementer-authored evidence)":
+            frozenset(),
+    }
+    for heading, nested in headings.items():
+        start = 0
+        while (section := text.find(heading, start)) >= 0:
+            fence = re.search(r"(?m)^(?P<fence>`{3,})json\n", text[section:])
+            if fence is None:
+                break
+            body_start = section + fence.end()
+            marker = fence.group("fence")
+            close = text.find(f"\n{marker}", body_start)
+            if close < 0:
+                break
+            try:
+                value = json.loads(text[body_start:close])
+            except json.JSONDecodeError:
+                start = close + len(marker) + 1
+                continue
+            if heading == "#### Full task-owned automated report (implementer-authored evidence)":
+                # Functional evidence is recorded independently after the code
+                # review.  Keep it in tests.json for the task-proof gate, but
+                # do not make that later report invalidate the review's code
+                # meaning or its rendered approved-input bytes.
+                if isinstance(value, dict):
+                    value = dict(value)
+                    value.pop("functional", None)
+            canonical = json.dumps(
+                _canonical_review_envelope(value, nested=nested),
+                indent=2, sort_keys=True,
+            )
+            text = text[:body_start] + canonical + text[close:]
+            start = body_start + len(canonical) + len(marker) + 1
+    return text.encode("utf-8")
 
-    A stamp recorded under the previous rule is accepted when it is fresh by
-    that rule -- the tree it hashed is the tree here -- and is converted in
-    place so the next check is the cheap one. A stamp stale under either rule
-    is stale. Nothing is revived.
-    """
+
+def reviewed_meaning_identity(
+        base: Path, stage: dict, task: dict, helper: dict | None = None, *,
+        review_dataset: bytes | None = None,
+) -> dict[str, object]:
+    """Meaning a selected review covers, excluding recorder-only bookkeeping."""
+    from factory_lib import active_story_key, proof_path
+    story = active_story_key(base)
+    task_id = str(task.get("id") or stage.get("id") or "")
+    plan = evidence_path(base, story, f"task-plans/{task_id}.md")
+    plan_digest = plan_digest_without_assumptions(plan) if plan.is_file() else ""
+    automated = load_json(
+        proof_path(base, story, "tests.json", task_id=task_id), default={},
+    )
+    grill = load_json(
+        evidence_path(base, story, f"grills/tasks/{task_id}.json"), default={},
+    )
+    instruction_paths = (
+        "factory/prompts/reviewer.md",
+        "factory/scripts/record_review_from_json.py",
+        "factory/scripts/forge_cli/review.py",
+        "factory/scripts/forge_cli/review_brief.py",
+        "factory/scripts/forge_cli/review_groups.py",
+        "factory/schemas/review.json",
+    )
+    instructions = {
+        relative: sha256_of(base / relative)
+        for relative in instruction_paths if (base / relative).is_file()
+    }
+    from .review_brief import _current_decision_inputs
+    decision_inputs = _current_decision_inputs(base)
+    helper_identity = helper if isinstance(helper, dict) else {}
+    helper_path = Path(str(helper_identity.get("path") or ""))
+    if helper_path and not helper_path.is_absolute():
+        helper_path = base / helper_path
+    if helper_path.is_file():
+        helper_identity = {
+            **helper_identity, "current_sha256": sha256_of(helper_path),
+        }
+    generated = {}
+    for relative in task.get("generated_semantic_inputs") or []:
+        if not isinstance(relative, str):
+            continue
+        path = base / relative
+        generated[relative] = (
+            sha256_of(path) if path.is_file() else "absent"
+        )
+    automated_meaning = dict(automated) if isinstance(automated, dict) else {}
+    automated_meaning.pop("functional", None)
+    inputs = {
+        "task_plan_sha256": plan_digest,
+        "task_semantics": _canonical_review_value({
+            key: task.get(key) for key in (
+                "objective", "acceptance_criteria", "plan_contracts",
+                "reviewer_focus", "write_scope", "required_tests",
+                "verify_commands", "generated_semantic_inputs",
+            )
+        }),
+        "task_grill": _canonical_review_envelope(grill),
+        "automated_evidence": _canonical_review_envelope(
+            automated_meaning, nested=frozenset({"automated"}),
+        ),
+        "review_instructions": instructions,
+        "accepted_decisions": [
+            {
+                "id": item["id"],
+                "source": item["source"],
+                "detached": item["detached"],
+                "sha256": item["sha256"],
+                "bytes": len(item["body"]),
+            }
+            for item in decision_inputs
+        ],
+        "helper": helper_identity,
+        "generated_semantic_inputs": generated,
+        "product_delta": stage_review_binding(base, stage, task)["delta_id"],
+    }
+    dataset = review_dataset
+    if dataset is None:
+        dataset_path = factory_dir(base) / "review-briefs" / "all.md"
+        try:
+            dataset_info = dataset_path.lstat()
+        except FileNotFoundError:
+            from .review_brief import render_review_dataset
+            dataset = render_review_dataset(base, task_id)
+        except OSError:
+            dataset = b"invalid-review-dataset:unreadable"
+        else:
+            if (stat.S_ISREG(dataset_info.st_mode) and dataset_info.st_nlink == 1
+                    and not stat.S_ISLNK(dataset_info.st_mode)):
+                try:
+                    dataset = dataset_path.read_bytes()
+                except OSError:
+                    dataset = b"invalid-review-dataset:unreadable"
+            else:
+                dataset = b"invalid-review-dataset:linked-or-nonregular"
+    inputs["review_dataset_sha256"] = hashlib.sha256(
+        _canonical_review_dataset(dataset)
+    ).hexdigest()
+    canonical = json.dumps(
+        inputs, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")
+    from .review import _combined_prompt
+    semantic_identity = hashlib.sha256(canonical).hexdigest()
+    prompts = [_combined_prompt(task, repo_readable=readable,
+                                semantic_identity=semantic_identity)
+               for readable in (True, False)]
+    prompt = prompts[0]
+    return {
+        "identity": hashlib.sha256(prompt).hexdigest(), "bytes": len(prompt),
+        "accepted_inputs": [
+            {"sha256": hashlib.sha256(body).hexdigest(), "bytes": len(body)}
+            for body in prompts
+        ],
+        "semantic_identity": semantic_identity,
+        "semantic_bytes": len(canonical), "inputs": inputs,
+    }
+
+
+def require_current_review_meaning(
+        base: Path, stage: dict, task: dict, generation: dict,
+) -> dict:
+    """Require the immutable prompt hash to bind the meaning being published."""
+    meaning = reviewed_meaning_identity(base, stage, task, generation.get("helper"))
+    if generation.get("input") not in meaning["accepted_inputs"]:
+        fail("review generation input does not match the current reviewed meaning; "
+             "run a fresh review before publishing or stamping")
+    return meaning
+
+
+def stamp_is_fresh(base: Path, stage: dict, task: dict) -> bool:
+    """Does the current-format stage stamp cover the selected review and diff?"""
     stamp = stage.get("local_review_stamp")
-    if not isinstance(stamp, dict):
+    if not isinstance(stamp, dict) or "delta_id" not in stamp:
         return False
     expected = stage_review_binding(base, stage, task)
-    if "delta_id" in stamp:
-        binding_ok = all(stamp.get(key) == value for key, value in expected.items())
-    else:
-        legacy = _legacy_stamp_binding(base, stage, task)
-        if any(stamp.get(key) != value for key, value in legacy.items()):
-            return False
-        binding_ok = True
-    if not binding_ok:
+    if not all(stamp.get(key) == value for key, value in expected.items()):
         return False
-    from factory_lib import active_story_key, selected_review_problems
+    from factory_lib import (
+        active_story_key, read_selected_review_generation, selected_review_problems,
+    )
     story = active_story_key(base)
     if not story or selected_review_problems(
             base, story, str(stage.get("id") or ""), expected["delta_id"]):
         return False
-    if "delta_id" not in stamp:
-        from .delegate import delegation_exclusion
-        with delegation_exclusion(base, "stages", kind="stage-state", namespace="state"):
-            data = load_stages(base)
-            live = _find(data, stage.get("id", ""))
-            current = live.get("local_review_stamp")
-            if isinstance(current, dict) and "delta_id" not in current:
-                current.update(expected)
-                write_stages(base, data)
-        stamp.update(expected)
+    generation, _selection, generation_problems = read_selected_review_generation(
+        base, story, str(stage.get("id") or ""), expected_delta_id=expected["delta_id"],
+    )
+    if generation_problems or not isinstance(generation, dict):
+        return False
+    if generation.get("origin") in {"combined", "rejection"}:
+        meaning = reviewed_meaning_identity(base, stage, task, generation.get("helper"))
+        if (generation.get("input") not in meaning["accepted_inputs"]
+                or stamp.get("reviewed_meaning") != meaning["semantic_identity"]):
+            return False
     return True
 
 def stamp_stage_review(base: Path, stage_id: str, *, generated_by: str = "autoreview",
@@ -1088,6 +1257,16 @@ def stamp_stage_review(base: Path, stage_id: str, *, generated_by: str = "autore
             "generated_by": generated_by,
             "lenses": list(lenses),
         }
+        from factory_lib import active_story_key, read_selected_review_generation
+        generation, _selection, problems = read_selected_review_generation(
+            base, active_story_key(base), stage_id,
+            expected_delta_id=stamp["delta_id"],
+        )
+        if not problems and isinstance(generation, dict) \
+                and generation.get("origin") in {"combined", "rejection"}:
+            stamp["reviewed_meaning"] = require_current_review_meaning(
+                base, stage, task, generation,
+            )["semantic_identity"]
         stage["local_review_stamp"] = stamp
         write_stages(base, data)
     append_event(base, "review-stage-local", actor=generated_by,
@@ -1447,29 +1626,21 @@ def _host_window_covering(base: Path, stage: dict, task: dict) -> dict | None:
     return None
 
 
-def _require_successful_launch(base: Path, stage_id: str, stage: dict,
-                               task: dict) -> str:
-    """Refuse without a successful Codex write launch or a covering host-fix
-    window. Returns the window id when a window satisfied it, else ""."""
+def _successful_launch_entry_valid(
+        base: Path, stage_id: str, stage: dict, entry: dict | None) -> bool:
+    """Return whether this exact terminal row proves a stage-bound write.
+
+    The recorded brief digest is historical launch evidence; later brief
+    regeneration must not rewrite that stage-bound anchor.
+    """
     from .codex_runtime import native_argv_valid, parse_native_result
-    from .delegate import (
-        argv_digest, brief_path, current_delegation, delegations_path,
-    )
+    from .delegate import argv_digest, brief_path, delegations_path
 
     brief = brief_path(base, stage_id)
-    # Any contract version: the launch proves Codex wrote inside THIS stage.
-    # Binding it to the contract digest orphaned every launch the moment the
-    # contract was re-recorded, and the only way back was a Codex launch that
-    # did nothing but produce a row with the new digest. The contract at
-    # launch time stays on the row as evidence; `stage done` records a
-    # contract that moved (decision 0023).
-    entry = current_delegation(
-        base,
-        stage_id,
-        stage_started_at=stage.get("started_at", ""),
-        ignore_lock=True,
-    )
-    argv = entry.get("argv") if entry else None
+    launch_id = entry.get("launch_id") if entry else None
+    if not isinstance(launch_id, str) or not re.fullmatch(r"[A-Za-z0-9._-]+", launch_id):
+        return False
+    argv = entry.get("argv")
     transport = entry.get("transport") if entry else None
     if transport == "native":
         launch_scope = entry.get("write_scope")
@@ -1479,9 +1650,9 @@ def _require_successful_launch(base: Path, stage_id: str, stage: dict,
             and all(isinstance(path, str) and path.strip() for path in launch_scope)
         )
         expected_output = (delegations_path(base).parent / "native-runs" /
-                           f"{entry.get('launch_id')}.jsonl")
+                           f"{launch_id}.jsonl")
         expected_stderr = (delegations_path(base).parent / "native-runs" /
-                           f"{entry.get('launch_id')}.stderr.log")
+                           f"{launch_id}.stderr.log")
         try:
             session_id = parse_native_result(expected_output)
         except ValueError:
@@ -1498,38 +1669,152 @@ def _require_successful_launch(base: Path, stage_id: str, stage: dict,
             and entry.get("argv_sha256") == argv_digest(argv)
         )
     elif transport is None:
+        context = entry.get("context")
+        context_opaque = ""
+        context_valid = context is None
+        if (isinstance(context, dict)
+                and set(context) == {"supplied", "bytes", "snapshot_id"}
+                and context.get("supplied") is True
+                and isinstance(context.get("bytes"), int)
+                and context["bytes"] >= 0
+                and isinstance(context.get("snapshot_id"), str)
+                and re.fullmatch(
+                    r"context-[0-9a-f]{32}(?:[0-9a-f]{32})?",
+                    context["snapshot_id"],
+                )
+                ):
+            context_opaque = context["snapshot_id"].removeprefix("context-")
+            context_valid = True
+        base_argv = [
+            argv[0] if isinstance(argv, list) and argv else "",
+            entry.get("companion_path"), "task", "--json", "--cwd", str(base),
+            "--model", entry.get("model"), "--effort", entry.get("effort"),
+        ]
+        expected = []
+        if context_valid and not context_opaque:
+            expected = [base_argv + ["--prompt-file", prompt, "--write"]
+                        for prompt in (
+                            str(brief), brief.relative_to(base).as_posix(),
+                        )]
+        elif len(context_opaque) == 64 and re.fullmatch(
+                r"[0-9a-f]{64}", str(entry.get("prompt_sha256") or "")):
+            expected = [base_argv + ["--write"]]
+        elif len(context_opaque) == 32:
+            historical = (Path(tempfile.gettempdir()).resolve()
+                          / f"forge-context-{context_opaque}" / "brief.md")
+            expected = [base_argv + [
+                "--prompt-file", str(historical), "--write",
+            ]]
         argv_valid = (
             isinstance(argv, list)
             and bool(argv)
             and all(isinstance(token, str) for token in argv)
             and Path(argv[0]).stem.lower() == "node"
-            and argv == [
-                argv[0],
-                entry.get("companion_path"),
-                "task",
-                "--json",
-                "--cwd",
-                str(base),
-                "--model",
-                entry.get("model"),
-                "--effort",
-                entry.get("effort"),
-                "--prompt-file",
-                brief.relative_to(base).as_posix(),
-                "--write",
-            ]
+            and argv in expected
             and entry.get("argv_sha256") == argv_digest(argv)
         )
     else:
         argv_valid = False
+    brief_digest = entry.get("brief_sha256") if entry else None
+    brief_valid = (isinstance(brief_digest, str)
+                   and re.fullmatch(r"[0-9a-f]{64}", brief_digest) is not None)
     valid = (
         entry
         and entry.get("launch_status") == "succeeded"
+        and entry.get("exit_code") == 0
         and entry.get("write") is True
         and entry.get("stage_started_at") == stage.get("started_at")
+        and brief_valid
         and argv_valid
     )
-    if valid:
+    return bool(valid)
+
+
+def _host_native_preparation_scope(
+        base: Path, stage_id: str, stage: dict, task: dict) -> list[str] | None:
+    """Return the validated scope from the latest native preparation."""
+    from .delegate import argv_digest, brief_path, load_delegations
+    from factory_lib import classify_scope_entries
+
+    try:
+        candidates = [
+            row for row in load_delegations(base)
+            if row.get("transport") == "host-native"
+            and row.get("task") == stage_id
+            and row.get("stage_started_at") == stage.get("started_at")
+            and row.get("write") is True
+        ]
+    except (OSError, SystemExit, ValueError):
+        return None
+    if not candidates:
+        return None
+    entry = candidates[-1]
+    brief = brief_path(base, stage_id)
+    scope = entry.get("write_scope")
+    effective = classify_scope_entries(
+        base, effective_scope(base, stage_id, task.get("write_scope") or []),
+        stage_baseline(base, stage),
+    )
+    if (
+        entry.get("launch_status") != "prepared"
+        or entry.get("write") is not True
+        or entry.get("task_sha256") != task_digest(task)
+        or entry.get("model") != ""
+        or entry.get("effort") != ""
+        or entry.get("argv") != []
+        or entry.get("argv_sha256") != argv_digest([])
+        or any(key in entry for key in (
+            "pid", "pgid", "pid_started", "process_token", "session_id",
+            "output_path", "stderr_path", "executable_path", "companion_path",
+        ))
+        or not isinstance(scope, list)
+        or not scope
+        or any(not isinstance(item, str) or not item.strip() for item in scope)
+        or any(not _covered(item.rstrip("/"), effective) for item in scope)
+        or brief.is_symlink()
+        or not brief.is_file()
+        or entry.get("brief_path") != brief.relative_to(base).as_posix()
+        or entry.get("brief_sha256") != sha256_of(brief)
+    ):
+        return None
+    return list(scope)
+
+
+def _host_native_preparation_valid(
+        base: Path, stage_id: str, stage: dict, task: dict) -> bool:
+    """Validate the latest process-free host-native dispatch preparation."""
+    return _host_native_preparation_scope(base, stage_id, stage, task) is not None
+
+
+def _require_successful_launch(base: Path, stage_id: str, stage: dict,
+                               task: dict) -> str:
+    """Require current native preparation or completed companion write proof."""
+    from .codex_runtime import coordinator_runtime
+    if coordinator_runtime() == "codex":
+        if _host_native_preparation_valid(base, stage_id, stage, task):
+            return ""
+        fail(
+            f"{stage_id} has no current host-native preparation bound to this "
+            "stage, brief, task contract, and effective write scope. Run "
+            f"`forge delegate {stage_id}`, dispatch its spawn_agent/followup_task "
+            "descriptor through the host, then retry stage close."
+        )
+
+    from .delegate import current_delegation
+
+    # Any contract version: the launch proves Codex wrote inside THIS stage.
+    # Binding it to the contract digest orphaned every launch the moment the
+    # contract was re-recorded, and the only way back was a Codex launch that
+    # did nothing but produce a row with the new digest. The contract at
+    # launch time stays on the row as evidence; `stage done` records a
+    # contract that moved (decision 0023).
+    entry = current_delegation(
+        base,
+        stage_id,
+        stage_started_at=stage.get("started_at", ""),
+        ignore_lock=True,
+    )
+    if _successful_launch_entry_valid(base, stage_id, stage, entry):
         return ""
     window = _host_window_covering(base, stage, task)
     if window:
@@ -1544,6 +1829,19 @@ def _require_successful_launch(base: Path, stage_id: str, stage: dict,
          "to it, closed with one to five files, all inside the task's write "
          "scope; a window opened before this binding existed does not count — "
          "reopen one).")
+
+
+def _junit_case_name_parts(case) -> tuple[str, str]:
+    """Return the qualified-name context and leaf for one JUnit case."""
+    name = " ".join(str(case.get("name", "")).split())
+    separators = (" > ", " › ", "::")
+    position, separator = max(
+        ((name.rfind(value), value) for value in separators),
+        default=(-1, ""),
+    )
+    if position < 0:
+        return "", name
+    return name[:position].strip(), name[position + len(separator):].strip()
 
 
 def _junit_case_matches_id(case, test_id: str) -> bool:
@@ -1576,6 +1874,33 @@ def _junit_case_matches_id(case, test_id: str) -> bool:
     )
 
 
+def _junit_required_case_matches(
+        cases: list[ET.Element], test_id: str, rel: str,
+) -> tuple[list[ET.Element], str]:
+    """Return all distinct, same-owner cases for one required test.
+
+    A bare required id may represent a parametrized function, but it must not
+    collapse duplicate cases or cases from another file/class/describe owner.
+    """
+    matches = [case for case in cases
+               if _junit_case_matches_id(case, test_id)]
+    if not matches:
+        return [], "missing"
+    owners: list[tuple[str, str, str]] = []
+    leaves: list[str] = []
+    for case in matches:
+        if not _junit_case_attributed(case, rel):
+            return [], "unattributed"
+        context, leaf = _junit_case_name_parts(case)
+        file_name = " ".join(str(case.get("file", "")).split())
+        class_name = " ".join(str(case.get("classname", "")).split())
+        owners.append((file_name, class_name, context))
+        leaves.append(leaf)
+    if len(set(owners)) != 1 or len(set(leaves)) != len(leaves):
+        return [], "ambiguous"
+    return matches, ""
+
+
 def _junit_case_attributed(case, rel: str) -> bool:
     """Attribute a <testcase> to its declared source path. Runners record the
     file in `file` (some) or `classname` (vitest/jest), often RELATIVE TO THE
@@ -1593,12 +1918,19 @@ def _junit_case_attributed(case, rel: str) -> bool:
             or candidate.endswith("/" + declared))
 
 
+def _require_test_input(base: Path, stage_id: str, proof: dict) -> None:
+    """Validate a test input both before proof and immediately before use."""
+    if not isinstance(proof, dict) or not all(
+            isinstance(proof.get(key), str) for key in ("id", "path", "command")):
+        fail(f"{stage_id} carries a legacy or malformed required_tests entry "
+             f"{proof!r}. Re-record the decomposition with id, path and command.")
+    if not (base / proof["path"]).is_file():
+        fail(f"{stage_id} required test {proof['id']!r} is missing: {proof['path']}")
+
+
 def _run_required_tests(
         base: Path, stage_id: str, task: dict) -> tuple[list[str], list[dict]]:
-    """Run every required test; refuse when one FAILS or never ran. A recorded
-    id that matches no testcase (or one attributed to another path) is a
-    MEASURED miss — returned, recorded on the stage, never a refusal: the run
-    passed, only the bookkeeping did not line up."""
+    """Run every required test and return only uniquely proven declarations."""
     from .delegate import (
         blocked_termination_signals, _capture_spawn_identity, _process_table,
         _terminate_observed_process_tree, _wait_and_reap,
@@ -1608,15 +1940,10 @@ def _run_required_tests(
     misses: list[str] = []
     results: list[dict] = []
     for proof in task.get("required_tests") or []:
-        if not isinstance(proof, dict) or not all(
-                isinstance(proof.get(key), str) for key in ("id", "path", "command")):
-            fail(f"{stage_id} carries a legacy or malformed required_tests entry "
-                 f"{proof!r}. Re-record the decomposition with id, path and command.")
+        _require_test_input(base, stage_id, proof)
         test_id = proof["id"]
         rel = proof["path"]
         command = proof["command"]
-        if not (base / rel).is_file():
-            fail(f"{stage_id} required test {test_id!r} is missing: {rel}")
         with tempfile.TemporaryDirectory(prefix="forge-required-test-") as tmp:
             report = Path(tmp) / "junit.xml"
             tokens = [token.replace("{report}", str(report))
@@ -1625,6 +1952,12 @@ def _run_required_tests(
             env = os.environ.copy()
             process_token = f"proof-{uuid.uuid4().hex}"
             env["FORGE_PROCESS_TOKEN"] = process_token
+            # Required selectors run with the same canonical-JUnit contract as
+            # the aggregate verifier.  Bind the fresh report path even when a
+            # caller inherited a stale value; an explicit leading assignment
+            # remains authoritative because the shell-free runner applies it
+            # below exactly as _proof_environment models it.
+            env["FORGE_CANONICAL_JUNIT"] = str(report)
             while tokens and "=" in tokens[0] and not tokens[0].startswith("="):
                 name, value = tokens.pop(0).split("=", 1)
                 env[name] = value
@@ -1709,34 +2042,583 @@ def _run_required_tests(
             except (ET.ParseError, OSError) as exc:
                 fail(f"{stage_id} required test {test_id!r} produced invalid "
                      f"JUnit proof: {exc}")
-            matches = [
-                case for case in root.iter("testcase")
-                if _junit_case_matches_id(case, test_id)
-            ]
-            if not matches:
+            matches, match_problem = _junit_required_case_matches(
+                list(root.iter("testcase")), test_id, rel,
+            )
+            if match_problem == "missing":
                 misses.append(f"{test_id!r} was not present in the fresh JUnit "
                               "report (exact id or id-prefix)")
                 results.append({"id": test_id, "path": rel, "status": "unmatched"})
                 continue
-            attributed = [
-                case for case in matches
-                if _junit_case_attributed(case, rel)
-            ]
-            if not attributed:
+            if match_problem == "ambiguous":
+                misses.append(f"{test_id!r} was ambiguous in the fresh JUnit "
+                              "report")
+                results.append({"id": test_id, "path": rel, "status": "ambiguous"})
+                continue
+            if match_problem == "unattributed":
                 misses.append(f"{test_id!r} was not attributed to its declared "
                               f"path {rel!r} in the fresh JUnit report")
                 results.append({"id": test_id, "path": rel, "status": "unattributed"})
                 continue
             if any(case.find("failure") is not None
                    or case.find("error") is not None
-                   or case.find("skipped") is not None for case in attributed):
+                   or case.find("skipped") is not None for case in matches):
                 fail(f"{stage_id} required test {test_id!r} did not pass in the "
                      "fresh JUnit report")
             results.append({"id": test_id, "path": rel, "status": "passed"})
     return misses, results
 
 
-def _run_verify_commands(base: Path, stage_id: str, task: dict) -> list[dict]:
+def _canonical_verify_command(base: Path, command: str) -> bool:
+    """Whether a command is the repository's direct canonical verifier."""
+    return _canonical_verifier_identity(base, command) is not None
+
+
+def _canonical_verifier_identity(
+        base: Path, command: str,
+) -> tuple[list[tuple[str, str]], list[str]] | None:
+    """Return its allowed leading assignments and exact uv launcher, if any."""
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return None
+    prefix = _canonical_verifier_prefix(tokens)
+    if prefix is None:
+        return None
+    assignments, remaining = prefix
+    python = re.compile(r"python(?:3(?:\.\d+)?)?(?:\.exe)?", re.IGNORECASE)
+    launcher: list[str] = []
+    if (len(remaining) >= 2
+            and Path(remaining[0]).name.lower() in {"uv", "uv.exe"}
+            and remaining[1] == "run"):
+        index = 2
+        with_count = 0
+        python_option = False
+        python_index = -1
+        while index < len(remaining):
+            token = remaining[index]
+            if python.fullmatch(Path(token).name):
+                python_index = index
+                break
+            if (token == "--python" and not python_option
+                    and index + 1 < len(remaining)):
+                if not re.fullmatch(r"\d+(?:\.\d+){0,2}", remaining[index + 1]):
+                    return None
+                python_option = True
+                index += 2
+                continue
+            if token == "--with" and index + 1 < len(remaining):
+                package = remaining[index + 1]
+                if (not package or package.startswith("-")
+                        or any(character.isspace() for character in package)
+                        or any(character in package for character in ";&|<>`\n")):
+                    return None
+                with_count += 1
+                index += 2
+                continue
+            return None
+        if python_index < 0 or with_count == 0:
+            return None
+        launcher = remaining[:python_index]
+        remaining = remaining[python_index:]
+    if (len(remaining) != 2
+            or not python.fullmatch(Path(remaining[0]).name)
+            or os.path.abspath(base / remaining[1]) != os.path.abspath(
+                base / "factory/scripts/verify.py")):
+        return None
+    return assignments, launcher
+
+
+def _canonical_verifier_prefix(
+        tokens: list[str],
+) -> tuple[list[tuple[str, str]], list[str]] | None:
+    """Strip the small launcher prefix the canonical verifier owns.
+
+    The close command is launched with uv's cache and tool directories in its
+    environment.  Those two values affect which interpreter and distributions
+    the verifier can load, so they belong in the producer identity.  Other
+    inline assignments can change the verifier's selected command or pytest's
+    semantics; an unknown assignment is therefore an explicit conservative
+    fallback rather than something this parser guesses about.
+    """
+    assignments: list[tuple[str, str]] = []
+    remaining = list(tokens)
+    while remaining and re.fullmatch(
+            r"[A-Za-z_][A-Za-z0-9_]*=.*", remaining[0]):
+        name, value = remaining.pop(0).split("=", 1)
+        if name not in {"UV_CACHE_DIR", "UV_TOOL_DIR"}:
+            return None
+        if (not value or not Path(value).is_absolute()
+                or any(character in value for character in ";&|<>`\n")):
+            return None
+        if any(previous == name for previous, _value in assignments):
+            return None
+        assignments.append((name, value))
+    return assignments, remaining
+
+
+def _factory_env_from_envrc(base: Path) -> dict[str, str]:
+    """Read the simple FACTORY exports that verify.py loads from .envrc."""
+    path = base / ".envrc"
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return {}
+    vendored = (base / "constitution" / "VENDORED_FROM").is_file()
+    skipping = False
+    found: dict[str, str] = {}
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("if ") and "VENDORED_FROM" in stripped:
+            skipping = vendored
+            continue
+        if stripped in {"fi", "else"}:
+            skipping = False
+            continue
+        if skipping or not stripped.startswith("export FACTORY_"):
+            continue
+        name, _, value = stripped[len("export "):].partition("=")
+        if not name.endswith("_CMD"):
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        if "$" not in value:
+            found[name] = value
+    return found
+
+
+def _factory_test_command(base: Path) -> str:
+    """Resolve the declared full test command without executing a shell."""
+    current = (os.environ.get("FACTORY_TEST_CMD") or "").strip()
+    if current:
+        return current
+    return _factory_env_from_envrc(base).get("FACTORY_TEST_CMD", "")
+
+
+def _canonical_test_command_for_task(base: Path, task: dict) -> str:
+    """Resolve a full-suite command only when the verifier producer is unique.
+
+    ``verify.py`` reads its test command in the verifier subprocess. A leading
+    assignment on the task's verifier command, or an inherited ``PYTEST_*``
+    override, can therefore produce a JUnit report under different semantics
+    from the command visible to close. Dedicated selectors are cheap and are
+    the safe fallback whenever that producer binding is ambiguous.
+    """
+    # These are assigned by pytest-xdist for the hosting worker. They do not
+    # alter collection or test semantics of the child verifier; every proof
+    # identity still binds their actual values through _proof_environment.
+    pytest_runtime_keys = {
+        "PYTEST_CURRENT_TEST", "PYTEST_VERSION", "PYTEST_XDIST_WORKER",
+        "PYTEST_XDIST_WORKER_COUNT", "PYTEST_XDIST_TESTRUNUID",
+    }
+    if any(key.startswith("PYTEST_") and key not in pytest_runtime_keys and value
+           for key, value in os.environ.items()):
+        return ""
+    candidates = [
+        str(command) for command in task.get("verify_commands") or []
+        if str(command).strip() and _canonical_verify_command(base, str(command))
+    ]
+    if len(candidates) != 1:
+        return ""
+    identity = _canonical_verifier_identity(base, candidates[0])
+    if identity is None:
+        return ""
+    assignments, _launcher = identity
+    command = _factory_test_command(base)
+    if not command:
+        return ""
+    try:
+        producer = shlex.split(command)
+    except ValueError:
+        return ""
+    if not producer:
+        return ""
+    # The verifier launcher is bound separately in proof_identity; do not wrap
+    # the test command again because .envrc may already provide its own uv run.
+    return shlex.join([*(f"{name}={value}" for name, value in assignments),
+                       *producer])
+
+
+def _canonical_verifier_launcher_for_task(base: Path, task: dict) -> list[str] | None:
+    candidates = [
+        str(command) for command in task.get("verify_commands") or []
+        if str(command).strip() and _canonical_verify_command(base, str(command))
+    ]
+    if len(candidates) != 1:
+        return None
+    identity = _canonical_verifier_identity(base, candidates[0])
+    return identity[1] if identity is not None else None
+
+
+def _pytest_collection_path_candidates(
+        base: Path, args: list[str],
+) -> list[tuple[Path, Path]] | None:
+    """Return lexical and resolved explicit pytest collection paths."""
+    value_options = {
+        "-c", "--config-file", "-o", "--override-ini", "--junitxml",
+        "--maxfail", "-n", "--dist", "--durations", "--tb", "--color",
+        "--capture", "--log-level", "--basetemp", "--cov", "--cov-report",
+        "-k", "--keyword", "-m", "--markexpr", "--ignore", "--deselect",
+    }
+    paths: list[tuple[Path, Path]] = []
+    index = 0
+    while index < len(args):
+        token = args[index]
+        if token in value_options:
+            index += 2
+            continue
+        if token.startswith("-"):
+            index += 1
+            continue
+        raw = token.split("::", 1)[0]
+        candidate = Path(raw)
+        lexical = candidate if candidate.is_absolute() else base / candidate
+        resolved = (candidate if candidate.is_absolute() else base / candidate).resolve()
+        if resolved.exists() or resolved == base.resolve() \
+                or base.resolve() in resolved.parents:
+            paths.append((lexical, resolved))
+        index += 1
+    return paths or None
+
+
+def _pytest_collection_has_node_selector(args: list[str]) -> bool:
+    """Whether explicit pytest collection names include a ``::`` node."""
+    value_options = {
+        "-c", "--config-file", "-o", "--override-ini", "--junitxml",
+        "--maxfail", "-n", "--dist", "--durations", "--tb", "--color",
+        "--capture", "--log-level", "--basetemp", "--cov", "--cov-report",
+        "-k", "--keyword", "-m", "--markexpr", "--ignore", "--deselect",
+    }
+    index = 0
+    while index < len(args):
+        token = args[index]
+        if token in value_options:
+            index += 2
+            continue
+        if not token.startswith("-") and "::" in token:
+            return True
+        index += 1
+    return False
+
+
+def _pytest_collection_paths(
+        base: Path, command: str, *, require_broad: bool = False,
+) -> list[Path] | None:
+    """Return explicit pytest collection roots for a shell-free command."""
+    try:
+        tokens, environment, _identity = _proof_environment(
+            command, fixed_after_assignments=True,
+        )
+    except ValueError:
+        return None
+    if any(character in command for character in ";|&<>`\n") or "$(" in command:
+        return None
+    module = next((index for index, token in enumerate(tokens[:-1])
+                   if token == "-m" and tokens[index + 1] == "pytest"), -1)
+    if module < 0:
+        return None
+    args = tokens[module + 2:]
+    if not _pytest_collection_inputs_known(base, args, environment):
+        return None
+    if require_broad and _pytest_collection_has_node_selector(args):
+        return None
+    selectors = ("-k", "--keyword", "-m", "--markexpr", "--ignore",
+                 "--deselect", "--pyargs")
+    if require_broad and any(
+            token in selectors or token.startswith(
+                ("--ignore=", "--deselect=", "-k=", "--keyword=", "-m="))
+            for token in args):
+        return None
+    paths: list[Path] = []
+    for lexical, resolved in _pytest_collection_path_candidates(base, args) or ():
+        if _pytest_path_has_linked_component(base, lexical):
+            return None
+        paths.append(resolved)
+    return paths or None
+
+
+def _pytest_path_has_linked_component(base: Path, candidate: Path) -> bool:
+    """Reject a collection path whose Git-visible spelling follows a link."""
+    try:
+        relative = candidate.relative_to(base)
+    except ValueError:
+        return True
+    current = base
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            return True
+    return False
+
+
+def _pytest_directory_has_linked_input(directory: Path) -> bool:
+    """Reject directory collection when any descendant follows a symlink."""
+    try:
+        for current, directories, files in os.walk(directory, followlinks=False):
+            current_path = Path(current)
+            if any((current_path / name).is_symlink() for name in directories):
+                return True
+            if any((current_path / name).is_symlink() for name in files):
+                return True
+    except OSError:
+        return True
+    return False
+
+
+def _pytest_collection_inputs_known(
+        base: Path, args: list[str], environment: dict[str, str],
+) -> bool:
+    """Reject collection reuse when pytest adds unknown collection inputs.
+
+    The normal direct command binds its explicit collection paths.  Pytest
+    configuration can add paths and collection rules through several formats
+    and multiline syntaxes; treating an unparsed config as empty would make a
+    stale receipt look complete.  Dedicated selectors are the conservative
+    fallback for any nonempty addopts or discovered/explicit config.
+    """
+    try:
+        if shlex.split(environment.get("PYTEST_ADDOPTS", "")):
+            return False
+    except ValueError:
+        return False
+    override_values: list[str] = []
+    index = 0
+    while index < len(args):
+        token = args[index]
+        if token in {"-o", "--override-ini"}:
+            if index + 1 >= len(args):
+                return False
+            override_values.append(args[index + 1])
+            index += 2
+            continue
+        if token.startswith("--override-ini="):
+            override_values.append(token.split("=", 1)[1])
+        elif token.startswith("-o="):
+            override_values.append(token[3:])
+        elif token.startswith("-o") and len(token) > 2:
+            override_values.append(token[2:])
+        index += 1
+    for value in override_values:
+        key, separator, setting = value.partition("=")
+        if (not separator or key.strip().casefold() != "junit_family"
+                or setting.strip().casefold() != "legacy"):
+            return False
+    config_requested = any(
+        token == "-c" or token == "--config-file"
+        or token.startswith("--config-file=")
+        or (token.startswith("-c") and token != "-c")
+        for token in args
+    )
+    if config_requested:
+        return False
+    config_names = (
+        "pytest.ini", ".pytest.ini", "pytest.toml", ".pytest.toml",
+        "pyproject.toml", "tox.ini", "setup.cfg",
+    )
+    scan_roots = [base.resolve()]
+    for lexical, _resolved in _pytest_collection_path_candidates(base, args) or ():
+        scan_roots.append(lexical if lexical.is_dir() else lexical.parent)
+    seen_roots: set[Path] = set()
+    for root in scan_roots:
+        current = root.absolute()
+        while current not in seen_roots:
+            seen_roots.add(current)
+            if any((current / name).exists() or (current / name).is_symlink()
+                   for name in config_names):
+                return False
+            if current == current.parent:
+                break
+            current = current.parent
+    return True
+
+
+def _proof_command_with_test_inputs(command: str, path: str, test_id: str) -> str:
+    """Resolve the recorder's test placeholders before binding collection paths."""
+    try:
+        return command.format(path=path, id=test_id, report="{report}")
+    except (IndexError, KeyError, ValueError):
+        return command
+
+
+def _ignored_pytest_sources(base: Path, directory: Path) -> bool:
+    """Refuse a directory proof when Git reports an ignored collection input."""
+    try:
+        relative = directory.relative_to(base).as_posix() or "."
+        proc = subprocess.run(
+            ["git", "status", "--porcelain=v1", "--ignored",
+             "--untracked-files=normal", "-z", "--", relative],
+            cwd=base, capture_output=True, env=clean_git_env(), timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return True
+    if proc.returncode != 0:
+        return True
+    for entry in proc.stdout.split(b"\0"):
+        if not entry.startswith(b"!! "):
+            continue
+        return True
+    return False
+
+
+def _pytest_identity_projection(identity: dict[str, object]) -> dict[str, object]:
+    """Keep the runtime/config identity while ignoring command spelling."""
+    return {
+        key: identity.get(key)
+        for key in ("environment", "interpreter", "python_version",
+                    "dependencies", "uv_bootstrap", "uv_overlay_sha256",
+                    "pytest_config", "pytest_semantics",
+                    "canonical_verifier_launcher")
+        if key in identity
+    }
+
+
+def _pytest_semantic_args(command: str) -> list[str] | None:
+    """Normalize pytest options that can change what a run executes."""
+    try:
+        tokens, _environment, _identity = _proof_environment(
+            command, fixed_after_assignments=True,
+        )
+    except ValueError:
+        return None
+    module = next((index for index, token in enumerate(tokens[:-1])
+                   if token == "-m" and tokens[index + 1] == "pytest"), -1)
+    if module < 0:
+        return None
+    args = tokens[module + 2:]
+    collection = ("-k", "--keyword", "-m", "--markexpr", "--ignore",
+                  "--deselect", "--pyargs")
+    safe_with_value = {
+        "-n", "--numprocesses", "--dist", "--durations", "--junitxml",
+        "--tb", "--color", "--capture", "--show-capture", "--log-level",
+        "--maxfail", "--basetemp", "--cov", "--cov-report",
+    }
+    result: list[str] = []
+    index = 0
+    while index < len(args):
+        token = args[index]
+        if token.startswith("--") and "=" in token:
+            option, value = token.split("=", 1)
+            if option in collection:
+                index += 1
+                continue
+            if option in safe_with_value or option in {"--disable-warnings",
+                                                        "--no-header", "--no-summary"}:
+                index += 1
+                continue
+            result.append(token)
+            index += 1
+            continue
+        if token in collection:
+            index += 2
+            continue
+        if token in safe_with_value:
+            index += 2
+            continue
+        if token in {"-q", "--quiet", "-v", "--verbose", "--disable-warnings",
+                     "--no-header", "--no-summary"}:
+            index += 1
+            continue
+        if token in {"-o", "--override-ini"}:
+            value = args[index + 1] if index + 1 < len(args) else ""
+            if value == "junit_family=legacy":
+                index += 2
+                continue
+            result.extend((token, value))
+            index += 2
+            continue
+        if token.startswith("-"):
+            result.append(token)
+            if index + 1 < len(args) and not args[index + 1].startswith("-"):
+                result.append(args[index + 1])
+                index += 2
+            else:
+                index += 1
+            continue
+        # Collection paths and node ids are intentionally excluded: the
+        # canonical report is accepted only after each declared path is covered.
+        index += 1
+    return result
+
+
+def _compileall_source_inputs(
+        base: Path, python_args: list[str],
+        allowed_product_paths: set[Path] | None,
+) -> list[str] | None:
+    """Resolve the complete, Git-visible Python inputs of compileall.
+
+    ``compileall`` without an explicit source reads ``sys.path`` and a
+    directory recursively reads every Python file beneath it.  Neither is a
+    complete proof input unless the files can be enumerated and every source
+    is part of the product snapshot.  Refuse symlinks, external paths,
+    options with runner-specific semantics, and untracked/ignored sources;
+    explicit regular files and ordinary tracked directories remain reusable.
+    """
+    if len(python_args) < 3 or python_args[0:2] != ["-m", "compileall"]:
+        return None
+    if allowed_product_paths is None:
+        snapshot = product_tree_snapshot(base)
+        allowed_product_paths = {
+            (base / relative).resolve()
+            for field in ("tracked", "dirty")
+            for relative in (snapshot.get(field) or {})
+        }
+    product_paths = {path.resolve() for path in allowed_product_paths}
+    inputs: set[Path] = set()
+    for raw in python_args[2:]:
+        if raw.startswith("-"):
+            return None
+        candidate = Path(raw)
+        candidate = candidate if candidate.is_absolute() else base / candidate
+        try:
+            relative_candidate = candidate.relative_to(base)
+        except ValueError:
+            return None
+        current_candidate = base
+        if any(
+                (current_candidate := current_candidate / part).is_symlink()
+                for part in relative_candidate.parts
+        ):
+            return None
+        try:
+            candidate = candidate.resolve(strict=True)
+        except OSError:
+            return None
+        if base.resolve() not in candidate.parents and candidate != base.resolve():
+            return None
+        if candidate.is_file():
+            if candidate.suffix != ".py" or candidate not in product_paths:
+                return None
+            inputs.add(candidate)
+            continue
+        if not candidate.is_dir():
+            return None
+        found = False
+        for current, directories, files in os.walk(candidate, followlinks=False):
+            current_path = Path(current)
+            if any((current_path / name).is_symlink() for name in directories):
+                return None
+            for name in files:
+                path = current_path / name
+                if path.is_symlink():
+                    return None
+                if path.suffix != ".py":
+                    continue
+                found = True
+                resolved = path.resolve()
+                if resolved not in product_paths:
+                    return None
+                inputs.add(resolved)
+        if not found:
+            return None
+    if not inputs:
+        return None
+    return sorted(path.relative_to(base.resolve()).as_posix() for path in inputs)
+
+
+def _run_verify_commands(
+    base: Path, stage_id: str, task: dict, canonical_junit: Path | None = None,
+) -> list[dict]:
     from .delegate import (
         blocked_termination_signals, _capture_spawn_identity, _process_table,
         _terminate_observed_process_tree, _wait_and_reap,
@@ -1754,6 +2636,9 @@ def _run_verify_commands(base: Path, stage_id: str, task: dict) -> list[dict]:
         env = os.environ.copy()
         env["FORGE_PROCESS_TOKEN"] = process_token
         env["PYTHONUTF8"] = "1"
+        if canonical_junit is not None and _canonical_verify_command(
+                base, str(command)):
+            env["FORGE_CANONICAL_JUNIT"] = str(canonical_junit)
         with tempfile.TemporaryFile(
                 mode="w+t", encoding="utf-8", errors="replace"
         ) as stdout_log, tempfile.TemporaryFile(
@@ -1824,41 +2709,73 @@ def _output_tail(stdout: str, stderr: str, lines: int = 40) -> str:
 STAGE_PROOF = "stage-proof"
 
 
-def proof_key(base: Path, task: dict) -> str:
-    """What a recorded proof is bound to: the product tree it ran against and
-    the contract that named its commands. Same key, same proof."""
+def proof_key(
+        base: Path, task: dict, *,
+        verify_identity: dict[str, object] | None = None,
+        test_identity: dict[str, object] | None = None,
+) -> str:
+    """Return a provenance key derived from the complete proof identities.
+
+    This key is descriptive evidence only. Reuse is authorized by the typed
+    receipts below, which bind command, environment, tool, distribution,
+    generated-input, and product identities independently for verify and tests.
+    """
+    snapshot = None
+    if verify_identity is None or test_identity is None:
+        snapshot = product_tree_snapshot(base)
+    memo: dict[tuple[tuple[str, ...], str], dict[str, object]] = {}
+    verify_identity = verify_identity or proof_identity(
+        base, task, "verify", product_tree=snapshot, tool_probe_memo=memo,
+    )
+    test_identity = test_identity or proof_identity(
+        base, task, "tests", product_tree=snapshot, tool_probe_memo=memo,
+    )
     bound = {
-        "tree": product_tree_digest(base),
-        "verify_commands": [str(c) for c in task.get("verify_commands") or []],
-        "required_tests": [
-            {"id": str(p.get("id")), "path": str(p.get("path")),
-             "command": str(p.get("command"))}
-            for p in task.get("required_tests") or [] if isinstance(p, dict)
-        ],
+        "verify": {"identity": verify_identity.get("identity"),
+                   "inputs": verify_identity.get("inputs")},
+        "tests": {"identity": test_identity.get("identity"),
+                  "inputs": test_identity.get("inputs")},
     }
     return hashlib.sha256(
         json.dumps(bound, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
 
 
-def reusable_stage_proof(base: Path, stage_id: str, key: str) -> dict | None:
-    """The proof this harness recorded for exactly this tree and contract, or
-    None. A verify.json written any other way (verify.py, a fixture, a hand)
-    is not a stage proof and is never reused."""
-    story = active_story_key(base)
-    if not story:
-        return None
-    verify = load_json(
-        task_evidence_path(base, story, stage_id, "verify.json"), default=None)
-    if (not isinstance(verify, dict) or verify.get("recorded_by") != STAGE_PROOF
-            or verify.get("ok") is not True or verify.get("proof_key") != key):
-        return None
-    return verify
+def _close_proof_results_match(
+        task: dict, verify_results: object, test_results: object,
+) -> bool:
+    commands = [str(command) for command in task.get("verify_commands") or []
+                if str(command).strip()]
+    required = [proof for proof in task.get("required_tests") or []
+                if isinstance(proof, dict)]
+    if not (commands or required):
+        return False
+    return (_close_verify_results_match(commands, verify_results)
+            and _close_test_results_match(required, test_results))
+
+
+def _close_verify_results_match(commands: list[str], results: object) -> bool:
+    return (isinstance(results, list) and len(results) == len(commands)
+            and all(isinstance(result, dict)
+                    and result.get("command") == command
+                    and result.get("exit_code") == 0
+                    for result, command in zip(results, commands)))
+
+
+def _close_test_results_match(required: list[dict], results: object) -> bool:
+    return (isinstance(results, list) and len(results) == len(required)
+            and all(isinstance(result, dict)
+                    and result.get("id") == proof.get("id")
+                    and result.get("path") == proof.get("path")
+                    and result.get("status") == "passed"
+                    for result, proof in zip(results, required)))
 
 
 def record_stage_proof(base: Path, stage_id: str, task: dict, *, key: str,
                        verify_results: list[dict], test_results: list[dict],
-                       test_id_misses: list[str]) -> None:
+                       test_id_misses: list[str],
+                       close_owned: bool = False,
+                       commands_run: list[str] | None = None) -> None:
     """Write what the proof ran as the task's verify.json, re-bind the worker's
     tests.json record to the measured commit, or write one where none exists.
 
@@ -1871,9 +2788,8 @@ def record_stage_proof(base: Path, stage_id: str, task: dict, *, key: str,
     commit by hand. The proof re-binds it instead, and only while no review
     covers the tree: the brief renders the record verbatim inside its
     approved-input section, so an edit after a review would stale that
-    brief. A task without a record gets a harness record, except a
-    user-facing task, whose record must still attest the design skills
-    (require_skills)."""
+    brief. A task without a record gets a harness record at close. Outside
+    close, a user-facing task still owes its own design-skill attestation."""
     story = active_story_key(base)
     if not story:
         return
@@ -1895,7 +2811,55 @@ def record_stage_proof(base: Path, stage_id: str, task: dict, *, key: str,
         tests = {}
     automated = tests.get("automated")
     if isinstance(automated, dict):
-        if automated.get("commit") == head or _review_covers_tree(base, stage_id, task):
+        if _review_covers_tree(base, stage_id, task):
+            return
+        if close_owned:
+            if (automated.get("status") != "passed"
+                    or automated.get("blocking_findings")):
+                fail(
+                    f"{stage_id} has an existing automated report that is not "
+                    "a passing close-owned proof; refusing to overwrite it"
+                )
+            worker_commit = automated.get("commit")
+            if worker_commit and worker_commit != head:
+                automated.setdefault("worker_commit", worker_commit)
+            actual_commands = [
+                str(command) for command in (commands_run or [])
+                if str(command).strip()
+            ]
+            existing_commands = [
+                str(command) for command in automated.get("commands_run") or []
+                if str(command).strip()
+            ]
+            for command in actual_commands:
+                if command not in existing_commands:
+                    existing_commands.append(command)
+            automated["commands_run"] = existing_commands
+            summary = str(automated.get("pass_fail_summary") or "").rstrip()
+            covered = [
+                str(result.get("id")) for result in test_results
+                if isinstance(result, dict) and str(result.get("id") or "").strip()
+            ]
+            marker = (
+                "close-owned proof: "
+                f"{len(verify_results)} verifier result(s), "
+                f"{len(test_results)} required test result(s) passed; "
+                f"covered ids={','.join(covered) if covered else '<none>'}; "
+                f"executed commands={len(actual_commands)}; backing=verify.json"
+            )
+            if marker not in summary:
+                automated["pass_fail_summary"] = (
+                    f"{summary}\n{marker}" if summary else marker
+                )
+            automated["bound_by"] = STAGE_PROOF
+            automated["bound_at"] = now
+            automated["commit"] = head
+            tests["commit"] = head
+            tests["updated_at"] = now
+            validate_payload(base, "test-automated", automated)
+            dump_json(tests_path, tests)
+            return
+        if automated.get("commit") == head:
             return
         automated.setdefault("worker_commit", automated.get("commit"))
         automated["commit"] = head
@@ -1905,16 +2869,35 @@ def record_stage_proof(base: Path, stage_id: str, task: dict, *, key: str,
         tests["updated_at"] = now
         dump_json(tests_path, tests)
         return
-    if bool(task.get("user_facing")):
+    if bool(task.get("user_facing")) and not close_owned:
         return
-    commands = [str(c) for c in task.get("verify_commands") or [] if str(c).strip()]
-    commands += [str(p.get("command")) for p in task.get("required_tests") or []
-                 if isinstance(p, dict)]
+    actual_commands = [
+        str(command) for command in (commands_run or [])
+        if str(command).strip()
+    ]
+    commands = actual_commands if close_owned else [
+        str(c) for c in task.get("verify_commands") or [] if str(c).strip()
+    ]
+    if not close_owned:
+        commands += [str(p.get("command")) for p in task.get("required_tests") or []
+                     if isinstance(p, dict)]
+    covered_ids = ",".join(
+        str(result.get("id")) for result in test_results
+        if isinstance(result, dict) and str(result.get("id") or "").strip()
+    ) or "<none>"
+    summary = (
+        "close-owned proof: "
+        f"{len(verify_results)} verifier result(s), "
+        f"{len(test_results)} required test result(s) passed; "
+        f"covered ids={covered_ids}; "
+        f"executed commands={len(actual_commands)}; backing=verify.json"
+        if close_owned else
+        f"task close ran {len(verify_results)} verify command(s) and "
+        f"{len(test_results)} required test(s) at {head[:12]}; all passed"
+    )
     automated = {
         "generated_by": STAGE_PROOF, "status": "passed",
-        "summary": (f"task close ran {len(verify_results)} verify command(s) "
-                    f"and {len(test_results)} required test(s) at "
-                    f"{head[:12]}; all passed"),
+        "summary": summary,
         "blocking_findings": [], "commands_run": commands,
         "tests_added_or_updated": [], "remaining_gaps": [],
         # The review brief refuses an empty scope; the harness ran the
@@ -1922,6 +2905,8 @@ def record_stage_proof(base: Path, stage_id: str, task: dict, *, key: str,
         "reviewed_scope": [str(s) for s in task.get("write_scope") or []],
         "recorded_at": now, "commit": head,
     }
+    if close_owned:
+        automated["pass_fail_summary"] = summary
     validate_payload(base, "test-automated", automated)
     tests["automated"] = automated
     tests["commit"] = head
@@ -1936,47 +2921,1382 @@ def _review_covers_tree(base: Path, stage_id: str, task: dict) -> bool:
     return isinstance(stage, dict) and stamp_is_fresh(base, stage, task)
 
 
-def run_stage_proof(base: Path, stage_id: str, task: dict) -> tuple[dict, dict, list[str]]:
-    """Run the task's verify commands and required tests, read-only, once per
-    tree, and record the run as the task's proof.
+_CANONICAL_JUNIT_IDENTITY = "<forge-canonical-junit>"
+
+
+def _canonical_junit_environment(report: Path | None = None) -> dict[str, str]:
+    """Return the JUnit environment the canonical proof actually receives.
+
+    The report path is temporary and must not become durable proof input.  A
+    stable marker is used while building a receipt; the live report path is
+    used while comparing a fresh report with required selectors.
+    """
+    return {
+        "FORGE_CANONICAL_JUNIT": (
+            str(report) if report is not None else _CANONICAL_JUNIT_IDENTITY
+        ),
+    }
+
+
+def _canonical_junit_satisfies_required_tests(
+        report: Path, task: dict, *, base: Path | None = None,
+        canonical_command: str = "",
+) -> bool:
+    """Accept a full-suite report only when its runtime and collection cover match."""
+    if base is None or not canonical_command:
+        return False
+    generated_paths = {
+        (base / str(relative)).resolve()
+        for relative in task.get("generated_semantic_inputs") or []
+    }
+    canonical_paths = _pytest_collection_paths(
+        base, canonical_command, require_broad=True,
+    )
+    if canonical_paths is None:
+        return False
+    junit_environment = _canonical_junit_environment(report)
+    canonical_environment = _factory_env_from_envrc(base)
+    canonical_environment.update(junit_environment)
+    canonical_tool = _proof_tool_identity(
+        base, canonical_command, fixed_after_assignments=False,
+        allowed_generated_paths=generated_paths,
+        environment_overrides=canonical_environment,
+    )
+    if canonical_tool.get("reusable") is not True:
+        return False
+    verifier_launcher = _canonical_verifier_launcher_for_task(base, task)
+    if verifier_launcher is None:
+        return False
+    canonical_tool["canonical_verifier_launcher"] = verifier_launcher
+    try:
+        root = ET.parse(report).getroot()
+    except (ET.ParseError, OSError):
+        return False
+    cases = list(root.iter("testcase"))
+    for proof in task.get("required_tests") or []:
+        if not isinstance(proof, dict):
+            return False
+        test_id = proof.get("id")
+        rel = proof.get("path")
+        if not isinstance(test_id, str) or not isinstance(rel, str):
+            return False
+        required_path = (base / rel).resolve()
+        if not any(
+            candidate == required_path
+            or (candidate.is_dir() and required_path == candidate)
+            or (candidate.is_dir() and candidate in required_path.parents)
+            for candidate in canonical_paths
+        ):
+            return False
+        required_command = _proof_command_with_test_inputs(
+            str(proof.get("command") or ""), rel, test_id,
+        )
+        required_tool = _proof_tool_identity(
+            base, required_command, fixed_after_assignments=True,
+            allowed_generated_paths=generated_paths,
+            environment_overrides={
+                **_factory_env_from_envrc(base), **junit_environment,
+            },
+        )
+        required_tool["canonical_verifier_launcher"] = verifier_launcher
+        if (required_tool.get("reusable") is not True
+                or _pytest_identity_projection(required_tool)
+                != _pytest_identity_projection(canonical_tool)):
+            return False
+        matches, match_problem = _junit_required_case_matches(
+            cases, test_id, rel,
+        )
+        if match_problem or not matches:
+            return False
+        if any(case.find(outcome) is not None
+               for case in matches
+               for outcome in ("failure", "error", "skipped")):
+            return False
+    return True
+
+
+def _file_identity(path: Path) -> dict[str, object]:
+    info = path.stat()
+    return {
+        "path": str(path), "size": info.st_size, "mtime_ns": info.st_mtime_ns,
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+
+
+def _stable_pytest_config_identity(path: Path) -> dict[str, object]:
+    """Hash one regular config through the same no-follow file identity."""
+    info = path.lstat()
+    if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)
+            or info.st_nlink != 1):
+        raise ValueError("pytest config is linked or nonregular")
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        opened = os.fstat(descriptor)
+        body = b""
+        while chunk := os.read(descriptor, 65536):
+            body += chunk
+        current = path.lstat()
+    finally:
+        os.close(descriptor)
+    if ((opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns)
+            != (current.st_dev, current.st_ino, current.st_size, current.st_mtime_ns)
+            or opened.st_nlink != 1):
+        raise ValueError("pytest config identity changed")
+    return {
+        "size": opened.st_size, "sha256": hashlib.sha256(body).hexdigest(),
+    }
+
+
+def _explicit_pytest_config_identity(
+    base: Path, python_args: list[str], environment: dict[str, str],
+) -> dict[str, object] | None:
+    """Bind one explicit pytest config without following or trusting its location."""
+    values: list[str] = []
+
+    def collect(args: list[str]) -> None:
+        index = 0
+        while index < len(args):
+            token = args[index]
+            if token in {"-c", "--config-file"}:
+                if index + 1 >= len(args):
+                    raise ValueError("missing pytest config path")
+                values.append(args[index + 1])
+                index += 2
+                continue
+            if token.startswith("--config-file="):
+                values.append(token.split("=", 1)[1])
+            elif token.startswith("-c") and token != "-c":
+                values.append(token[2:])
+            index += 1
+
+    collect(python_args[2:])
+    addopts = environment.get("PYTEST_ADDOPTS", "")
+    try:
+        collect(shlex.split(addopts))
+    except ValueError as exc:
+        raise ValueError("malformed PYTEST_ADDOPTS") from exc
+    if not values:
+        return None
+    if len(values) != 1 or not values[0]:
+        raise ValueError("ambiguous pytest config path")
+    path = Path(values[0])
+    path = path if path.is_absolute() else base / path
+    return _stable_pytest_config_identity(path)
+
+
+def _implicit_pytest_config_identity(base: Path) -> list[dict[str, object]]:
+    """Bind every config pytest can discover from the invocation directory."""
+    identities: list[dict[str, object]] = []
+    current = base.resolve()
+    ancestor = 0
+    while True:
+        for name in ("pytest.ini", ".pytest.ini", "pyproject.toml", "tox.ini",
+                     "setup.cfg"):
+            path = current / name
+            if not path.exists() and not path.is_symlink():
+                continue
+            identity = _stable_pytest_config_identity(path)
+            identities.append({
+                "name": name, "ancestor": ancestor,
+                **identity,
+            })
+        if current == current.parent:
+            return identities
+        current = current.parent
+        ancestor += 1
+
+
+def _proof_environment(
+        command: str, *, fixed_after_assignments: bool,
+        environment_overrides: dict[str, str] | None = None,
+) -> tuple[list[str], dict[str, str], dict[str, object]]:
+    """Return parsed argv and a secret-free identity for its effective env."""
+    tokens = shlex.split(command)
+    environment = os.environ.copy()
+    inherited_canonical_junit = environment.get("FORGE_CANONICAL_JUNIT")
+    if environment_overrides:
+        for key, value in environment_overrides.items():
+            # The canonical verifier unconditionally injects this value into
+            # its child environment.  A caller may have inherited a stale
+            # value, but it cannot replace the value the verifier actually
+            # uses.  Other overrides retain the existing envrc semantics:
+            # exported process values win over declarations from .envrc.
+            if key == "FORGE_CANONICAL_JUNIT":
+                environment[key] = value
+            else:
+                environment.setdefault(key, value)
+    inherited_python_utf8 = environment.get("PYTHONUTF8")
+    # Proof runners always replace this nonce. Keep that fixed override stable
+    # while still binding every other inherited variable an arbitrary command
+    # may read.
+    environment["FORGE_PROCESS_TOKEN"] = "<forge-generated>"
+    if not fixed_after_assignments:
+        environment["PYTHONUTF8"] = "1"
+    while tokens and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", tokens[0]):
+        key, value = tokens.pop(0).split("=", 1)
+        environment[key] = value
+    if fixed_after_assignments:
+        environment["PYTHONUTF8"] = "1"
+    canonical = json.dumps(
+        sorted(environment.items()), separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")
+    identity = {
+        "sha256": hashlib.sha256(canonical).hexdigest(),
+        "entries": len(environment),
+        "inherited_pythonutf8_sha256": hashlib.sha256(
+            ("<unset>" if inherited_python_utf8 is None
+             else inherited_python_utf8).encode("utf-8")
+        ).hexdigest(),
+        # Canonical and selector runners replace this path with their own
+        # temporary report.  Keep the inherited value bound as well: it is a
+        # caller-controlled input that can affect a plugin before the runner
+        # applies its fresh report path.
+        "inherited_canonical_junit_sha256": hashlib.sha256(
+            ("<unset>" if inherited_canonical_junit is None
+             else inherited_canonical_junit).encode("utf-8")
+        ).hexdigest(),
+    }
+    return tokens, environment, identity
+
+
+_PYTHON_IMPORT_SUFFIXES = {
+    ".py", ".pyi", ".pyc", ".pth", ".so", ".pyd", ".dll", ".dylib",
+    ".zip", ".egg", ".whl", ".pyz",
+}
+
+
+def _linked_path_component(path: Path, *, stop: Path | None = None) -> bool:
+    """Whether a source path or one of its ancestors is a filesystem link."""
+    current = path.absolute()
+    stop_at = stop.absolute() if stop is not None else None
+    while True:
+        if stop_at is not None and current == stop_at:
+            return False
+        try:
+            if stat.S_ISLNK(current.lstat().st_mode):
+                return True
+        except OSError:
+            return True
+        if current == current.parent:
+            return False
+        current = current.parent
+
+
+def _python_import_files(root: Path) -> set[Path] | None:
+    """Enumerate importable files below one path without following links."""
+    try:
+        if _linked_path_component(root):
+            return None
+        info = root.lstat()
+    except OSError:
+        return None
+    if stat.S_ISLNK(info.st_mode):
+        return None
+    if stat.S_ISREG(info.st_mode):
+        return {root.resolve()} if root.suffix.lower() in _PYTHON_IMPORT_SUFFIXES \
+            else set()
+    if not stat.S_ISDIR(info.st_mode):
+        return None
+    found: set[Path] = set()
+    try:
+        for current, directories, files in os.walk(root, followlinks=False):
+            current_path = Path(current)
+            if any((current_path / name).is_symlink() for name in directories):
+                return None
+            for name in files:
+                path = current_path / name
+                if path.suffix.lower() not in _PYTHON_IMPORT_SUFFIXES:
+                    continue
+                leaf = path.lstat()
+                if (stat.S_ISLNK(leaf.st_mode) or not stat.S_ISREG(leaf.st_mode)
+                        or leaf.st_nlink != 1):
+                    return None
+                # Bytecode caches are derived from their source and are not a
+                # distribution source in their own right.
+                if path.suffix.lower() == ".pyc" \
+                        and "__pycache__" in path.parts:
+                    continue
+                found.add(path.resolve())
+    except OSError:
+        return None
+    return found
+
+
+def _recorded_distribution_files(root: Path) -> set[Path] | None:
+    """Read regular, single-link files named by RECORD below an import root."""
+    records: set[Path] = set()
+    found_record = False
+    try:
+        for current, _directories, files in os.walk(root, followlinks=False):
+            current_path = Path(current)
+            if any((current_path / name).is_symlink() for name in files):
+                return None
+            if "RECORD" not in files \
+                    or not current_path.name.endswith(".dist-info"):
+                continue
+            found_record = True
+            for row in csv.reader((current_path / "RECORD").read_text(
+                    encoding="utf-8").splitlines()):
+                if not row or not row[0]:
+                    continue
+                path = (current_path.parent / row[0]).resolve()
+                root_path = root.resolve()
+                if path != root_path and root_path not in path.parents:
+                    if path.suffix.lower() in _PYTHON_IMPORT_SUFFIXES:
+                        return None
+                    continue
+                info = path.lstat()
+                if (stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode)
+                        or info.st_nlink != 1):
+                    return None
+                records.add(path)
+    except (OSError, UnicodeError, csv.Error):
+        return None
+    return records if found_record else None
+
+
+def _pythonpath_sources_reusable(
+        base: Path, environment: dict[str, str],
+        allowed_product_paths: set[Path] | None,
+) -> bool:
+    """Reject mutable external PYTHONPATH roots without distribution records.
+
+    Product-tree roots are covered by the product snapshot.  An external root
+    is reusable only when every importable file is named by a regular,
+    single-link distribution RECORD; an unknown root can change imports between
+    proof runs even when the interpreter and installed distribution list stay
+    unchanged.
+    """
+    raw = environment.get("PYTHONPATH", "")
+    if not raw:
+        return True
+    base_path = base.resolve()
+    if allowed_product_paths is None:
+        snapshot = product_tree_snapshot(base)
+        allowed_product_paths = {
+            (base / relative).resolve()
+            for field in ("tracked", "dirty")
+            for relative in (snapshot.get(field) or {})
+        }
+    product_paths = {path.resolve() for path in allowed_product_paths}
+    for entry in raw.split(os.pathsep):
+        candidate = (base_path if not entry else Path(entry))
+        if not candidate.is_absolute():
+            candidate = base_path / candidate
+        try:
+            resolved = candidate.resolve(strict=True)
+        except OSError:
+            return False
+        if _linked_path_component(candidate):
+            return False
+        import_files = _python_import_files(resolved)
+        if import_files is None:
+            return False
+        if not import_files:
+            continue
+        if resolved == base_path or base_path in resolved.parents:
+            # Keep this check tied to the supplied snapshot so an external
+            # path cannot be smuggled in through a spelling that resolves into
+            # the product tree.
+            if import_files.issubset(product_paths):
+                continue
+        recorded = _recorded_distribution_files(resolved)
+        if recorded is None or not import_files.issubset(recorded):
+            return False
+    return True
+
+
+def _proof_tool_identity(
+        base: Path, command: str, *, fixed_after_assignments: bool = False,
+        probe_memo: dict[tuple[tuple[str, ...], str], dict[str, object]] | None = None,
+        allowed_generated_paths: set[Path] | None = None,
+        allowed_product_paths: set[Path] | None = None,
+        environment_overrides: dict[str, str] | None = None,
+) -> dict[str, object]:
+    """Resolve only the Python command shapes Forge declares for proof reuse."""
+    try:
+        tokens, environment, environment_identity = _proof_environment(
+            command, fixed_after_assignments=fixed_after_assignments,
+            environment_overrides=environment_overrides,
+        )
+    except ValueError:
+        return {"command": command, "reusable": False}
+    if not tokens:
+        return {"command": "", "environment": environment_identity,
+                "reusable": False}
+    if not _pythonpath_sources_reusable(
+            base, environment, allowed_product_paths):
+        return {"command": tokens[0], "environment": environment_identity,
+                "reusable": False}
+    if allowed_product_paths is None:
+        snapshot = product_tree_snapshot(base)
+        allowed_product_paths = {
+            (base / relative).resolve()
+            for field in ("tracked", "dirty")
+            for relative in (snapshot.get(field) or {})
+        }
+    if (any(character in command for character in ";|&<>`\n")
+            or "$(" in command):
+        return {"command": tokens[0], "environment": environment_identity,
+                "reusable": False}
+    outer = shutil.which(tokens[0], path=environment.get("PATH"))
+    if not outer:
+        return {"command": tokens[0], "environment": environment_identity,
+                "reusable": False}
+    outer_path = Path(outer)
+    resolved_outer_path = outer_path.resolve()
+    try:
+        # Keep the command's executable path for the probe. Resolving a venv
+        # symlink here can silently replace its interpreter with the base
+        # Python, changing its installed distributions while the command still
+        # names the venv entry point. Hash the resolved target for stable
+        # runner identity, but execute the path the command actually resolved.
+        runner = _file_identity(resolved_outer_path)
+    except OSError:
+        return {"command": tokens[0], "environment": environment_identity,
+                "reusable": False}
+    name = Path(tokens[0]).name.lower()
+    if name in {"git", "git.exe"} and tokens == ["git", "diff", "--check"]:
+        probe_argv = (str(outer_path), "config", "--list", "--show-origin", "--null")
+        memo_key = (probe_argv, str(environment_identity["sha256"]))
+        if probe_memo is not None and memo_key in probe_memo:
+            return {**probe_memo[memo_key], "command": tokens[0],
+                    "environment": environment_identity}
+        try:
+            config = subprocess.run(
+                list(probe_argv),
+                cwd=base, capture_output=True, check=True, timeout=20,
+                env=environment,
+            ).stdout
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            result = {"command": tokens[0], "runner": runner,
+                      "environment": environment_identity, "reusable": False}
+        else:
+            result = {"command": tokens[0], "runner": runner,
+                      "environment": environment_identity,
+                      "config_sha256": hashlib.sha256(config).hexdigest(),
+                      "reusable": True}
+        if probe_memo is not None:
+            probe_memo[memo_key] = result
+        return dict(result)
+    probe: list[str]
+    python_args: list[str]
+    if re.fullmatch(r"python(?:3(?:\.\d+)?)?(?:\.exe)?", name):
+        python_args = tokens[1:]
+        probe = [str(outer_path)]
+    elif name in {"uv", "uv.exe"} and len(tokens) > 2 and tokens[1] == "run":
+        python_index = next((index for index, token in enumerate(tokens[2:], 2)
+                             if re.fullmatch(r"python(?:3(?:\.\d+)?)?(?:\.exe)?",
+                                             Path(token).name.lower())), -1)
+        if python_index < 0:
+            return {"command": tokens[0], "runner": runner,
+                    "environment": environment_identity, "reusable": False}
+        python_args = tokens[python_index + 1:]
+        probe = tokens[:python_index + 1]
+    else:
+        return {"command": tokens[0], "runner": runner,
+                "environment": environment_identity, "reusable": False}
+    canonical_verify = (
+        len(python_args) == 1
+        and os.path.abspath(base / python_args[0])
+        == os.path.abspath(base / "factory/scripts/verify.py")
+    )
+    board_check = (
+        len(python_args) == 1
+        and os.path.abspath(base / python_args[0])
+        == os.path.abspath(base / "factory/scripts/check_board_complete.py")
+    )
+    module = python_args[1] if len(python_args) >= 2 \
+        and python_args[0] == "-m" else ""
+    if not canonical_verify and not board_check \
+            and module not in {"pytest", "compileall"}:
+        return {"command": tokens[0], "runner": runner,
+                "environment": environment_identity, "reusable": False}
+    compileall_inputs = None
+    if module == "compileall":
+        compileall_inputs = _compileall_source_inputs(
+            base, python_args, allowed_product_paths,
+        )
+        if compileall_inputs is None:
+            return {"command": tokens[0], "runner": runner,
+                    "environment": environment_identity, "reusable": False}
+    if module == "pytest":
+        collection_paths = _pytest_collection_paths(base, command)
+        if collection_paths is None:
+            return {"command": tokens[0], "runner": runner,
+                    "environment": environment_identity, "reusable": False}
+        allowed = {path.resolve() for path in (allowed_generated_paths or set())}
+        if allowed_product_paths is None:
+            snapshot = product_tree_snapshot(base)
+            visible = {
+                (base / relative).resolve()
+                for field in ("tracked", "dirty")
+                for relative in (snapshot.get(field) or {})
+            }
+        else:
+            visible = {path.resolve() for path in allowed_product_paths}
+        for candidate in collection_paths:
+            if candidate in allowed:
+                continue
+            if candidate.is_dir():
+                inside_base = (candidate == base.resolve()
+                               or base.resolve() in candidate.parents)
+                visible_under = inside_base and not _ignored_pytest_sources(
+                    base, candidate,
+                ) and not _pytest_directory_has_linked_input(candidate) and any(
+                    path == candidate or candidate in path.parents
+                    for path in visible
+                )
+            else:
+                visible_under = candidate in visible
+            if not visible_under:
+                return {"command": tokens[0], "runner": runner,
+                        "environment": environment_identity, "reusable": False}
+    canonical_inputs = _canonical_verify_inputs(base) if canonical_verify else None
+    if canonical_verify:
+        if canonical_inputs is None:
+            return {"command": tokens[0], "runner": runner,
+                    "environment": environment_identity, "reusable": False}
+        # The verifier is an aggregate shell pipeline whose phase tools and
+        # effective environment are not completely modeled by this helper.
+        # Preserve workflow-input metadata, but never reuse its receipt.
+        return {
+            "command": tokens[0], "runner": runner,
+            "environment": environment_identity,
+            "canonical_verify_inputs": canonical_inputs,
+            "reusable": False,
+        }
+    try:
+        pytest_config = None
+        pytest_semantics = None
+        if module == "pytest":
+            pytest_config = _explicit_pytest_config_identity(
+                base, python_args, environment,
+            )
+            if pytest_config is None:
+                pytest_config = _implicit_pytest_config_identity(base)
+            pytest_semantics = _pytest_semantic_args(command)
+            if pytest_semantics is None:
+                return {"command": tokens[0], "runner": runner,
+                        "environment": environment_identity, "reusable": False}
+    except (OSError, ValueError):
+        return {"command": tokens[0], "runner": runner,
+                "environment": environment_identity, "reusable": False}
+    memo_probe = tuple(probe)
+    if pytest_config is not None:
+        memo_probe += ("<pytest-config>", hashlib.sha256(json.dumps(
+            pytest_config, sort_keys=True, separators=(",", ":"),
+        ).encode("utf-8")).hexdigest())
+    memo_key = (memo_probe, str(environment_identity["sha256"]))
+    if probe_memo is not None and memo_key in probe_memo:
+        cached = {**probe_memo[memo_key], "command": tokens[0],
+                  "environment": environment_identity}
+        if canonical_inputs is not None:
+            cached["canonical_verify_inputs"] = canonical_inputs
+        if pytest_config is not None:
+            cached["pytest_config"] = pytest_config
+        if pytest_semantics is not None:
+            cached["pytest_semantics"] = pytest_semantics
+        return cached
+    script = (
+        "import csv,hashlib,importlib.metadata as m,json,os,pathlib,re,stat,sys,sysconfig\n"
+        "def digest(d, name):\n"
+        "    value = d.read_text(name)\n"
+        "    if value is None:\n"
+        "        raise ValueError(name)\n"
+        "    return hashlib.sha256(value.encode()).hexdigest()\n"
+        "recorded_paths = set()\n"
+        "bootstrap_paths = set()\n"
+        "def recorded_files(d, dist_name):\n"
+        "    raw = d.read_text('RECORD')\n"
+        "    if raw is None:\n"
+        "        raise ValueError('RECORD')\n"
+        "    rows = []\n"
+        "    for fields in csv.reader(raw.splitlines()):\n"
+        "        if not fields or not fields[0]:\n"
+        "            continue\n"
+        "        relative = fields[0]\n"
+        "        is_pth = pathlib.PurePosixPath(relative).suffix == '.pth'\n"
+        "        if (is_pth and (dist_name != 'setuptools'\n"
+        "                or pathlib.PurePosixPath(relative).name\n"
+        "                != 'distutils-precedence.pth')):\n"
+        "            raise ValueError('unmodeled path entry')\n"
+        "        path = pathlib.Path(d.locate_file(relative))\n"
+        "        distribution_root = pathlib.Path(d.locate_file('')).absolute().resolve()\n"
+        "        resolved_path = path.absolute().resolve()\n"
+        "        if (resolved_path != distribution_root\n"
+        "                and distribution_root not in resolved_path.parents\n"
+        "                and pathlib.PurePosixPath(relative).suffix.lower()\n"
+        "                    in {'.py', '.pyi', '.pyc', '.pth', '.so', '.pyd',\n"
+        "                       '.dll', '.dylib', '.zip', '.egg', '.whl', '.pyz'}):\n"
+        "            raise ValueError('recorded import path escaped distribution root')\n"
+        "        optional_bytecode = (pathlib.PurePosixPath(relative).suffix\n"
+        "                             == '.pyc'\n"
+        "                             and '__pycache__' in pathlib.PurePosixPath(\n"
+        "                                 relative).parts)\n"
+        "        try:\n"
+        "            info = path.lstat()\n"
+        "        except FileNotFoundError:\n"
+        "            if optional_bytecode:\n"
+        "                continue\n"
+        "            raise ValueError('missing recorded file')\n"
+        "        except OSError:\n"
+        "            raise ValueError('unreadable recorded file')\n"
+        "        if path.is_symlink() or not stat.S_ISREG(info.st_mode):\n"
+        "            raise ValueError('linked or non-regular recorded file')\n"
+        "        if info.st_nlink != 1:\n"
+        "            raise ValueError('multiply-linked recorded file')\n"
+        "        body = path.read_bytes()\n"
+        "        if is_pth:\n"
+        "            expected = (\"import os; var = 'SETUPTOOLS_USE_DISTUTILS'; \"\n"
+        "                        \"enabled = os.environ.get(var, 'local') == 'local'; \"\n"
+        "                        \"enabled and __import__('_distutils_hack').add_shim();\")\n"
+        "            if body.decode('utf-8').strip() != expected:\n"
+        "                raise ValueError('unmodeled pth contents')\n"
+        "        recorded_paths.add(path.resolve())\n"
+        "        rows.append([relative, len(body), hashlib.sha256(body).hexdigest()])\n"
+        "    if not rows:\n"
+        "        raise ValueError('empty RECORD')\n"
+        "    rows.sort(key=lambda row: row[0])\n"
+        "    encoded = json.dumps(rows, separators=(',', ':'),\n"
+        "                          ensure_ascii=False).encode()\n"
+        "    return len(rows), hashlib.sha256(encoded).hexdigest()\n"
+        "rows = []\n"
+        "for d in m.distributions():\n"
+        "    raw_name = d.metadata.get('Name', '')\n"
+        "    name = re.sub(r'[-_.]+', '-', raw_name).lower()\n"
+        "    if not name or not d.version:\n"
+        "        raise ValueError('distribution identity')\n"
+        "    direct_url = d.read_text('direct_url.json')\n"
+        "    if direct_url:\n"
+        "        info = json.loads(direct_url)\n"
+        "        if (isinstance(info, dict) and isinstance(\n"
+        "                info.get('dir_info'), dict)\n"
+        "                and info['dir_info'].get('editable') is True):\n"
+        "            raise ValueError('editable distribution')\n"
+        "    files_count, files_sha256 = recorded_files(d, name)\n"
+        "    rows.append({'name': name, 'version': d.version, "
+        "'metadata_sha256': digest(d, 'METADATA'), "
+        "'record_sha256': digest(d, 'RECORD'), "
+        "'files_count': files_count, 'files_sha256': files_sha256})\n"
+        "rows.sort(key=lambda row: row['name'])\n"
+        "def under(path, roots):\n"
+        "    return any(path == root or root in path.parents for root in roots)\n"
+        "uv_roots = []\n"
+        "for name in ('UV_CACHE_DIR', 'UV_TOOL_DIR'):\n"
+        "    value = os.environ.get(name)\n"
+        "    if value:\n"
+        "        uv_roots.append(pathlib.Path(value).absolute().resolve())\n"
+        "def under_uv(path):\n"
+        "    return any(path == root or root in path.parents for root in uv_roots)\n"
+        "uv_overlay_digests = set()\n"
+        "def uv_overlay_name(path):\n"
+        "    for index, root in enumerate(uv_roots):\n"
+        "        if path == root or root in path.parents:\n"
+        "            return (index, path.relative_to(root).as_posix())\n"
+        "    raise ValueError('uv overlay path escaped root')\n"
+"def bind_uv_overlay(path, sources):\n"
+"    for source in sources:\n"
+"        if source in recorded_paths or source in bootstrap_paths:\n"
+"            continue\n"
+"        if source.suffix.lower() == '.pth':\n"
+"            # A path configuration file executes at interpreter startup.\n"
+"            # Only the explicitly modelled bootstrap files and recorded\n"
+"            # distribution entries may introduce one; an arbitrary uv\n"
+"            # overlay .pth is an unbound import/code injection surface.\n"
+"            raise ValueError('unmodeled uv overlay pth')\n"
+"        body = regular_bytes(source)\n"
+        "        uv_overlay_digests.add((uv_overlay_name(source), len(body),\n"
+        "                                hashlib.sha256(body).hexdigest()))\n"
+        "def regular_bytes(path):\n"
+        "    try:\n"
+        "        info = path.lstat()\n"
+        "    except OSError:\n"
+        "        raise ValueError('unreadable bootstrap file')\n"
+        "    if (path.is_symlink() or not stat.S_ISREG(info.st_mode)\n"
+        "            or info.st_nlink != 1):\n"
+        "        raise ValueError('linked or non-regular bootstrap file')\n"
+        "    return path.read_bytes()\n"
+        "def collect_uv_bootstrap():\n"
+        "    # uv's ephemeral environment overlays two unrecorded virtualenv\n"
+        "    # shims into site-packages.  Bind only those exact filenames and\n"
+        "    # their bytes; every other importable source still needs RECORD.\n"
+        "    rows = []\n"
+        "    seen = set()\n"
+        "    for index, raw in enumerate(sys.path):\n"
+        "        root = pathlib.Path(raw or '.').absolute()\n"
+        "        if root.name != 'site-packages' or not root.is_dir():\n"
+        "            continue\n"
+        "        virtualenv_pth = root / '_virtualenv.pth'\n"
+        "        if virtualenv_pth.is_file() and regular_bytes(virtualenv_pth).decode(\n"
+        "                'utf-8').strip() == 'import _virtualenv':\n"
+        "            candidate = root / '_virtualenv.py'\n"
+        "            if not candidate.is_file():\n"
+        "                raise ValueError('missing uv virtualenv bootstrap')\n"
+        "            paths = (virtualenv_pth, candidate)\n"
+        "        else:\n"
+        "            paths = ()\n"
+        "        overlay = root / '_uv_ephemeral_overlay.pth'\n"
+        "        if overlay.is_file():\n"
+        "            body = regular_bytes(overlay).decode('utf-8').strip()\n"
+        "            values = re.findall(r'site\\.addsitedir\\(\\\"([^\\\"]+)\\\"\\)', body)\n"
+        "            expected = 'import site; ' + '; '.join(\n"
+        "                'site.addsitedir(\\\"' + value + '\\\")'\n"
+        "                for value in values)\n"
+        "            if (not values or body != expected\n"
+        "                    or any(pathlib.Path(value).resolve()\n"
+        "                           not in {pathlib.Path(item or '.').absolute().resolve()\n"
+        "                                  for item in sys.path}\n"
+        "                           for value in values)):\n"
+        "                raise ValueError('unmodeled uv overlay')\n"
+        "            paths += (overlay,)\n"
+        "        for path in paths:\n"
+        "            resolved = path.resolve()\n"
+        "            if resolved in seen:\n"
+        "                continue\n"
+        "            body = regular_bytes(path)\n"
+        "            seen.add(resolved)\n"
+        "            bootstrap_paths.add(resolved)\n"
+        "            rows.append({\n"
+        "                'path': f'site-packages[{index}]/{path.name}',\n"
+        "                'size': len(body),\n"
+        "                'sha256': hashlib.sha256(body).hexdigest(),\n"
+        "            })\n"
+        "    rows.sort(key=lambda row: row['path'])\n"
+        "    return rows\n"
+        "uv_bootstrap = collect_uv_bootstrap()\n"
+        "product_import_paths = []\n"
+        "import_suffixes = {'.py', '.pyi', '.pyc', '.pth', '.so', '.pyd',\n"
+        "                   '.dll', '.dylib', '.zip', '.egg', '.whl', '.pyz'}\n"
+        "def importable_sources(root):\n"
+        "    if root.is_file():\n"
+        "        if root.suffix.lower() not in import_suffixes:\n"
+        "            return []\n"
+        "        try:\n"
+        "            info = root.lstat()\n"
+        "        except OSError:\n"
+        "            return None\n"
+        "        if (root.is_symlink() or not stat.S_ISREG(info.st_mode)\n"
+        "                or info.st_nlink != 1):\n"
+        "            return None\n"
+        "        return [root.resolve()]\n"
+        "    if not root.is_dir():\n"
+        "        return None\n"
+        "    found = []\n"
+        "    try:\n"
+        "        for current, directories, files in os.walk(\n"
+        "                root, followlinks=False):\n"
+        "            current_path = pathlib.Path(current)\n"
+        "            if any((current_path / name).is_symlink()\n"
+        "                   for name in directories):\n"
+        "                return None\n"
+        "            for name in files:\n"
+        "                candidate = current_path / name\n"
+        "                if candidate.suffix.lower() not in import_suffixes:\n"
+        "                    continue\n"
+        "                try:\n"
+        "                    info = candidate.lstat()\n"
+        "                except OSError:\n"
+        "                    return None\n"
+        "                if (candidate.is_symlink()\n"
+        "                        or not stat.S_ISREG(info.st_mode)\n"
+        "                        or info.st_nlink != 1):\n"
+        "                    return None\n"
+        "                if (candidate.suffix.lower() == '.pyc'\n"
+        "                        and '__pycache__' in candidate.parts):\n"
+        "                    continue\n"
+        "                found.append(candidate.resolve())\n"
+        "    except OSError:\n"
+        "        return None\n"
+        "    return found\n"
+        "def import_sources_known():\n"
+        "    cwd = pathlib.Path.cwd().resolve()\n"
+        "    roots = []\n"
+        "    for key in ('stdlib', 'platstdlib'):\n"
+        "        value = sysconfig.get_paths().get(key)\n"
+        "        if value:\n"
+        "            roots.append(pathlib.Path(value).resolve())\n"
+        "    for raw in sys.path:\n"
+        "        raw_path = pathlib.Path(raw or '.').absolute()\n"
+        "        try:\n"
+        "            current = raw_path\n"
+        "            while True:\n"
+        "                if current.is_symlink() and not under_uv(raw_path.resolve()):\n"
+        "                    return False\n"
+        "                if current == current.parent:\n"
+        "                    break\n"
+        "                current = current.parent\n"
+        "            path = raw_path.resolve()\n"
+        "            if path.is_symlink() and not under_uv(path):\n"
+        "                return False\n"
+        "        except OSError:\n"
+        "            return False\n"
+        "        if under(path, roots):\n"
+        "            continue\n"
+        "        if path == cwd or cwd in path.parents:\n"
+        "            sources = importable_sources(path)\n"
+        "            if sources is None:\n"
+        "                return False\n"
+        "            product_import_paths.extend(str(item) for item in sources)\n"
+        "            continue\n"
+        "        if not path.exists():\n"
+        "            # Python commonly includes a not-yet-created stdlib zip.\n"
+        "            if path.suffix == '.zip' and any(\n"
+        "                    path.parent == root.parent for root in roots):\n"
+        "                continue\n"
+        "            return False\n"
+        "        if path.is_file():\n"
+        "            if (path.resolve() not in recorded_paths\n"
+        "                    and path.resolve() not in bootstrap_paths):\n"
+        "                return False\n"
+        "            continue\n"
+        "        sources = importable_sources(path)\n"
+        "        if sources is None:\n"
+        "            return False\n"
+        "        if under_uv(path):\n"
+        "            bind_uv_overlay(path, sources)\n"
+        "            continue\n"
+        "        if any(source not in recorded_paths\n"
+        "                   and source not in bootstrap_paths for source in sources):\n"
+        "            return False\n"
+        "    return True\n"
+        "p = pathlib.Path(sys.executable)\n"
+        "print(json.dumps({'interpreter_sha256': "
+        "hashlib.sha256(p.read_bytes()).hexdigest(), "
+        "'interpreter_size': p.stat().st_size, 'version': sys.version, "
+        "'dependencies': rows, 'uv_bootstrap': uv_bootstrap,\n"
+        "'uv_overlay_sha256': hashlib.sha256(json.dumps(\n"
+        "    sorted(uv_overlay_digests), separators=(',', ':')).encode()\n"
+        ").hexdigest(),\n"
+        "'import_sources_known': import_sources_known(),\n"
+        "'product_import_paths': sorted(set(product_import_paths))},\n"
+        "              sort_keys=True))\n"
+    )
+    try:
+        resolved = subprocess.run(
+            [*probe, "-c", script], cwd=base,
+            capture_output=True, text=True, encoding="utf-8", timeout=60,
+            env=environment,
+        )
+        detail = json.loads(resolved.stdout) if resolved.returncode == 0 else None
+        if (not isinstance(detail, dict)
+                or not re.fullmatch(r"[0-9a-f]{64}", detail["interpreter_sha256"])
+                or not isinstance(detail["interpreter_size"], int)
+                or detail["interpreter_size"] <= 0
+                or not isinstance(detail["version"], str)
+                or not detail["version"]
+                or not isinstance(detail["dependencies"], list)):
+            raise ValueError
+        if ("import_sources_known" in detail
+                and detail["import_sources_known"] is not True):
+            raise ValueError("unidentified Python import source")
+        product_imports = detail.get("product_import_paths")
+        if product_imports is not None:
+            if (not isinstance(product_imports, list)
+                    or any(not isinstance(path, str) for path in product_imports)):
+                raise ValueError("invalid product import sources")
+            product_paths = {
+                path.resolve() for path in (allowed_product_paths or set())
+            }
+            for raw_path in product_imports:
+                path = Path(raw_path)
+                if not path.is_absolute() or path.resolve(strict=True) not in product_paths:
+                    raise ValueError("unbound product import source")
+        names: set[str] = set()
+        for row in detail["dependencies"]:
+            if (not isinstance(row, dict)
+                    or set(row) != {"name", "version", "metadata_sha256",
+                                    "record_sha256", "files_count",
+                                    "files_sha256"}
+                    or not isinstance(row["name"], str)
+                    or row["name"] != re.sub(r"[-_.]+", "-", row["name"]).lower()
+                    or not re.fullmatch(r"[a-z0-9][a-z0-9-]*", row["name"])
+                    or row["name"] in names
+                    or not isinstance(row["version"], str)
+                    or not row["version"]
+                    or not re.fullmatch(r"[0-9a-f]{64}", row["metadata_sha256"])
+                    or not re.fullmatch(r"[0-9a-f]{64}", row["record_sha256"])
+                    or not isinstance(row["files_count"], int)
+                    or isinstance(row["files_count"], bool)
+                    or row["files_count"] <= 0
+                    or not re.fullmatch(r"[0-9a-f]{64}", row["files_sha256"])):
+                raise ValueError
+            names.add(row["name"])
+        if detail["dependencies"] != sorted(
+                detail["dependencies"], key=lambda row: row["name"]):
+            raise ValueError
+        bootstrap = detail.get("uv_bootstrap", [])
+        if (not isinstance(bootstrap, list)
+                or any(
+                    not isinstance(row, dict)
+                    or set(row) != {"path", "size", "sha256"}
+                    or not isinstance(row["path"], str)
+                    or not re.fullmatch(
+                        r"site-packages\[\d+\]/(?:_virtualenv\.py|"
+                        r"_virtualenv\.pth|_uv_ephemeral_overlay\.pth)",
+                        row["path"],
+                    )
+                    or not isinstance(row["size"], int)
+                    or isinstance(row["size"], bool)
+                    or row["size"] <= 0
+                    or not re.fullmatch(r"[0-9a-f]{64}", row["sha256"])
+                    for row in bootstrap
+                )
+                or bootstrap != sorted(bootstrap, key=lambda row: row["path"])
+                or len({row["path"] for row in bootstrap}) != len(bootstrap)):
+            raise ValueError("invalid uv bootstrap identity")
+        overlay_sha256 = detail.get(
+            "uv_overlay_sha256", hashlib.sha256(b"[]").hexdigest(),
+        )
+        if not isinstance(overlay_sha256, str) \
+                or not re.fullmatch(r"[0-9a-f]{64}", overlay_sha256):
+            raise ValueError("invalid uv overlay identity")
+        result = {
+            "command": tokens[0], "runner": runner,
+            "environment": environment_identity,
+            "interpreter": {"sha256": detail["interpreter_sha256"],
+                            "size": detail["interpreter_size"]},
+            "python_version": detail["version"],
+            "dependencies": detail["dependencies"],
+            "uv_bootstrap": bootstrap,
+            "uv_overlay_sha256": overlay_sha256,
+            "reusable": True,
+        }
+        if compileall_inputs is not None:
+            result["compileall_inputs"] = compileall_inputs
+    except (OSError, ValueError, KeyError, json.JSONDecodeError,
+            TypeError, subprocess.TimeoutExpired):
+        result = {"command": tokens[0], "runner": runner,
+                  "environment": environment_identity, "reusable": False}
+    if probe_memo is not None:
+        probe_memo[memo_key] = result
+    if canonical_inputs is not None:
+        result["canonical_verify_inputs"] = canonical_inputs
+    if pytest_config is not None:
+        result["pytest_config"] = pytest_config
+    if pytest_semantics is not None:
+        result["pytest_semantics"] = pytest_semantics
+    return dict(result)
+
+
+def _canonical_verify_inputs(base: Path) -> dict[str, object] | None:
+    """Bind the workflow state read by the repository's canonical verifier."""
+    try:
+        from factory_lib import (
+            client_signoff, evidence_path, plan_digest_without_assumptions,
+            protected_decomposition_state_path, run_state_path,
+        )
+
+        state = load_json(run_state_path(base), default={})
+        story = str(state.get("story") or state.get("issue_key") or "")
+        plan_file = state.get("plan_file")
+        plan = base / plan_file if isinstance(plan_file, str) else None
+        approval = evidence_path(base, story, "plan-approval.json") if story else None
+        decomposition = protected_decomposition_state_path(base)
+
+        def identity(path: Path | None) -> dict[str, object] | None:
+            if path is None or not path.is_file():
+                return None
+            body = path.read_bytes()
+            return {"bytes": len(body), "sha256": hashlib.sha256(body).hexdigest()}
+
+        signed, signoff_reason = client_signoff(base)
+        return {
+            "run": {key: state.get(key) for key in (
+                "issue_key", "story", "plan_status", "plan_file",
+                "approved_plan_sha256", "decomposition_status",
+            )},
+            "plan_digest": (
+                plan_digest_without_assumptions(plan)
+                if plan is not None and plan.is_file() else None
+            ),
+            "approval": identity(approval),
+            "decomposition": identity(decomposition),
+            "signoff": {"accepted": signed, "reason": signoff_reason},
+        }
+    except (OSError, TypeError, ValueError, SystemExit):
+        return None
+
+
+def _board_proof_inputs(base: Path) -> dict[str, object]:
+    """Capture the non-product inputs read by check_board_complete.py."""
+    from .events import load_events
+    from .roadmap import load_items
+    from factory_lib import factory_dir, story_dir
+
+    done = [item for item in load_items(base) if item.get("status") == "done"]
+    linked = sorted({event.get("story") for event in
+                     load_events(base, event="pr-linked")
+                     if isinstance(event.get("story"), str)})
+    return {
+        "done": done, "linked": linked,
+        "archives": {str(item.get("key", "?")):
+                     [story_dir(base, str(item.get("key", "?"))).is_dir(),
+                      (factory_dir(base) / "history" /
+                       str(item.get("key", "?"))).is_dir()]
+                     for item in done},
+    }
+
+
+def _board_command_kind(base: Path, command: str) -> str:
+    """Classify direct Board invocation without treating unknown shapes as reusable."""
+    if "check_board_complete.py" not in command:
+        return "absent"
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return "unknown"
+    while tokens and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", tokens[0]):
+        tokens.pop(0)
+    if (len(tokens) == 2
+            and re.fullmatch(r"python(?:3(?:\.\d+)?)?(?:\.exe)?",
+                             Path(tokens[0]).name.lower())
+            and os.path.abspath(base / tokens[1]) ==
+            os.path.abspath(base / "factory/scripts/check_board_complete.py")):
+        return "direct"
+    return "unknown"
+
+
+def proof_identity(
+        base: Path, task: dict, kind: str, *, product_tree: dict | None = None,
+        tool_probe_memo: dict[
+            tuple[tuple[str, ...], str], dict[str, object]
+        ] | None = None,
+) -> dict[str, object]:
+    """Content identity for one independently reusable proof type."""
+    if kind not in {"tests", "verify"}:
+        raise ValueError("proof kind must be tests or verify")
+    snapshot = (
+        product_tree if product_tree is not None else product_tree_snapshot(base)
+    )
+    # HEAD still participates in the before/after read-only guard, but a
+    # metadata-only commit must not invalidate byte-identical product proof.
+    reuse_tree = {key: value for key, value in snapshot.items() if key != "head"}
+    if kind == "tests":
+        declarations = task.get("required_tests") or []
+        commands = [
+            _proof_command_with_test_inputs(
+                str(entry.get("command") or ""),
+                str(entry.get("path") or ""),
+                str(entry.get("id") or ""),
+            )
+            for entry in declarations if isinstance(entry, dict)
+        ]
+        semantic = {"required_tests": declarations}
+    else:
+        commands = [str(command) for command in task.get("verify_commands") or []]
+        semantic = {
+            "verify_commands": commands,
+            "generated_inputs": task.get("generated_semantic_inputs") or [],
+        }
+    generated: dict[str, dict[str, object] | None] = {}
+    generated_paths: set[Path] = set()
+    for relative in task.get("generated_semantic_inputs") or []:
+        path = base / str(relative)
+        generated_paths.add(path.resolve())
+        try:
+            data = path.read_bytes()
+            generated[str(relative)] = {
+                "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+            }
+        except OSError:
+            generated[str(relative)] = None
+    allowed_product_paths = {
+        (base / relative).resolve()
+        for field in ("tracked", "dirty")
+        for relative in (snapshot.get(field) or {})
+    }
+    junit_environment = (
+        _canonical_junit_environment() if kind == "tests" else None
+    )
+    tools = [
+        _proof_tool_identity(
+            base, command, fixed_after_assignments=(kind == "tests"),
+            probe_memo=tool_probe_memo,
+            allowed_generated_paths=generated_paths,
+            allowed_product_paths=allowed_product_paths,
+            environment_overrides=junit_environment,
+        )
+        for command in commands
+    ]
+    if kind == "tests":
+        # The full-suite command is an input to the required-test receipt only
+        # when one of this task's verify commands can actually produce the
+        # canonical JUnit report consumed by close. Dedicated compile/build
+        # verifiers do not read FACTORY_TEST_CMD; binding an unrelated producer
+        # would make their receipt drift when pytest creates its own caches.
+        canonical_command = _canonical_test_command_for_task(base, task)
+        semantic["canonical_test_command_sha256"] = (
+            hashlib.sha256(canonical_command.encode("utf-8")).hexdigest()
+            if canonical_command else ""
+        )
+        semantic["canonical_verifier_launcher"] = (
+            _canonical_verifier_launcher_for_task(base, task)
+            if canonical_command else None
+        )
+        if canonical_command:
+            canonical_tool = _proof_tool_identity(
+                base, canonical_command, fixed_after_assignments=False,
+                probe_memo=tool_probe_memo,
+                allowed_generated_paths=generated_paths,
+                allowed_product_paths=allowed_product_paths,
+                environment_overrides={
+                    **_factory_env_from_envrc(base),
+                    **_canonical_junit_environment(),
+                },
+            )
+            semantic["canonical_test_tool"] = {
+                key: value for key, value in canonical_tool.items()
+                if key not in {"command", "runner"}
+            }
+    board_commands = ([_board_command_kind(base, command) for command in commands]
+                      if kind == "verify" else [])
+    board_inputs = None
+    if "direct" in board_commands:
+        try:
+            board_inputs = _board_proof_inputs(base)
+        except (OSError, ValueError, TypeError, KeyError):
+            board_inputs = None
+    reusable = (all(tool.get("reusable") is True for tool in tools)
+                and all(value is not None for value in generated.values())
+                and "unknown" not in board_commands
+                and ("direct" not in board_commands or board_inputs is not None))
+    inputs: dict[str, object] = {
+        "kind": kind,
+        "product_tree": reuse_tree,
+        "semantic": semantic,
+        "generated_inputs": generated,
+        "board_inputs": board_inputs,
+        "tools": tools,
+    }
+    canonical = json.dumps(
+        inputs, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")
+    return {"identity": hashlib.sha256(canonical).hexdigest(), "inputs": inputs,
+            "reusable": reusable}
+
+
+def _proof_receipt(base: Path, stage_id: str, kind: str) -> dict:
+    stage = _find(load_stages(base), stage_id)
+    receipts = stage.get("proof_receipts")
+    value = receipts.get(kind) if isinstance(receipts, dict) else None
+    if (not isinstance(value, dict)
+            or value.get("status") != "passed"
+            or not isinstance(value.get("inputs"), dict)
+            or not re.fullmatch(r"[0-9a-f]{64}", str(value.get("identity", "")))):
+        return {}
+    canonical = json.dumps(
+        value["inputs"], sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    if hashlib.sha256(canonical).hexdigest() != value["identity"]:
+        return {}
+    return value
+
+
+def _store_proof_receipt(
+        base: Path, stage_id: str, kind: str, identity: dict[str, object]) -> None:
+    from .delegate import delegation_exclusion
+    with delegation_exclusion(base, "stages", kind="stage-state", namespace="state"):
+        data = load_stages(base)
+        stage = _find(data, stage_id)
+        receipts = stage.setdefault("proof_receipts", {})
+        receipts[kind] = {
+            **identity, "status": "passed", "recorded_at": now_iso(),
+        }
+        write_stages(base, data)
+
+
+def run_stage_proof(
+        base: Path, stage_id: str, task: dict, *,
+        record_close_evidence: bool = False,
+        proof_context: dict[str, object] | None = None,
+) -> tuple[dict, dict, list[str]]:
+    """Run the task's verify commands and required tests, read-only.
 
     Returns the product and authority snapshots the proof ran against and the
     required-test ids that matched no case, for the close to record. Factored
     out so `task close` can run the proof BEFORE spending a review on a tree
     that would have failed it anyway.
 
-    A proof this harness already recorded for the same tree and contract is
-    reused, not re-run (0079). Before that the full suite ran here, again in
-    `verify.py` so the review had a verify.json, and again by hand before each
-    close: four to five runs per fix cycle on WF-BIO-1 T4.
+    A passing receipt is reused only when its complete command, environment,
+    tool, distribution, generated-input, and product identities match (0079).
+    Unknown command shapes remain conservative and run again. Before this
+    integrated proof, the full suite ran here, again in `verify.py` so the
+    review had a verify.json, and again by hand before each close: four to five
+    runs per fix cycle on WF-BIO-1 T4.
     """
+    for proof in task.get("required_tests") or []:
+        _require_test_input(base, stage_id, proof)
+    state = raw_run_state(base)
+    story = str(state.get("issue_key") or state.get("story") or "")
+    if active_story_key(base) != story:
+        fail(f"{stage_id} active story authority changed; refusing to record proof")
     proof_tree = product_tree_snapshot(base)
     authority_tree = protected_authority_snapshot(base)
-    key = proof_key(base, task)
-    if not proof_tree.get("dirty"):
-        recorded = reusable_stage_proof(base, stage_id, key)
-        if recorded is not None:
-            misses = [str(m) for m in recorded.get("test_id_misses") or []]
-            print(f"{stage_id}: proof reused; the product tree and contract are "
-                  f"unchanged since {recorded.get('completed_at', '')}.")
-            return proof_tree, authority_tree, misses
-    with termination_signal_guard():
-        verify_results = _run_verify_commands(base, stage_id, task)
-        test_id_misses, test_results = _run_required_tests(base, stage_id, task)
+    tool_probe_memo: dict[
+        tuple[tuple[str, ...], str], dict[str, object]
+    ] = {}
+    verify_identity = proof_identity(
+        base, task, "verify", product_tree=proof_tree,
+        tool_probe_memo=tool_probe_memo,
+    )
+    test_identity = proof_identity(
+        base, task, "tests", product_tree=proof_tree,
+        tool_probe_memo=tool_probe_memo,
+    )
+    verify_receipt = _proof_receipt(base, stage_id, "verify")
+    test_receipt = _proof_receipt(base, stage_id, "tests")
+    reuse_verify = (verify_identity.get("reusable") is True
+                    and verify_receipt.get("status") == "passed"
+                    and verify_receipt.get("identity") == verify_identity["identity"]
+                    and verify_receipt.get("inputs") == verify_identity["inputs"])
+    reuse_tests = (test_identity.get("reusable") is True
+                   and test_receipt.get("status") == "passed"
+                   and test_receipt.get("identity") == test_identity["identity"]
+                   and test_receipt.get("inputs") == test_identity["inputs"])
+    test_id_misses = list(test_receipt.get("test_id_misses") or []) \
+        if reuse_tests else []
+    key = proof_key(
+        base, task, verify_identity=verify_identity,
+        test_identity=test_identity,
+    )
+    close_owned = record_close_evidence or proof_context is not None
+    verify_results: list[dict] = []
+    test_results: list[dict] = []
+    commands_run: list[str] = []
+    if close_owned and (reuse_verify or reuse_tests):
+        existing = load_json(
+            task_evidence_path(base, story, stage_id, "verify.json"),
+            default={},
+        ) if story else {}
+        existing_tests = load_json(
+            task_evidence_path(base, story, stage_id, "tests.json"),
+            default=None,
+        ) if story else None
+        saved_verify = existing.get("results") if isinstance(existing, dict) else None
+        saved_tests = existing.get("required_tests") if isinstance(existing, dict) else None
+        if (not isinstance(existing, dict)
+                or not isinstance(existing_tests, dict)
+                or existing.get("recorded_by") != STAGE_PROOF
+                or existing.get("task_id") != stage_id
+                or existing.get("ok") is not True):
+            reuse_verify = reuse_tests = False
+        else:
+            commands = [str(command) for command in task.get("verify_commands") or []
+                        if str(command).strip()]
+            required = [proof for proof in task.get("required_tests") or []
+                        if isinstance(proof, dict)]
+            reuse_verify = reuse_verify and _close_verify_results_match(
+                commands, saved_verify)
+            reuse_tests = reuse_tests and _close_test_results_match(
+                required, saved_tests)
+            if reuse_verify:
+                verify_results = saved_verify
+            if reuse_tests:
+                test_results = saved_tests
+    with tempfile.TemporaryDirectory(prefix="forge-canonical-junit-") as tmp:
+        canonical_junit = Path(tmp) / "pytest.xml"
+        with termination_signal_guard():
+            if not reuse_verify:
+                result = _run_verify_commands(
+                    base, stage_id, task, canonical_junit,
+                )
+                verify_results = result if isinstance(result, list) else []
+                commands_run.extend(
+                    str(command) for command in task.get("verify_commands") or []
+                    if str(command).strip()
+                )
+            if not reuse_tests:
+                if canonical_junit.is_file() and \
+                        _canonical_junit_satisfies_required_tests(
+                            canonical_junit, task, base=base,
+                            canonical_command=_canonical_test_command_for_task(
+                                base, task)):
+                    test_id_misses = []
+                    test_results = [
+                        {"id": str(proof.get("id")),
+                         "path": str(proof.get("path")), "status": "passed"}
+                        for proof in task.get("required_tests") or []
+                        if isinstance(proof, dict)
+                    ]
+                else:
+                    result = _run_required_tests(base, stage_id, task)
+                    if not isinstance(result, tuple) or len(result) != 2:
+                        fail(f"{stage_id} required-test runner returned malformed "
+                             "proof results")
+                    test_id_misses, test_results = result
+                    commands_run.extend(
+                        str(proof.get("command"))
+                        for proof in task.get("required_tests") or []
+                        if isinstance(proof, dict)
+                        and str(proof.get("command") or "").strip()
+                    )
     if product_tree_snapshot(base) != proof_tree:
         fail(f"{stage_id} proof commands changed the product tree; verification "
              "must be read-only")
     if protected_authority_snapshot(base) != authority_tree:
         fail(f"{stage_id} proof commands changed protected Forge authority; "
              "stage completion refused")
-    if proof_tree.get("dirty"):
-        print(f"{stage_id}: proof ran against uncommitted product paths; not "
-              "recorded. Commit, then close.")
-    else:
-        record_stage_proof(base, stage_id, task, key=key,
-                           verify_results=verify_results,
-                           test_results=test_results,
-                           test_id_misses=test_id_misses)
+    if test_id_misses:
+        fail(f"{stage_id} required-test identity was not proven by the fresh "
+             "JUnit report: " + "; ".join(test_id_misses))
+    if not reuse_verify:
+        _store_proof_receipt(base, stage_id, "verify", verify_identity)
+    if not reuse_tests:
+        test_identity = {**test_identity, "test_id_misses": test_id_misses}
+        _store_proof_receipt(base, stage_id, "tests", test_identity)
+    close_record_needed = close_owned
+    if close_owned and reuse_verify and reuse_tests:
+        existing = load_json(
+            task_evidence_path(base, story, stage_id, "tests.json"),
+            default={},
+        ) if story else {}
+        automated = existing.get("automated") if isinstance(existing, dict) else {}
+        close_record_needed = (
+            not isinstance(automated, dict)
+            or "close-owned proof:" not in str(
+                automated.get("pass_fail_summary") or ""
+            )
+        )
+    if close_owned and not _close_proof_results_match(
+            task, verify_results, test_results):
+        fail(f"{stage_id} close-owned proof results are incomplete; "
+             "refusing to record passing evidence")
+    if close_record_needed or not reuse_verify or not reuse_tests:
+        if proof_tree.get("dirty"):
+            print(f"{stage_id}: proof ran against uncommitted product paths; "
+                  "not recorded. Commit, then close.")
+        else:
+            record_stage_proof(
+                base, stage_id, task, key=key,
+                verify_results=verify_results,
+                test_results=test_results,
+                test_id_misses=test_id_misses,
+                close_owned=close_record_needed,
+                commands_run=commands_run,
+            )
+    authority_tree = protected_authority_snapshot(base)
+    if proof_context is not None:
+        proof_context.clear()
+        proof_context.update({
+            "product_tree": proof_tree,
+            "authority_tree": authority_tree,
+            "proofs": {
+                "verify": {
+                    "status": "passed",
+                    "executed": not reuse_verify,
+                    "identity": verify_identity["identity"],
+                    "inputs": verify_identity["inputs"],
+                },
+                "tests": {
+                    "status": "passed",
+                    "executed": not reuse_tests,
+                    "identity": test_identity["identity"],
+                    "inputs": test_identity["inputs"],
+                },
+            },
+        })
     return proof_tree, authority_tree, test_id_misses
 
 

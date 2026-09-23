@@ -1,12 +1,12 @@
 # Symphony Forge
 
-A governed delivery harness that turns a repo's architecture and decision docs into shipped, reviewed code. **Claude Code coordinates. Codex executes.** Built and run by KnackLabs for client delivery, from discovery and client sign-off through scaffolding, per-feature delivery, and a self-evolving record of every decision.
+A governed delivery harness that turns a repo's architecture and decision docs into shipped, reviewed code. **Claude Code or native Codex coordinates; role-based Codex workers execute.** Built and run by KnackLabs for client delivery, from discovery and client sign-off through scaffolding, per-feature delivery, and a self-evolving record of every decision.
 
 ## In two minutes
 
 - **What it is.** A process harness you vendor into an application repo. Agents write the code; deterministic gates decide what is allowed to ship; every change carries schema-validated evidence of how it was verified.
 - **Where it comes from.** OpenAI's Symphony spec (April 2026): stop supervising agent sessions, start assigning objectives. Forge is that philosophy engineered into a runnable harness. See [Where this comes from](#where-this-comes-from).
-- **How it differs.** Hybrid runtime today (Claude Code coordinates, Codex executes), with a Codex-only runtime planned on the same artifact contract. The repo rather than the issue tracker is the control plane, and governance is enforced instead of left as a non-goal.
+- **How it differs.** Claude Code or native Codex coordinates while role-based Codex workers execute through one artifact contract. The repo rather than the issue tracker is the control plane, and governance is enforced instead of left as a non-goal.
 - **Proof it runs.** It is live on client delivery. The [board screenshot](#the-lifecycle) below is a real client project mid-delivery, not a mock.
 - **Where to verify.** [`WORKFLOW.md`](WORKFLOW.md) is the phase contract, [`harness.yaml`](harness.yaml) declares which tool owns each phase, [`AGENTS.md`](AGENTS.md) is the agent contract, and [The Gates](#the-gates) lists every refusal and the script that enforces it.
 
@@ -20,7 +20,7 @@ Its thesis: the bottleneck in agentic development was never agent speed, it was 
 
 | | Symphony (the spec) | Symphony Forge |
 |---|---|---|
-| **Runtime** | Codex, over an app-server protocol | **Claude Code coordinates, Codex executes.** A Codex-only runtime, where Codex also coordinates, is planned. The `.factory` artifact contract is the invariant: either runtime must produce the same evidence. |
+| **Runtime** | Codex, over an app-server protocol | **Claude Code or native Codex coordinates, Codex executes.** The `.factory` artifact contract is the invariant across both runtimes. |
 | **Source of truth** | The issue tracker is the control plane | **The repo** owns workflow policy, plans, decisions and evidence. An external tracker (Linear, GitHub Issues, Jira) is optional and merely mirrored. |
 | **Governance** | An explicit non-goal. The spec declines to mandate any approval, sandbox, or operator-confirmation posture | **[The gates](#the-gates).** Sign-off, planning lock, evidence attestation, ship gate. Refusals, not suggestions. |
 
@@ -30,14 +30,14 @@ That third row is why this exists. The spec optimises for velocity inside a high
 
 ## Where Codex sits
 
-Codex is the executor for everything that touches the codebase: exploration, implementation, tests, and the review. Claude Code never writes product code itself; its hook denies those writes and routes them through `./forge delegate`, which composes a brief and runs the installed [codex-plugin-cc](https://github.com/openai/codex-plugin-cc) companion with a fixed, shell-free argv.
+Codex is the delegated executor for exploration, implementation, and tests. Formal code review stays with the unchanged, externally maintained Autoreview skill. Claude Code never writes product code itself; its hook denies those writes and routes them through `./forge delegate`, which composes a brief and runs the installed [codex-plugin-cc](https://github.com/openai/codex-plugin-cc) companion with a fixed, shell-free argv.
 
 - **Every Codex release is watched.** Workers raise contradiction, confusion, blocked, or scope-change signals and pause; the orchestrating session resolves the signal and resumes. Nothing is fire-and-forget.
-- **Review is one Codex run per task**, three lenses (quality, performance, security), looped with fix delegations until every lens is clean, then recorded as that task's proof.
+- **Review is one Autoreview run per task**, three lenses (quality, performance, security), looped with Luna/max fix delegations until every lens is clean, then recorded as that task's proof.
 - **Evidence enters `.factory/` only through schema-validated recorders.** Each artifact names its generator, and the generator must be on the allowlist in `harness.yaml`.
-- **The user and host select the main coordinator model and reasoning.** Forge-managed lanes stay pinned: Sol/low for exploration; Sol/high for planning, architecture, grilling, formal review and functional checking; Sol/medium for implementation and review fixes; Luna/max only for formal Lite fixes.
+- **The user and host select the main coordinator model and reasoning.** Native role routing uses Luna/max for routine implementation, automated tests, diagnosed or review fixes, documentation edits, and mechanical refactors; Sol/medium for read-heavy exploration and dependency tracing; and Sol/high for planning, decomposition, difficult diagnosis, independent grills, and final functional checks. Formal code review remains exclusively the unchanged, externally maintained Autoreview skill and may use its own internal Codex or agent calls. No Forge lane selects Luna/low.
 
-The full contract is in [`AGENTS.md`](AGENTS.md), which both runtimes read. A Codex-only mode, in which Codex coordinates as well as executes, is planned; the gates, recorders, and evidence contract do not change. If the companion is unavailable, [Degraded Mode](docs/degraded-mode.md) is the ledgered exception.
+The full contract is in [`AGENTS.md`](AGENTS.md), which both runtimes read. Either Claude Code or native Codex may coordinate as well as execute through the same gates, recorders, and evidence contract. If the companion is unavailable, [Degraded Mode](docs/degraded-mode.md) is the ledgered exception.
 
 ## Quick Start (devs)
 
@@ -125,7 +125,7 @@ gate rail and evidence a click away. Below, a real client project mid-delivery:
 - **Before sign-off**: discovery and prototyping are lightweight; capability
   specs are saved and grilled as they emerge, then the roadmap is derived from
   the confirmed set. The prototype remains the permanent UX reference.
-- **After sign-off**: deterministic gates. Plans live in `plans/`, decisions in `docs/decisions/`, evidence in `.factory/`; the ship gate archives every shipped task's plan + proof to `plans/completed/` and `.factory/history/`.
+- **After sign-off**: deterministic gates. Plans live in `plans/`, decisions in `docs/decisions/`, and task proof in `.factory/`; shipped task proof stays with its task.
 - **Continuously**: dump raw context (client emails, transcripts, notes) into `docs/context/`. Dumping is free, tracking is automatic. Say *"process the context dump"* and an agent scans it into the ledger, harvests it into proposed decisions and BRIEF/architecture updates, and marks each file. You can't miss pending context: it greets every session start, tops every *"what now?"*, raises a daily `gardener` issue, and **blocks plan approval** until harvested or explicitly ignored. Dev corrections get mined into proposed skills that humans promote.
 - **The repo learns from itself**: review findings are structured and clustered across tasks. Ask *"are we fixing the same thing again?"* and the agent shows which defect classes recur; the same class recurring 3+ times triggers a refactor story + invariant decision, never a fourth patch (decision 0005). Repeated failures become ledgered lessons that resurface before anyone touches the same paths again (decision 0006). Say *"this is out of scope for now"* and the parked scope keeps an explicit revisit trigger instead of vanishing.
 
@@ -145,16 +145,16 @@ column describes that machinery. In lifecycle order:
 | 3 | **Client sign-off** | an accepted `client-signoff` decision names a human, all specs are confirmed, and the roadmap covers them | `record_signoff.py`; every later phase checks the flag |
 | 4 | **Roster check** | assignees exist on `plans/team.json` (when a roster is defined) | `forge roadmap assign` |
 | 5 | **Planning lock** | product writes have an approved plan or a bounded, ledgered quickfix window | PreToolUse hook (decision 0013) |
-| 6 | **Rescue-only invocation** | always: raw `codex exec` is denied in every phase, no escape hatch; `/codex:rescue` is the runtime | PreToolUse hook |
-| 7 | **Plan grill** | the draft plan survives `/grill-me` vs the story's acceptance criteria + active decisions: same-issue, fresh, `pass` | `forge plan save` |
+| 6 | **Native dispatch** | raw or nested `codex exec` is denied; Claude delegates through `forge delegate` and `codex-plugin-cc`, while native Codex dispatches configured host role subagents | PreToolUse hook; `forge delegate` |
+| 7 | **Plan grill and approval** | one independent cold grill has complete finding dispositions, then the human approves the exact final digest in native Plan Mode | grill recorder; native approval hook |
 | 8 | **Surface Impact** | the plan classifies every surface (runtime/API/data/CLI/UI/docs/tests); Deferred and Unchanged-by-design rows carry reasons | `forge plan save` |
 | 9 | **Pending context** | every `docs/context/` dump is harvested or explicitly ignored (and scans REFUSE secrets/oversize files outright) | `forge plan save`; `context scan` |
 | 10 | **Schema + generator + skill attestation** | every evidence payload matches its `factory/schemas/` file: `generated_by` on the allowlist, mandatory design skills attested in `skills_used` on user-facing artifacts | every `record_*` script |
-| 11 | **Stage loop** | every decomposition stage ran its loop: order-enforced start, LOCAL autoreview until clean, commit, done | `forge stage start/done`; `pr_ready.py` refuses open stages (decision 0007) |
+| 11 | **Task close** | each active task has focused implementation checks, then one close-owned full verification, complete automated evidence, selected clean review, and task marker | `forge task close`; `pr_ready.py` refuses open tasks |
 | 12 | **Assumptions guided** | every `forge plan assume` row for the task is confirmed/promoted by the orchestrator (`fix-needed` keeps blocking) | `pr_ready.py` |
 | 13 | **Refactor ratchet** | a `kind: refactor` story shows non-positive net product-source line delta; refactors shrink or hold the line | `check_refactor_delta.py` in `pr_ready.py` |
 | 14 | **Frozen gates** | the vendored gate surface (scripts, schemas, prompts, hook config) matches `constitution/VENDOR_MANIFEST.json`. Locally edited gates make every other gate's evidence unverifiable; re-vendor or upstream, never patch in place | `check_vendor_integrity.py` in `pr_ready.py` (warned at session start) |
-| 15 | **Ship gate** | approved plan, decomposition, verify OK, tests + 3 reviews ≥ 8 with no blockers, functional when `user_facing`, all evidence commit-stamped, same-commit, fresh | `pr_ready.py`, which archives to `.factory/history/` and marks the roadmap item done |
+| 15 | **Ship gate** | approved plan, decomposition, current task proof with one selected three-lens review, functional proof when `user_facing`, and every task marker on trunk | `pr_ready.py`; `forge outcome set` records the shipped outcome |
 | 16 | **Hygiene floor** | decision lifecycle intact (supersede links resolve, accepted records have substance), no prototype/ imports, schemas match harness.yaml, repo within size budgets | `check_dual_runtime.py` + `check_repo_budget.py` in CI |
 
 Advisory (surfaced, never blocking): recurring finding classes, *"are we
@@ -199,13 +199,12 @@ your behalf, not for you to type.
 | workspace | "Scaffold the workspace" | Codex `/codex:rescue` + `SCAFFOLD_PROMPT.md` | nx workspace |
 | stories + distribution (PM/EM) | "Review the roadmap", "assign ENG-101 to alice" | `./forge roadmap list` / `assign` / `team set` | derived stories with spec links, criteria, and `@assignee` |
 | intake | "Start the next task on the roadmap" | `/forge` → `intake.py` | `.factory/run.json` |
-| plan | "Plan this task" | Claude PLAN MODE, forced by the hook (or Codex `planner-high`); exploration ONLY via `/codex:rescue --model gpt-5.6-sol --effort low`, read-only | grilled plan → `./forge plan save` → `plans/active/` |
+| plan | "Plan this task" | Claude PLAN MODE, forced by the hook (or Codex `planner-high` at Sol/high); read-heavy exploration via the Sol/medium `explorer` role, read-only | grilled plan → `./forge plan save` → `plans/active/` |
 | decompose | "Decompose it" | `docs-decomposer` | `record_decomposition_from_json.py` (incl. `user_facing`) |
-| implement + test | "Implement it" / "work the next stage" | Codex `/codex:rescue --background` per stage (implementer writes the tests); `user_facing` tasks MUST use `emil-design-eng` + `frontend-design` (attested in `skills_used`, enforced by the recorder); each stage ends LOCAL autoreview → commit | `./forge stage start/done` → `.factory/stages.json`; `record_test_from_json.py --kind automated` |
+| implement + test | "Implement it" / "work the next stage" | Codex role worker at Luna/max per stage (implementer writes tests and runs focused checks); diagnosed or review fixes, documentation edits, and mechanical refactors use the same lane; `user_facing` tasks MUST use `emil-design-eng` + `frontend-design` (attested in `skills_used`, enforced by the recorder) | `./forge delegate <task-id>` → focused checks → commit → `./forge task close <task-id>` |
 | lessons | "what did we learn about these files?" / "remember this" | none; deterministic ledger | `./forge lesson relevant` / `add` → `plans/lessons.jsonl` (schema-validated, deduped) |
-| verify | "Run verify" | none; deterministic script | `verify.py` → `.factory/verify.json` |
-| review | "Review it" | **autoreview** (ONE Codex run, three lenses) | `record_review_from_json.py` ×3 |
-| functional check | only if `user_facing: true` | `functional-checker` subagent | `record_test_from_json.py --kind functional` |
+| verify + review | "Close the task" | `./forge task close <task-id>` runs the canonical proof suite and the unchanged externally maintained Autoreview skill (one three-lens pass) | close-owned proof results and the selected review generation |
+| functional check | only if `user_facing: true` | `functional-checker` subagent at Sol/high | `record_test_from_json.py --kind functional` |
 | ship | "Is this PR ready?" | none; deterministic gate (refuses unguided assumptions, missing/stale evidence) | `pr_ready.py` → archives + roadmap done |
 | guide assumptions (orchestrator) | "review the assumptions" | `./forge assumptions list --open` / `resolve` | `plans/assumptions.md`; the ship gate reads it |
 | context dump | drop files in `docs/context/`, then "scan the context" | `/forge` → `./forge context scan` | `docs/context/ledger.json` |

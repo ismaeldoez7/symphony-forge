@@ -23,14 +23,14 @@ precedence:
 
 modes:
   lite:
-    model: "gpt-5.6-luna"
-    reasoning: "max"
+    model: "gpt-6-sol"
+    reasoning: "medium"
     bound: 5
   # The cold reader uses a fresh model context independent of whoever authored
   # the artifact. Its model is pinned here, beside every other model pin, rather
   # than hardcoded in the launcher.
   grill:
-    model: "gpt-5.6-sol"
+    model: "gpt-6-sol"
     reasoning: "high"
     bound: 0
 
@@ -72,8 +72,8 @@ phases:
   planning:
     owner: "claude-code:plan-mode"
     alternate: "codex:planner-high"
-    exploration: "/codex:rescue --model gpt-5.6-sol --effort low (read-only by default) — NEVER Claude Code itself, NEVER raw codex exec"
-    validation: "/codex:rescue --model gpt-5.6-sol --effort high (read-only) — plan validation, debugging, root-cause; the hard-thinking lane, not the default"
+    exploration: "/codex:rescue --model gpt-6-sol --effort medium (read-only by default) — NEVER Claude Code itself, NEVER raw codex exec"
+    validation: "/codex:rescue --model gpt-6-sol --effort high (read-only) — plan validation, debugging, root-cause; the hard-thinking lane, not the default"
     contract: "factory/prompts/planner.md"
     plan_artifact: "plans/active/<issue>-<slug>.md via forge.py plan save"
     decisions: "docs/decisions/ records BEFORE decomposition is recorded"
@@ -88,10 +88,13 @@ phases:
       the contract is identical: same sections (incl. Decisions), same
       forge.py plan save step, same gates. When planning in Claude, delegate
       ALL codebase exploration to Codex read-only runs
-      (/codex:rescue --model gpt-5.6-sol --effort low — read-only by
-      default; gpt-5.6-sol --effort high for validation/debugging — read-only;
+      (/codex:rescue --model gpt-6-sol --effort medium — read-only by
+      default; gpt-6-sol --effort high for validation/debugging — read-only;
       raw codex exec is hook-blocked, no exceptions).
-      Approval is the saved plan file, not a flag.
+      Save records one awaiting plan. One independent cold read plus complete
+      finding dispositions and amendments binds the final artifact; successful
+      native Plan Mode completion records its approval. There is no manual
+      approve command or second unchanged save.
   decomposition:
     owner: "codex:docs-decomposer"
     allowed:
@@ -103,7 +106,7 @@ phases:
     notes: "Per-task task graph; records the user_facing flag the ship gate reads."
   implementation:
     owner: "codex:/codex:rescue"
-    model: "gpt-5.6-sol"
+    model: "gpt-6-sol"
     reasoning: "medium"
     prompts: "factory/prompts/implementer.md"
     required_skills: # ENFORCED by feature type — the decomposition's user_facing flag:
@@ -128,8 +131,14 @@ phases:
       delegate is never without it; (3) the autoreview quality lens flags
       ladder violations (over-engineering) at review. The recorder never demands
       it in skills_used.
-      The implementer also writes and runs the automated tests and records
-      the testing artifact — there is no separate tester subagent.
+      The delegated thread is the task lead on Sol/medium and hands its edits to
+      Luna/max subagents.
+      Native children use their registered role profile: routine implementation,
+      testing, frontend work, refactors, documentation edits, and diagnosed
+      fixes use Luna/max; difficult diagnosis uses the Sol/high debugger and
+      returns the edit to a Luna/max implementation role. The implementer also
+      writes and runs the automated tests and records the testing artifact —
+      there is no separate tester subagent.
       Design skills (emilkowalski/skills + Anthropic frontend-design,
       installed by doctor) never record artifacts, so they carry no
       generated_by pin — the implementer remains the attested generator and

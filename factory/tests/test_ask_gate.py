@@ -24,9 +24,9 @@ from test_gates import HARNESS, git, load_factory_lib, post_hook, repo, run  # n
 sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
 
 
-def _ask_payload() -> dict:
+def _ask_payload(tool_name: str = "AskUserQuestion") -> dict:
     return {
-        "tool_name": "AskUserQuestion",
+        "tool_name": tool_name,
         "tool_input": {"questions": [{
             "question": "Raise the budget to 58, or split the task?",
             "options": [{"label": "Raise"}, {"label": "Split"}],
@@ -42,11 +42,12 @@ def _open_a_stage(repo: Path) -> None:
                   {"stages": [{"id": "T1", "status": "active"}]})
 
 
-def _pre_hook(repo: Path, payload: dict):
+def _pre_hook(repo: Path, payload: dict, *, runtime: str = "claude"):
     import subprocess
     proc = subprocess.run(
         [sys.executable, str(repo / "factory" / "scripts" / "pre_tool_use.py")],
-        cwd=repo, input=json.dumps(payload), capture_output=True, text=True)
+        cwd=repo, input=json.dumps(payload), capture_output=True, text=True,
+        env={**__import__("os").environ, "FORGE_COORDINATOR": runtime})
     return proc.returncode, proc.stdout + proc.stderr
 
 
@@ -102,6 +103,44 @@ def test_one_escalation_authorises_one_question(repo: Path):
     assert '"permissionDecision": "deny"' not in out, out
     code, out = _pre_hook(repo, _ask_payload())
     assert '"permissionDecision": "deny"' in out, "the escalation was not spent"
+
+
+def test_sync_codex_question_uses_the_same_active_stage_gate(repo: Path):
+    payload = _ask_payload("request_user_input")
+    code, out = _pre_hook(repo, payload)
+    assert '"permissionDecision": "deny"' not in out, out
+
+    _open_a_stage(repo)
+    code, out = _pre_hook(repo, payload)
+    assert '"permissionDecision": "deny"' in out, out
+    assert "signal escalate" in out
+
+    code, out = run(
+        repo, "forge.py", "signal", "escalate",
+        "--missing-decision", "nobody has decided whether transferred workers "
+                              "keep their employee code",
+        "--checked", "contract,plan,constitution,decisions,lessons")
+    assert code == 0, out
+    code, out = _pre_hook(repo, payload)
+    assert '"permissionDecision": "deny"' not in out, out
+    code, out = _pre_hook(repo, payload)
+    assert '"permissionDecision": "deny"' in out, "the escalation was not spent"
+
+
+def test_async_codex_question_is_optional_only(repo: Path):
+    code, out = _pre_hook(repo, _ask_payload("request_user_input_async"))
+    assert '"permissionDecision": "deny"' in out, out
+    assert "optional clarification only" in out
+    assert "gate, or approval" in out
+
+
+def test_native_questions_are_owned_by_the_host(repo: Path):
+    """Native mode does not impose Claude's mid-stage question lock."""
+    _open_a_stage(repo)
+    for tool_name in ("AskUserQuestion", "request_user_input",
+                      "request_user_input_async"):
+        code, out = _pre_hook(repo, _ask_payload(tool_name), runtime="codex")
+        assert code == 0 and '"permissionDecision": "deny"' not in out, out
 
 
 def test_a_self_answerable_reason_is_refused_with_the_answer(repo: Path):

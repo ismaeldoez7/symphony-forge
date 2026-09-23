@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import argparse
 import json
 import os
 import subprocess
@@ -37,6 +38,7 @@ def _control(repo: Path) -> Path:
 def _hook(repo: Path, payload: dict, env: dict[str, str] | None = None) -> str:
     child_env = {key: value for key, value in os.environ.items()
                  if key not in {"FORGE_PROCESS_TOKEN", "FORGE_LAUNCH_ID"}}
+    child_env["FORGE_COORDINATOR"] = "claude"
     child_env.update(env or {})
     proc = subprocess.run(
         [sys.executable, str(repo / "factory/scripts/pre_tool_use.py")],
@@ -84,6 +86,33 @@ def _seed_contract(repo: Path, task: dict = TASK) -> tuple[Path, str]:
     return brief, digest
 
 
+def _record_native_preparation(
+        repo: Path, brief: Path, digest: str, scope: list[str]) -> None:
+    argv_digest = hashlib.sha256(
+        json.dumps([], separators=(",", ":")).encode()
+    ).hexdigest()
+    (_control(repo) / "delegations.jsonl").write_text(
+        json.dumps({
+            "generated_by": "orchestrator",
+            "at": "2026-09-18T00:00:00Z",
+            "transport": "host-native",
+            "task": "T1",
+            "stage_started_at": "stage-1",
+            "launch_status": "prepared",
+            "write": True,
+            "task_sha256": digest,
+            "write_scope": scope,
+            "model": "",
+            "effort": "",
+            "argv": [],
+            "argv_sha256": argv_digest,
+            "brief_path": brief.relative_to(repo).as_posix(),
+            "brief_sha256": hashlib.sha256(brief.read_bytes()).hexdigest(),
+        }) + "\n",
+        encoding="utf-8",
+    )
+
+
 def _worker_script(tmp_path: Path) -> Path:
     script = tmp_path / "hook_worker.py"
     script.write_text(
@@ -117,6 +146,7 @@ def _start_worker(repo: Path, tmp_path: Path, *, launch_id: str = "launch-test",
     token = f"delegation-{launch_id}"
     env = {
         **os.environ,
+        "FORGE_COORDINATOR": "claude",
         "FORGE_PROCESS_TOKEN": token,
         "FORGE_LAUNCH_ID": launch_id,
     }
@@ -199,6 +229,259 @@ def _invoke_worker(proc: subprocess.Popen[str], payload: dict) -> str:
     return output
 
 
+def test_codex_native_host_needs_active_stage_but_no_process_identity(repo):
+    """Stage and scope authorize native work; PID/session/token/lock do not."""
+    denied = _hook(repo, _patch(
+        "*** Add File: src/native.py", "+native",
+    ), {"FORGE_COORDINATOR": "codex"})
+    assert "deny" in denied.lower() and "active task stage" in denied.lower(), denied
+
+    brief, digest = _seed_contract(repo)
+    _record_native_preparation(repo, brief, digest, ["src/"])
+    admitted = _hook(repo, _patch(
+        "*** Add File: src/native.py", "+native",
+    ), {"FORGE_COORDINATOR": "codex"})
+    assert "deny" not in admitted.lower(), admitted
+
+    from forge_cli.stages import scope_amendments_path
+    scope_amendments_path(repo).write_text(json.dumps({
+        "tasks": {"T1": {"added_paths": ["amended/"]}},
+    }), encoding="utf-8")
+    narrowed = _hook(repo, _patch(
+        "*** Add File: amended/not-yet-prepared.py", "+refused",
+    ), {"FORGE_COORDINATOR": "codex"})
+    assert "deny" in narrowed.lower() and "scope" in narrowed.lower(), narrowed
+    _record_native_preparation(repo, brief, digest, ["src/", "amended/"])
+    amended = _hook(repo, _patch(
+        "*** Add File: amended/native.py", "+native",
+    ), {"FORGE_COORDINATOR": "codex"})
+    assert "deny" not in amended.lower(), amended
+
+    outside = _hook(repo, _patch(
+        "*** Add File: other/native.py", "+native",
+    ), {"FORGE_COORDINATOR": "codex"})
+    assert "deny" in outside.lower() and "scope" in outside.lower(), outside
+
+
+def test_codex_native_narrowed_scope_descends_from_bare_baseline_tree(repo):
+    owned = repo / "src/owned.py"
+    owned.parent.mkdir(parents=True)
+    owned.write_text("before\n", encoding="utf-8")
+    git(repo, "add", "src/owned.py")
+    git(repo, "commit", "-qm", "scope baseline")
+    task = {**TASK, "write_scope": ["src"]}
+    brief, digest = _seed_contract(repo, task)
+    git(repo, "update-ref", "refs/forge/stage/T1", "HEAD")
+    _record_native_preparation(repo, brief, digest, ["src/owned.py"])
+
+    admitted = _hook(repo, _patch(
+        "*** Update File: src/owned.py", "@@", "-before", "+after",
+    ), {"FORGE_COORDINATOR": "codex"})
+
+    assert "deny" not in admitted.lower(), admitted
+    outside = _hook(repo, _patch(
+        "*** Add File: src/other.py", "+outside",
+    ), {"FORGE_COORDINATOR": "codex"})
+    assert "deny" in outside.lower() and "scope" in outside.lower(), outside
+
+
+def test_native_bash_recursive_copy_cannot_escape_exact_scope(repo):
+    task = {**TASK, "write_scope": ["src/approved"]}
+    brief, digest = _seed_contract(repo, task)
+    _record_native_preparation(repo, brief, digest, ["src/approved"])
+    assert not (repo / ".factory" / "quickfix.json").exists()
+
+    admitted = _hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": "cp generated src/approved"},
+    }, {"FORGE_COORDINATOR": "codex"})
+    assert "deny" not in admitted.lower(), admitted
+
+    output = _hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": "cp -R generated src/approved"},
+    }, {"FORGE_COORDINATOR": "codex"})
+
+    assert "deny" in output.lower() and "recursive" in output.lower(), output
+
+
+def test_native_bash_write_through_in_scope_symlink_is_scoped_by_its_target(repo):
+    task = {**TASK, "write_scope": ["src/alias"]}
+    brief, digest = _seed_contract(repo, task)
+    target = repo / "src" / "other.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("outside\n", encoding="utf-8")
+    (repo / "src" / "alias").symlink_to(Path("other.py"))
+    _record_native_preparation(repo, brief, digest, ["src/alias"])
+
+    output = _hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": "echo x > src/alias"},
+    }, {"FORGE_COORDINATOR": "codex"})
+
+    assert (
+        "deny" in output.lower()
+        and "outside the active task scope" in output.lower()
+    ), output
+    assert target.read_text(encoding="utf-8") == "outside\n"
+
+
+def test_native_bash_delete_scopes_product_symlink_by_lexical_path(repo):
+    task = {**TASK, "write_scope": ["src/approved"]}
+    brief, digest = _seed_contract(repo, task)
+    (repo / "docs").mkdir(exist_ok=True)
+    (repo / "docs" / "x").write_text("outside\n", encoding="utf-8")
+    link = repo / "src" / "link"
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(Path("../docs/x"))
+    _record_native_preparation(repo, brief, digest, ["src/approved"])
+
+    output = _hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": "rm src/link"},
+    }, {"FORGE_COORDINATOR": "codex"})
+
+    assert (
+        "deny" in output.lower()
+        and "outside the active task scope" in output.lower()
+    ), output
+    assert link.is_symlink() and link.readlink() == Path("../docs/x")
+
+    parent_link = repo / "src" / "parent"
+    parent_link.symlink_to(Path("../docs"))
+    parent_output = _hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": "rm src/parent/x"},
+    }, {"FORGE_COORDINATOR": "codex"})
+    assert (
+        "deny" in parent_output.lower()
+        and "symlinked" in parent_output.lower()
+    ), parent_output
+
+    alias = repo.parent / "app-alias"
+    alias.symlink_to(repo, target_is_directory=True)
+    alias_output = _hook(repo, {
+        "tool_name": "Bash",
+        "permission_mode": "default",
+        "tool_input": {"command": f"rm {alias / 'src' / 'link'}"},
+    }, {"FORGE_COORDINATOR": "codex"})
+    assert "deny" in alias_output.lower(), alias_output
+    assert link.is_symlink()
+
+
+@pytest.mark.parametrize(("controls", "write_scope"), [
+    (("*** Delete File: outside-link.py",), ["src/old.py"]),
+    (("*** Update File: outside-link.py", "*** Move to: src/moved.py",
+      "@@", "-old", "+new"), ["src/old.py", "src/moved.py"]),
+])
+def test_native_patch_delete_or_move_scopes_symlink_by_its_lexical_path(
+        repo, controls, write_scope):
+    exact_task = {**TASK, "write_scope": write_scope}
+    brief, digest = _seed_contract(repo, exact_task)
+    target = repo / "src" / "old.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("old\n", encoding="utf-8")
+    link = repo / "outside-link.py"
+    link.symlink_to(Path("src") / "old.py")
+    _record_native_preparation(repo, brief, digest, write_scope)
+
+    output = _hook(
+        repo, _patch(*controls),
+        {"FORGE_COORDINATOR": "codex"},
+    )
+
+    assert "deny" in output and "outside the active task scope" in output
+    assert link.is_symlink() and link.readlink() == Path("src") / "old.py"
+
+
+def test_inherited_degraded_window_uses_native_stage_admission(repo):
+    """A stale Claude outage window cannot become a native five-file grant."""
+    brief, digest = _seed_contract(repo)
+    (repo / ".factory" / "quickfix.json").write_text(json.dumps({
+        "id": "Q-degraded-inherited",
+        "profile": "degraded",
+        "kind": "degraded",
+        "reason": "historical Claude outage",
+        "max_files": 5,
+        "files": [],
+        "harness_source": True,
+    }), encoding="utf-8")
+
+    denied = _hook(repo, _patch(
+        "*** Add File: src/native.py", "+native",
+    ), {"FORGE_COORDINATOR": "codex"})
+    assert "deny" in denied.lower() and "preparation" in denied.lower(), denied
+
+    _record_native_preparation(repo, brief, digest, ["src/"])
+    admitted = _hook(repo, _patch(
+        "*** Add File: src/native.py", "+native",
+    ), {"FORGE_COORDINATOR": "codex"})
+    assert "deny" not in admitted.lower(), admitted
+
+    outside = _hook(repo, _patch(
+        "*** Add File: other/native.py", "+native",
+    ), {"FORGE_COORDINATOR": "codex"})
+    assert "deny" in outside.lower() and "scope" in outside.lower(), outside
+
+
+def test_codex_cannot_open_degraded_window(repo, monkeypatch, capsys):
+    from forge_cli import quickfix
+
+    monkeypatch.setenv("FORGE_COORDINATOR", "codex")
+    with pytest.raises(SystemExit):
+        quickfix.cmd_degraded_start(argparse.Namespace(
+            repo=str(repo), reason="historical Claude outage",
+        ))
+    assert "Claude-only" in capsys.readouterr().out
+    assert not (repo / ".factory" / "quickfix.json").exists()
+    assert not (repo / "plans" / "quickfixes").exists()
+
+
+def test_codex_native_host_denies_direct_and_nested_codex_exec(repo):
+    for command in (
+        "codex exec inspect",
+        "bash -c 'codex exec inspect'",
+    ):
+        output = _hook(repo, {
+            "tool_name": "Bash",
+            "permission_mode": "default",
+            "tool_input": {"command": command},
+        }, {"FORGE_COORDINATOR": "codex"})
+        assert "deny" in output.lower() and "native subagent" in output.lower(), output
+
+
+def test_codex_read_only_delegate_uses_diagnostic_brief(repo, monkeypatch):
+    from forge_cli import delegate
+
+    _seed_contract(repo)
+    (_control(repo) / "stages.json").write_text(
+        json.dumps({"issue": "STORY-1", "stages": []}), encoding="utf-8",
+    )
+    canonical = repo / ".factory/briefs/T1.md"
+    original = canonical.read_bytes()
+    captured = {}
+
+    def fake_launch(base, **kwargs):
+        captured.update(kwargs)
+        return {"action": "spawn_agent"}
+
+    monkeypatch.setenv("FORGE_COORDINATOR", "codex")
+    monkeypatch.setattr(delegate, "launch_companion", fake_launch)
+    monkeypatch.setattr(delegate, "append_event", lambda *_a, **_k: None)
+    delegate.cmd_delegate(argparse.Namespace(
+        repo=str(repo), id="T1", read_only=True, scope=[], background=False,
+        context_file="", print_only=False, effort="",
+    ))
+
+    assert captured["path"] == repo / ".factory/diagnostic-briefs/T1.md"
+    assert canonical.read_bytes() == original
+
+
 def test_known_native_launch_reads_delegation_ledger_once(tmp_path, monkeypatch):
     import factory_lib
     import forge_cli.codex_runtime as codex_runtime
@@ -272,6 +555,7 @@ def test_known_native_launch_reads_delegation_ledger_once(tmp_path, monkeypatch)
     monkeypatch.setattr(admission, "run_state_path", lambda _base: run_path)
     monkeypatch.setattr(admission, "task_digest", lambda _task: "task-digest")
     monkeypatch.setattr(stages, "stage_baseline", lambda *_a: "baseline")
+    monkeypatch.setattr(stages, "effective_scope", lambda _base, _task, scope: list(scope))
     classifications = []
     monkeypatch.setattr(
         admission, "classify_scope_entries",
@@ -317,6 +601,39 @@ def test_known_native_launch_reads_delegation_ledger_once(tmp_path, monkeypatch)
     assert grant is None and "outside the registered worker process tree" in reason
 
 
+def test_context_file_launch_uses_one_handle_snapshot_and_metadata_only_evidence(
+        repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from forge_cli import delegate
+
+    _seed_contract(repo)
+    (_control(repo) / "stages.json").write_text(
+        json.dumps({"issue": "STORY-1", "stages": []}), encoding="utf-8")
+    secure = tmp_path / "private"
+    secure.mkdir(mode=0o700)
+    secure.chmod(0o700)
+    source = secure / "context.md"
+    source.write_text("one stable snapshot", encoding="utf-8")
+    source.chmod(0o600)
+    captured = {}
+
+    def fake_launch(base, **kwargs):
+        captured.update(kwargs)
+        assert kwargs["context_text"] == "one stable snapshot"
+        assert kwargs["context_snapshot_identity"]
+        return {"launch_status": "succeeded"}
+
+    monkeypatch.setattr(delegate, "launch_companion", fake_launch)
+    delegate.cmd_delegate(argparse.Namespace(
+        repo=str(repo), id="T1", read_only=True, scope=[], background=False,
+        context_file=str(source), print_only=False,
+    ))
+
+    assert captured["context_text"] == "one stable snapshot"
+    assert captured["context_metadata"]["supplied"] is True
+    assert captured["context_metadata"]["bytes"] == len(b"one stable snapshot")
+    assert set(captured["context_metadata"]) == {"supplied", "bytes", "snapshot_id"}
+    assert not captured["context_snapshot"].parent.exists()
+
 def test_native_worker_patch_add_update_delete_and_move_is_admitted(repo, tmp_path):
     brief, digest = _seed_contract(repo)
     proc, token, launch_id = _start_worker(repo, tmp_path)
@@ -352,8 +669,8 @@ def test_worker_add_or_update_symlink_leaf_is_denied(
     assert "deny" in output and "cannot prove its write paths" in output
 
 
-def test_native_worker_reads_state_without_protected_write_authority(
-        repo, tmp_path, monkeypatch, capsys):
+def test_companion_worker_reads_state_without_protected_write_authority(
+        repo, tmp_path):
     brief, digest = _seed_contract(repo)
     proc, token, launch_id = _start_worker(repo, tmp_path, launch_id="launch-read")
     _record_launch(repo, proc, token, launch_id, brief, digest)
@@ -376,99 +693,6 @@ def test_native_worker_reads_state_without_protected_write_authority(
     assert "deny" in write_output and "never hand-written" in write_output
     assert brief.read_bytes() == protected_before
 
-    from forge_cli import codex_runtime, delegate
-    from forge_cli.stages import _require_successful_launch
-
-    row = json.loads(
-        (_control(repo) / "delegations.jsonl").read_text().splitlines()[-1]
-    )
-    row.update({
-        "launch_status": "succeeded", "exit_code": 0, "session_id": "session",
-        "output_path": str(_control(repo) / "native-runs" /
-                           f"{row['launch_id']}.jsonl"),
-        "stderr_path": str(_control(repo) / "native-runs" /
-                           f"{row['launch_id']}.stderr.log"),
-    })
-    row.pop("write_scope")
-    monkeypatch.setattr(delegate, "current_delegation", lambda *_a, **_k: row)
-    monkeypatch.setattr(codex_runtime, "parse_native_result", lambda _path: "session")
-    monkeypatch.setattr(codex_runtime, "native_argv_valid", lambda *_a: True)
-    with pytest.raises(SystemExit):
-        _require_successful_launch(
-            repo, "T1", {"started_at": "stage-1"}, TASK,
-        )
-    assert "no successful write launch" in capsys.readouterr().out
-
-
-@pytest.mark.parametrize("cleanup_succeeds", [True, False])
-def test_foreground_cleanup_revokes_admission_before_signals(
-        repo, tmp_path, monkeypatch, cleanup_succeeds):
-    import forge_cli.delegate as delegate
-    import forge_cli.worker_admission as admission
-    import forge_cli.doctor as doctor
-    from forge_cli.delegate import load_delegations
-
-    class FakeStdin:
-        def write(self, _value):
-            return None
-
-        def close(self):
-            return None
-
-    class FakeProcess:
-        pid = 4242
-        returncode = None
-        stdin = FakeStdin()
-
-    process = FakeProcess()
-    events = []
-    monkeypatch.setenv("FORGE_COORDINATOR", "codex")
-    monkeypatch.setattr(delegate.shutil, "which", lambda _name: "/usr/bin/codex")
-    monkeypatch.setattr(doctor, "codex_hook_readiness", lambda _base: (True, ""))
-    monkeypatch.setattr(delegate, "_process_table", lambda: {})
-    monkeypatch.setattr(delegate, "_capture_spawn_identity", lambda _proc: "4242.0")
-    real_popen = delegate.subprocess.Popen
-
-    def spawn(argv, *args, **kwargs):
-        if argv and argv[0] == "/usr/bin/codex":
-            return process
-        return real_popen(argv, *args, **kwargs)
-
-    monkeypatch.setattr(delegate.subprocess, "Popen", spawn)
-
-    def fail_wait(*_args, **_kwargs):
-        raise RuntimeError("cleanup unavailable")
-
-    monkeypatch.setattr(delegate, "_wait_and_reap", fail_wait)
-    monkeypatch.setattr(delegate, "_process_group_alive", lambda _pid: False)
-
-    def cleanup(*_args):
-        launch_id = load_delegations(repo)[-1]["launch_id"]
-        events.append(admission.worker_admission_revoked(repo, launch_id))
-        return cleanup_succeeds
-
-    monkeypatch.setattr(delegate, "_terminate_observed_process_tree", cleanup)
-    with pytest.raises(RuntimeError, match="cleanup unavailable"):
-        delegate.launch_companion(
-            repo,
-            task_id="T1",
-            text="fixture prompt",
-            path=repo / ".factory" / "briefs" / "T1.md",
-            task_sha256_value="task-digest",
-            model="model-pin",
-            effort="medium",
-            write=True,
-        )
-
-    assert events == [True]
-    rows = load_delegations(repo)
-    terminal = [
-        row for row in rows
-        if row["launch_status"] in {"failed", "succeeded"}
-    ]
-    assert [row["launch_status"] for row in terminal] == (
-        ["failed"] if cleanup_succeeds else []
-    )
 
 
 def test_stage_worker_may_change_repo_marker_only_when_scope_names_it(repo, tmp_path):
@@ -742,6 +966,73 @@ def test_terminal_launch_never_retains_write_admission(repo, tmp_path, terminal)
     assert "deny" in output and "not exclusively running" in output
 
 
+def test_native_lite_fix_prepares_without_stage_and_keeps_window_budget(
+        repo, monkeypatch, capsys):
+    from forge_cli import doctor
+    from forge_cli import fix
+    from forge_cli.delegate import load_delegations
+
+    (repo / ".factory/harness-source.json").write_text("{}\n", encoding="utf-8")
+    window_id = "Q-0002-native-lite"
+    (repo / ".factory/quickfix.json").write_text(json.dumps({
+        "id": window_id,
+        "profile": "lite",
+        "reason": "bounded host-native fix",
+        "started_at": "2026-09-18T00:00:00Z",
+        "max_files": 5,
+        "files": [],
+        "harness_source": True,
+        "base_sha": git(repo, "rev-parse", "HEAD"),
+    }), encoding="utf-8")
+    monkeypatch.setenv("FORGE_COORDINATOR", "codex")
+    monkeypatch.setattr(
+        doctor, "codex_hook_readiness", lambda _base: (True, "fixture-ready"),
+    )
+
+    fix.cmd_fix(argparse.Namespace(
+        description="repair a bounded native issue", repo=str(repo),
+    ))
+
+    output = capsys.readouterr().out
+    assert '"transport": "host-native"' in output
+    assert "NEXT: dispatch" in output
+    prepared = load_delegations(repo)[-1]
+    assert prepared["transport"] == "host-native"
+    assert prepared["launch_status"] == "prepared"
+    assert prepared["mode"] == "lite"
+    assert prepared["task"] == window_id
+    assert prepared["write_scope"] == []
+    assert not ({"pid", "session_id", "process_token"} & prepared.keys())
+
+    for index in range(5):
+        admitted = _hook(repo, _patch(
+            f"*** Add File: src/lite-{index}.py", "+new",
+        ), {"FORGE_COORDINATOR": "codex"})
+        assert "deny" not in admitted.lower(), admitted
+    refused = _hook(repo, _patch(
+        "*** Add File: src/lite-over-budget.py", "+new",
+    ), {"FORGE_COORDINATOR": "codex"})
+    assert "deny" in refused.lower() and "five-file" in refused.lower(), refused
+
+    protected = _hook(repo, _patch(
+        "*** Update File: .factory/quickfix.json", "@@", "-{}", "+{}",
+    ), {"FORGE_COORDINATOR": "codex"})
+    assert "deny" in protected.lower() and "never hand-written" in protected.lower(), protected
+
+
+def test_native_quickfix_window_is_recording_only(repo):
+    (repo / ".factory/harness-source.json").write_text("{}\n", encoding="utf-8")
+    (repo / ".factory/quickfix.json").write_text(json.dumps({
+        "id": "Q-quickfix-native", "profile": "quickfix",
+        "reason": "historical native window", "max_files": 5, "files": [],
+        "harness_source": True,
+    }), encoding="utf-8")
+    refused = _hook(repo, _patch(
+        "*** Add File: src/quickfix-native.py", "+refused",
+    ), {"FORGE_COORDINATOR": "codex"})
+    assert "deny" in refused.lower() and "recording-only" in refused.lower(), refused
+
+
 def test_live_lite_worker_uses_current_window_and_file_budget(repo, tmp_path):
     (repo / ".factory/harness-source.json").write_text("{}\n", encoding="utf-8")
     window_id = "Q-0001-test"
@@ -906,3 +1197,21 @@ def test_lean_stop_does_not_exempt_untrusted_or_non_grill_launch(
     output = _invoke_worker(proc, {"handoff": "untrusted"})
     result = json.loads(output)
     assert result.get("decision") == "block" and "Do not stop here" in result["reason"]
+
+
+def test_context_config_failure_creates_no_private_snapshot(repo, tmp_path, monkeypatch):
+    from forge_cli import delegate
+    _seed_contract(repo)
+    (_control(repo) / "stages.json").write_text(
+        json.dumps({"issue": "STORY-1", "stages": []}))
+    source = tmp_path / "context.md"
+    source.write_text("sensitive context")
+    def bad_config(_base):
+        raise SystemExit("invalid pinned model")
+    monkeypatch.setattr(delegate, "pinned_run_config", bad_config)
+    monkeypatch.setattr(delegate, "secure_context_snapshot",
+                        lambda _source: pytest.fail("created a snapshot before valid config"))
+    with pytest.raises(SystemExit, match="invalid pinned model"):
+        delegate.cmd_delegate(argparse.Namespace(
+            repo=str(repo), id="T1", read_only=True, scope=[], background=False,
+            context_file=str(source), print_only=False))

@@ -18,6 +18,11 @@ relevant tests and a concise handoff. Then return.
 The orchestrator owns local autoreview, Git staging/commit, evidence recording,
 and `forge stage done` after your process exits; do not run those parent-owned
 steps. Signals are how you stop early, not questions.
+As the delegated lead (Sol/medium) you plan and verify; hand the
+edits to `worker`/`coder` subagents (Luna/max), review their diff, and run the
+existing tests of every module touched before you hand off. Never run
+parent-owned lifecycle commands (`forge delegate`, `forge next`, or
+`forge task close`) yourself.
 
 Rules:
 - **The constitution's CODING STANDARDS are binding, not just its conduct doc.**
@@ -50,19 +55,33 @@ Rules:
   you spawn inherits this too.
 - Scope is limited to the assigned leaf task and file ownership.
 - **One stage at a time (WORKFLOW.md Stage Loop).** Your leaf task is already
-  active before you receive the brief. Implement only that task, run the
-  required tests and verify commands yourself, report the changed files with
-  each command's summary line (a test you did not run is not passing), then
-  return. Do not run
+  active before you receive the brief. Implement only that task. For both
+  ordinary and NARROWED delegations, run the focused acceptance regressions
+  needed for the assigned changes, reconcile every assigned finding against
+  its actual result, and record a truthful implementer test report. Preserve
+  unresolved risks and distinguish focused checks from final task-wide proof.
+  The orchestrator commits the completed changes and uses ONE `forge task close`
+  owner for final required tests and verify commands. Do not start a standalone
+  full verifier. Report changed files and each executed command's summary line
+  (a test you did not run is not passing), then return. Do not run
   autoreview, `git add`, `git commit`, `forge stage done`, `pr_ready.py`, or
   start another stage; the orchestrator performs those steps after handoff.
 - Read `AGENTS.md`, `WORKFLOW.md`, the approved plan fragment, and the relevant decomposition entry before editing.
 - Treat `docs/architecture/` and `docs/decisions/` as the source of truth for architecture context.
 - Use deterministic verify wrappers, not ad hoc shell commands.
-- Forge launches you as `gpt-5.6-sol` at `medium` reasoning (`harness.yaml`):
-  bounded tasks with an approved plan rarely need more from the flagship.
-  Review fixes reuse this active implementer. If the task turns out not to be
-  bounded, report back instead of changing the model or grinding.
+- After this managed environment has proved process-table access unavailable
+  with `ProcessDiscoveryError` from macOS `sysctl`/psutil permission denial,
+  do not spend another task-wide process-dependent verifier run here. Run every
+  named focused regression for the correction, report the exact environmental
+  block without calling it green, and return so Main can run the canonical full
+  verifier once in its permissive environment.
+- Forge launches the delegated lead as `gpt-6-sol` at `medium` (`harness.yaml`);
+  routine implementation, testing, frontend work, refactors, documentation
+  edits, and diagnosed fixes go to `gpt-6-luna` at `max` subagents. Difficult
+  diagnosis is the separate Sol/high debugger lane; once its root cause is
+  known, return the actual edit to the matching Luna/max implementation role. Review fixes reuse that active implementation role. If
+  the task turns out not to be bounded, report back instead of changing the
+  model or grinding.
 - Keep diffs tight. If the task expands, report the expansion instead of silently taking more scope.
 - **Assumptions are recorded, never silent.** Whenever you make a call the
   approved plan does not cover — an interpretation of ambiguous acceptance
@@ -128,5 +147,10 @@ Rules:
   The orchestrator records the story-wide testing artifact after all sequential
   stages are complete.
 - Before handoff, inspect the final diff and report changed files, test results,
-  assumptions, and any remaining gap. Do not modify `.factory` evidence files
-  directly; assumption and signal commands remain the sanctioned exceptions.
+  assumptions, and any remaining gap. Report every assigned requirement in one
+  row naming its concrete code or documentation change and the actual focused
+  command/result; a row without actual proof remains incomplete. The
+  orchestrator checks the complete checklist before task-wide proof and formal
+  review; the final three-lens review remains authoritative. Do not modify
+  `.factory` evidence files directly; assumption and signal commands remain the
+  sanctioned exceptions.

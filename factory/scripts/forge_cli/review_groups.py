@@ -7,20 +7,23 @@ that came back truncated cost the whole hour. Nothing in that call could be
 retried alone, and the lockfile alone was a chunk's worth of noise.
 
 Forge now does the splitting itself, before the call, and only when the tool
-would split anyway: the diff's product files are dealt into the fewest groups
-whose prompt fits, each group gets its own review worktree and its own
-three-lens Codex run, all released together and joined. A group whose result
+would split anyway: the diff's product files are dealt into the fewest chunks
+whose prompt fits, each chunk gets its own review worktree and its own
+three-lens Codex run, all released together and joined. A chunk whose result
 is refused is re-run alone, up to twice, with the refusal's cause written into
-its brief. The group results are merged into the exact shape the tool uses
-for its own chunks, so the recorder, the projection and every reader stay
-unchanged.
+its brief. Scope-only rejections are retained as untrusted leads and sent to
+the unique owning chunk for a fresh review. The accepted results are merged
+into the exact shape the tool uses for its own chunks, so the recorder, the
+projection and every reader stay unchanged.
 
-What a group sees. Its bundle is only its files' diff, but its tree is the
+What a chunk sees. Its bundle is only its files' diff, but its tree is the
 whole task tip: the group's base is a synthetic commit with the group's files
 put back to the task base and everything else at the tip, so `base...HEAD`
-is the group's diff and HEAD is the tree that ships. A verdict on a contract
-whose change sits in another group is read from the tree, never guessed
-(0076); the worst verdict per contract still wins across groups.
+is the group's diff and HEAD is the tree that ships. Every finding, including
+a contract verdict, must be anchored to one of this chunk's changed paths.
+Other HEAD files are context only. Contracts wholly owned by other chunks are
+omitted; the final union still requires every contract and keeps the worst
+supported verdict.
 
 A diff that fits in one prompt is one group: the same single call as before.
 `FORGE_REVIEW_SPLIT_BYTES` lowers the split point for probes and tests.
@@ -32,9 +35,9 @@ import copy
 import io
 import json
 import os
-import re
 import subprocess
 import time
+import unicodedata
 from pathlib import Path
 
 from .common import fail
@@ -96,20 +99,31 @@ def restore_paths_to_base(worktree: Path, base_sha: str, paths: list[str],
 
 def diff_bytes_by_path(worktree: Path, base_sha: str) -> dict[str, int]:
     """Patch bytes per changed path, base..HEAD, in git's own order."""
+    paths_proc = _git(worktree, "diff", "--no-renames", "--name-only", "-z",
+                      f"{base_sha}..HEAD")
+    if paths_proc.returncode != 0:
+        fail("listing review paths failed: " + (paths_proc.stderr.strip() or "git diff"))
+    paths = paths_proc.stdout.split("\0")
+    if paths[-1] == "":
+        paths.pop()
     proc = _git(worktree, "-c", "core.pager=cat", "diff", "--no-color",
-                "--no-ext-diff", f"{base_sha}..HEAD")
+                "--no-ext-diff", "--no-renames", f"{base_sha}..HEAD")
     if proc.returncode != 0:
         fail("listing the review diff failed: " + (proc.stderr.strip() or "git diff"))
     sizes: dict[str, int] = {}
     current = None
+    section = 0
     for line in proc.stdout.split("\n"):
         if line.startswith("diff --git "):
-            match = re.match(r"diff --git a/(.+?) b/(.+)$", line)
-            current = match.group(2) if match else None
-            if current is not None:
-                sizes.setdefault(current, 0)
+            if section >= len(paths):
+                fail("review diff path and patch section counts differ")
+            current = paths[section]
+            section += 1
+            sizes[current] = 0
         if current is not None:
             sizes[current] += len(line.encode("utf-8", "surrogateescape")) + 1
+    if section != len(paths):
+        fail("review diff path and patch section counts differ")
     return sizes
 
 
@@ -153,7 +167,8 @@ def group_commits(worktree: Path, base_sha: str, review_tip: str,
 
     run("reading the review tip", "read-tree", review_tip)
     for rel in group_paths:
-        entry = _git(worktree, "ls-tree", base_sha, "--", rel).stdout.strip()
+        entry = _git(worktree, "--literal-pathspecs", "ls-tree", base_sha,
+                     "--", rel).stdout.strip()
         if entry:
             mode, _kind, sha = entry.split("\t", 1)[0].split()
             run(f"putting {rel} at the task base", "update-index", "--add",
@@ -186,27 +201,26 @@ def group_note(index: int, total: int, paths: list[str], others: list[str],
             f"The task's other changed files ({len(others)}) are reviewed by the "
             "other groups. They ARE in the tree at HEAD, your working folder, "
             "exactly as they will ship:", listed(others), "",
-            "Review the bundle's files through all three lenses; raise findings "
-            "only on the bundle's files and the code they call, located in the "
-            "bundle. Record a verdict for every contract you can prove from a line "
-            "you read, with that line as its location, wherever the line is; a "
-            "verdict record located outside this bundle is set aside by the "
-            "review tool and counted by the harness. A contract you cannot prove "
-            "from what you read is left for the group that holds its code: write "
-            "no record for it.",
+            "Review this chunk's changed files through all three lenses. A defect "
+            "finding must use a file_path from this chunk's changed-file list. "
+            "Record a verdict for every contract you can prove from a line you "
+            "read, with that line as its location, wherever the line is; a verdict "
+            "record located outside this chunk is set aside by the review tool and "
+            "counted by the harness. Omit a contract you cannot prove, and never "
+            "invent an implemented verdict or a local anchor.",
         ]
     else:
         lines += [
-            f"The task's other changed files ({len(others)}) are reviewed by the "
-            "other groups and are not visible to you:", listed(others), "",
-            "Review the bundle's files through all three lenses; raise findings "
-            "only on the bundle's files. Record a verdict only for a contract "
-            "whose evidence is in this bundle; the others are recorded by the "
-            "groups that hold their code.",
+            f"The task's other changed files ({len(others)}) are not visible to "
+            "you:", listed(others), "",
+            "Review this chunk's changed files through all three lenses. Every "
+            "emitted finding, including VERDICT, must use a file_path from this "
+            "chunk's changed-file list. Omit a contract wholly owned by another "
+            "chunk; never invent an implemented verdict or a local anchor.",
         ]
-    lines += ["", "Every group's result is merged: your findings are kept, the "
-              "worst verdict per contract wins, and a contract no group records "
-              "is partial, fail-closed."]
+    lines += ["", "Every chunk's accepted result is merged. The final union requires "
+              "every task contract, the worst supported verdict per contract wins, "
+              "and a contract no group records is partial, fail-closed."]
     return "\n".join(lines)
 
 
@@ -216,19 +230,20 @@ def diagnose_refusal(problem: str, parsed: dict | None = None,
     text = problem.lower()
     quoted = problem.strip().rstrip(".")
     rejected = parsed.get("scope_rejected_findings") if isinstance(parsed, dict) else None
-    from .review import _is_verdict_record
-    # Set-aside verdict records are counted, not a refusal; only a set-aside
-    # DEFECT is what the reviewer must move or drop.
-    if isinstance(rejected, list) and any(not _is_verdict_record(f) for f in rejected):
-        named = [
-            f"{finding.get('title', '?')} @ "
-            f"{(finding.get('code_location') or {}).get('file_path', '?')}"
-            for finding in rejected if isinstance(finding, dict)]
-        return (f"Your previous pass was refused: the review tool set aside "
-                f"{len(rejected)} finding(s) located outside this bundle and at least "
-                "one is not a verdict record: " + "; ".join(named[:6]) + ". A defect "
-                "finding must be located in one of this bundle's files: "
-                + ", ".join(paths or []) + ". Move it there or drop it.")
+    if isinstance(rejected, list):
+        from .review import _is_verdict_record
+        defects = [finding for finding in rejected if not _is_verdict_record(finding)]
+        if defects:
+            named = [
+                f"{finding.get('title', '?')} @ "
+                f"{(finding.get('code_location') or {}).get('file_path', '?')}"
+                for finding in defects if isinstance(finding, dict)
+            ]
+            return ("Your previous pass was refused: the review tool set aside "
+                    f"{len(rejected)} finding(s) located outside this chunk and at "
+                    "least one is not a verdict record: " + "; ".join(named[:6])
+                    + ". A defect finding must be located in one of this chunk's "
+                    "files: " + ", ".join(paths or []) + ". Move it there or drop it.")
     if "within 3000 characters" in text:
         return ("Your previous pass overflowed overall_explanation (the tool caps it "
                 "at 3000 characters). Keep each of the three assessments to a few "
@@ -328,119 +343,258 @@ def merge_group_reports(wrappers: list[dict]) -> dict:
     return report
 
 
+def _run_group_batch(pending: list[dict], *, prompt_rel: str, log_dir: Path,
+                     ledger_root: Path, argv_for,
+                     heartbeat_every: float) -> dict[str, dict]:
+    """Launch one attempt for each pending group and join the processes."""
+    from .review import _close_codex_run, _record_codex_run, _stamp_codex_run
+
+    launched: dict[str, dict] = {}
+    try:
+        for group in pending:
+            group["attempts"] += 1
+            stem = f"{group['label']}.attempt{group['attempts']}"
+            json_out = log_dir / f"{stem}.json"
+            json_out.unlink(missing_ok=True)
+            argv = argv_for(group, json_out, group["extra_prompt"])
+            log = (log_dir / f"{stem}.log").open("wb")
+            run_id = _record_codex_run(
+                ledger_root, f"{prompt_rel} [{group['label']}]", argv,
+            )
+            process = subprocess.Popen(
+                argv, cwd=group["worktree"], stdout=log,
+                stderr=subprocess.STDOUT,
+                env={**os.environ, "PYTHONUTF8": "1"},
+            )
+            _stamp_codex_run(ledger_root, run_id, pid=process.pid)
+            launched[group["label"]] = {
+                "group": group, "process": process, "run_id": run_id, "log": log,
+                "json": json_out, "started": time.monotonic(), "returncode": None,
+            }
+        print(f"review groups released together: {', '.join(launched)} (pids "
+              f"{', '.join(str(item['process'].pid) for item in launched.values())}); "
+              f"each group's output is {log_dir.as_posix()}/<group>.attemptN.log",
+              flush=True)
+        last_beat = time.monotonic()
+        while any(item["returncode"] is None for item in launched.values()):
+            for label, item in launched.items():
+                if item["returncode"] is not None:
+                    continue
+                code = item["process"].poll()
+                if code is None:
+                    continue
+                item["returncode"] = code
+                _close_codex_run(ledger_root, item["run_id"], code)
+                item["log"].close()
+                took = int(time.monotonic() - item["started"])
+                item["group"]["seconds"] += took
+                print(f"== {label} finished (exit {code}, {took}s) ==", flush=True)
+            now = time.monotonic()
+            if now - last_beat >= heartbeat_every:
+                last_beat = now
+                running = " · ".join(
+                    f"{label} {int(now - item['started'])}s"
+                    for label, item in launched.items()
+                    if item["returncode"] is None
+                )
+                print(f"review still running: {running}", flush=True)
+            time.sleep(0.25)
+    finally:
+        for item in launched.values():
+            if item["returncode"] is None:
+                try:
+                    item["process"].terminate()
+                except OSError:
+                    pass
+                _close_codex_run(ledger_root, item["run_id"], None)
+            try:
+                item["log"].close()
+            except OSError:
+                pass
+    return launched
+
+
+def _group_result(item: dict, validate) -> tuple[str, object, bytes, object]:
+    """Read and certify one completed group attempt."""
+    from .review import _scope_only_rejected_findings
+
+    problem = ""
+    parsed = None
+    raw = b""
+    scope_findings = None
+    if not item["json"].is_file():
+        problem = "the review tool produced no JSON"
+    else:
+        raw = item["json"].read_bytes()
+        try:
+            parsed = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            problem = f"the review tool produced invalid JSON: {exc}"
+    if not problem and item["returncode"] == 2:
+        certifying_problem = _refusal(validate, parsed)
+        if certifying_problem:
+            scope_problem = _refusal(_scope_only_rejected_findings, parsed)
+            if scope_problem:
+                problem = ("the review tool exit 2 was not a valid scope-only "
+                           f"rejection: {scope_problem}")
+            else:
+                scope_findings = _scope_only_rejected_findings(copy.deepcopy(parsed))
+    elif not problem and item["returncode"] not in (0, 1):
+        problem = f"the review tool exited {item['returncode']}"
+    if not problem and scope_findings is None:
+        problem = _refusal(validate, parsed)
+    return problem, parsed, raw, scope_findings
+
+
+def _route_scope_findings(group: dict, retained_local: list[dict],
+                          scope_rejected: list[dict], owners: dict[str, list[dict]],
+                          schedule) -> None:
+    """Route scope-only claims to the one group that owns each changed path."""
+    from .review import VERDICT_RECORD, _tagged_finding
+
+    group_paths = {
+        unicodedata.normalize("NFC", item) for item in group.get("paths", [])
+    }
+
+    def add_lead(owner: dict, finding: dict) -> None:
+        _lens, clean, _fingerprint, _merge_key = _tagged_finding(finding)
+        if VERDICT_RECORD.match(clean["title"]):
+            return
+        key = json.dumps(finding, sort_keys=True, ensure_ascii=False)
+        if key in owner["lead_keys"]:
+            return
+        owner["lead_keys"].add(key)
+        owner["lead_findings"].append(copy.deepcopy(finding))
+        schedule(owner)
+
+    for finding in retained_local:
+        path = finding["code_location"]["file_path"]
+        if unicodedata.normalize("NFC", path) not in group_paths:
+            fail(f"{group['label']} retained a local finding outside its assigned "
+                 f"paths: {path}")
+        add_lead(group, finding)
+    for finding in scope_rejected:
+        path = finding["code_location"]["file_path"]
+        normalized_path = unicodedata.normalize("NFC", path)
+        if normalized_path in group_paths:
+            fail(f"{group['label']} returned contradictory scope metadata for its "
+                 f"own path {path}")
+        matches = owners.get(normalized_path, [])
+        if len(matches) != 1:
+            detail = "outside the full group union" if not matches else "ambiguous"
+            fail(f"{group['label']} rejected finding path {path} is {detail}; "
+                 "refusing cross-group routing")
+        add_lead(matches[0], finding)
+
+
 def run_groups(*, groups: list[dict], prompt_rel: str, log_dir: Path,
                ledger_root: Path, argv_for, validate,
                heartbeat_every: float = 60.0) -> list[dict]:
     """Release one three-lens run per group, all together; join them; re-run
-    alone every group whose result is refused, with the cause in its brief.
+    alone every group whose result is refused, with the cause in its brief;
+    scope-only rejected findings are reassessed by their unique owning group.
 
     `groups` entries carry `label` and `worktree`. `argv_for(group, json_out,
     extra_prompt)` builds the argv. `validate(parsed)` raises SystemExit (via
     `fail`, which prints the reason) when the result would be refused at
-    record time. Each group returns with `report`, `raw`, `attempts` and
-    `seconds`. Every attempt's output and JSON stay under `log_dir`.
+    record time. Each group returns with every `accepted_reports` entry plus
+    its latest `report`, `raw`, `attempts` and `seconds`. Every attempt's
+    output and JSON stay under `log_dir`.
     """
-    from .review import _close_codex_run, _record_codex_run, _stamp_codex_run
-
     log_dir.mkdir(parents=True, exist_ok=True)
     pending = list(groups)
+    owners: dict[str, list[dict]] = {}
     for group in groups:
-        group.update({"attempts": 0, "extra_prompt": None, "seconds": 0})
+        group.update({
+            "attempts": 0, "extra_prompt": None, "seconds": 0,
+            "accepted_reports": [], "lead_findings": [], "lead_keys": set(),
+            "scope_correction": False, "retry_cause": "", "retry_parsed": None,
+        })
+        for path in group.get("paths", []):
+            owners.setdefault(unicodedata.normalize("NFC", path), []).append(group)
+
+    def schedule(targets: dict[str, dict], group: dict) -> None:
+        if group["attempts"] >= MAX_GROUP_RETRIES + 1:
+            fail(f"{group['label']} cannot reassess routed scope leads: its three-attempt "
+                 "maximum is exhausted")
+        targets[group["label"]] = group
+
+    def retry_prompt(group: dict) -> str:
+        parts = []
+        if group["retry_cause"]:
+            parts.append(diagnose_refusal(
+                group["retry_cause"], group["retry_parsed"], group.get("paths") or []))
+        if group["scope_correction"]:
+            allowed = "\n".join(f"- {path}" for path in group.get("paths", []))
+            parts.append(
+                "SCOPE CORRECTION: emit findings only on these assigned changed paths:\n"
+                f"{allowed}\nOther HEAD files are context only. Omit cross-chunk "
+                "VERDICT records and never fabricate a local anchor.")
+        if group["lead_findings"]:
+            leads = json.dumps(group["lead_findings"], sort_keys=True, ensure_ascii=False)
+            parts.append(
+                "UNTRUSTED REVIEW LEADS: reassess these retained local or routed "
+                "cross-group claims through the normal "
+                "review of your assigned changed paths. Do not copy or promote a lead "
+                f"without independently supporting it. LEADS_JSON={leads}")
+        return f"RETRY {group['attempts'] + 1}: " + "\n\n".join(parts)
     started_all = time.monotonic()
     while pending:
-        launched: dict[str, dict] = {}
-        try:
-            for group in pending:
-                group["attempts"] += 1
-                stem = f"{group['label']}.attempt{group['attempts']}"
-                json_out = log_dir / f"{stem}.json"
-                json_out.unlink(missing_ok=True)
-                argv = argv_for(group, json_out, group["extra_prompt"])
-                log = (log_dir / f"{stem}.log").open("wb")
-                run_id = _record_codex_run(ledger_root, f"{prompt_rel} [{group['label']}]", argv)
-                process = subprocess.Popen(
-                    argv, cwd=group["worktree"], stdout=log, stderr=subprocess.STDOUT,
-                    env={**os.environ, "PYTHONUTF8": "1"})
-                _stamp_codex_run(ledger_root, run_id, pid=process.pid)
-                launched[group["label"]] = {
-                    "group": group, "process": process, "run_id": run_id, "log": log,
-                    "json": json_out, "started": time.monotonic(), "returncode": None}
-            print(f"review groups released together: {', '.join(launched)} (pids "
-                  f"{', '.join(str(item['process'].pid) for item in launched.values())}); "
-                  f"each group's output is {log_dir.as_posix()}/<group>.attemptN.log",
-                  flush=True)
-            last_beat = time.monotonic()
-            while any(item["returncode"] is None for item in launched.values()):
-                for label, item in launched.items():
-                    if item["returncode"] is not None:
-                        continue
-                    code = item["process"].poll()
-                    if code is None:
-                        continue
-                    item["returncode"] = code
-                    _close_codex_run(ledger_root, item["run_id"], code)
-                    item["log"].close()
-                    took = int(time.monotonic() - item["started"])
-                    item["group"]["seconds"] += took
-                    print(f"== {label} finished (exit {code}, {took}s) ==", flush=True)
-                now = time.monotonic()
-                if now - last_beat >= heartbeat_every:
-                    last_beat = now
-                    running = " · ".join(
-                        f"{label} {int(now - item['started'])}s"
-                        for label, item in launched.items() if item["returncode"] is None)
-                    print(f"review still running: {running}", flush=True)
-                time.sleep(0.25)
-        finally:
-            for item in launched.values():
-                if item["returncode"] is None:
-                    try:
-                        item["process"].terminate()
-                    except OSError:
-                        pass
-                    _close_codex_run(ledger_root, item["run_id"], None)
-                try:
-                    item["log"].close()
-                except OSError:
-                    pass
+        launched = _run_group_batch(
+            pending, prompt_rel=prompt_rel, log_dir=log_dir,
+            ledger_root=ledger_root, argv_for=argv_for,
+            heartbeat_every=heartbeat_every,
+        )
 
-        still: list[dict] = []
+        retrying: dict[str, dict] = {}
         for label, item in launched.items():
             group = item["group"]
-            problem = ""
-            parsed = None
-            raw = b""
-            if item["returncode"] not in (0, 1, 2):  # 2: incomplete, judged by the validators
-                problem = f"the review tool exited {item['returncode']}"
-            elif not item["json"].is_file():
-                problem = "the review tool produced no JSON"
-            else:
-                raw = item["json"].read_bytes()
-                try:
-                    parsed = json.loads(raw.decode("utf-8"))
-                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-                    problem = f"the review tool produced invalid JSON: {exc}"
-            if parsed is not None and not problem:
-                problem = _refusal(validate, parsed)
+            problem, parsed, raw, scope_findings = _group_result(item, validate)
             if not problem:
-                group["report"], group["raw"] = parsed, raw
+                if scope_findings is not None:
+                    retained_local, scope_rejected = scope_findings
+                    group["scope_correction"] = True
+                    group["retry_cause"] = ""
+                    group["retry_parsed"] = None
+                    if group["attempts"] > MAX_GROUP_RETRIES:
+                        fail(f"{label} was scope-refused {group['attempts']} times; its "
+                             f"attempts are kept under {log_dir.as_posix()}; fix the "
+                             "scope cause and rerun the review.")
+                    schedule(retrying, group)
+
+                    _route_scope_findings(
+                        group, retained_local, scope_rejected, owners,
+                        lambda owner: schedule(retrying, owner),
+                    )
+                    print(f"== {label} scope-only rejection retained; retrying its scope "
+                          "and reassessing routed owner leads ==", flush=True)
+                else:
+                    group["accepted_reports"].append(copy.deepcopy(parsed))
+                    group["report"], group["raw"] = parsed, raw
+                    group["retry_cause"] = ""
+                    group["retry_parsed"] = None
                 continue
             if group["attempts"] > MAX_GROUP_RETRIES:
                 fail(f"{label} was refused {group['attempts']} times; last cause: "
                      f"{problem}. Its attempts are kept under {log_dir.as_posix()} "
                      f"({label}.attempt*.log and .json); read them, fix the cause, "
                      "rerun the review.")
-            group["extra_prompt"] = (f"RETRY {group['attempts'] + 1}: "
-                                     + diagnose_refusal(problem, parsed, group.get("paths") or []))
+            group["retry_cause"] = problem
+            group["retry_parsed"] = copy.deepcopy(parsed)
+            schedule(retrying, group)
             print(f"== {label} refused ({problem}); retrying it alone with the cause "
                   f"in its brief (attempt {group['attempts'] + 1}) ==", flush=True)
-            still.append(group)
-        pending = still
+        pending = list(retrying.values())
+        for group in pending:
+            group["extra_prompt"] = retry_prompt(group)
     total = int(time.monotonic() - started_all)
     timing = ", ".join(f"{group['label']} {group['seconds']}s"
                        + (f" x{group['attempts']}" if group["attempts"] > 1 else "")
                        for group in groups)
     print(f"review groups done in {total}s wall ({timing})", flush=True)
+    for group in groups:
+        if not group["accepted_reports"]:
+            fail(f"{group['label']} produced no accepted review pass")
     return groups
 
 

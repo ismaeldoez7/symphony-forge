@@ -7,19 +7,19 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
-from datetime import datetime, timezone
 from pathlib import Path
 
 from factory_lib import (
-    _committed_task_marker,
+    _committed_task_marker, _windows_reparse_point,
     clean_git_env, default_trunk_branch, dump_json, evidence_path,
-    git_control_dir, load_json, now_iso,
-    plan_digest_without_assumptions, repo_root, require_approved_plan_digest,
+    git_control_dir, load_json, now_iso, raw_open_flags,
+    repo_root, require_approved_plan_digest,
     require_ready_task, task_digest,
     require_task_sealed,
     protected_decomposition_state_path, run_state_path,
-    task_marker_on_main, task_marker_path, validate_payload,
+    task_marker_on_main, task_marker_path,
 )
 
 from .common import fail
@@ -39,6 +39,92 @@ def _require_git(
         detail = proc.stderr.strip() or proc.stdout.strip()
         fail(f"{description} failed" + (f": {detail}" if detail else ""))
     return proc.stdout.strip() if strip else proc.stdout
+
+
+def _contained_regular_bytes(base: Path, source: Path, label: str) -> bytes:
+    """Snapshot one contained authority file without following links."""
+    try:
+        relative = source.relative_to(base)
+    except ValueError:
+        fail(f"task start refused: {label} escapes the source worktree")
+    current = base
+    for part in relative.parts[:-1]:
+        current /= part
+        try:
+            info = current.lstat()
+        except OSError as exc:
+            fail(f"task start refused: {label} ancestor is unreadable: {exc}")
+        if (stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode)
+                or _windows_reparse_point(current)):
+            fail(f"task start refused: {label} ancestor is linked or not a directory")
+    try:
+        leaf = source.lstat()
+    except OSError as exc:
+        fail(f"task start refused: {label} is unreadable: {exc}")
+    if (stat.S_ISLNK(leaf.st_mode) or not stat.S_ISREG(leaf.st_mode)
+            or leaf.st_nlink != 1 or _windows_reparse_point(source)):
+        fail(f"task start refused: {label} is linked or not a regular file")
+    flags = raw_open_flags(os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        descriptor = os.open(source, flags)
+    except OSError as exc:
+        fail(f"task start refused: {label} is not a readable regular file: {exc}")
+    try:
+        before = os.fstat(descriptor)
+        if (stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode)
+                or before.st_nlink != 1
+                or getattr(before, "st_file_attributes", 0)
+                & stat.FILE_ATTRIBUTE_REPARSE_POINT):
+            fail(f"task start refused: {label} is linked or not a regular file")
+        chunks = []
+        while chunk := os.read(descriptor, 65536):
+            chunks.append(chunk)
+        after = os.fstat(descriptor)
+        if ((after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+                != (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)):
+            fail(f"task start refused: {label} changed during hydration")
+        leaf = source.lstat()
+        if ((leaf.st_dev, leaf.st_ino) != (after.st_dev, after.st_ino)
+                or stat.S_ISLNK(leaf.st_mode) or leaf.st_nlink != 1
+                or _windows_reparse_point(source)):
+            fail(f"task start refused: {label} identity changed during hydration")
+        return b"".join(chunks)
+    finally:
+        os.close(descriptor)
+
+
+def _optional_contained_regular_bytes(
+        base: Path, source: Path, label: str) -> bytes | None:
+    """Return one safe optional source snapshot, or None when it is absent.
+
+    Checking the leaf with ``lstat`` alone would mistake a broken symlinked
+    ancestor for an absent optional file. Walk existing ancestors first so a
+    linked/reparse parent is still refused, then delegate the actual byte
+    snapshot and identity checks to the shared contained-file helper.
+    """
+    try:
+        relative = source.relative_to(base)
+    except ValueError:
+        return _contained_regular_bytes(base, source, label)
+    current = base
+    for part in relative.parts[:-1]:
+        current /= part
+        try:
+            info = current.lstat()
+        except FileNotFoundError:
+            return None
+        except OSError:
+            return _contained_regular_bytes(base, source, label)
+        if (stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode)
+                or _windows_reparse_point(current)):
+            return _contained_regular_bytes(base, source, label)
+    try:
+        source.lstat()
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return _contained_regular_bytes(base, source, label)
+    return _contained_regular_bytes(base, source, label)
 
 
 def _default_branch(base: Path) -> str:
@@ -111,6 +197,16 @@ def cmd_plan_save(args: argparse.Namespace) -> None:
         fail("task plan source must not be empty")
     require_task_plan_sections(content, args.id)
     dest = _task_plan_path(base, args.id, for_write=True)
+    state = load_json(run_state_path(base), default={})
+    story = state.get("issue_key") or state.get("story")
+    grill_path = evidence_path(
+        base, story, f"grills/tasks/{args.id}.json", for_write=True,
+    )
+    grill = load_json(grill_path, default={})
+    if grill_path.exists() and (
+            not isinstance(grill, dict) or "task_plan_sha256" not in grill):
+        fail(f"task plan save refused: {args.id} has a legacy task grill. Run "
+             "`forge upgrade` to retire the old format before saving.")
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(content, encoding="utf-8")
     # The plan carries a RENDERED copy of its contract, never a hand-written
@@ -123,121 +219,7 @@ def cmd_plan_save(args: argparse.Namespace) -> None:
         if isinstance(t, dict) and t.get("id") == args.id), None)
     if contract:
         refresh_task_plan_contract(base, args.id, contract)
-    state = load_json(run_state_path(base), default={})
-    story = state.get("issue_key") or state.get("story")
-    grill_path = evidence_path(
-        base, story, f"grills/tasks/{args.id}.json", for_write=True,
-    )
-    grill = load_json(grill_path, default={})
-    if grill and "task_plan_sha256" not in grill:
-        try:
-            grilled_at = datetime.fromisoformat(grill["recorded_at"])
-            if grilled_at.tzinfo is None:
-                grilled_at = grilled_at.replace(tzinfo=timezone.utc)
-            saved_at = datetime.fromtimestamp(dest.stat().st_mtime, timezone.utc)
-        except (KeyError, TypeError, ValueError, OSError):
-            pass
-        else:
-            if grilled_at <= saved_at:
-                grill["task_plan_sha256"] = plan_digest_without_assumptions(dest)
-                validate_payload(base, "grill", grill)
-                dump_json(grill_path, grill)
     print(f"Saved task plan: {dest.relative_to(base)}")
-
-
-def require_fresh_task_grill(
-    base: Path, task_id: str, plan: Path, grill: dict,
-) -> None:
-    """Refuse approval unless the grill passed against THIS plan text.
-
-    `cmd_approve` used to claim in a comment that a fresh passing grill was
-    required and then check nothing. The board already withholds a task plan
-    until its grill both passed and was recorded against the current digest —
-    so a stale or failing grill could be approved for a plan the board would
-    refuse to display, and the approval gate and the board disagreed about
-    whether the same plan was ready. Same predicate, one source of truth.
-    """
-    if not grill:
-        fail(f"task approval refused: {task_id} has no recorded grill. Grill "
-             f"the plan first (factory/prompts/griller.md --gate task), then "
-             f"`./forge task approve {task_id} --by \"<name>\"`.")
-    verdict = grill.get("verdict")
-    if verdict != "pass":
-        fail(f"task approval refused: the grill for {task_id} recorded verdict "
-             f"{str(verdict)!r}, not 'pass'. Fix what it found, re-grill until a "
-             "round is clean, then approve.")
-    digest = plan_digest_without_assumptions(plan)
-    if digest in (grill.get("task_plan_sha256"),
-                  grill.get("approved_task_plan_sha256")):
-        return
-    # The plan changed since the grill. WHO has to act depends on whether it
-    # had already been approved.
-    #
-    # Never approved: the grill has not read this text, so it is a re-grill.
-    #
-    # Already approved: the grill DID converge on this design and a human
-    # signed it off; the words then changed. Another adversarial cold read is
-    # not what is missing — the human is, because they approved specific text
-    # and it is no longer that text. Sending this back through the grill cost
-    # a full round for a one-sentence rewording, and worse, let a real design
-    # change be cleared by an agent re-grilling instead of by the person who
-    # approved the original.
-    if grill.get("approved_at") and grill.get("approved_by"):
-        fail(
-            f"task approval refused: the {task_id} plan CHANGED after "
-            f"{grill.get('approved_by')} approved it on "
-            f"{grill.get('approved_at')}.\n"
-            "  This does not need another grill — the grill already converged "
-            "on this design. It needs the human to read what changed and "
-            "approve the new text.\n"
-            f"  Show them the diff, then re-run this command once they have "
-            f"re-read the plan on the board."
-        )
-    fail(f"task approval refused: the grill for {task_id} was recorded "
-         "against different plan text — the plan was edited after it passed, "
-         "so the grill no longer covers what you are approving (this is why "
-         "the board is not showing it). Re-grill the current plan, then "
-         "approve.")
-
-
-def cmd_approve(args: argparse.Namespace) -> None:
-    base = Path(args.repo).resolve() if args.repo else repo_root()
-    # allow_completed: a done/active task can be RE-approved after a legitimate
-    # re-grill (a re-decomposition or a post-approval plan edit re-grilled it and
-    # the frontier has moved past it). A fresh passing grill is still required
-    # below — this only lifts the "must be the earliest unfinished task"
-    # frontier gate for a task already under way.
-    require_ready_task(base, args.id, require_approval=False, allow_completed=True)
-    approved_by = args.by.strip()
-    if not approved_by:
-        fail("task approval requires a non-empty human name via --by")
-    plan = _task_plan_path(base, args.id)
-    if not plan.is_file():
-        fail(
-            f"task approval refused: no saved task plan for {args.id}. "
-            f"Run `./forge task plan save {args.id} --from <path>` first."
-        )
-    state = load_json(run_state_path(base), default={})
-    story = state.get("issue_key") or state.get("story")
-    grill_path = evidence_path(
-        base, story, f"grills/tasks/{args.id}.json", for_write=True,
-    )
-    grill = load_json(grill_path, default={})
-    require_fresh_task_grill(base, args.id, plan, grill)
-    digest = plan_digest_without_assumptions(plan)
-    # The plan is reviewed on the BOARD; the board URL is printed as a
-    # courtesy, never demanded as proof — a board-view marker gated the
-    # approval once and mostly refused the human who had just read the plan
-    # in a different worktree.
-    from .board import DEFAULT_PORT
-    print(f"Board: http://127.0.0.1:{DEFAULT_PORT}/#{story or ''} "
-          f"(the {args.id} plan renders in the story drawer)")
-    grill["approved_task_plan_sha256"] = digest
-    grill["approved_by"] = approved_by
-    grill["approved_at"] = now_iso()
-    validate_payload(base, "grill", grill)
-    dump_json(grill_path, grill)
-    print(f"Approved task plan for {args.id} by {approved_by}")
 
 
 def cmd_task_start(args: argparse.Namespace) -> None:
@@ -258,7 +240,15 @@ def cmd_task_start(args: argparse.Namespace) -> None:
              f"not {args.id!r}")
     approved_plan_sha256 = require_approved_plan_digest(base)
     decomposition_path = protected_decomposition_state_path(base)
-    decomposition = load_json(decomposition_path, default={})
+    decomposition_bytes = _contained_regular_bytes(
+        git_control_dir(base), decomposition_path, "protected decomposition source",
+    )
+    try:
+        decomposition = json.loads(decomposition_bytes)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        fail(f"task start refused: protected decomposition is invalid JSON: {exc}")
+    if not isinstance(decomposition, dict):
+        fail("task start refused: protected decomposition is not a JSON object")
     if decomposition.get("story") not in (None, key):
         fail(f"task start refused: protected decomposition belongs to "
              f"{decomposition.get('story')!r}, not {key!r}")
@@ -317,7 +307,9 @@ def cmd_task_start(args: argparse.Namespace) -> None:
     plan_file = state.get("plan_file")
     if not isinstance(plan_file, str) or not plan_file:
         fail("task start requires the approved plan path in the run pointer")
-    plan_source = (base / plan_file).resolve()
+    plan_source = Path(plan_file)
+    if not plan_source.is_absolute():
+        plan_source = base / plan_source
     try:
         plan_relative = plan_source.relative_to(base)
     except ValueError:
@@ -327,10 +319,49 @@ def cmd_task_start(args: argparse.Namespace) -> None:
         or not plan_relative.name.startswith(f"{key}-")
     ):
         fail(f"approved plan must be plans/active/{key}-*.md")
+    plan_bytes = _contained_regular_bytes(
+        base, plan_source, "approved plan source",
+    )
 
-    sources = {
-        plan_relative: plan_source,
-        Path(".factory") / "stories" / key / "decomposition.json": decomposition_path,
+    decomposition_relative = (
+        Path(".factory") / "stories" / key / "decomposition.json"
+    )
+    approval_source = evidence_path(base, key, "plan-approval.json")
+    approval_bytes = _contained_regular_bytes(
+        base, approval_source, "story approval source",
+    )
+    try:
+        approval = json.loads(approval_bytes)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        fail(f"task start refused: story approval source is invalid JSON: {exc}")
+    if not isinstance(approval, dict):
+        fail("task start refused: story approval source is not a JSON object")
+    approval_event_key = hashlib.sha256(
+        f"{approval.get('runtime')}\0{approval.get('session_id')}\0"
+        f"{approval.get('event_id')}".encode("utf-8")
+    ).hexdigest()
+    approval_event_source = evidence_path(
+        base, key, f"approval-events/{approval_event_key}.json",
+    )
+    approval_event_bytes = _contained_regular_bytes(
+        base, approval_event_source, "story approval event source",
+    )
+    approval_relative = Path(".factory") / "stories" / key / "plan-approval.json"
+    event_relative = (
+        Path(".factory") / "stories" / key / "approval-events"
+        / f"{approval_event_key}.json"
+    )
+    # Keep one no-follow byte snapshot for every source before the target
+    # worktree is allocated. Approval bytes remain the authenticated records
+    # selected above; they are intentionally copied verbatim into the target.
+    authenticated = {
+        approval_relative: approval_bytes,
+        event_relative: approval_event_bytes,
+    }
+    snapshots: dict[Path, bytes] = {
+        plan_relative: plan_bytes,
+        decomposition_relative: decomposition_bytes,
+        **authenticated,
     }
     # Plan content can hydrate a successor workspace, but its source grill is
     # approval authority and must be recorded afresh in the new target.
@@ -339,17 +370,12 @@ def cmd_task_start(args: argparse.Namespace) -> None:
             evidence_path(base, key, f"task-plans/{args.id}.md"),
     }
     for relative, source in optional_sources.items():
-        try:
-            if source.resolve(strict=False) != source:
-                fail(f"task start refused: optional source is symlinked: {source}")
-        except (OSError, RuntimeError):
-            fail(f"task start refused: optional source cannot be resolved: {source}")
-        if not source.exists():
-            continue
-        if source.is_file():
-            sources[relative] = source
-    payloads = {relative: source.read_bytes() for relative, source in sources.items()}
-    decomposition_bytes = decomposition_path.read_bytes()
+        optional_bytes = _optional_contained_regular_bytes(
+            base, source, "optional source",
+        )
+        if optional_bytes is not None:
+            snapshots[relative] = optional_bytes
+    payloads: dict[Path, bytes] = dict(snapshots)
     stages_bytes = (json.dumps({
         "issue": key,
         "stages": [

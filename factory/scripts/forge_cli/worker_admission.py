@@ -4,11 +4,12 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 from pathlib import Path
 
 from factory_lib import (
-    classify_scope_entries, git_control_dir, load_json, now_iso, raw_open_flags,
-    run_state_path, sha256_of, task_digest,
+    classify_scope_entries, clean_git_env, git_control_dir, load_json, now_iso,
+    raw_open_flags, run_state_path, sha256_of, task_digest,
 )
 
 from .delegate import (
@@ -26,6 +27,57 @@ from .stages import load_stages
 
 def _deny(reason: str) -> tuple[None, str]:
     return None, f"Forge worker write admission refused: {reason}"
+
+
+def native_stage_admission(base: Path) -> tuple[dict | None, str]:
+    """Authorize host-native writes from the current active task contract.
+
+    Native subagents belong to the host, so Forge has no truthful PID, token,
+    process tree, or launch lock to authenticate. The durable authority is the
+    active stage and its effective scope; the hook applies that scope to every
+    concrete write target.
+    """
+    from factory_lib import protected_decomposition_state_path
+    from .stages import (
+        _host_native_preparation_scope, stage_baseline,
+    )
+
+    stages = [
+        row for row in load_stages(base).get("stages", [])
+        if isinstance(row, dict) and row.get("status") == "active"
+    ]
+    if len(stages) != 1:
+        return _deny(
+            "host-native writes require exactly one current active task stage"
+        )
+    stage = stages[0]
+    task_id = stage.get("id")
+    if not isinstance(task_id, str) or not task_id:
+        return _deny("the active task stage has no task id")
+    decomposition = load_json(
+        protected_decomposition_state_path(base), default={},
+    )
+    task = next((
+        row for row in decomposition.get("tasks", [])
+        if isinstance(row, dict) and row.get("id") == task_id
+    ), None)
+    if task is None:
+        return _deny("the active task is missing from the protected decomposition")
+    scope = _host_native_preparation_scope(base, task_id, stage, task)
+    if scope is None:
+        return _deny(
+            "the active task has no current host-native preparation bound to "
+            "its stage, brief, task contract, and narrowed write scope"
+        )
+    try:
+        classified = classify_scope_entries(base, scope, stage_baseline(base, stage))
+    except (OSError, subprocess.SubprocessError, SystemExit, ValueError) as exc:
+        return _deny(f"the active task scope cannot be resolved: {exc}")
+    return {
+        "kind": "stage",
+        "task": task_id,
+        "scope": classified,
+    }, ""
 
 
 def _revocation_path(base: Path, launch_id: str) -> Path:
@@ -122,6 +174,7 @@ def _bound_rows(base: Path, launch_id: str,
         "argv", "argv_sha256", "write_scope", "stage_started_at", "process_token", "mode",
         "transport", "brief_path", "executable_path", "resume_session",
         "output_path", "stderr_path",
+        "context",
     )
     if any(row.get(field) != rows[0].get(field)
            for row in rows[1:] for field in bindings):
@@ -182,21 +235,46 @@ def _stage_contract(base: Path, record: dict) -> tuple[dict | None, str]:
     story = run.get("story") or run.get("issue_key")
     if record.get("story") and record.get("story") != story:
         return _deny("the active story changed after launch")
-    task_scope = task.get("write_scope") or []
+    from .stages import effective_scope
+    task_scope = effective_scope(base, str(task_id), task.get("write_scope") or [])
     if not task_scope or any(not isinstance(item, str) or not item.strip()
                              for item in task_scope):
         return _deny("the protected task has no valid write scope")
-    scope = record.get("write_scope") if record.get("transport") == "native" else task_scope
+    scope = record.get("write_scope")
     if (not isinstance(scope, list) or not scope
             or any(not isinstance(item, str) or not item.strip() for item in scope)):
         return _deny("the protected native launch has no valid recorded write scope")
-    if scope != task_scope:
-        return _deny("the protected native launch write scope does not match its task")
     from .stages import stage_baseline
-    return {
-        "kind": "stage",
-        "scope": classify_scope_entries(base, scope, stage_baseline(base, stage)),
-    }, ""
+    baseline = stage_baseline(base, stage)
+    classified_task_scope = classify_scope_entries(base, task_scope, baseline)
+    if any(not path_in_scope(item.rstrip("/"), classified_task_scope)
+           for item in scope):
+        return _deny("the protected launch write scope is not a subset of its task")
+    for item in scope:
+        if not item.rstrip().endswith("/"):
+            continue
+        path = item.strip().rstrip("/")
+        mode = subprocess.run(
+            ["git", "cat-file", "-t", f"{baseline}:{path}"], cwd=base,
+            capture_output=True, text=True, env=clean_git_env(),
+            encoding="utf-8",
+        )
+        explicitly_approved_directory = any(
+            approved.strip().endswith("/")
+            and path_in_scope(path, [approved.strip()])
+            for approved in task_scope
+        )
+        if ((mode.returncode == 0 and mode.stdout.strip() != "tree")
+                or (mode.returncode != 0 and not explicitly_approved_directory)):
+            return _deny(
+                f"recorded trailing-slash scope is not a baseline directory: {item!r}"
+            )
+    classified_scope = (
+        classified_task_scope
+        if scope == task_scope
+        else classify_scope_entries(base, scope, baseline)
+    )
+    return {"kind": "stage", "scope": classified_scope}, ""
 
 
 def live_worker_admission(base: Path) -> tuple[dict | None, str]:

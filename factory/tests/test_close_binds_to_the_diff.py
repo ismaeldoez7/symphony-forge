@@ -14,10 +14,15 @@ branch collides with every other.
 """
 from __future__ import annotations
 
+import contextlib
 import json
+import shlex
 import subprocess
 import sys
+from argparse import Namespace
 from pathlib import Path
+
+import pytest
 
 from test_gates import (  # noqa: F401
     DECOMP, HARNESS, STAGE_TASK, delegation_ledger, fake_gh_env, git, head,
@@ -29,10 +34,10 @@ from test_gates import (  # noqa: F401
 sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
 from factory_lib import (  # noqa: E402
     load_json, plan_digest_without_assumptions, product_delta_digest,
-    protected_decomposition_state_path,
+    protected_decomposition_state_path, task_evidence_path,
 )
 from forge_cli.stages import (  # noqa: E402
-    _legacy_stamp_binding, load_stages, stamp_is_fresh, task_digest, task_for,
+    load_stages, stamp_is_fresh, task_digest, task_for, write_stages,
 )
 
 
@@ -56,9 +61,8 @@ def _commit_decision(repo: Path, name: str = "0099-mid-stage-call") -> None:
 # ------------------------------------------------- the stamp is about the diff
 
 
-def test_the_stamp_survives_everything_that_is_not_the_diff(repo, tmp_path):
-    """A decision record, a contract re-record, a scope widening: none of
-    them change a product byte, so none of them stale the review."""
+def test_the_stamp_survives_bookkeeping_but_not_reviewed_meaning(repo, tmp_path):
+    """Bookkeeping can reuse; a semantic contract change cannot."""
     start_stage(repo, tmp_path, STAGE_TASK)
     write_in_scope(repo, "src/core.py")
     stamp_and_commit(repo)
@@ -73,8 +77,8 @@ def test_the_stamp_survives_everything_that_is_not_the_diff(repo, tmp_path):
 
     code, out = _rerecord(repo, {**STAGE_TASK, "write_scope": ["src/", "lib/"]})
     assert code == 0, out
-    assert stamp_is_fresh(repo, _stage(repo), task_for(repo, "T1")), \
-        "a contract re-record staled the review"
+    assert not stamp_is_fresh(repo, _stage(repo), task_for(repo, "T1")), \
+        "a reviewed-meaning change reused the old review"
 
 
 def test_the_stamp_goes_stale_on_exactly_a_product_change(repo, tmp_path):
@@ -94,10 +98,8 @@ def test_the_stamp_goes_stale_on_exactly_a_product_change(repo, tmp_path):
 # --------------------------------------- the T2 cascade, replayed and ended
 
 
-def test_stage_done_survives_a_contract_rerecord(repo, tmp_path):
-    """The cascade that cost T2 its morning: widen scope -> re-record ->
-    launch orphaned + stamp stale + grill stale -> re-grill, re-approve,
-    no-op delegate, re-review. Now: widen scope -> re-record -> stage done."""
+def test_stage_done_requires_review_after_semantic_contract_rerecord(repo, tmp_path):
+    """A launch remains attributable, but changed reviewed meaning reruns review."""
     start_stage(repo, tmp_path, STAGE_TASK)
     write_in_scope(repo, "src/core.py")
     stamp_and_commit(repo)
@@ -113,107 +115,86 @@ def test_stage_done_survives_a_contract_rerecord(repo, tmp_path):
     assert task_digest(task_for(repo, "T1")) != launched_under
 
     code, out = run(repo, "forge.py", "stage", "done", "T1")
-    assert code == 0, out
-    stage = measured_stage(repo)
-    assert stage["status"] == "done"
-    assert stage["contract_changed"]["from"] == launched_under
+    assert code != 0, out
+    assert "STALE stage-local review stamp" in out
 
 
-def test_native_stage_done_uses_the_scope_recorded_at_launch(repo, tmp_path):
-    """A native launch keeps the exact write grant it ran under when a later
-    contract re-record changes that grant."""
-    from forge_cli.codex_runtime import native_argv
-    from forge_cli.delegate import argv_digest, brief_path
+def test_native_stage_done_requires_current_scope_bound_preparation(
+        repo, tmp_path, monkeypatch, capsys):
+    """Host-native close binds preparation without inventing PID evidence."""
+    from forge_cli.delegate import brief_path, launch_companion
+    from forge_cli.stages import _require_successful_launch
 
-    launched_task = {
-        **STAGE_TASK,
-        "write_scope": ["src/", ".codex/launch-grant.json"],
-    }
-    start_stage(repo, tmp_path, launched_task)
-    ledger = delegation_ledger(repo)
-    rows = [json.loads(line) for line in ledger.read_text().splitlines()]
-    launch_id = rows[-1]["launch_id"]
-    output = ledger.parent / "native-runs" / f"{launch_id}.jsonl"
-    stderr = ledger.parent / "native-runs" / f"{launch_id}.stderr.log"
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
-        '{"type":"thread.started","thread_id":"native-fixture"}\n'
-        '{"type":"turn.completed"}\n',
-        encoding="utf-8",
+    monkeypatch.setenv("FORGE_COORDINATOR", "codex")
+    # This fixture is not a trusted Codex checkout, and the readiness probe
+    # shells out to the real `codex` CLI -- absent in CI, and bound to the
+    # harness rather than this temp repo locally. The gate has its own
+    # regression coverage in test_native_setup.py.
+    from forge_cli import doctor
+    monkeypatch.setattr(
+        doctor, "codex_hook_readiness", lambda _base: (True, "fixture-ready"),
     )
-    stderr.write_text("", encoding="utf-8")
+    start_stage(repo, tmp_path, STAGE_TASK, launch=False)
+    stage, task = _stage(repo), task_for(repo, "T1")
+    with pytest.raises(SystemExit):
+        _require_successful_launch(repo, "T1", stage, task)
+    assert "preparation" in capsys.readouterr().out.lower()
 
-    executable = "/usr/bin/codex"
-    native_rows = []
-    for row in rows:
-        argv = native_argv(
-            executable, repo, row["model"], row["effort"], True,
-            launched_task["write_scope"],
-        )
-        native = {
-            **row,
-            "transport": "native",
-            "executable_path": executable,
-            "brief_path": brief_path(repo, "T1").relative_to(repo).as_posix(),
-            "output_path": str(output),
-            "stderr_path": str(stderr),
-            "write_scope": launched_task["write_scope"],
-            "argv": argv,
-            "argv_sha256": argv_digest(argv),
-        }
-        native.pop("companion_path", None)
-        if native["launch_status"] == "succeeded":
-            native["session_id"] = "native-fixture"
-        native_rows.append(native)
-    ledger.write_text(
-        "".join(json.dumps(row) + "\n" for row in native_rows),
-        encoding="utf-8",
+    common = dict(
+        task_id="T1", text="# T1 native brief\n", path=brief_path(repo, "T1"),
+        task_sha256_value=task_digest(task), model="ignored", effort="ignored",
+        write=True, story="ENG-1", stage_started_at=stage["started_at"],
+        task_metadata=task,
     )
+    launch_companion(repo, write_scope=["other/"], **common)
+    with pytest.raises(SystemExit):
+        _require_successful_launch(repo, "T1", stage, task)
+    assert "scope" in capsys.readouterr().out.lower()
+
+    launch_companion(repo, write_scope=task["write_scope"], **common)
+    assert _require_successful_launch(repo, "T1", stage, task) == ""
+
+    brief_path(repo, "T1").write_text("# stale native brief\n", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        _require_successful_launch(repo, "T1", stage, task)
+    assert "brief" in capsys.readouterr().out.lower()
+    launch_companion(repo, write_scope=task["write_scope"], **common)
+    assert _require_successful_launch(repo, "T1", stage, task) == ""
 
     write_in_scope(repo, "src/core.py")
+    git(repo, "add", "src/core.py")
+    git(repo, "commit", "-qm", "native host work")
+    write_task_proof(repo, "T1", publish_review=True)
     stamp_and_commit(repo)
-    changed_task = {
-        **launched_task,
-        "write_scope": ["src/", ".codex/current-grant.json"],
-    }
-    code, out = _rerecord(repo, changed_task)
-    assert code == 0, out
-    code, out = run(repo, "forge.py", "stage", "done", "T1")
+    code, out = run(
+        repo, "forge.py", "stage", "done", "T1",
+        env={"FORGE_COORDINATOR": "codex"},
+    )
     assert code == 0, out
 
 
-def test_legacy_stamp_converts_in_place_when_still_fresh(repo, tmp_path):
-    """Migration without a launch. A stamp recorded under the old rule and
-    still fresh by that rule is accepted and given a delta_id on first check;
-    one stale under the old rule stays stale."""
+def test_legacy_stamp_never_converts_in_normal_runtime(repo, tmp_path):
+    """Lean migration owns old stamp conversion; runtime requires current proof."""
     start_stage(repo, tmp_path, STAGE_TASK)
     write_in_scope(repo, "src/core.py")
     git(repo, "add", "src/core.py")
     git(repo, "commit", "-qm", "work")
+    write_task_proof(repo, "T1", publish_review=True)
     data = load_stages(repo)
     stage = next(s for s in data["stages"] if s["id"] == "T1")
-    legacy = {**_legacy_stamp_binding(repo, stage, task_for(repo, "T1")),
-              "recorded_at": "2026-09-09T00:00:00+00:00",
-              "generated_by": "autoreview"}
+    legacy = {
+        "stage_id": "T1",
+        "task_sha256": task_digest(task_for(repo, "T1")),
+        "brief_sha256": "legacy",
+        "base_sha": stage["base_sha"],
+        "product_tree_digest": product_delta_digest(repo, stage["base_sha"]),
+        "recorded_at": "2026-09-09T00:00:00+00:00",
+        "generated_by": "autoreview",
+    }
     stage["local_review_stamp"] = legacy
     from forge_cli.stages import write_stages
     write_stages(repo, data)
-    write_task_proof(repo, "T1", publish_review=True)
 
-    assert stamp_is_fresh(repo, _stage(repo), task_for(repo, "T1"))
-    converted = _stage(repo)["local_review_stamp"]
-    assert converted["delta_id"] == product_delta_digest(repo, stage["base_sha"])
-    code, out = run(repo, "forge.py", "stage", "done", "T1")
-    assert code == 0, out
-
-    # Stale under the old rule: the tree moved after it was recorded.
-    start = None
-    data = load_stages(repo)
-    stage = next(s for s in data["stages"] if s["id"] == "T1")
-    stage["status"] = "active"
-    stage.pop("completed_at", None)
-    stage["local_review_stamp"] = {**legacy, "product_tree_digest": "0" * 64}
-    write_stages(repo, data)
     assert not stamp_is_fresh(repo, _stage(repo), task_for(repo, "T1"))
 
 
@@ -278,7 +259,20 @@ def _ship_ready(repo: Path, tmp_path: Path) -> dict:
     git(repo, "push", "-q", "origin", f"{head(repo)}:refs/heads/main")
     git(repo, "fetch", "-q", "origin")
     git(repo, "checkout", "-qb", "feat/test-close")
-    start_stage(repo, tmp_path, STAGE_TASK)
+    python = shlex.quote(sys.executable)
+    task = {
+        **STAGE_TASK,
+        "verify_commands": [f"{python} -m compileall src"],
+        "required_tests": [{
+            "id": "test_plan_body_digest_is_line_ending_agnostic",
+            "path": "factory/tests/test_gates.py",
+            "command": (
+                f"{python} -m pytest {{path}}::{{id}} -o junit_family=legacy "
+                "--junitxml={report}"
+            ),
+        }],
+    }
+    start_stage(repo, tmp_path, task)
     write_in_scope(repo, "src/core.py")
     stamp_and_commit(repo)
     # The seal pushes the run pointer's branch; the intake fixture names a
@@ -292,11 +286,15 @@ def _ship_ready(repo: Path, tmp_path: Path) -> dict:
         "base_main_sha": git(repo, "rev-parse", "origin/main"),
     })
     (control / "run.json").write_text(json.dumps(pointer), encoding="utf-8")
-    proof = write_task_proof(repo, "T1", publish_review=True)
+    env, _ = fake_gh_env(tmp_path)
+    with pytest.MonkeyPatch.context() as proof_environment:
+        proof_environment.setenv("FORGE_COORDINATOR", "claude")
+        for key, value in env.items():
+            proof_environment.setenv(key, value)
+        proof = write_task_proof(repo, "T1", publish_review=True)
     git(repo, "add", proof.relative_to(repo).as_posix(),
         ".factory/review-briefs/all.md")
     git(repo, "commit", "-qm", "record T1 proof")
-    env, _ = fake_gh_env(tmp_path)
     return env
 
 
@@ -324,9 +322,7 @@ def test_task_close_goes_from_built_to_pr_and_is_idempotent(repo, tmp_path):
 
 
 def test_task_close_reopens_a_done_stage_whose_diff_moved(repo, tmp_path):
-    """A post-seal fix used to need `reopen --review-fix` and the whole
-    ladder again. Now the same command notices the delta moved, reopens the
-    stage itself, and goes straight to the one review the new diff owes."""
+    """A moved post-seal diff gets a fresh proof before review is launched."""
     env = _ship_ready(repo, tmp_path)
     code, out = run(repo, "forge.py", "task", "close", "T1",
                     "--skill", str(tmp_path / "no-such-autoreview"), env=env)
@@ -337,12 +333,10 @@ def test_task_close_reopens_a_done_stage_whose_diff_moved(repo, tmp_path):
     git(repo, "commit", "-qm", "post-seal fix")
     code, out = run(repo, "forge.py", "task", "close", "T1",
                     "--skill", str(tmp_path / "no-such-autoreview"), env=env)
-    # It got as far as the review -- which is exactly what the new diff owes
-    # -- and nothing else was demanded on the way. The review's own inputs
-    # (story verify/tests, the autoreview skill) are what stop it here.
     assert code != 0, out
-    assert ("autoreview skill not found" in out
-            or "is not recorded for ENG-1; review runs after" in out), out
+    assert "autoreview skill not found" in out, out
+    assert "review proof preflight failed before helper launch" not in out, out
+    assert "T1: task proof committed" in out, out
     assert "reopened: the diff moved" in out
     stage = _stage(repo)
     assert stage["status"] == "active"
@@ -387,13 +381,21 @@ def _post_seal_fix_with_a_review(repo: Path, tmp_path: Path, priority: str) -> t
     write_in_scope(repo, "src/core.py", "version = 2\n")
     git(repo, "add", "src/core.py")
     git(repo, "commit", "-qm", "post-seal fix")
-    write_task_proof(repo, "T1")
+    review_env = {**env, "FAKE_PRIORITY": priority}
+    with pytest.MonkeyPatch.context() as proof_environment:
+        proof_environment.setenv("FORGE_COORDINATOR", "claude")
+        for key, value in review_env.items():
+            proof_environment.setenv(key, value)
+        write_task_proof(repo, "T1")
+    task_reviews = story_state(repo) / "tasks" / "T1" / "reviews"
+    for aspect in ("quality", "performance", "security"):
+        (task_reviews / f"{aspect}.json").unlink()
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "proof at the new tip")
     skill = tmp_path / "fake-autoreview.py"
     skill.write_text(FAKE_REVIEW_WITH, encoding="utf-8")
     code, out = run(repo, "forge.py", "task", "close", "T1", "--engine", "claude",
-                    "--skill", str(skill), env={**env, "FAKE_PRIORITY": priority})
+                    "--skill", str(skill), env=review_env)
     return {"code": code, "env": env, "skill": skill}, out
 
 
@@ -403,6 +405,11 @@ def test_close_says_the_review_covers_the_whole_task_delta(repo, tmp_path):
     result, out = _post_seal_fix_with_a_review(repo, tmp_path, "P1")
     assert result["code"] != 0, out
     assert "1 blocking finding(s)" in out
+    assert "selected generation" in out
+    assert "1 of 1 actionable P0/P1 defect finding(s) untriaged" in out
+    assert './forge review T1 --triage "<finding text>"' in out
+    assert out.index('./forge review T1 --triage "<finding text>"') \
+        < out.index("./forge delegate T1")
     assert "reviews the whole task delta, base to tip" in out
     assert "only the new diff" not in out
 
@@ -438,12 +445,224 @@ def test_task_close_runs_the_proof_before_it_spends_a_review(repo, tmp_path):
     assert "is not recorded for ENG-1" not in out, "the review ran before the proof"
 
 
+def test_task_close_is_the_single_full_suite_owner_and_records_truthful_automated_proof(
+        repo, monkeypatch):
+    from forge_cli import close, delegate, review, stages, tasks
+
+    task = {**STAGE_TASK, "verify_commands": ["canonical verify"]}
+    stage = {"id": "T1", "status": "active", "started_at": "now"}
+    (repo / ".factory" / "run.json").write_text(
+        json.dumps({"issue_key": "ENG-1", "story": "ENG-1"}),
+        encoding="utf-8",
+    )
+    story_state(repo).mkdir(parents=True, exist_ok=True)
+    proof_root = story_state(repo) / "tasks" / "T1"
+    proof_root.mkdir(parents=True, exist_ok=True)
+    tests_path = proof_root / "tests.json"
+    tests_path.write_text(json.dumps({
+        "commit": head(repo),
+        "automated": {
+            "generated_by": "implementer", "status": "passed",
+            "summary": "focused checks passed", "blocking_findings": [],
+            "commands_run": ["focused pytest"], "reviewed_scope": ["src/"],
+            "remaining_gaps": [], "recorded_at": "earlier", "commit": head(repo),
+        },
+        "functional": {
+            "generated_by": "functional-checker", "status": "passed",
+            "score": 9, "blocking_findings": [],
+            "commands_run": ["manual functional"],
+        },
+    }), encoding="utf-8")
+    reviewed = {"done": False}
+
+    monkeypatch.setattr(review, "_product_dirty", lambda _base: [])
+    monkeypatch.setattr(close, "load_json", lambda *_args, **_kwargs: {
+        "issue_key": "ENG-1",
+    })
+    monkeypatch.setattr(close, "task_seal_shared_problems", lambda *_args: [])
+    monkeypatch.setattr(stages, "task_for", lambda *_args: task)
+    monkeypatch.setattr(stages, "load_stages", lambda _base: {"stages": [stage]})
+    monkeypatch.setattr(stages, "stage_review_binding", lambda *_args: {
+        "delta_id": "d" * 64,
+    })
+    monkeypatch.setattr(stages, "_measure", lambda *_args: {"strays": []})
+    monkeypatch.setattr(stages, "_require_successful_launch", lambda *_args: "")
+    monkeypatch.setattr(stages, "stamp_is_fresh", lambda *_args: reviewed["done"])
+    monkeypatch.setattr(delegate, "load_delegations", lambda _base: [])
+    monkeypatch.setattr(
+        delegate, "delegation_exclusion",
+        lambda *_args, **_kwargs: contextlib.nullcontext(),
+    )
+
+    proof = ({}, {}, [])
+    fresh_context = {"proofs": "from-close"}
+
+    def run_proof(_base, _task_id, _task, *, proof_context=None):
+        assert proof_context == {}
+        proof_context.update(fresh_context)
+        stages.record_stage_proof(
+            repo, _task_id, _task, key="proof-key",
+            verify_results=[{
+                "command": "canonical verify", "status": "passed",
+                "exit_code": 0,
+            }],
+            test_results=[{
+                "id": "test_stage_contract", "path": "stage_contract_proof.py",
+                "status": "passed",
+            }],
+            test_id_misses=[], close_owned=True,
+            commands_run=["canonical verify"],
+        )
+        return proof
+
+    monkeypatch.setattr(stages, "run_stage_proof", run_proof)
+
+    def commit_proof(_base, _story, _task_id, proof, *, proof_context=None):
+        assert proof_context == fresh_context
+        return proof
+
+    monkeypatch.setattr(close, "_commit_task_proof", commit_proof)
+    monkeypatch.setattr(
+        close, "task_proof_problems", lambda *_args, **_kwargs: [],
+    )
+
+    def run_review(*_args, **kwargs):
+        assert kwargs["proof_context"] == fresh_context
+        evidence = json.loads(tests_path.read_text(encoding="utf-8"))
+        automated = evidence["automated"]
+        assert automated["commands_run"] == ["focused pytest", "canonical verify"]
+        assert "close-owned proof:" in automated["pass_fail_summary"]
+        assert automated["bound_by"] == "stage-proof"
+        assert evidence["functional"] == {
+            "generated_by": "functional-checker", "status": "passed",
+            "score": 9, "blocking_findings": [],
+            "commands_run": ["manual functional"],
+        }
+        reviewed["done"] = True
+        return {"blocking": 0}
+
+    monkeypatch.setattr(review, "review_task", run_review)
+    monkeypatch.setattr(
+        stages, "_finish_stage",
+        lambda *_args, **_kwargs: stage.update(status="done"),
+    )
+    monkeypatch.setattr(tasks, "seal_task", lambda *_args: None)
+
+    close.cmd_task_close(Namespace(
+        repo=str(repo), id="T1", engine="codex", max_priority="P3", skill=None,
+    ))
+
+    assert reviewed["done"] is True
+    assert stage["status"] == "done"
+
+
+@pytest.mark.parametrize("user_facing", [False, True])
+def test_fresh_close_owned_report_lists_only_executed_commands(
+        repo, monkeypatch, user_facing):
+    from forge_cli import stages
+
+    task = {**STAGE_TASK, "user_facing": user_facing}
+    (repo / ".factory" / "run.json").write_text(
+        json.dumps({"issue_key": "ENG-1", "story": "ENG-1"}),
+        encoding="utf-8",
+    )
+    story_state(repo).mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(stages, "_review_covers_tree", lambda *_args: False)
+    stages.record_stage_proof(
+        repo, "T1", task, key="proof-key",
+        verify_results=[{"command": "true", "exit_code": 0}],
+        test_results=[{"id": "test_stage_contract", "path": "stage_contract_proof.py",
+                       "status": "passed"}],
+        test_id_misses=[], close_owned=True, commands_run=["true"],
+    )
+    evidence = json.loads(
+        (story_state(repo) / "tasks/T1/tests.json").read_text(encoding="utf-8")
+    )
+    automated = evidence["automated"]
+    assert automated["commands_run"] == ["true"]
+    assert "executed commands=1" in automated["summary"]
+    assert "required test command" not in automated["commands_run"]
+
+
 def test_task_close_stops_early_and_names_the_next_step(repo, tmp_path):
     start_stage(repo, tmp_path, STAGE_TASK)
     write_in_scope(repo, "src/core.py")
     code, out = run(repo, "forge.py", "task", "close", "T1")
     assert code != 0, out
     assert "close stopped at tree" in out and "commit the product tree" in out
+
+
+@pytest.mark.parametrize("invalid", ["launch", "measurement"])
+def test_task_close_checks_stage_inputs_before_running_proof(repo, tmp_path, invalid):
+    env = _ship_ready(repo, tmp_path)
+    marker = tmp_path / "proof-started"
+    command = shlex.join([
+        sys.executable, "-c",
+        f"from pathlib import Path; Path({str(marker)!r}).touch()",
+    ])
+    code, out = _rerecord(repo, {**STAGE_TASK, "verify_commands": [command]})
+    assert code == 0, out
+    if invalid == "launch":
+        delegation_ledger(repo).write_text("", encoding="utf-8")
+        expected = "no successful write launch"
+    else:
+        write_in_scope(repo, "src/core.py", "# oversized change\n" * 801)
+        git(repo, "add", "src/core.py")
+        git(repo, "commit", "-qm", "exceed the hard review bound")
+        expected = "more than TWICE"
+
+    code, out = run(repo, "forge.py", "task", "close", "T1", env=env)
+
+    assert not marker.exists(), "proof ran before the invalid stage was rejected"
+    assert code != 0 and expected in out, out
+
+
+def test_task_close_checks_every_required_path_before_running_proof(repo, tmp_path):
+    env = _ship_ready(repo, tmp_path)
+    marker = tmp_path / "proof-started"
+    command = shlex.join([
+        sys.executable, "-c",
+        f"from pathlib import Path; Path({str(marker)!r}).touch()",
+    ])
+    required = [*STAGE_TASK["required_tests"], {
+        "id": "test_missing", "path": "missing_proof.py",
+        "command": "python3 {path} {id} {report}",
+    }]
+    code, out = _rerecord(repo, {
+        **STAGE_TASK, "required_tests": required, "verify_commands": [command],
+    })
+    assert code == 0, out
+
+    code, out = run(repo, "forge.py", "task", "close", "T1", env=env)
+
+    assert code != 0 and "required test 'test_missing' is missing" in out, out
+    assert not marker.exists(), "verification ran before all required paths were checked"
+
+
+def test_required_input_is_rechecked_after_an_earlier_test_runs(tmp_path, capsys):
+    from forge_cli.stages import _run_required_tests
+
+    runner = tmp_path / "runner.py"
+    runner.write_text(
+        "import sys\nfrom pathlib import Path\n"
+        "source, name, report = sys.argv[1:]\n"
+        "if source == 'first.py':\n    Path('second.py').unlink()\n"
+        "Path(report).write_text('<testsuite><testcase name=\"' + name + "
+        "'\" file=\"' + source + '\"/></testsuite>')\n",
+        encoding="utf-8",
+    )
+    for name in ("first.py", "second.py"):
+        (tmp_path / name).touch()
+    command = shlex.join([sys.executable, str(runner), "{path}", "{id}", "{report}"])
+    task = {"required_tests": [
+        {"id": "test_first", "path": "first.py", "command": command},
+        {"id": "test_second", "path": "second.py", "command": command},
+    ]}
+
+    with pytest.raises(SystemExit):
+        _run_required_tests(tmp_path, "T1", task)
+
+    assert "required test 'test_second' is missing" in capsys.readouterr().out
 
 
 # ------------------------------------------------- the contracts say close
@@ -501,6 +720,47 @@ def test_the_review_verdict_is_counted_from_what_was_recorded(repo, tmp_path):
     assert recorded["quality"]["score"] == 10
 
 
+def test_actionable_review_rows_exclude_plan_contract_acceptance_blockers(
+        repo, tmp_path):
+    from factory_lib import publish_review_generation, read_selected_review_generation
+    from forge_cli.review import (
+        actionable_blocking_with_triage, untriaged_actionable_blocking,
+    )
+
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "src/core.py")
+    git(repo, "add", "src/core.py")
+    git(repo, "commit", "-qm", "work")
+    write_task_proof(repo, "T1", publish_review=True, review_blocked=True)
+    generation, _selection, problems = read_selected_review_generation(
+        repo, "ENG-1", "T1",
+    )
+    assert not problems and generation is not None
+    candidate = json.loads(json.dumps(generation))
+    candidate.pop("generation_id")
+    candidate["lenses"]["quality"]["blocking_findings"].append({
+        "category": "plan-contract-partial",
+        "area": "src/core.py",
+        "summary": "C1 remains partial",
+        "file_path": "src/core.py",
+        "line": 1,
+        "title": "VERDICT C1: partial",
+    })
+    candidate["lenses"]["quality"].update({
+        "score": 7, "recommendation": "request-changes",
+    })
+    publish_review_generation(
+        repo, "ENG-1", "T1", candidate,
+        expected_source_id=generation["generation_id"],
+    )
+
+    rows = actionable_blocking_with_triage(repo, "ENG-1", "T1")
+    assert [(lens, finding["category"]) for lens, finding, _triage in rows] == [
+        ("security", "security"),
+    ]
+    assert untriaged_actionable_blocking(repo, "ENG-1", "T1") == (1, 1)
+
+
 def test_the_delegate_brief_carries_the_selected_current_findings(repo, tmp_path):
     """G4. A fix launch used to get a brief that said nothing about the
     findings it existed to fix; one made zero edits. The recorded findings
@@ -515,12 +775,12 @@ def test_the_delegate_brief_carries_the_selected_current_findings(repo, tmp_path
     assert "Review findings to fix" not in before
 
     write_task_proof(repo, "T1", publish_review=True, review_blocked=True)
-    legacy = story_state(repo) / "tasks" / "T1" / "reviews" / "quality.json"
-    stale = json.loads(legacy.read_text())
+    diagnostic = story_state(repo) / "tasks" / "T1" / "reviews" / "quality.json"
+    stale = {"score": 1}
     stale["blocking_findings"] = [{
         "category": "bug", "area": "old.py", "summary": "obsolete finding",
     }]
-    legacy.write_text(json.dumps(stale))
+    diagnostic.write_text(json.dumps(stale))
     after = compose_brief(repo, task, write=True, user_facing=False, story="ENG-1")
     assert "Review findings to fix" in after
     assert "BLOCKING" in after
@@ -562,6 +822,13 @@ def test_task_close_records_the_proof_in_the_marker_commit(repo, tmp_path):
     the proof close ran ships with the marker."""
     from factory_lib import task_evidence_path
     env = _ship_ready(repo, tmp_path)
+    # The fixture starts with a worker proof. Remove only its typed receipts so
+    # this close exercises the fresh stage-proof -> proof commit -> seal path.
+    stages = load_stages(repo)
+    for stage in stages["stages"]:
+        if stage.get("id") == "T1":
+            stage.pop("proof_receipts", None)
+    write_stages(repo, stages)
     code, out = run(repo, "forge.py", "task", "close", "T1", env=env)
     assert code == 0, out
     assert "proof reused" not in out
@@ -597,9 +864,12 @@ def test_task_close_reuses_the_proof_when_only_bookkeeping_moved(repo, tmp_path)
     code, out = run(repo, "forge.py", "task", "close", "T1", "--skill", skill, env=env)
     assert code != 0 and "autoreview skill not found" in out, out
     assert "proof reused" not in out
+    verify_path = task_evidence_path(repo, "ENG-1", "T1", "verify.json")
+    first_verify = verify_path.read_bytes()
     code, out = run(repo, "forge.py", "task", "close", "T1", "--skill", skill, env=env)
     assert code != 0 and "autoreview skill not found" in out, out
-    assert "proof reused" in out, out
+    assert "T1: task proof committed" not in out, out
+    assert verify_path.read_bytes() == first_verify
 
 
 def test_task_close_rebinds_a_stale_worker_record_before_the_review(repo, tmp_path):

@@ -8,8 +8,7 @@ The user and host select the main coordinator model and reasoning; Forge-managed
 ## Role split (enforced)
 
 - Claude Code coordinates: discovery, planning, decisions, orchestration.
-- Codex executes: exploration, implementation, testing, AND the review — ONE
-  three-lens pass PER TASK, run by `./forge task close <id>` (Codex engine, never nested; records the task's proof — 0011/0049), WATCHED; loop triage→fixes→close until clean → PR → poll CI green. TRIAGE before every fix round (`./forge review <id> --triage`, 0075): open the cited line and the code it calls, prove real or not with a file:line, list every place the same contract applies; never relay a finding unread. Never stop at review, and never turn a finding into a menu for the human (AGENTS.md "Review findings are not a menu").
+- Codex executes: exploration, implementation, and testing. `./forge task close <id>` owns the unchanged externally maintained Autoreview helper and records ONE three-lens pass per task; its internal engine is helper policy, never a nested reviewer. WATCH it; loop triage→fixes→close until clean → PR → poll CI green. TRIAGE before every fix round (`./forge review <id> --triage`, 0075): open the cited line and the code it calls, prove real or not with a file:line, list every place the same contract applies; never relay a finding unread. Never stop at review, and never turn a finding into a menu for the human (AGENTS.md "Review findings are not a menu").
 - READ BEFORE YOU ASSERT (planner.md): open the type/enum/route/decision you write a rule about — docs record the design, the grill checks what was built. Delegate BREADTH only: `/codex:rescue` read-only, NEVER raw `codex exec`.
 
 ## codex-plugin-cc
@@ -22,16 +21,15 @@ The user and host select the main coordinator model and reasoning; Forge-managed
   workers raise contradiction/confusion/blocked/scope-change and PAUSE — `./forge
   signal resolve <id>`, then resume. Then `./forge task close <id>`: ONE command — proof, review only if the diff moved, measure, stage done, seal, PR; re-run after any fix. Partial work is `stage done --incomplete "<gap>"`.
 - PARALLELIZE whenever separation allows: `./forge roadmap parallel` → one
-  worktree + companion per unblocked story. Tasks inside a story stay sequential;
-  parallel work belongs in separate story worktrees (WORKFLOW.md Concurrency).
+  task-owned worktree + companion per dependency-ready leaf. Sibling tasks may
+  overlap only when their measured scopes are disjoint (WORKFLOW.md Concurrency).
 - The Stop-hook review gate must stay DISABLED (`/codex:setup --disable-review-gate`).
 - If the plugin is unavailable, follow `docs/degraded-mode.md`.
 
 ## Ground rules
 - Session write lock always armed; plan authoring is mode-agnostic (0050) — never switch the session's mode to write a plan, and no mode unlocks product/canon: delegate
   writes, or during a companion outage `forge mode degraded start --reason`. Grill
-  (`/grill-me`) = ONE read-only Codex `gpt-5.6-sol` @ high cold read (you authored it — never a Claude sub-agent, never inline), WATCHED. That is the WHOLE grill: resolve what the REPO answers yourself, put only the rest to the human in that grill (AskUserQuestion), amend once, record the pass against the amended version. Never cold-read twice — a second read returns a DIFFERENT frontier, not a shorter one. The plan then shows on the BOARD, the human reviews it THERE (not chat) and approves
-  EXACTLY ONCE — `./forge plan approve --by "<name>"` + re-save. Never approve twice.
+  (`/grill-me`) = ONE read-only Codex `gpt-6-sol` @ high cold read (you authored it — never a Claude sub-agent, never inline), WATCHED. That is the WHOLE grill: resolve what the REPO answers yourself, put only the rest to the human, amend once, and record every finding disposition plus the amendment bridge. Never claim the cold reader saw amended bytes. Present the exact final plan through native Plan Mode; successful `ExitPlanMode` records the digest-bound approval. No board approval, manual approve command, or second unchanged save.
 - Decisions: `./forge decision new <slug>`; acceptance is HUMAN chat
   confirmation — then run accept/sign-off yourself, `--by "<name>"` + trailer.
 - Recording sign-off requires confirmed specs and their derived roadmap.

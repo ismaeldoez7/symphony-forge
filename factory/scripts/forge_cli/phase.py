@@ -8,19 +8,67 @@ import subprocess
 from pathlib import Path
 
 from factory_lib import (
-    client_signoff, evidence_path, head_sha, load_json, load_review_artifacts,
-    repo_root, require_all_stages_done, require_coherent_review_run,
-    requirements_digest_matches, run_state_path, task_frontier_state,
-    proof_read_path,
+    approved_plan_digest, client_signoff, evidence_path, load_json, repo_root,
+    plan_digest_without_assumptions, require_all_stages_done, run_state_path,
+    task_frontier_state,
 )
 
 from .context import pending_context
 from .quickfix import load_active, profile_of
-from .outcome import load_outcome
-from .readiness import tests_passed
 from .roadmap import cmd_heal, leverage, load_items, ready_pending
 from .signal import open_signals
-from .specs import resolve_spec_reference
+
+
+def _approved_plan_changed(base: Path, state: dict) -> bool:
+    """Whether an approved story plan lacks exact current native authority."""
+    return _approved_plan_authority_state(base, state) == "changed"
+
+
+def _approved_plan_authority_state(base: Path, state: dict) -> str:
+    """Classify content drift separately from missing or retired authority."""
+    from .approval import ApprovalRefused, _require_safe_destination
+
+    if state.get("plan_status") != "approved":
+        return "not-approved"
+    approved = state.get("approved_plan_sha256")
+    relative = state.get("plan_file")
+    if (not isinstance(approved, str)
+            or re.fullmatch(r"[0-9a-f]{64}", approved) is None
+            or not isinstance(relative, str)):
+        return "repair"
+    plan = base / relative
+    if Path(relative).is_absolute() or ".." in Path(relative).parts:
+        return "repair"
+    try:
+        _require_safe_destination(base, plan, required=True)
+    except ApprovalRefused:
+        return "repair"
+    story = str(state.get("story") or state.get("issue_key") or "")
+    issue = str(state.get("issue_key") or story)
+    if (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", story)
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", issue)):
+        return "repair"
+    try:
+        evidence = evidence_path(base, story, "plan-approval.json")
+        _require_safe_destination(base, evidence, required=True)
+        record = json.loads(evidence.read_text(encoding="utf-8"))
+    except (ApprovalRefused, OSError, UnicodeError, json.JSONDecodeError):
+        return "repair"
+    authority = approved_plan_digest(base, state, plan)
+    if authority != approved:
+        legacy = isinstance(record, dict) and all(
+            isinstance(record.get(field), str) and record[field]
+            for field in ("approved_plan_sha256", "issue", "story", "approver", "at")
+        ) and record.get("approved_plan_sha256") == approved \
+            and record.get("issue") == issue \
+            and record.get("story") == story \
+            and "runtime" not in record
+        return "upgrade" if legacy else "repair"
+    return (
+        "current"
+        if plan_digest_without_assumptions(plan) == approved
+        else "changed"
+    )
 
 
 def _auto_heal_roadmap_after_merge(base: Path) -> None:
@@ -135,31 +183,12 @@ def _task_count_hint(base: Path, state: dict) -> str:
             "holds either way.")
 
 
-def _board_handoff(base: Path) -> str:
-    """The board URL, and whether it is already up.
-
-    `forge next` used to state that the plan "is now visible on the board"
-    without checking one was running or naming where it is. The human then had
-    nothing to open, so the review happened in chat — the exact thing the rule
-    forbids. Say the address, and say plainly when nothing is serving it.
-    """
-    from .board import DEFAULT_PORT, already_serving
-    url = f"http://127.0.0.1:{DEFAULT_PORT}/"
-    try:
-        live = already_serving(DEFAULT_PORT, base)
-    except Exception:
-        live = False
-    return (f"The board is running at {url}." if live
-            else f"NO BOARD IS RUNNING — start one: `./forge board` ({url}).")
-
-
 _PARALLEL_COMMANDS = {
     "await-merge": "./forge task close {id} (seals it and opens its own PR; merge in dependency order)",
     "delegate": "./forge delegate {id} from inside its worktree",
     "stage-start": "./forge task start {id}, then `./forge stage start {id}` from "
                    "inside the worktree it prints",
-    "await-approval": "./forge task approve {id} --by \"<name>\" once the human "
-                      "has read it on the board",
+    "await-approval": "show the exact plan in native Plan Mode and consume its approval",
     "grill": "./forge grill run --gate task --task {id}",
     "author-task-plan": "author its plan, then ./forge task plan save {id} --from <path>",
     "author-contract": "author its contract and re-record the decomposition",
@@ -314,28 +343,11 @@ def cmd_next(args: argparse.Namespace) -> None:
                          "from its draft, then confirm it")
         drafts = [spec["slug"] for spec in specs if spec.get("status") != "confirmed"]
         if drafts:
-            if native_coordinator:
-                steps.append(
-                    "[PM] Native spec grill question delivery is unavailable in "
-                    "this release. STOP here; LEAN-WORKFLOW owns closing this "
-                    "gap. Do not repeat an unsupported question action."
-                )
-            else:
-                from grill_gates import get_gate
-                floor = get_gate("spec").min_rounds
-                steps.append(
-                    "[PM] Grill and confirm every draft spec: "
-                    f"{', '.join(drafts)} — the spec gate is LEDGER-MATCHED, so "
-                    "its rounds must come from AskUserQuestion in THIS top-level "
-                    f"Claude session. Complete at least {floor} ledger-matched "
-                    f"human round{'s' if floor != 1 else ''}, mark the last "
-                    "`\"frontier_empty\": true`, then: "
-                    "`python3 factory/scripts/record_grill_from_json.py --gate "
-                    "spec --input-digest docs/specs/<slug>.md --input "
-                    "<grill.json>` and `forge spec confirm <slug>`. That payload "
-                    "needs generated_by/gate/verdict/gaps/contradictions/"
-                    "resolutions plus rounds[] of {question, options, chosen} "
-                    "(factory/schemas/grill.json)")
+            steps.append(
+                "[PM] Cold-read and confirm every draft spec once: "
+                f"{', '.join(drafts)}. Record an ordered finding_dispositions "
+                "map and explain every amendment from the cold input to final "
+                "bytes, then `forge spec confirm <slug>`.")
         if specs and not drafts and not load_items(base):
             steps.append("[PM/EM] Derive the spec-linked roadmap before sign-off: "
                          "./forge roadmap derive --input <json> "
@@ -343,17 +355,10 @@ def cmd_next(args: argparse.Namespace) -> None:
         signoff_grill = load_json(factory / "grills" / "signoff.json", default={})
         if (not workflow_input_problems(base)
                 and signoff_grill.get("verdict") != "pass"):
-            if native_coordinator:
-                steps.append(
-                    "[PM] Native sign-off grill question delivery is unavailable "
-                    "in this release. STOP here; LEAN-WORKFLOW owns closing this "
-                    "gap. Do not repeat an unsupported question action."
-                )
-            else:
-                steps.append(
-                    "[PM] Before sign-off: grill the handover for "
-                    "gaps/contradictions (factory/prompts/griller.md), resolve "
-                    "findings, record: record_grill_from_json.py --gate signoff")
+            steps.append(
+                "[PM] Before sign-off: cold-read the handover once, resolve and "
+                "source every finding, explain amendments, then record: "
+                "record_grill_from_json.py --gate signoff")
         steps.append(
             "[PM] When the client confirms: forge.py decision new client-signoff, "
             "then forge.py decision accept client-signoff --by <name> (human), "
@@ -422,43 +427,58 @@ def cmd_next(args: argparse.Namespace) -> None:
                          "./forge roadmap derive --input <json>")
             steps.append("[dev] Or start a task directly: python3 factory/scripts/intake.py "
                          "--issue <KEY> --title \"<title>\"")
+    elif _approved_plan_authority_state(base, state) == "changed":
+        phase("awaiting amended-plan approval")
+        steps.append(
+            f"[dev] The approved story plan changed at {state.get('plan_file')}. "
+            "Display its exact current bytes in native Plan Mode and consume one "
+            "fresh human approval event. This post-approval edit returns directly "
+            "to its approver; do not launch another plan cold read. After approval, "
+            "re-record the same decomposition to bind the new story digest. An "
+            "unchanged task keeps its existing cold proof and task approval."
+        )
+    elif _approved_plan_authority_state(base, state) == "upgrade":
+        phase("planning authority upgrade required")
+        steps.append(
+            "[dev] The approved plan uses a Lean-retired approval format. Display "
+            "its exact unchanged bytes in native Plan Mode, consume one genuine "
+            "human approval event, then retry `forge upgrade`; do not treat it as "
+            "a content edit or fabricate a native approval event."
+        )
+    elif _approved_plan_authority_state(base, state) == "repair":
+        phase("planning authority repair required")
+        recovery = []
+        try:
+            from .approval import ApprovalRefused, eligible_candidates
+            candidates = eligible_candidates(base)
+            recovery = [candidate for candidate in candidates
+                        if candidate.kind == "story"]
+        except (ApprovalRefused, OSError, ValueError, SystemExit):
+            recovery = []
+        if len(recovery) == 1:
+            steps.append(
+                "[dev] A completed Lean migration removed the old approval "
+                "record. Display the exact unchanged plan bytes in native Plan "
+                "Mode and consume one genuine human approval event; then run "
+                "`forge next` again."
+            )
+        else:
+            steps.append(
+                "[dev] The approved plan's native approval authority is missing "
+                "or malformed. Repair or restore its recorder-generated approval "
+                "record and consumed event tombstone; only actual changed plan "
+                "bytes route directly to native reapproval."
+            )
+    elif state.get("plan_status") == "awaiting-approval":
+        phase("awaiting native plan approval")
+        steps.append(
+            f"[dev] Display the exact saved plan bytes at {state.get('plan_file')} "
+            "in native Plan Mode. The successful native approval event advances it."
+        )
     elif state.get("plan_status") != "approved":
         phase("planning")
         issue = state.get("issue_key")
-        item = next((entry for entry in load_items(base) if entry.get("key") == issue), None)
-        spec_ref = item.get("spec") if isinstance(item, dict) else None
-        spec = resolve_spec_reference(base, spec_ref, confirmed=True) \
-            if isinstance(spec_ref, str) and spec_ref.strip() else None
-        requirements_grill = load_json(
-            evidence_path(base, issue, "grills/requirements.json"), default={},
-        )
-        requirements_fresh = bool(
-            spec
-            and requirements_grill.get("verdict") == "pass"
-            and requirements_grill.get("commit")
-            and requirements_grill.get("issue") == issue
-            and requirements_digest_matches(
-                base, spec, requirements_grill.get("input_sha256"),
-                requirements_grill.get("commit"),
-            )
-        )
-        if not requirements_fresh:
-            if native_coordinator:
-                steps.append(
-                    "[dev] Native requirements grill question delivery is "
-                    "unavailable in this release. STOP here; LEAN-WORKFLOW owns "
-                    "closing this gap. Do not repeat an unsupported question action."
-                )
-            else:
-                steps.append(
-                    "[dev] FIRST: re-grill the confirmed spec against current repo "
-                    "reality with AskUserQuestion rounds "
-                    "(factory/prompts/griller.md --gate requirements), resolve "
-                    "findings, then record: record_grill_from_json.py --gate "
-                    "requirements"
-                )
-        else:
-            steps.append(
+        steps.append(
                 "[dev] FIRST read the system this plan will assert about — open "
                 "the types, enums, routes, permission codes and decision "
                 "records it will name. Not the architecture note describing "
@@ -467,23 +487,24 @@ def cmd_next(args: argparse.Namespace) -> None:
                 "built. Delegate BREADTH to a read-only Codex run "
                 "(/codex:rescue) when the question is how a whole flow hangs "
                 "together; look up specific facts yourself.")
-            steps.append("[dev] THEN plan per factory/prompts/planner.md, or "
+        steps.append("[dev] THEN plan per factory/prompts/planner.md, or "
                          "deliberately open a bounded "
                          "`./forge quickfix start \"<reason>\"` window. Product writes are "
                          "hook-blocked otherwise (Codex planning alternative: "
                          "planner-high). Authoring is "
                          "mode-agnostic (0050) — do not switch the session's mode "
                          "to write a plan.")
-            steps.append("[dev] Record new decisions as you go: forge.py decision new <slug>")
-            plan_grill = load_json(
+        steps.append("[dev] Record new decisions as you go: forge.py decision new <slug>")
+        plan_grill = load_json(
                 evidence_path(base, issue, "grills/plan.json"), default={},
             )
-            if plan_grill.get("verdict") != "pass" or plan_grill.get("issue") != issue:
-                steps.append("[dev] MANDATORY before approval: grill the plan (/grill-me, or "
+        if plan_grill.get("verdict") != "pass" or plan_grill.get("issue") != issue:
+            steps.append("[dev] MANDATORY before approval: grill the plan (/grill-me, or "
                              "factory/prompts/griller.md --gate plan) and record: "
                              "record_grill_from_json.py --gate plan — plan save refuses without it")
-            steps.append("[dev] On approval: forge.py plan save --from <plan-file> "
-                         f"--story {issue}")
+        steps.append("[dev] Save once: forge.py plan save --from <plan-file> "
+                     f"--story {issue}; then display those exact bytes in native "
+                     "Plan Mode. The successful native approval event advances it.")
     elif state.get("decomposition_status") != "recorded":
         phase("decomposing")
         steps.append(
@@ -496,44 +517,39 @@ def cmd_next(args: argparse.Namespace) -> None:
             "implementing --decomposition-status recorded")
     else:
         issue = state.get("issue_key")
-        tests = load_json(proof_read_path(base, issue, "tests.json"), default={})
-        verify = load_json(proof_read_path(base, issue, "verify.json"), default={})
-        decomp = load_json(evidence_path(base, issue, "decomposition.json"), default={})
-        user_facing = bool(decomp.get("user_facing", True))
-        reviews_missing = [
-            a for a in ("quality", "performance", "security")
-            if not load_json(proof_read_path(base, issue, f"reviews/{a}.json"), default={})
-        ]
         open_stages = require_all_stages_done(base)
-        head = head_sha(base)
-        reviews, review_problems = load_review_artifacts(base, require_head=True)
-        review_problems.extend(require_coherent_review_run(base, reviews))
-        functional = tests.get("functional", {})
-        functional_ready = bool(
-            functional
-            and tests_passed(functional, functional=True)
-            and tests.get("commit") == head
-        )
-        outcome = load_outcome(base) or {}
-        # A task-level run proves itself per task; the story-scoped reads above
-        # describe a story-level run and say nothing about it.
-        from factory_lib import run_is_task_level
-        task_level = bool(decomp.get("tasks")) and run_is_task_level(
-            base, str(issue or ""), decomp.get("tasks"))
-        task_closeout = []
-        if task_level:
-            from factory_lib import require_closeout_order
-            task_closeout = [
-                problem for problem in require_closeout_order(base)
-                if "stage completion" not in problem
-            ]
+        from factory_lib import require_closeout_order
+        task_closeout = [
+            problem for problem in require_closeout_order(base)
+            if "stage completion" not in problem
+        ]
         frontier_state = task_frontier_state(base)
         if open_stages or frontier_state:
             phase("implementing")
             if frontier_state:
                 frontier, task = frontier_state
                 task_id = task["id"]
-                if frontier == "author-contract":
+                from .review import (
+                    selected_generation, triage_workflow,
+                    untriaged_actionable_blocking,
+                )
+                generation = selected_generation(base, issue, task_id)
+                triage_left, actionable_total = untriaged_actionable_blocking(
+                    base, issue, task_id, generation=generation,
+                )
+                if triage_left:
+                    generation_id = str(
+                        (generation or {}).get("generation_id") or "unknown"
+                    )
+                    steps.append(
+                        f"[dev] REVIEW TRIAGE for {task_id}: selected generation "
+                        f"{generation_id} has {triage_left} of {actionable_total} "
+                        "actionable P0/P1 defect finding(s) untriaged. Before any "
+                        f"write delegation, inspect each cited line and run "
+                        f"{triage_workflow(task_id)}. After every actionable row "
+                        f"is triaged, run `./forge delegate {task_id}`."
+                    )
+                elif frontier == "author-contract":
                     steps.append(
                         f"[dev] Author the contract for {task_id} per "
                         "factory/prompts/planner.md against "
@@ -544,7 +560,7 @@ def cmd_next(args: argparse.Namespace) -> None:
                     steps.append(
                         f"[dev] Grill the saved {task_id} plan with `/grill-me` "
                         "(factory/prompts/griller.md --gate task). Because YOU authored "
-                        "the plan, EVERY round starts with a fresh read-only Codex "
+                        "the plan, release one fresh read-only Codex "
                         f"cold-read: `./forge grill run --gate task --task {task_id}` "
                         "(ledgered, so a killed launcher still shows in `forge codex "
                         "status`; it pins the cold reader from harness.yaml) — not "
@@ -552,14 +568,13 @@ def cmd_next(args: argparse.Namespace) -> None:
                         "that Codex run (it can pause on a signal awaiting you). ONE "
                         "cold read is the WHOLE grill. Clean? Record and move on. "
                         "Otherwise resolve every finding the REPO answers yourself, and "
-                        "put only what it cannot answer to the human in THIS grill via "
-                        "AskUserQuestion (recommended answer first) — there is no later "
-                        "round to save the hard ones for. Amend the contract once, then "
-                        "record the digest-bound pass against the AMENDED version. Do "
+                        "put only what it cannot answer to the human through the host's "
+                        "permitted channel. Record an ordered one-to-one disposition "
+                        "and source for every finding, plus an explained amendment bridge "
+                        "to the final digest. Do "
                         "NOT cold-read again: a second unconstrained read returns a "
                         "DIFFERENT frontier, not a shorter one, and that is how grills "
-                        "reached forty rounds. Only a clean grill makes the plan appear "
-                        "on the board. Do NOT ask for approval before it is recorded."
+                        "reached forty rounds. Do NOT ask for approval before it is recorded."
                     )
                 elif frontier == "author-task-plan":
                     steps.append(
@@ -588,19 +603,11 @@ def cmd_next(args: argparse.Namespace) -> None:
                     )
                 elif frontier == "await-approval":
                     steps.append(
-                        f"[dev] The grilled {task_id} plan is ready for review. "
-                        f"{_board_handoff(base)} GIVE THE HUMAN THAT LINK and ask "
-                        "them to open the story and read the plan there — saying "
-                        "\"it is on the board\" without a link is what left the "
-                        "last approval happening blind in chat. Ask for approval "
-                        "EXACTLY ONCE, and only after the grill has converged (a "
-                        "clean round AND the plan is final — no pending edits): "
-                        "the human reviews it THERE (not in chat) and approves; "
-                        f"then record it: `./forge task approve {task_id} --by \"<name>\"`. "
-                        "`task approve` prints the board link again as a courtesy; "
-                        "it does not check that the plan was opened — you do. "
-                        "Do NOT approve after an intermediate grill — a "
-                        "later edit re-stales the approval and forces another round."
+                        f"[dev] The cold-grilled {task_id} plan is ready. Display "
+                        "its exact final bytes in native Plan Mode and ask once. "
+                        "A successful Claude ExitPlanMode or the exact synchronous "
+                        "Codex Approve plan / Request changes / Stop response is "
+                        "recorded automatically; there is no board or manual-approve step."
                     )
                 elif frontier == "stage-start":
                     # Naming only `stage start` sent the work to the trunk's own
@@ -647,7 +654,8 @@ def cmd_next(args: argparse.Namespace) -> None:
                 elif frontier == "verify":
                     steps.append(
                         f"[dev] {task_id} has a successful bound handoff. Run its "
-                        "deterministic verification: python3 factory/scripts/verify.py"
+                        "focused checks while working, then let the task owner run "
+                        f"the final proof: ./forge task close {task_id}"
                     )
                 elif frontier == "commit":
                     steps.append(
@@ -658,8 +666,8 @@ def cmd_next(args: argparse.Namespace) -> None:
                 elif frontier == "tests":
                     steps.append(
                         f"[dev] {task_id} still needs passing task-owned test proof. "
-                        "Run its required tests and record the result with "
-                        "record_test_from_json.py."
+                        "Run focused checks while working; the final required-test "
+                        f"proof belongs to ./forge task close {task_id}."
                     )
                 elif frontier == "functional":
                     steps.append(
@@ -702,13 +710,13 @@ def cmd_next(args: argparse.Namespace) -> None:
                     )
                 elif frontier == "review":
                     steps.append(
-                        f"[dev] {task_id} still needs clean task-owned review proof: "
-                        f"./forge review {task_id}"
+                        f"[dev] {task_id} still needs clean task-owned review proof. "
+                        f"Resume its close owner: ./forge task close {task_id}"
                     )
                 elif frontier == "stage-done":
                     steps.append(
                         f"[dev] {task_id} has its bound handoff and clean proof. "
-                        f"Close the stage: ./forge stage done {task_id}"
+                        f"Finish the integrated close: ./forge task close {task_id}"
                     )
                 elif frontier == "await-merge":
                     steps.append(
@@ -750,32 +758,6 @@ def cmd_next(args: argparse.Namespace) -> None:
             # a prompt starts asking for work the gate already accepted.
             phase("closeout")
             steps.append(f"[dev] {task_closeout[0]}")
-        elif not tests.get("automated"):
-            phase("testing")
-            steps.append("[dev] Record the completed stages' automated proof: "
-                         "record_test_from_json.py --kind automated --input <json>")
-        elif not verify.get("ok") or verify.get("commit") != head:
-            phase("verifying")
-            steps.append("[dev] Run: python3 factory/scripts/verify.py")
-        elif review_problems:
-            phase("reviewing")
-            review_detail = ", ".join(reviews_missing) or "stale or incoherent lenses"
-            steps.append("[dev] Review is ONE three-lens pass PER TASK, run by "
-                         "Codex: `./forge task close <task-id>` runs it (only when "
-                         f"the diff moved) and records all three lenses; repair: {review_detail}. "
-                         "On ANY finding, delegate the fix (`./forge delegate "
-                         "<task-id>`), commit, then rerun `./forge task close "
-                         "<task-id>` — loop until every lens is clean. Findings "
-                         "are work, not a question for the human; do NOT stop "
-                         "between rounds.")
-        elif user_facing and not functional_ready:
-            phase("functional-check")
-            steps.append("[dev] Task is user-facing: run functional-checker and record: "
-                         "record_test_from_json.py --kind functional --input <json>")
-        elif outcome.get("commit") != head or not outcome.get("outcome"):
-            phase("outcome")
-            steps.append("[dev] Record what shipped at the evidence commit: "
-                         "forge.py outcome set \"<what changed and what someone can now do>\"")
         else:
             phase("ready for PR gate")
             from .assumptions import blocking_for_issue

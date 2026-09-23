@@ -31,6 +31,16 @@ def _flat(text: str) -> str:
     return " ".join(text.split())
 
 
+def test_implementer_prompt_keeps_reporting_commands_available():
+    prompt = (HARNESS / "factory" / "prompts" / "implementer.md").read_text(
+        encoding="utf-8")
+    assert "Never run `forge` commands yourself" not in prompt
+    assert "parent-owned lifecycle commands" in prompt
+    for command in ("forge delegate", "forge next", "forge task close",
+                    "forge.py plan assume", "forge.py signal raise",
+                    "forge.py lesson add"):
+        assert command in prompt
+
 
 # --------------------------------------------------- reading is not blocked
 def test_nothing_actually_prevents_reading_the_repo(repo: Path):
@@ -91,28 +101,6 @@ def test_forge_next_makes_reading_a_step_not_a_parenthesis(repo: Path):
     assert "/codex:rescue" in step, "breadth still delegates"
 
 
-# ------------------------------------------------------- the grill skill ---
-def test_the_harness_names_the_skill_a_reader_can_actually_load(repo: Path):
-    """`grill-me` carries disable-model-invocation: no model invokes it.
-
-    It is the human's `/grill-me` alias, redirecting to `grilling`, which
-    holds the technique and which `doctor` mirrors into both runtimes.
-    Instructing a cold reader to load the alias described something that
-    cannot happen.
-    """
-    contract = (HARNESS / "factory" / "prompts" / "griller.md").read_text(
-        encoding="utf-8")
-    assert "LOADS and RUNS the `grill-me` skill" not in contract
-    assert "disable-model-invocation" in contract, (
-        "say WHY the alias is not the thing to load")
-    assert "`grilling`" in contract
-
-    grill = (HARNESS / "factory" / "scripts" / "forge_cli" / "grill.py"
-             ).read_text(encoding="utf-8")
-    assert "installed only on the Claude side" not in grill, (
-        "doctor mirrors grilling into ~/.codex/skills; the claim was false")
-
-
 def test_doctor_requires_the_skill_that_is_used(repo: Path):
     # Requiring the Codex mirror of an un-invocable stub sent anyone missing it
     # to fix something no reader can use.
@@ -123,24 +111,44 @@ def test_doctor_requires_the_skill_that_is_used(repo: Path):
 
 
 # ------------------------------------------------- the unrecordable grill --
-def test_the_frontier_refusal_names_the_remedy(repo: Path):
-    """Twenty-two rounds recorded nothing because of this message.
-
-    The ledger records {question, options, chosen} and never `frontier_empty`,
-    while the provenance check requires the submitted rounds to MATCH the
-    ledger. So building the payload from the ledger — the obvious thing —
-    can never satisfy the gate, and the refusal named the requirement without
-    saying the flag is added by hand.
-    """
+def test_lean_docs_match_single_cold_grill_runtime(repo: Path):
     recorder = (HARNESS / "factory" / "scripts" / "record_grill_from_json.py"
                 ).read_text(encoding="utf-8")
-    start = recorder.index("requires frontier_empty true")
-    message = recorder[start:start + 900]
-    assert "BY HAND" in message
-    assert "ledger never carries this flag" in message
-    # And it must say what to do when the frontier is genuinely NOT closed,
-    # or the flag becomes something to set to get past the gate.
-    assert "has not converged" in message
+    workflow = _flat((HARNESS / "WORKFLOW.md").read_text(encoding="utf-8"))
+    quality = _flat((HARNESS / "docs/QUALITY.md").read_text(encoding="utf-8"))
+    assert "finding_dispositions" in recorder
+    assert "cold_input_sha256" in recorder and "final_artifact_sha256" in recorder
+    assert "one independent cold" in workflow.lower()
+    assert "one independent cold" in quality.lower()
+    assert "frontier_empty" not in recorder and "grill-rounds" not in recorder
+
+
+def test_lean_handoff_and_close_docs_match_runtime_ownership(repo: Path):
+    getting_started = (HARNESS / "docs/getting-started.md").read_text(encoding="utf-8")
+    architecture = (HARNESS / "docs/architecture/dual-coordinator-parity.md").read_text(
+        encoding="utf-8")
+    griller = (HARNESS / "factory/prompts/griller.md").read_text(encoding="utf-8")
+    implementer = (HARNESS / "factory/prompts/implementer.md").read_text(encoding="utf-8")
+    loop = (HARNESS / "docs/specs/accountable-engineering-loop.md").read_text(
+        encoding="utf-8")
+
+    assert "LOCAL autoreview" not in getting_started
+    assert "branch autoreview" not in getting_started
+    for current in ("task proof", "`forge task close`", "combined three-lens",
+                    "delegate fixes and rerun close until clean", "task PR readiness"):
+        assert current in getting_started
+    lean, successors = architecture.split("## Successor ownership", 1)
+    assert "first event bundle" not in lean.lower()
+    assert "Portable also owns the event-family migration" in successors
+    assert "`user_facing` is true exactly for tasks that change frontend or UI behavior" \
+        in griller
+    assert "every user-visible behavior" not in griller
+    for text in (implementer, loop):
+        flat = _flat(text)
+        assert "every assigned requirement" in flat
+        assert "actual focused" in flat
+        assert "remains incomplete" in flat
+        assert "three-lens review remains authoritative" in flat
 
 
 # ------------------------------------------------------------- dead code ---
@@ -156,14 +164,12 @@ def test_the_plan_mode_marker_recording_is_gone(repo: Path):
     assert 'permission_mode") == "plan"' not in hook
     assert '"plan-mode"' not in hook
 
-    # The grill round recording must be untouched — it is what every gate
-    # validates against.
-    assert 'tool == "AskUserQuestion"' in hook
-    assert '"grill-rounds"' in hook
+    assert 'tool == "AskUserQuestion"' not in hook
+    assert '"grill-rounds"' not in hook
+    assert 'tool == "ExitPlanMode"' in hook
 
 
-def test_grill_rounds_are_still_recorded_after_the_removal(repo: Path):
-    # The only branch that matters must still fire end to end.
+def test_optional_questions_do_not_create_grill_authority(repo: Path):
     lib = load_factory_lib(repo)
     control = Path(git(repo, "rev-parse", "--absolute-git-dir")) / "forge"
     control.mkdir(parents=True, exist_ok=True)
@@ -178,10 +184,7 @@ def test_grill_rounds_are_still_recorded_after_the_removal(repo: Path):
         "tool_response": {"answers": {"Does GRN come from SAP?": "SAP"}},
     })
     assert code == 0, out
-    rounds = list(lib.evidence_path(repo, "ENG-1", "grill-rounds").glob("*.json"))
-    assert rounds, "the grill round was not recorded"
-    record = json.loads(rounds[0].read_text(encoding="utf-8"))
-    assert record["questions"][0]["chosen"] == "SAP"
+    assert not lib.evidence_path(repo, "ENG-1", "grill-rounds").exists()
 
 
 # ------------------------------------------------- the TASK plan, equally --
@@ -237,3 +240,22 @@ def test_both_authoring_steps_say_the_same_thing(repo: Path):
                    "look up specific facts yourself"):
         assert shared in story, f"story step lost: {shared!r}"
         assert shared in task, f"task step lost: {shared!r}"
+
+
+def test_normal_review_docs_use_selected_generation_not_fixed_aspect_recorders(
+    repo: Path,
+):
+    docs = [
+        (HARNESS / "AGENTS.md").read_text(encoding="utf-8"),
+        (HARNESS / "WORKFLOW.md").read_text(encoding="utf-8"),
+        (HARNESS / "docs" / "getting-started.md").read_text(encoding="utf-8"),
+        (HARNESS / "factory" / "skills" / "forge.md").read_text(encoding="utf-8"),
+    ]
+    assert "./forge task close <task-id>" in docs[0]
+    assert "forge task close <id>" in docs[1]
+    assert "forge task close" in docs[3]
+    assert "./forge review <task-id>" in docs[2]
+    getting_started = docs[2]
+    assert "selected generation" in getting_started
+    assert "record_review_from_json.py --aspect quality" not in getting_started
+    assert "Lite diagnostics" in getting_started

@@ -24,27 +24,24 @@ red row and rerun the command.
 
 ## Delegation
 
-Native Windows delegation is supported. `forge delegate` launches, supervises,
-and reaps the Codex worker tree on Windows, and a write delegation passes
-`--write` to select the companion's workspace-write sandbox.
+Native Windows delegation is supported through the Codex host's role-based
+subagents. `forge delegate` validates the active task and scope and prepares
+the canonical brief; it does not launch `codex exec`, supervise a process tree,
+or select a sandbox. Spawn the matching configured host role without model,
+reasoning, or sandbox overrides; the selected role's configured defaults apply
+and may pin those values. Raw/direct/nested `codex exec` and direct plugin shell
+launch are off-contract and hook-denied in both runtimes.
 
-An explicitly unelevated sandbox is deferred. The companion does not expose an
-unelevated sandbox option, and Forge does not change user-global Codex
-configuration to simulate one. Run Forge from a normal, unelevated prompt.
+Forge adds no native process/session/PID, foreground/background, status,
+cancel, resume, or recovery restriction. It also makes no mechanical claim
+that a particular native process authored a diff. The active task, matching
+worktree, effective scope, diff measurement, tests, deterministic verify,
+independent review and PR gates
+remain the authority. Run Forge from a normal, unelevated prompt.
 
-The worker's commands run as a separate local account (`CodexSandboxOnline`
-once decision 0068 applies; `CodexSandboxOffline` before it). Codex grants
-that account read access to the whole disk, but Windows ACLs still deny it
-the user profile root (`C:\Users\<you>`) and per-user caches such as
-`%LOCALAPPDATA%\node\corepack` and `%LOCALAPPDATA%\pnpm\store`. Seen
-on a client: Vitest's esbuild config loader walked up from the worktree and
-died with `Cannot read directory "../../../../../..": Access is denied`, and
-`pnpm` failed with `EPERM` before starting because Corepack could not open
-its cache. Forge does not change ACLs. Two remedies were seen to work on that
-client: declare test commands as `node_modules\.bin\vitest ... --configLoader
-runner` (the runner loader does not walk parent folders, and the local binary
-avoids Corepack), or have an administrator grant the two sandbox accounts read
-access to the profile root and those two cache folders.
+The official Claude `codex-plugin-cc` 1.0.6 route still hardcodes its own
+workspace-write/read-only app-server policies. Upstream PR 742 is unreleased
+and task-only; do not patch installed plugin files or claim that route is fixed.
 
 ## Encoding
 
@@ -67,6 +64,10 @@ converging; inside WSL2, follow the normal Linux setup.
 
 ## Review lenses read the worktree
 
+Forge-managed autoreview is unchanged and remains an authenticated external
+black box; the general/manual delegation ban on raw or nested `codex exec` does
+not constrain what that helper invokes internally.
+
 `forge review` starts each lens inside the review worktree, read-only, through
 a launcher that also carries `[windows] sandbox = "elevated"` and the real
 `CODEX_HOME` past the skill's isolation (decision 0076). It needs the elevated
@@ -75,3 +76,10 @@ sandbox set up once on the machine (the `.sandbox` folders under
 policy" or error 1223, and the fix is to run one interactive Codex session
 with the sandbox enabled so it completes set-up. Each run appends the exact
 Codex command it started to `.git/forge/review-launcher/<task>/bin/launch.log`.
+
+Native cold grills do not use that launcher lifecycle. `forge grill run ...`
+prepares one descriptor; Main puts the complete descriptor and context metadata
+in the actual host `spawn_agent` message to `griller`, then records the exact
+returned JSON with `record_grill_from_json.py --cold-result <path>
+--preparation-id <id>` plus the gate/task arguments. Claude keeps its
+command-managed cold-reader lifecycle.

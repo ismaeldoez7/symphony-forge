@@ -5,16 +5,18 @@
   it is the canonical state.
 - An external tracker (Linear, GitHub Issues, Jira) is OPTIONAL: when one is
   used, roadmap stories are mirrored into it. Decomposition and task state
-  remain in the repo under `.factory/decomposition.json` and `plans/`.
+  remain in the repo under `.factory/stories/<key>/decomposition.json` and
+  `plans/`; `.factory/decomposition.json` is upgrade-only legacy input.
 - GitHub mirrors branch, PR, checks, and review evidence.
 - gstack output is PROJECT-LOCAL: `.envrc` pins `GSTACK_HOME` to
   `<repo>/.gstack` (activate with `direnv allow`), so office-hours design
   docs, the decision store, and learnings are committed under
   `.gstack/projects/<slug>/` — shared by every dev, never stranded in a
   personal `~/.gstack`. Machine noise (sessions, analytics, browser profiles)
-  is gitignored; JSONL stores union-merge via the `jsonl-append` driver
-  (registered per clone by the SessionStart hook), so concurrent devs never
-  conflict. History already in a personal store: `./forge gstack migrate`.
+  is gitignored. Append-only Forge ledgers use one record per file; remaining
+  legacy JSONL stays readable and uses Git's built-in `union` driver while it
+  lasts. No custom merge driver is registered. History already in a personal
+  store: `./forge gstack migrate`.
 - Product intent lives in `docs/product/BRIEF.md`.
 - Architecture and decision docs live in the repo under `docs/architecture/` and `docs/decisions/`.
 - Durable project facts live under `docs/memory/`; SessionStart injects its
@@ -22,9 +24,34 @@
 - `docs/decisions/` overrides ambiguous or conflicting architecture guidance.
 
 ## Runtime Modes
-Claude Code coordinates; Codex executes (local sessions and subagents).
-The stack is Claude Code + Codex, deliberately: any future
-orchestration must produce the same `.factory` artifacts.
+Either Claude Code or native Codex coordinates the same Forge phase engine.
+Claude dispatches protected work through `codex-plugin-cc`. Native Codex uses
+the host's role-based `spawn_agent` subagents. Dispatch passes no model or
+reasoning override, so the selected configured role's defaults apply. Both
+routes preserve the active task, worktree and effective scope and produce the same
+`.factory` artifacts, but native delivery deliberately has no Forge-managed
+process identity or lifecycle proof.
+
+Start the coordinator session, Claude Code or native Codex, inside the
+worktree you are working in. Every Forge hook (native approval, the write
+lockout, the grill and delegation recorders) resolves the repository from the
+session's working directory. A session started in another checkout runs that
+checkout's hooks against the wrong repository: native Plan Mode approval records
+nothing and the gates cannot see the work. Open a new session in the task
+worktree rather than pointing an existing one at it.
+
+The main coordinator model and reasoning remain the user's and host's choice.
+Decision 0083 routes native roles by work: Luna/max handles routine
+implementation, automated tests, diagnosed or review fixes, documentation
+edits, and mechanical refactors; Sol/medium handles read-heavy exploration and
+dependency tracing; Sol/high handles planning, decomposition, difficult
+diagnosis, independent grills, and final functional checks. A difficult
+diagnosis returns its resolved edit to the Luna/max execution role. A delegated
+or lite thread is the task lead on Sol/medium; it hands edits to Luna/max
+subagents. Formal code
+review stays exclusively with the unchanged, externally maintained Autoreview
+skill, which may choose its own internal Codex or agent calls. No Forge or
+native lane selects Luna/low.
 
 ### Workflow Modes
 
@@ -78,6 +105,21 @@ non-passing, or stale record. Other verdicts land in
 `record_grill_from_json.py` (schema-validated, `generated_by: griller`).
 Findings must resolve into contract/doc edits or decision records before a
 `pass` is recordable.
+
+In native Codex, `./forge grill run --gate plan --file <plan-file>` prepares
+one self-contained descriptor bound to the exact artifact and returns its
+preparation ID; it launches no helper or `codex exec`. Main puts the complete
+descriptor, including all context metadata, in the actual message to the
+configured `griller` role. It then records that subagent's exact JSON with
+`python3 factory/scripts/record_grill_from_json.py --gate plan --input
+<grill-json> --input-digest <plan-file> --cold-result <path>
+--preparation-id <id>`. A native task grill uses `./forge grill run --gate
+task --task <id>` and `python3 factory/scripts/record_grill_from_json.py --gate
+task --task <id> --input <grill-json> --cold-result <path>
+--preparation-id <id>`; task gates have no `--input-digest`. The recorder
+validates the result/preparation binding without PID, session, or
+process-lifecycle proof. Claude retains the protected command-managed
+cold-reader lifecycle.
 
 ## Context Inbox & Doc Upkeep
 
@@ -141,7 +183,8 @@ session. The `/forge` Claude skill routes all of this.
 
 ## Recurring Findings — a design signal
 
-Review findings accumulate per task (`.factory/history/<issue>/reviews/`;
+Review findings accumulate per task
+(`.factory/stories/<issue>/tasks/<task>/reviews/`;
 findings are structured `{category, area, summary}` per the review schema).
 `./forge findings patterns` clusters them by class; `forge next` and
 `pr_ready` surface any class recorded 3+ times. The rule (decision record
@@ -199,10 +242,11 @@ unchanged failures require a diagnosed and tested fix before another model run.
 
 ## Event-Driven Delegation — signals
 
-Delegation is not fire-and-forget. While a delegated companion runs, the
-orchestrator WATCHES `.factory/signals.jsonl` (Claude's Monitor tool on the
-file, alongside the companion job status). Stage write launches run in the
-foreground; only read-only exploration may run in the background. A worker raises a
+Delegation is not fire-and-forget. Under Claude, the orchestrator watches
+`.factory/signals.jsonl` and the plugin companion job. Under native Codex, it
+uses the host's ordinary subagent coordination features; Forge adds no
+foreground/background, status, cancel, resume, process, session or PID rules.
+A worker raises a
 signal the moment it hits a `contradiction` (plan vs decision vs doc),
 genuine `confusion`, a hard `blocked`, or a `scope-change` — via
 `forge.py signal raise --kind <k> --by <agent> -m "<sentence>"` — and PAUSES
@@ -236,8 +280,8 @@ burden is on ESCALATING, never on deciding.
 Signals are schema-validated (`factory/schemas/signal.json`, attested
 `generated_by`), surfaced by `forge next` and the session-start hook, and
 OPEN SIGNALS BLOCK `pr_ready` — an unanswered contradiction cannot ship.
-The channel is task-scoped: archived to `.factory/history/<issue>/` and
-cleaned at ship, like all task evidence.
+The channel records story and task identity in the append-only signal ledger;
+shipping does not erase that history.
 
 ## Determinism Contract
 
@@ -285,10 +329,11 @@ downstream remains enforced at the artifact gates.
 Decision 0032 adds a deterministic per-task grill to Full-mode execution. For
 each pending leaf the prescribed order is author the contract → re-record the
 decomposition → pass the digest-bound `task` grill → `forge stage start`
-→ `forge delegate`. `stage start` establishes the measured work boundary;
-the write-delegation path is the hard enforcement point and refuses a missing,
-non-passing, or stale `.factory/grills/tasks/<id>.json`. Read-only delegation
-does not cross that write gate.
+→ `forge delegate`. `stage start` establishes the measured work boundary and
+`forge delegate` validates it, refusing a missing, non-passing, or stale
+`.factory/grills/tasks/<id>.json`. In native Codex the coordinator then spawns
+the matching host role from the prepared brief; in Claude the command launches
+the protected plugin companion.
 
 The PR boundary has one client-vendored CI contract:
 `.github/workflows/roadmap-gate.yml`. On pull requests it requires every
@@ -334,14 +379,15 @@ history, but are exempt from the newer outcome and link requirements.
 `plans/roadmap.json` is the durable, ordered backlog — the role handoff
 artifact (see `docs/ROLES.md`). Its epics and stories are derived from
 confirmed capability specs before sign-off, never hand-authored. Every story
-links its source spec. The roadmap survives every task cycle:
-task-scoped `.factory/decomposition.json` is cleared on each intake, but the
-roadmap is not. Items carry `story`, `acceptance_criteria`, `epic`, `spec`,
+links its source spec. The roadmap survives every task cycle. Story-scoped
+decomposition remains at `.factory/stories/<key>/decomposition.json`, while
+the active-story pointer is worktree-local. Items carry `story`,
+`acceptance_criteria`, `epic`, `spec`,
 `skill` (frontend|backend|fullstack), and `assignee` (set by
 `forge roadmap assign`, validated against the optional `plans/team.json`
 roster, preserved across re-imports). Item lifecycle: `pending` → `active`
-(set by intake) → `done` (set by `pr_ready.py`, with a link to
-`.factory/history/<issue>/`). `forge next` suggests the next pending item
+(set by intake) → `done` (set by story closeout, with a link to
+`.factory/stories/<key>/`). `forge next` suggests the next pending item
 and flags unassigned ones to the EM. Scope changes are PR edits to the
 file — future planning refines the roadmap, it does not silently regenerate
 it; the per-task plan must satisfy the item's `acceptance_criteria`.
@@ -350,36 +396,21 @@ In vendored clients, `.github/workflows/roadmap-gate.yml` arms only when
 an absent or valid epic-less roadmap leaves its gates green, while malformed
 roadmap JSON fails the arming step loudly.
 
-## Concurrency — one story per worktree
+## Concurrency — one worktree and PR per task
 
-Run state is branch-scoped by decision (docs/decisions): each story gets its
-own isolated worktree and branch (intake names it `feat/<key>-<slug>`), carrying its own committed
-`.factory/` state through the loop; `pr_ready.py` archives to
-`.factory/history/<issue>/` before merge, so main only ever accumulates
-history. One active story per worktree — parallel stories = parallel worktrees.
-Roadmap status flips (`active`/`done`) happen on the task branch and merge
-normally; the JSONL stores under `.gstack/` union-merge via the
-`jsonl-append` driver.
+Each leaf task owns an isolated worktree, branch, proof set, and PR. A task
+starts from refreshed trunk only after its dependency markers are present;
+dependency-ready tasks may advance together when their measured scopes are
+disjoint. Story evidence remains under `.factory/stories/<key>/` and ships in
+place, so closeout creates no archive-move conflict.
 
-**The orchestrator parallelizes aggressively when requirements separate.**
-`depends_on` edges on roadmap items are the deterministic separation signal
-(the decomposer derives them from real build-wave dependencies, never blanket
-ordering); `./forge roadmap parallel` prints the ready frontier — pending
-stories whose dependencies are all done — with a `git worktree add` + intake
-command per story. Each worktree is a full checkout on its own branch with
-its own `.factory/` state, so every gate (plan mode lock, plan grill,
-recorders, ship gate) applies per story, concurrently. Implementations may run
-concurrently across those story worktrees. Convergence
-is designed to be conflict-free: `pr_ready.py` DELETES the task-scoped
-`.factory/` state after archiving it (history keeps the record) and reduces
-`run.json` to project fields + `last_shipped`, so merging story branches
-collides on nothing but `plans/roadmap.json` status flips — and
-`./forge roadmap heal` resolves those deterministically (union by key,
-further-along status wins; mid-merge it rebuilds from the merge stages).
-Commit the archive when `pr_ready` tells you to: evidence that isn't
-committed isn't merged.
+Dependency-ready stories may also advance concurrently. `depends_on` edges on
+roadmap items are the deterministic separation signal, and `./forge roadmap
+parallel` prints that ready story frontier. Each worktree uses a git-local
+active pointer while reading the same story-scoped contracts. `./forge roadmap
+heal` resolves concurrent roadmap status changes with its done-wins union.
 
-**Tasks inside one story run in parallel too, when the plan allows it.** The
+**Tasks inside one story may run in parallel when the plan allows it.** The
 order is the task dependency graph (`dependencies` in the decomposition; a task
 without an explicit list follows its predecessor), not the list. `forge task
 start <id>` opens a task's worktree once every dependency's marker is on the
@@ -416,20 +447,35 @@ sequence a JIT contract loop for every pending task:
 2. re-record the decomposition with that contract, then save the plan-mode
    result at `.factory/stories/<KEY>/task-plans/<id>.md`
 3. run `factory/prompts/griller.md` with `--gate task` against that saved
-   revision, resolve its findings, and record the pass for that id:
-   `record_grill_from_json.py --gate task --task <id>`
+   revision and resolve its findings. Native Codex prepares the griller
+   descriptor, dispatches the full descriptor through `spawn_agent`, and
+   records the exact returned JSON with
+   `python3 factory/scripts/record_grill_from_json.py --gate task --task <id>
+   --input <grill-json> --cold-result <path> --preparation-id <id>`; Claude
+   keeps its command-managed cold-reader path
 4. record the human task-plan approval against the same saved revision;
    changed approval-bound content follows the existing amendment route
-5. `forge stage start <id>` (strictly order-enforced; task-level `--parallel`
-   is refused)
-6. `forge delegate <id>` composes the task brief and launches the installed
-   companion in the foreground with write access derived from stage state;
-   this is the hard gate that refuses a missing, failed, or stale task grill
+5. `forge stage start <id>` (dependency and scope eligibility are derived;
+   task-level `--parallel` is refused)
+6. `forge delegate <id>` composes and validates the task brief. In native
+   Codex it records a preparation row bound to task, worktree, stage, brief
+   digest and effective or narrowed scope, prints dispatch information, and
+   the coordinator spawns the matching
+   configured role without model/reasoning overrides; that role's configured
+   defaults apply. It never invokes `codex exec`. Raw/direct/nested
+   `codex exec` and direct plugin shell launch remain off-contract and
+   hook-denied for general or manual delegation in both runtimes. This ban does
+   not constrain the authenticated Forge-managed autoreview black box, which
+   may invoke Codex or agents internally. In Claude
+   it launches the protected plugin companion. The command refuses a missing,
+   failed, or stale task grill
 7. the orchestrator inspects the diff and rejects overbuilt code
 8. that stage's assumption rows are validated (`forge assumptions list --open`)
 9. smallest relevant checks run
-10. commit the product changes, run deterministic verify, and record the task's
-    automated tests.
+10. record the implementer's focused automated-test evidence, including every
+    assigned acceptance result and remaining risk, then commit the completed
+    product changes. Check all declared selectors and prerequisites together;
+    do not run a standalone task-wide verifier before the next step.
 11. `forge task close <id>` — one resumable command from a built task to its
     open PR. It requires a clean committed product tree and no open signal,
     window or assumption; derives the product delta (`delta_id`, the hash of
@@ -442,30 +488,39 @@ sequence a JIT contract loop for every pending task:
     line, never guessed; "cannot verify from the diff" is not a verdict. One Codex helper call publishes one
     immutable raw-plus-three-lens generation, then selects its task-scoped
     pointer last. Before closing the stage, `close` requires complete task-owned
-    automated proof and conditional functional proof.
+    automated proof and conditional functional proof. For a `user_facing: true`
+   task, close stops until functional proof is recorded; record it, then rerun
+   `./forge task close <id>` so the unchanged selected review is reused and the
+   stage is sealed.
 
     A run with no blocking (P0/P1) finding stamps the stage; non-blocking
     findings are recorded follow-ups. The coordinator sends all blocking
     findings from the joined round back to Codex in one fix batch (`forge
     delegate <id>`), commits the fix, and reruns `close`; it never asks the
-    human who should fix them. It never relays a finding unread: the
-    coordinator TRIAGES each one first -- opens the cited line and the code it
+    human who should fix them. Before a write delegation, `forge next`,
+    `delegate`, and `task close` all enforce triage of the selected generation's
+    actionable P0/P1 defect findings. Synthetic `plan-contract-partial` and
+    `plan-contract-missing` rows remain acceptance blockers to implement and
+    re-review, but are not host defect triage.
+    The coordinator never relays a finding unread: it TRIAGES every actionable
+    one first -- opens the cited line and the code it
     calls, decides real or not with a file:line it read, and for a real one
     searches the repo for every other place the same contract applies -- and
     records it (`forge review <id> --triage "<text>" --lens <l> --real
     --evidence <file:line> --instance <file:line> ... [--keep "<what must not
     change>"] --by <agent>`, or `--not-a-defect --evidence <file:line> --reason
     ...`). The fix brief carries the triage beside each finding, and `forge
-    delegate` warns on any left without one. A finding relayed unread is how
+    delegate` refuses a write launch while any actionable selected-generation
+    finding is untriaged. Read-only and print-only previews grant no write
+    authority. A finding relayed unread is how
     one class of defect costs one round per file (WF-1 T5: six reviews, eight
     fix rounds; decision 0075). A finding that contradicts an accepted decision,
     a plan section or a sealed contract is not a defect: `forge review <id>
     --reject "<text>" --lens <l> --reason ... --cite
     <decision|contract|section> --by <agent>` records the rejection and the
-    settled contract. The one exception to re-delegating is a fix that cannot
-    be verified inside the companion sandbox (for example, it needs Docker or a
-    folder its account cannot read): use the bounded degraded route and record
-    the host exception.
+    settled contract. On the Claude route, a fix that cannot be verified inside
+    the plugin companion sandbox uses the bounded degraded route and records the
+    host exception. Native subagents use the host environment directly.
 
     With clean proof and review, `close` measures the task, marks the stage done,
     writes the task marker, pushes, and opens the PR. It stops at the first
@@ -474,15 +529,20 @@ sequence a JIT contract loop for every pending task:
     `close` with its base, contract and approval intact. Write-scope strays, a
     review-budget overrun and a required-test id that matched no JUnit case are
     measured and recorded, not refused. A delta above twice the declared line
-    budget still refuses. A closed degraded window with at most five in-scope
-    files may satisfy the stage's write launch when no Codex launch exists.
+    budget still refuses. Native closeout requires the current preparation row,
+    including any narrowed scope, but no launch-process proof. On
+    the Claude route, a closed degraded window with at most five in-scope files
+    may satisfy the companion-launch requirement when the plugin is unavailable.
 
    What each closeout record binds to — and so what can stale it:
-   the review stamp binds to `delta_id` and nothing else (a contract
-   re-record, a decision record, a scope amendment or an evidence commit
-   changes no product byte and stales no review); the delegate launch binds
-   to the stage (Codex wrote inside it; the contract at launch time is kept as
-   evidence, not required to match); after stage start the task grill binds to
+   the review stamp binds to the product `delta_id` and the substantive
+   reviewed meaning. Canonicalized bookkeeping changes, including the
+   independently recorded functional continuation, do not stale that meaning;
+   a contract, acceptance, security, migration, evidence, review-instruction,
+   or product change does. The prepared delegation binds
+   the brief and effective scope. Claude additionally records its protected
+   companion launch, while native delivery deliberately records no process
+   attribution; after stage start the task grill binds to
    objective, acceptance criteria, plan contracts, `user_facing` and the plan
    (`write_scope`, `required_tests` and `verify_commands` are MEASUREMENT
    fields — `stage done` enforces them by measuring and running them, so
@@ -515,13 +575,13 @@ its marker to the trunk (via the reconcile PR) and the frontier advances. This
 is a reconcile, not a shortcut: it refuses when the work is not genuinely on the
 trunk, so it can never fabricate a ship.
 
-There is ONE review per task. `forge review` produces
+There is ONE review per task. `./forge review <task-id>` produces
 `.factory/stories/<KEY>/tasks/<id>/reviews/*` and the stage's review stamp in the same run (decision 0001 D6:
 the recorded review is the only review gate); no separate stage-local review
 loop exists, and `record_review_from_json.py --aspect stage-local` remains
 only as a manual fallback. `pr_ready.py` refuses while any stage is not done
-or its stamp is stale; `forge next` shows stage progress; the tracker archives
-to `.factory/history/<issue>/` at ship.
+or its stamp is stale; `forge next` shows stage progress; task and story proof
+remain at their scoped `.factory/stories/<issue>/` paths after ship.
 
 The loop is AUTONOMOUS between gates (conduct §7): a clean review IS
 the permission to close the stage and ship the task — the orchestrator never
@@ -535,25 +595,25 @@ the approved plan, a human-only act, or scope the plan does not cover.
 After task-plan sign-off, the division of labour is FIXED, so a task never
 stalls on "should I do this or hand it to Codex?":
 
-- **Every product change is Codex's, via `forge delegate`.** Not only the
-  initial implementation — EVERY fix that diff inspection, the checks, verify,
-  or autoreview demand. A one-line config tweak, a dependency bump, a test
-  rename, a "trivial" correction: each is a fresh `forge delegate` against the
-  same contract, then re-inspect / re-review. The coordinator NEVER edits a
-  product file (app code, config, tests, schema, fixtures — anything that lands
-  in the committed diff) with its own hands.
+- **Every product change is assigned to a Codex worker.** In native Codex,
+  `forge delegate` prepares the canonical dispatch and Main sends it to the
+  matching role-based host subagent. In Claude, `forge delegate` launches the
+  protected plugin companion. Every implementation or review-fix batch follows
+  the same task contract, then Main re-inspects and re-reviews it. Native mode
+  follows this ownership rule without pretending Forge can mechanically
+  distinguish Main from a host subagent process.
 - **The coordinator's hands do only orchestration:** author task contracts,
-  compose briefs, delegate, commit, and run `forge task close` — which runs
-  the proof ONCE, records it, reviews and ships (0079); the coordinator does
-  not re-run the suite or `verify.py` by hand before it — and, when the story
-  reaches a PR, review that PR.
+  compose briefs, delegate, inspect the bounded diff and focused checks, then
+  run `forge task close` — which runs the proof ONCE, records it, reviews and
+  ships (0079); the coordinator does not re-run the suite or `verify.py` by
+  hand before it — and, when the story reaches a PR, review that PR.
 - **Commit is not a human gate.** After inspecting the bounded diff and green
   focused checks, the coordinator commits the product changes. Deterministic
   verify, task test recording and `forge review <id>` follow that commit;
   clean proof permits stage closure and publication (conduct §7 autonomy).
   Continue without asking for another permission to commit.
-- **The one exception — a logged host-exception.** When a required product
-  change is PROVABLY impossible in the companion's environment (no Docker, or
+- **The Claude exception — a logged host-exception.** When a required product
+  change is PROVABLY impossible in the plugin companion's environment (no Docker, or
   a folder its sandbox account cannot read, that the change or its verification
   needs — the network and the local database are reachable since decision 0068),
   the coordinator may make the MINIMAL change on the host and MUST record why
@@ -565,23 +625,31 @@ visibility of what it does versus what it delegates, and only genuine
 human-only acts (decisions, sign-off) or unresolvable gate refusals pause it.
 
 ## Task Planning
-Per-task planning runs in Claude Code plan mode — enforced, not advisory
-(decision 0048): the task plan is authored in plan mode (the PostToolUse
-hook records its plan-mode marker), then the task grill delivers its rounds
-through AskUserQuestion until `frontier_empty`, then a human approves
-(`forge task approve --by`), then `stage start`, then `delegate`. A task
-plan without a marker, or a grill whose rounds are not in the ledger, is
-refused by the recorders. (Exploration
-delegated to Codex: `/codex:rescue --model gpt-5.6-sol --effort low` —
-read-only by default, never Claude Code itself, never raw `codex exec`; plan
-validation and architecture work use `--model gpt-5.6-sol --effort high`,
-still read-only, while debugging fixes stay with the Sol/medium implementer);
-devs may instead use the
-`planner-high` Codex agent — the contract is identical either way. The plan follows
+Story and task plans use the coordinator's native Plan Mode. Each plan gets
+one independent cold read at Sol/high. The cold proof binds the exact input it
+read; `finding_dispositions` maps every finding, and `amendments` explains every
+change between that input and the final artifact. If an already approved plan
+changes before stage start, record that amendment bridge against the existing
+cold proof and return directly to native approval of the exact amended digest;
+do not launch a second cold read solely for changed bytes. The exact final plan
+is then shown in Plan Mode. A successful Claude `ExitPlanMode` binds its exact
+`tool_input.plan`; Codex uses the synchronous `approve_plan_<digest>` question
+`Approve exact plan digest <digest>?` with `Approve plan / Request changes / Stop`
+and an id-keyed answer. Either records the human
+approval against the final digest through the shared recorder. There is no
+requirements grill, compulsory human round, `frontier_empty` question, manual
+`plan approve` / `task approve` command, board approval, or second unchanged
+save in the normal flow. Claude delegates read-heavy exploration through
+`/codex:rescue --model gpt-6-sol --effort medium`, read-only, and uses
+Sol/high for validation or architecture; it never runs raw `codex exec`.
+Native Codex uses the configured `planner-high` role through host `spawn_agent`
+without an override; that role's Sol/high defaults apply. Decomposition uses
+Sol/high, difficult diagnosis uses Sol/high before its Luna/max fix, and the
+independent grill uses Sol/high. The plan follows
 `factory/prompts/planner.md`, including the mandatory **Decisions** section: every choice not derivable from BRIEF,
 architecture, or existing records becomes a `docs/decisions/` record
-(`forge.py decision new`) before decomposition is recorded. Approval means the
-plan is in-repo — `forge.py plan save --from <plan-file>` writes
+(`forge.py decision new`) before decomposition is recorded. `forge.py plan
+save --from <plan-file>` writes the exact awaiting-approval plan to
 `plans/active/<issue>-<slug>.md`. The draft frontmatter lists every ID from
 `forge decision list --active`, and `--story <key>` binds it to the roadmap;
 open contradiction signals or incomplete decision coverage refuse the save.
@@ -602,23 +670,23 @@ to the dev, not an assumption.
 
 ## Artifacts
 Required run artifacts:
-- `.factory/run.json`
+- `.factory/stories/<key>/run.json`
 - `plans/active/<issue>-<slug>.md` (the approved plan)
-- `.factory/decomposition.json`
-- `.factory/verify.json`
-- `.factory/tests.json`
-- `.factory/reviews/quality.json`
-- `.factory/reviews/performance.json`
-- `.factory/reviews/security.json`
+- `.factory/stories/<key>/decomposition.json`
+- `.factory/stories/<key>/tasks/<id>/verify.json`
+- `.factory/stories/<key>/tasks/<id>/tests.json`
+- `.factory/stories/<key>/tasks/<id>/reviews/selected.json`
+- `.factory/stories/<key>/tasks/<id>/reviews/generations/<sha256>.json`
 
 Every evidence artifact is stamped with the commit it was recorded at.
 `pr_ready.py` refuses unstamped artifacts, artifacts spanning different
-commits, and evidence recorded before the latest code change (commits touching
-only `.factory/`, `plans/`, or `docs/` do not invalidate evidence).
+commits, and evidence whose proof-type inputs or substantive reviewed meaning
+changed. Canonicalized bookkeeping and timestamps preserve immutable original
+provenance when those inputs remain unchanged.
 
-On PR-ready, `pr_ready.py` archives the run artifacts to
-`.factory/history/<issue>/` and moves the plan to `plans/completed/` — the
-durable record of what was decided and what was built.
+On scoped story closeout, `pr_ready.py` writes `shipped.json` in place and
+keeps the story plan and evidence at their recorded paths. Legacy unscoped
+stories still archive until `forge upgrade` migrates them.
 
 ## Execution Order
 1. ensure architecture and decision docs are present in-repo
@@ -626,15 +694,34 @@ durable record of what was decided and what was built.
 3. confirm every spec, then derive the roadmap from the specs
 4. record client sign-off
 5. plan one roadmap story and record its ordered task list
-6. for each leaf task: author its contract, re-record the decomposition, pass
-   the `task` grill, save and approve its per-task plan artifact, start the
-   stage, then delegate it; the implementer writes, runs, and records the tests
-7. after all stages are done, run ONE branch autoreview pass (three lenses)
-   and record the three review artifacts
-8. run `python3 factory/scripts/verify.py`
-9. run `functional-checker` when the decomposition has `user_facing: true`
-10. record the shipped outcome with `./forge outcome set "<what changed>"`
-11. run `python3 factory/scripts/pr_ready.py`
+6. for each leaf task: author its complete contract, re-record the
+   decomposition, run one independent cold task grill (native: run `./forge
+   grill run --gate task --task <id>`, include the complete descriptor and its
+   context metadata in the actual `spawn_agent` message, then record the exact
+   result with `python3 factory/scripts/record_grill_from_json.py --gate task
+   --task <id> --input <grill-json> --cold-result <path>
+   --preparation-id <id>`), record every finding's
+   disposition and amendment, obtain native approval of the final task-plan
+   digest, start the stage, then delegate it through the canonical host-native
+   descriptor; native Codex
+   spawns the matching host role and Claude launches the plugin companion.
+   `delegate --scope` may repeat to select a proper subset of the approved
+   effective scope, while omission uses the full scope
+7. after implementation, run `./forge task close <task-id>` as the integrated
+   normal operation: it runs the task's tests and deterministic verify, or
+   reuses passing receipts only when their complete identities are unchanged;
+   unknown command shapes run again conservatively. It runs or safely reuses
+   the one complete review and finishes the stage only when that proof is
+   clean and current
+8. if close reports blocking review findings, delegate the fixes and rerun the
+   same integrated close operation; selected proof reuses only while its
+   stamp-token delta, complete proof identities, and reviewed-meaning identity
+   are unchanged
+9. run the Sol/high `functional-checker` when the task has `user_facing: true`
+10. after supported functional recording, rerun `./forge task close <task-id>` to
+    finish, seal, and open the task PR
+11. record the shipped outcome with `./forge outcome set "<what changed>"`, then
+    run `python3 factory/scripts/pr_ready.py` for story readiness
 
 ## PR Ready Contract
 A branch is PR-ready only when:
@@ -642,5 +729,6 @@ A branch is PR-ready only when:
 - decomposition status is `recorded`
 - deterministic verification passes
 - automated and functional test artifacts exist with no blockers
-- all three review artifacts exist with score >= 8 and no blockers
+- the task's selected review generation contains all three lenses with score
+  >= 8 and no blockers
 - acceptance criteria have direct evidence

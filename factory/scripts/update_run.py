@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import argparse
 from factory_lib import (
-    client_signoff, decomposition_state_path, dump_json, load_json, now_iso, repo_root,
-    review_dir, run_state_path, tests_state_path, verify_state_path,
+    client_signoff, decomposition_state_path, dump_json, load_json,
+    now_iso, repo_root, run_state_path, selected_review_ready_for_functional_check,
+    tests_state_path, verify_state_path,
 )
 
 parser = argparse.ArgumentParser(description="Update factory run state")
@@ -28,6 +29,8 @@ GATED_PHASES = {
     "functional-check",
     "pr-ready",
 }
+
+
 PHASE_PREREQS = {
     "reviewing": (
         ("successful .factory/verify.json",
@@ -35,10 +38,9 @@ PHASE_PREREQS = {
         (".factory/tests.json",
          lambda base: tests_state_path(base).is_file()),
     ),
-    "functional-check": tuple(
-        (f".factory/reviews/{aspect}.json",
-         lambda base, name=aspect: (review_dir(base) / f"{name}.json").is_file())
-        for aspect in ("quality", "performance", "security")
+    "functional-check": (
+        ("the active task's current clean selected review generation",
+         selected_review_ready_for_functional_check),
     ),
 }
 
@@ -60,7 +62,8 @@ IMPL_PHASES = {"implementing", "testing", "reviewing", "functional-check", "pr-r
 
 issue = state.get("issue_key", "")
 plan_files = list((root / "plans" / "active").glob(f"{issue}-*.md")) if issue else []
-# Approval is `forge plan save` and nothing else. Accepting the flag here let
+# Approval follows `forge plan save` and the native approval recorder. Accepting
+# the flag here let
 # a locked worker hand-write plans/active/<issue>-x.md (plans/ is writable
 # during planning), flip this field, and skip every gate plan save enforces —
 # grill digest, decisions_reviewed coverage, contradiction signals, Surface
@@ -68,9 +71,10 @@ plan_files = list((root / "plans" / "active").glob(f"{issue}-*.md")) if issue el
 if args.plan_status == "approved":
     raise SystemExit(
         "plan_status 'approved' is set only by "
-        "`python3 factory/scripts/forge.py plan save --from <plan-file>`, which "
-        "runs the approval gates. update_run.py cannot set it: approval is the "
-        "saved plan, not this flag."
+        "the native approval recorder after `python3 factory/scripts/forge.py "
+        "plan save --from <plan-file>` saves the candidate as awaiting approval. "
+        "update_run.py cannot set it: approval is the consumed native event, "
+        "not this flag."
     )
 if args.phase in IMPL_PHASES:
     effective_plan_status = args.plan_status or state.get("plan_status")

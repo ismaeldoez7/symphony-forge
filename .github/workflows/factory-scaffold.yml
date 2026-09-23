@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       # This workflow is VENDORED into every client repo, so each step has to be
       # true in both places. The checks below are: they lint whatever repo they
       # find. The last two are not — they exercise the harness's own machinery
@@ -135,7 +137,8 @@ jobs:
             factory/tests/test_gates.py::test_doctor_psutil_row_required_and_fix_installs `
             factory/tests/test_gates.py::test_windows_delegation_launches_and_reaps `
             factory/tests/test_gates.py::test_windows_delegation_success_round_trips_unicode_handoff `
-            factory/tests/test_gates.py::test_companion_guard_admits_read_only_and_refuses_write_shapes `
+            factory/tests/test_delegate_scope.py::test_context_file_native_windows_protected_dacl_owner_reopen_and_stale_cleanup `
+            factory/tests/test_gates.py::test_companion_guard_refuses_every_direct_launch_shape `
             factory/tests/test_gates.py::test_lockout_denies_product_write_under_approved_plan `
             factory/tests/test_gates.py::test_degraded_window_allows_and_ledgers_product_write `
             factory/tests/test_raw_writes_keep_bytes.py -q

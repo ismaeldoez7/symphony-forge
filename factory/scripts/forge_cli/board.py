@@ -12,11 +12,10 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from factory_lib import (
-    record_plan_view,
-    task_evidence_path,
+    plan_digest_without_assumptions,
+    read_selected_review_generation, task_evidence_path,
     evidence_path, load_json, now_iso, parse_sections,
-    plan_digest_without_assumptions, repo_root, run_state_path, story_dir, task_rows,
-    proof_read_path,
+    repo_root, run_state_path, story_dir, task_rows, validated_task_marker_commit,
 )
 
 # Shipped/archived plans move out of active|completed; scan debt too or a
@@ -29,7 +28,7 @@ from . import fscache
 from .assumptions import open_count as open_assumptions
 from .decisions import decision_records
 from .plans import parse_frontmatter
-from .quickfix import ledger_path, load_active
+from .quickfix import load_active
 from .readiness import review_passed, tests_passed, verify_passed
 from .roadmap import load_roadmap, ready_pending
 from .signal import open_signals
@@ -85,23 +84,29 @@ def _stages_for(base: Path, story: str) -> dict:
 ASPECTS = ("quality", "performance", "security")
 
 
-def task_proof_records(base: Path, key: str, task_id: str) -> dict | None:
+def task_proof_records(
+    base: Path, key: str, task_id: str, *, task_status: str | None = None,
+) -> dict | None:
     """A task's own proof: its verify.json, tests.json and the three lenses of
-    its selected review generation (the fixed lens files for a task recorded
-    before the generation store, decision 0069). None when nothing is
-    recorded. Proof became task-owned and the review became one selected
-    generation; the board kept reading story-level fixed files and showed
-    every task-level story as "not recorded" (WF-1A, 2026-09-15)."""
+    its selected review generation. None when nothing is recorded."""
     try:
         verify = load_json(task_evidence_path(base, key, task_id, "verify.json"), default=None)
         tests = load_json(task_evidence_path(base, key, task_id, "tests.json"), default=None)
     except ValueError:
         return None
+    selected_recorded = task_evidence_path(
+        base, key, task_id, "reviews/selected.json",
+    ).is_file()
     reviews: dict[str, dict | None] = {aspect: None for aspect in ASPECTS}
     generation = None
     try:
-        from factory_lib import read_selected_review_generation
-        generation, _selection, problems = read_selected_review_generation(base, key, task_id)
+        generation, _selection, problems = read_selected_review_generation(
+            base, key, task_id,
+            sealed_commit=(
+                validated_task_marker_commit(base, key, task_id)
+                if task_status == "done" else ""
+            ),
+        )
         if problems:
             generation = None
     except (SystemExit, OSError, ValueError):
@@ -110,24 +115,55 @@ def task_proof_records(base: Path, key: str, task_id: str) -> dict | None:
         lenses = generation.get("lenses") or {}
         reviews = {aspect: lenses.get(aspect) if isinstance(lenses.get(aspect), dict) else None
                    for aspect in ASPECTS}
-    else:
-        for aspect in ASPECTS:
-            path = task_evidence_path(base, key, task_id, f"reviews/{aspect}.json")
-            reviews[aspect] = load_json(path, default=None) if path.is_file() else None
-    if verify is None and tests is None and not any(reviews.values()):
+    if verify is None and tests is None and not any(reviews.values()) \
+            and not selected_recorded:
         return None
     return {"verify": verify, "tests": tests, "reviews": reviews}
 
 
-def story_task_proof(base: Path, key: str, decomposition: dict) -> dict[str, dict]:
+def _task_proof_statuses(
+    stages: list[dict], tasks: list[dict],
+) -> dict[str, str]:
+    """Use durable stage status for proof selection, then fill stage-less rows."""
+    statuses = {
+        str(stage.get("id")): str(stage.get("status") or "")
+        for stage in stages
+        if isinstance(stage, dict) and stage.get("id")
+    }
+    for task in tasks:
+        task_id = str(task.get("id") or "")
+        if task_id:
+            statuses.setdefault(task_id, str(task.get("status") or ""))
+    return statuses
+
+
+def story_task_proof(
+    base: Path, key: str, decomposition: dict,
+    *, task_statuses: dict[str, str] | None = None,
+) -> dict[str, dict]:
     """Every task's own proof, in decomposition order, tasks without any left out."""
+    if task_statuses is None:
+        task_statuses = _task_proof_statuses(
+            (_stages_for(base, key).get("stages") or []),
+            decomposition.get("tasks") or [],
+        )
     out: dict[str, dict] = {}
     for task in decomposition.get("tasks") or []:
         task_id = task.get("id") if isinstance(task, dict) else None
         if not isinstance(task_id, str) or not task_id:
             continue
-        proof = task_proof_records(base, key, task_id)
+        status = task_statuses.get(task_id)
+        proof = task_proof_records(
+            base, key, task_id, task_status=status,
+        )
         if proof:
+            from factory_lib import task_proof_problems
+            try:
+                proof["current"] = not task_proof_problems(
+                    base, key, task, preseal=status != "done",
+                )
+            except (Exception, SystemExit):
+                proof["current"] = False
             out[task_id] = proof
     return out
 
@@ -140,27 +176,42 @@ def rolled_up_evidence(task_proof: dict[str, dict], decomposition: dict) -> dict
     every task's findings."""
     from .readiness import review_passed, tests_passed, verify_passed
 
-    declared = [task.get("id") for task in decomposition.get("tasks") or []
-                if isinstance(task, dict) and isinstance(task.get("id"), str)]
-    complete = bool(declared) and all(task_id in task_proof for task_id in declared)
-    verifies = {task_id: proof.get("verify") for task_id, proof in task_proof.items()}
-    tests = {task_id: proof.get("tests") for task_id, proof in task_proof.items()}
+    declared_tasks = {task["id"]: task for task in decomposition.get("tasks") or []
+                      if isinstance(task, dict) and isinstance(task.get("id"), str)}
+    declared = list(declared_tasks)
+    complete = bool(declared) and all(
+        task_id in task_proof and task_proof[task_id].get("current", True) is True
+        for task_id in declared
+    )
+    verifies = {task_id: task_proof[task_id].get("verify") for task_id in declared
+                if task_id in task_proof
+                and task_proof[task_id].get("current", True) is True}
+    tests = {task_id: task_proof[task_id].get("tests") for task_id in declared
+             if task_id in task_proof
+             and task_proof[task_id].get("current", True) is True}
     verify = {
         "ok": complete and all(verify_passed(record or {}) for record in verifies.values()),
         "tasks": {task_id: bool(record and verify_passed(record)) for task_id, record in verifies.items()},
     } if any(record for record in verifies.values()) else None
     automated = {
         "status": "passed" if complete and all(
-            isinstance(record, dict) and tests_passed(record.get("automated"))
-            for record in tests.values()) else "incomplete",
-        "tasks": {task_id: bool(isinstance(record, dict) and tests_passed(record.get("automated")))
+            isinstance(record, dict) and tests_passed(record.get("automated")) and (
+                tests_passed(record.get("functional"), functional=True)
+                if declared_tasks[task_id].get("user_facing") else True)
+            for task_id, record in tests.items()) else "incomplete",
+        "tasks": {task_id: bool(isinstance(record, dict)
+                               and tests_passed(record.get("automated")) and (
+                                   tests_passed(record.get("functional"), functional=True)
+                                   if declared_tasks[task_id].get("user_facing") else True))
                   for task_id, record in tests.items()},
     }
     tests_out = {"automated": automated} if any(record for record in tests.values()) else None
     reviews: dict[str, dict | None] = {}
     for aspect in ASPECTS:
-        records = {task_id: proof["reviews"].get(aspect) for task_id, proof in task_proof.items()
-                   if isinstance(proof["reviews"].get(aspect), dict)}
+        records = {task_id: task_proof[task_id]["reviews"].get(aspect)
+                   for task_id in declared if task_id in task_proof
+                   if task_proof[task_id].get("current", True) is True
+                   if isinstance(task_proof[task_id]["reviews"].get(aspect), dict)}
         if not records:
             reviews[aspect] = None
             continue
@@ -172,8 +223,12 @@ def rolled_up_evidence(task_proof: dict[str, dict], decomposition: dict) -> dict
             finding for record in records.values() for finding in record.get("blocking_findings") or []]
         merged["non_blocking_findings"] = [
             finding for record in records.values() for finding in record.get("non_blocking_findings") or []]
-        merged["tasks"] = {task_id: bool(review_passed(record)) for task_id, record in records.items()}
-        if not complete or not all(review_passed(record) for record in records.values()):
+        merged["tasks"] = {
+            task_id: bool(task_id in records and review_passed(records[task_id]))
+            for task_id in declared
+        }
+        if (not complete or len(records) != len(declared)
+                or not all(review_passed(record) for record in records.values())):
             merged["score"] = min(merged.get("score", 0), 7)
         reviews[aspect] = merged
     return {"verify": verify, "tests": tests_out, "reviews": reviews}
@@ -237,34 +292,38 @@ def _proven_tasks(base: Path, key: str, tasks: list[dict],
     if shipped or not total or not key:
         return {"done": total if shipped else 0, "total": total}
     from factory_lib import task_proof_problems
+    task_statuses = _task_proof_statuses(
+        (_stages_for(base, key).get("stages") or []), tasks,
+    )
 
     def compute() -> int:
         done = 0
         for task in tasks:
             try:
-                if not task_proof_problems(base, key, task):
+                if not task_proof_problems(
+                        base, key, task,
+                        preseal=task_statuses.get(task.get("id")) != "done"):
                     done += 1
             except (Exception, SystemExit):
                 continue
         return done
 
-    # The predicate runs ~15 git subprocesses per task and was 84% of an
-    # /api/state build (17 s on a 30-story repo). Its inputs are the story's
-    # records, git's refs and the linked worktrees' HEADs, so reuse the count
-    # until one of them moves.
+    # Proof validation runs many git subprocesses per task; reuse the count
+    # until the story records, task list, or git state moves.
     task_ids = tuple(str(task.get("id")) for task in tasks)
+    statuses = tuple((task_id, task_statuses.get(task_id, "")) for task_id in task_ids)
     try:
         records = fscache.tree_stamp(story_dir(base, key))
     except ValueError:
         return {"done": compute(), "total": total}
-    stamp = (_git_stamp(base), records, task_ids)
+    stamp = (_git_stamp(base), records, task_ids, statuses)
     return {"done": fscache.cached(f"proven:{base}:{key}", stamp, compute),
             "total": total}
 
 
 def _git_stamp(base: Path) -> tuple:
     """What moves when a commit, checkout, fetch or worktree commit lands.
-    Stamped at the COMMON git dir: in a linked worktree `.git` is a file."""
+    Stamped at the common git dir: in a linked worktree `.git` is a file."""
     git = base / ".git"
     if not git.is_dir():
         try:
@@ -284,6 +343,7 @@ def _git_stamp(base: Path) -> tuple:
 def _plan_evidence(
     base: Path, story_key: str, plan: dict | None,
     derived_rows: list[dict] | None = None,
+    shipped: bool = False,
 ) -> tuple[dict | None, dict, list]:
     """Stage progress, gate evidence, and the story's real task list.
 
@@ -310,18 +370,47 @@ def _plan_evidence(
             "total": len(stages),
         }
     tasks = merge_task_detail(decomposition, stages, derived_rows)
-    # The same predicates pr_ready gates on: a tick here must mean the gate
-    # would open, not merely that a file is on disk.
-    recorded = load_json(proof_read_path(base, story, "tests.json"), default={})
+    task_statuses = _task_proof_statuses(stages, tasks)
+    bundles = []
+    for task in tasks:
+        task_id = str(task.get("id") or "")
+        proof = task_proof_records(
+            base, story, task_id, task_status=task_statuses.get(task_id),
+        ) or {}
+        if shipped:
+            current = True
+        else:
+            from factory_lib import task_proof_problems
+            try:
+                current = not task_proof_problems(
+                    base, story, task,
+                    preseal=task_statuses.get(task_id) != "done",
+                )
+            except (Exception, SystemExit):
+                current = False
+        bundles.append({
+            "task": task,
+            "verify": proof.get("verify") or {},
+            "tests": proof.get("tests") or {},
+            "reviews": proof.get("reviews") or {},
+            "current": current,
+        })
     evidence = {
-        "verify": verify_passed(load_json(
-            proof_read_path(base, story, "verify.json"), default={})),
-        "tests": tests_passed(recorded.get("automated")) and (
-            tests_passed(recorded.get("functional"), functional=True)
-            if recorded.get("functional") else True),
+        "verify": bool(bundles) and all(
+            bundle["current"] and verify_passed(bundle["verify"])
+            for bundle in bundles),
+        "tests": bool(bundles) and all(
+            bundle["current"]
+            and tests_passed(bundle["tests"].get("automated")) and (
+                tests_passed(bundle["tests"].get("functional"), functional=True)
+                if bundle["task"].get("user_facing") else True
+            ) for bundle in bundles
+        ),
         "reviews": {
-            aspect: review_passed(load_json(
-                proof_read_path(base, story, f"reviews/{aspect}.json"), default={}))
+            aspect: bool(bundles) and all(
+                bundle["current"]
+                and review_passed(bundle["reviews"].get(aspect))
+                for bundle in bundles)
             for aspect in ("quality", "performance", "security")
         },
     }
@@ -329,7 +418,9 @@ def _plan_evidence(
             and not any(evidence["reviews"].values()):
         # A task-level run records nothing at the story level: the story's
         # rows are what its tasks recorded, every task counted.
-        task_proof = story_task_proof(base, story, decomposition)
+        task_proof = story_task_proof(
+            base, story, decomposition, task_statuses=task_statuses,
+        )
         if task_proof:
             rolled = rolled_up_evidence(task_proof, decomposition)
             evidence = {
@@ -506,6 +597,7 @@ def aggregate_state(base: Path) -> dict:
         progress, evidence, tasks = _plan_evidence(
             base, item.get("key"), plan,
             live_task_rows if item.get("key") == active else None,
+            shipped=item.get("status") == "done",
         )
         story["ready_to_plan"] = item.get("key") in frontier
         story["plan"] = plan
@@ -698,7 +790,10 @@ def approval_readiness(base: Path, detail: dict) -> list[dict]:
         "ok": bool(plan), "label": "plan saved",
         "fix": "write the plan, then ask to save it against this story"})
     checks.append({
-        "ok": bool(grill) and grill.get("verdict") == "pass",
+        "ok": ((bool(grill) and grill.get("verdict") == "pass")
+               or (detail.get("story", {}).get("status") == "done"
+                   and isinstance(plan, dict) and plan.get("status") == "approved")
+               or _approved_plan_matches_detail(base, plan, detail)),
         "label": "plan grill passed",
         "fix": "grill the plan and record the result — ask for it; save refuses without a passing grill"})
     checks.append({
@@ -717,6 +812,20 @@ def approval_readiness(base: Path, detail: dict) -> list[dict]:
         "label": "no open contradiction" + (f" — {', '.join(contradictions)}" if contradictions else ""),
         "fix": "answer the paused worker in your session"})
     return checks
+
+
+def _approved_plan_matches_detail(base: Path, plan: dict | None, detail: dict) -> bool:
+    if not isinstance(plan, dict) or plan.get("status") != "approved":
+        return False
+    relative = plan.get("path")
+    approval = (detail.get("evidence") or {}).get("plan_approval")
+    if not isinstance(relative, str) or not isinstance(approval, dict):
+        return False
+    try:
+        digest = plan_digest_without_assumptions(base / relative)
+    except (OSError, ValueError):
+        return False
+    return approval.get("approved_plan_sha256") == digest
 
 
 def story_detail(base: Path, key: str) -> dict | None:
@@ -744,6 +853,9 @@ def story_detail(base: Path, key: str) -> dict | None:
         name: load_json(evidence_path(base, key, f"{name}.json"), default=None)
         for name in ("decomposition", "verify", "tests", "outcome")
     }
+    evidence["plan_approval"] = load_json(
+        evidence_path(base, key, "plan-approval.json"), default=None,
+    )
     # Stages are the one evidence file that is not per-story on disk; read them
     # issue-guarded so a shipped or non-active story shows its own task status.
     evidence["stages"] = _stages_for(base, key) or None
@@ -752,9 +864,19 @@ def story_detail(base: Path, key: str) -> dict | None:
             evidence_path(base, key, f"reviews/{aspect}.json"), default=None)
         for aspect in ("quality", "performance", "security")
     }
-    evidence["task_proof"] = story_task_proof(base, key, evidence.get("decomposition") or {})
-    if evidence["task_proof"] and evidence.get("verify") is None \
-            and evidence.get("tests") is None and not any(evidence["reviews"].values()):
+    detail_task_rows = task_rows(base) if active == key else []
+    detail_tasks = merge_task_detail(
+        evidence.get("decomposition") or {},
+        (evidence.get("stages") or {}).get("stages", []),
+        detail_task_rows if active == key else None,
+    )
+    evidence["task_proof"] = story_task_proof(
+        base, key, evidence.get("decomposition") or {},
+        task_statuses=_task_proof_statuses(
+            (evidence.get("stages") or {}).get("stages", []), detail_tasks,
+        ),
+    )
+    if evidence["task_proof"]:
         evidence.update(rolled_up_evidence(evidence["task_proof"],
                                            evidence.get("decomposition") or {}))
     grills = evidence_path(base, key, "grills")
@@ -785,7 +907,7 @@ def story_detail(base: Path, key: str) -> dict | None:
     detail = {"key": key, "project": project_identity(base), "epic": epic,
               "story": story, "plan": plan, "plan_body": plan_body,
               "spec": spec, "evidence": evidence}
-    detail["task_rows"] = task_rows(base) if active == key else []
+    detail["task_rows"] = detail_task_rows
     detail["tasks"] = task_dossiers(base, key, detail)
     detail["readiness"] = approval_readiness(base, detail)
     return detail
@@ -826,7 +948,7 @@ def task_plan_view(base: Path, key: str, task: dict, grill: dict | None) -> dict
     text (fresh, not stale). A saved-but-not-yet-grill-clean plan is withheld
     entirely (never sent, so it cannot leak through the raw-json view either), so
     a human first sees a task plan on the board only after it survives grilling,
-    at which point it is theirs to approve.
+    at which point it can be read here. Approval occurs through native Plan Mode.
 
     plan_state is 'none' (no plan saved), 'ungrilled' (saved, never survived a
     grill), 'stale' (it DID pass, and the plan text changed afterwards), or
@@ -1170,28 +1292,30 @@ def task_dossiers(base: Path, key: str, detail: dict) -> list[dict]:
     evidence = detail.get("evidence") or {}
     decomposition = evidence.get("decomposition") or {}
     stages = (evidence.get("stages") or {}).get("stages", [])
-    tests = evidence.get("tests") or {}
-    verify = evidence.get("verify") or {}
-    reviews = evidence.get("reviews") or {}
     task_grills = evidence.get("task_grills") or {}
     spec_path = (detail.get("spec") or {}).get("path", "")
     launches = task_launches(base)
 
-    story_recorded_tests = []
-    for entry in tests.values():
-        if isinstance(entry, dict):
-            story_recorded_tests.extend(entry.get("tests_added_or_updated") or [])
     task_proof = evidence.get("task_proof") or {}
-
     dossiers = []
     for task in merge_task_detail(decomposition, stages, detail.get("task_rows")):
-        own = task_proof.get(str(task.get("id") or "")) or {}
-        own_tests = own.get("tests") if isinstance(own.get("tests"), dict) else {}
-        recorded_tests = list(story_recorded_tests)
-        for entry in own_tests.values():
+        task_id = str(task.get("id") or "")
+        task_status = _task_proof_statuses(stages, [task]).get(task_id)
+        own = task_proof.get(task_id) or task_proof_records(
+            base, key, task_id, task_status=task_status,
+        ) or {}
+        current = own.get("current", True) is True
+        tests = own.get("tests") if isinstance(own.get("tests"), dict) else {}
+        verify = own.get("verify") if isinstance(own.get("verify"), dict) else {}
+        own_reviews = {aspect: record for aspect, record in (own.get("reviews") or {}).items()
+                       if isinstance(record, dict)}
+        if not current:
+            tests = {}
+            own_reviews = {}
+        recorded_tests = []
+        for entry in tests.values():
             if isinstance(entry, dict):
                 recorded_tests.extend(entry.get("tests_added_or_updated") or [])
-        own_verify = own.get("verify") if isinstance(own.get("verify"), dict) else verify
         required = task.get("required_tests") or []
         # A required test counts as proven only if a recorded artifact names it;
         # "tests.json exists" is not evidence that THIS task was covered. Entries
@@ -1200,35 +1324,20 @@ def task_dossiers(base: Path, key: str, detail: dict) -> list[dict]:
         covered = [t for t in required
                    if isinstance((tid := t.get("id") if isinstance(t, dict) else t), str)
                    and any(tid in str(recorded) for recorded in recorded_tests)]
-        # A task's OWN review is all of that task's findings — no attribution
-        # needed, because the review covered that task's diff and nothing else.
-        # The story-scoped fallback still has to guess by matching the task id
-        # in the finding text, which is why per-task storage removes a whole
-        # class of misattribution rather than only a class of overwriting.
-        own_reviews = {aspect: record for aspect, record in (own.get("reviews") or {}).items()
-                       if isinstance(record, dict)}
-
         findings = []
-        for aspect, review in (own_reviews or reviews).items():
+        for aspect, review in own_reviews.items():
             if not isinstance(review, dict):
                 continue
             for finding in (review.get("blocking_findings") or []) + \
                            (review.get("non_blocking_findings") or []):
                 text = finding if isinstance(finding, str) else finding.get("summary", "")
-                area = "" if isinstance(finding, str) else finding.get("area", "")
-                if own_reviews:
-                    findings.append({"aspect": aspect, "summary": text})
-                    continue
-                # Bounded match: a substring test hands TS-3.10's findings to
-                # TS-3.1, which is silent misattribution of review evidence.
-                if re.search(rf"(?<![\w.]){re.escape(task['id'])}(?![\w]|\.\d)",
-                             f"{text} {area}"):
-                    findings.append({"aspect": aspect, "summary": text})
+                findings.append({"aspect": aspect, "summary": text})
         task["proof"] = {
             "required_tests": required,
             "covered_tests": covered,
-            "verify_ok": own_verify.get("ok") is True,
-            "verify_at": own_verify.get("completed_at"),
+            "current": current,
+            "verify_ok": current and verify_passed(verify),
+            "verify_at": verify.get("completed_at"),
             "grill": task_grills.get(task["id"]),
             "findings": findings,
             "spec": spec_path,
@@ -1240,43 +1349,18 @@ def task_dossiers(base: Path, key: str, detail: dict) -> list[dict]:
         task["plan_excerpt"] = "" if excerpt.strip() == objective else excerpt
         task.update(task_plan_view(base, key, task, task_grills.get(task["id"])))
         task["progress"] = task_progress(
-            task, launches.get(task["id"]), own_reviews or reviews)
+            task, launches.get(task["id"]), own_reviews)
         dossiers.append(task)
     return dossiers
-
-
-def _record_plan_views(root: Path, key: str, detail: dict | None) -> None:
-    """Note every clean task plan this response carries.
-
-    Failure here must never break the board: the gate refusing to approve is
-    recoverable, a board that 500s while the human is trying to read the plan
-    is not.
-    """
-    if not detail:
-        return
-    try:
-        for task in detail.get("tasks", []):
-            if task.get("plan_state") != "clean" or not task.get("plan"):
-                continue
-            plan_path = root / task["plan_path"]
-            record_plan_view(root, key, task.get("id", ""),
-                             plan_digest_without_assumptions(plan_path))
-    except Exception:
-        pass
 
 
 class StateHub:
     """The board's state, built off the request path and pushed when it moves.
 
-    Building `/api/state` takes seconds on a real repo (tens on a cold one), and
-    the board used to build it inside every poll, so every viewer waited on it
-    every 10-20 s. Now one thread owns the build: requests are served the last
-    snapshot instantly (with an ETag, gzipped), and a watcher rebuilds when the
-    repo's cheap fingerprint changes -- or every REFRESH_S regardless, for what
-    a stat cannot see (a Codex job's progress in a linked worktree, a fetch
-    TTL). A rebuild that changes the content bumps the version and wakes every
-    `/api/events` stream, so an open board repaints within a couple of seconds
-    of a change instead of on its next poll.
+    Building `/api/state` takes seconds on a real repo, so one thread owns the
+    build and serves a cached snapshot with an ETag. A watcher rebuilds when
+    the repo fingerprint changes or periodically for progress in linked
+    worktrees and fetch updates. Changed snapshots wake `/api/events` streams.
     """
 
     WATCH_S = 2.0
@@ -1320,10 +1404,8 @@ class StateHub:
             return True
 
     def current(self) -> tuple[str, bytes, bytes]:
-        # Read-your-writes: when the repo's fingerprint has moved (a record,
-        # a plan, a commit), this request waits for the rebuild rather than
-        # showing the change a couple of seconds late. Unchanged -- nearly
-        # every poll -- it is the stored snapshot, no build at all.
+        # Read-your-writes: changed inputs rebuild immediately; unchanged polls
+        # use the stored snapshot without repeating the expensive aggregation.
         if not self.body or self.fingerprint() != self.stamp:
             self.refresh()
         return self.etag, self.body, self.gzipped
@@ -1392,7 +1474,6 @@ def make_server(base: Path, port: int) -> ThreadingHTTPServer:
                      daemon=True).start()
 
     class BoardHandler(BaseHTTPRequestHandler):
-        # Keep-alive: one connection per viewer instead of one per request.
         protocol_version = "HTTP/1.1"
 
         def _send(self, status: int, body: bytes, content_type: str, *,
@@ -1416,16 +1497,12 @@ def make_server(base: Path, port: int) -> ThreadingHTTPServer:
                 self.send_header("Content-Encoding", "gzip")
             if etag:
                 self.send_header("ETag", etag)
-            # Revalidate every time (ETag makes that a 304), never reuse blind.
             self.send_header("Cache-Control", "no-cache")
             self.end_headers()
             self.wfile.write(body)
 
         def _events(self) -> None:
-            """Server-Sent Events: one `state` line per new snapshot version.
-            The client refetches /api/state on each. A `ping` event every 15 s
-            tells the page the stream is still live, and a dropped stream is
-            reconnected by the browser's EventSource on its own."""
+            """Send a state event on each snapshot change and periodic pings."""
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
@@ -1456,8 +1533,7 @@ def make_server(base: Path, port: int) -> ThreadingHTTPServer:
             elif route == "/api/events":
                 self._events()
             elif route == "/api/root":
-                # Cheap identity probe for `already_serving`: it must not wait
-                # on a state build.
+                # Cheap identity probe for `already_serving`; it avoids a build.
                 self._send(200, json.dumps({"root": str(root)}).encode(), json_type)
             elif route == "/api/contributors":
                 from .contributors import contributors_json
@@ -1465,14 +1541,6 @@ def make_server(base: Path, port: int) -> ThreadingHTTPServer:
             elif route.startswith("/api/story/"):
                 key = unquote(route[len("/api/story/"):])
                 detail = story_detail(root, key)
-                # The drawer is fetched only when a human OPENS that story, and
-                # a task plan reaches it only once its grill is clean. So this
-                # is the moment the plan text actually left the server for a
-                # person to read — the fact `task approve` needs and could
-                # never previously check. `/api/state` is deliberately not
-                # recorded: `already_serving` probes it, and a probe is not a
-                # reader.
-                _record_plan_views(root, key, detail)
                 body = json.dumps(detail or {"error": "unknown story"}).encode()
                 self._send(200 if detail else 404, body, json_type)
             elif route == "/":
@@ -1486,8 +1554,8 @@ def make_server(base: Path, port: int) -> ThreadingHTTPServer:
         def log_message(self, format: str, *args: object) -> None:
             return
 
-    # ponytail: stdlib server + SSE, no websockets/framework — the push is one
-    # way (server -> board), which is exactly what EventSource is for.
+    # ponytail: stdlib server + SSE, no websockets/framework — EventSource
+    # covers the one-way push from the server to its board page.
     return ThreadingHTTPServer(("127.0.0.1", port), BoardHandler)
 
 
@@ -1516,7 +1584,7 @@ def already_serving(port: int, root: Path | None = None) -> bool:
             with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/root", timeout=1) as r:
                 served = json.loads(r.read()).get("root")
         except urllib.error.HTTPError:
-            # A board from before /api/root: fall back to the old probe.
+            # Older board processes expose the root only in the full snapshot.
             with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/state", timeout=5) as r:
                 served = json.loads(r.read()).get("root")
         if served is None:

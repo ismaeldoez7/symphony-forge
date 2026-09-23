@@ -17,11 +17,13 @@ import pytest
 import sys
 from pathlib import Path
 
-from test_gates import HARNESS, repo  # noqa: F401
+from test_gates import HARNESS, bind_task_proof_receipts, repo  # noqa: F401
 from test_review_lenses_in_parallel import _built  # noqa: F401
 
 sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
 import forge_cli.review as review_mod  # noqa: E402
+import forge_cli.review_brief as review_brief_mod  # noqa: E402
+import forge_cli.decisions as decisions_mod  # noqa: E402
 from factory_lib import git_control_dir  # noqa: E402
 from forge_cli.review import (  # noqa: E402
     COMMON_PREAMBLE, DIFF_ONLY_PREAMBLE, _combined_prompt, _lens_prompt, _skill_argv,
@@ -46,7 +48,7 @@ sys.exit(3)
 # The skill's real argv shape: config overrides with spaces, quotes and
 # Windows paths, then `exec`, the empty workspace under -C, and `-` for stdin.
 SKILL_ARGV = [
-    "--ask-for-approval", "never", "--search", "--model", "gpt-5.6-sol",
+    "--ask-for-approval", "never", "--search", "--model", "gpt-6-sol",
     "-c", 'model_reasoning_effort="high"',
     "-c", 'sqlite_home="C:\\\\Users\\\\someone\\\\Temp\\\\state"',
     "-c", 'shell_environment_policy.set={ GIT_TERMINAL_PROMPT = "0", GIT_PAGER = "cat" }',
@@ -144,7 +146,7 @@ def test_the_launcher_carries_the_windows_sandbox_the_skill_drops(tmp_path, monk
     home = tmp_path / "codex-home"
     home.mkdir()
     (home / "config.toml").write_text(
-        'model = "gpt-5.6-sol"\n\n[features]\nfoo = true\n\n[windows]\n'
+        'model = "gpt-6-sol"\n\n[features]\nfoo = true\n\n[windows]\n'
         'sandbox = "elevated"\n\n[projects."C:\\\\x"]\ntrust_level = "trusted"\n',
         encoding="utf-8")
     (home / ".sandbox").mkdir()  # the elevated sandbox's set-up state lives here
@@ -223,6 +225,7 @@ def test_review_hands_the_skill_a_launcher_in_the_control_dir(repo, tmp_path, mo
     # The fake helper is not the pinned upstream helper; the identity check is
     # not what this test is about.
     monkeypatch.setattr(review_mod, "_require_safe_codex_review_helper", lambda skill: None)
+    bind_task_proof_receipts(repo, "T1")
     outcome = review_task(repo, "T1", skill=str(skill), engine="codex")
     assert outcome["stamped"] is True
     printed = capsys.readouterr().out
@@ -243,12 +246,154 @@ def test_review_hands_the_skill_a_launcher_in_the_control_dir(repo, tmp_path, mo
     assert "READ-ONLY" in brief and "not a verdict" in brief
 
 
+def test_review_carries_current_accepted_decisions_into_detached_tree(
+        repo, tmp_path, monkeypatch):
+    _built(repo, tmp_path)
+    decision = repo / "docs/decisions/0082-detached-current.md"
+    decision_body = """---
+status: accepted
+confirmed_by: human
+date: 2026-09-19
+stories: [ENG-1]
+---
+
+# Detached current decision
+
+The detached review must read this current accepted contract.
+"""
+    decision.write_text(decision_body, encoding="utf-8")
+    skill = tmp_path / "fake-autoreview.py"
+    skill.write_text(
+        FAKE_SKILL.replace(
+            'assert "### Approved task inputs" in dataset.read_text(encoding="utf-8")',
+            'assert "### Approved task inputs" in dataset.read_text(encoding="utf-8")\n'
+            'assert dataset.read_text(encoding="utf-8").count("docs/decisions/0082-detached-current.md") == 1\n'
+            'assert pathlib.Path(".factory/review-briefs/decisions/0082-detached-current.md").read_text(encoding="utf-8") == os.environ["EXPECTED_DECISION"]',
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("EXPECTED_DECISION", decision_body)
+    monkeypatch.setenv("FAKE_SKILL_SEEN", str(tmp_path / "seen"))
+    monkeypatch.setattr(review_mod, "_require_safe_codex_review_helper", lambda skill: None)
+    bind_task_proof_receipts(repo, "T1")
+    outcome = review_task(repo, "T1", skill=str(skill), engine="claude")
+    assert outcome["stamped"] is True
+
+
+def test_review_refuses_accepted_decision_change_during_dataset_render(
+        repo, tmp_path, monkeypatch, capsys):
+    _built(repo, tmp_path)
+    decision = repo / "docs/decisions/0082-detached-current.md"
+    original_body = """---
+status: accepted
+confirmed_by: human
+date: 2026-09-19
+stories: [ENG-1]
+---
+
+# Detached current decision
+
+The original bytes are part of the review meaning.
+"""
+    decision.write_text(original_body, encoding="utf-8")
+    skill = tmp_path / "fake-autoreview.py"
+    skill.write_text(FAKE_SKILL, encoding="utf-8")
+    monkeypatch.setattr(review_mod, "_require_safe_codex_review_helper", lambda skill: None)
+    bind_task_proof_receipts(repo, "T1")
+    original_render = review_mod.cmd_review_brief
+    launched = []
+
+    def render_then_change(args):
+        original_render(args)
+        decision.write_text(original_body + "\nChanged after rendering.\n",
+                            encoding="utf-8")
+
+    def helper_must_not_run(*args, **kwargs):
+        launched.append(True)
+
+    monkeypatch.setattr(review_mod, "cmd_review_brief", render_then_change)
+    monkeypatch.setattr(review_mod, "_run_skill", helper_must_not_run)
+    with pytest.raises(SystemExit):
+        review_task(repo, "T1", skill=str(skill), engine="claude")
+    assert "reviewed meaning changed while rendering" in capsys.readouterr().out
+    assert not launched
+
+
+def test_review_refuses_accepted_decision_deletion_during_dataset_render(
+        repo, tmp_path, monkeypatch, capsys):
+    _built(repo, tmp_path)
+    decision = repo / "docs/decisions/0082-detached-current.md"
+    decision.write_text("""---
+status: accepted
+confirmed_by: human
+date: 2026-09-19
+stories: [ENG-1]
+---
+
+# Detached current decision
+
+The current accepted decision must remain present.
+""", encoding="utf-8")
+    skill = tmp_path / "fake-autoreview.py"
+    skill.write_text(FAKE_SKILL, encoding="utf-8")
+    monkeypatch.setattr(review_mod, "_require_safe_codex_review_helper", lambda skill: None)
+    bind_task_proof_receipts(repo, "T1")
+    original_render = review_mod.cmd_review_brief
+    launched = []
+
+    def render_then_delete(args):
+        original_render(args)
+        decision.unlink()
+
+    def helper_must_not_run(*args, **kwargs):
+        launched.append(True)
+
+    monkeypatch.setattr(review_mod, "cmd_review_brief", render_then_delete)
+    monkeypatch.setattr(review_mod, "_run_skill", helper_must_not_run)
+    with pytest.raises(SystemExit):
+        review_task(repo, "T1", skill=str(skill), engine="claude")
+    assert "reviewed meaning changed while rendering" in capsys.readouterr().out
+    assert not launched
+
+
+@pytest.mark.parametrize("linked_ancestor", [False, True])
+def test_review_context_refuses_linked_accepted_decision_bytes(
+        repo, tmp_path, monkeypatch, linked_ancestor):
+    """Detached review context must never export bytes through a link."""
+    _built(repo, tmp_path)
+    private = tmp_path / "private-decisions"
+    private.mkdir()
+    private_decision = private / "0082-linked.md"
+    private_decision.write_text(
+        "---\nstatus: accepted\nconfirmed_by: human\n---\n\n# Private\n",
+        encoding="utf-8",
+    )
+    if linked_ancestor:
+        linked_directory = repo / "linked-decisions"
+        linked_directory.symlink_to(private, target_is_directory=True)
+        decision_path = linked_directory / private_decision.name
+        monkeypatch.setattr(
+            decisions_mod, "decision_records",
+            lambda _base: [{"id": "0082-linked", "status": "accepted",
+                            "path": decision_path}],
+        )
+    else:
+        decision_path = repo / "docs" / "decisions" / private_decision.name
+        decision_path.symlink_to(private_decision)
+
+    with pytest.raises(SystemExit, match="unsafe review proof path"):
+        review_brief_mod._current_decision_inputs(repo)
+    assert not (repo / ".factory" / "review-briefs" / "decisions" /
+                "0082-linked.md").exists()
+
+
 def test_the_run_says_so_when_it_falls_back_to_the_diff_only_bundle(repo, tmp_path, monkeypatch, capsys):
     _built(repo, tmp_path)
     skill = tmp_path / "fake-autoreview.py"
     skill.write_text(FAKE_SKILL, encoding="utf-8")
     monkeypatch.setenv("FAKE_SKILL_SEEN", str(tmp_path / "seen"))
     # Another engine runs where the skill puts it.
+    bind_task_proof_receipts(repo, "T1")
     review_task(repo, "T1", skill=str(skill), engine="claude")
     printed = capsys.readouterr().out
     assert "sees only the diff bundle" in printed and "claude engine" in printed
@@ -265,6 +410,7 @@ def test_the_environment_switch_keeps_the_skill_empty_folder(repo, tmp_path, mon
     monkeypatch.setenv(CODEX_BIN_ENV, sys.executable)
     monkeypatch.setenv(EMPTY_WORKSPACE_ENV, "1")
     monkeypatch.setattr(review_mod, "_require_safe_codex_review_helper", lambda skill: None)
+    bind_task_proof_receipts(repo, "T1")
     review_task(repo, "T1", skill=str(skill), engine="codex")
     printed = capsys.readouterr().out
     assert "sees only the diff bundle" in printed and EMPTY_WORKSPACE_ENV in printed
@@ -290,6 +436,7 @@ def test_an_outdated_helper_is_refused_before_the_run_not_after(repo, tmp_path, 
                    .replace('"provider_report"', '"provider"'), encoding="utf-8")
     seen = tmp_path / "seen"
     monkeypatch.setenv("FAKE_SKILL_SEEN", str(seen))
+    bind_task_proof_receipts(repo, "T1")
     with pytest.raises(SystemExit):
         review_task(repo, "T1", skill=str(old), engine="claude")
     printed = capsys.readouterr().out

@@ -9,14 +9,17 @@ import shlex
 from pathlib import Path, PurePosixPath
 
 from factory_lib import (
-    decomposition_state_path, dump_json, gate, head_sha,
+    decomposition_state_path, dump_json, evidence_path, gate, grounding_digest,
+    grounding_matches, head_sha,
     load_json, now_iso, plan_digest_without_assumptions,
     protected_decomposition_state_path, repo_root, require_approved_plan_digest,
     run_state_path,
     read_stdin_utf8, validate_payload,
     ready_task_ids,
-    IN_STAGE_GROUNDING_FIELDS, MEASUREMENT_CONTRACT_FIELDS,
-    refresh_task_plan_contract,
+    IN_STAGE_GROUNDING_FIELDS, MEASUREMENT_CONTRACT_FIELDS, measurement_contract,
+    approved_story_plan_predecessors, refresh_task_plan_contract,
+    story_plan_digest, task_grill_grounding_matches, task_plan_binding_digest,
+    validated_measurement_launch,
 )
 from forge_cli.doctor import unrunnable_reason
 from forge_cli.stages import review_budget
@@ -325,6 +328,122 @@ def _task_graph(tasks: list[dict]) -> list[tuple[str, tuple[str, ...]]]:
         for task in tasks
     ]
 
+
+def _measurement_receipt(
+    root: Path,
+    story: str,
+    stage: dict,
+    source: dict,
+    target: dict,
+    grill: dict,
+) -> dict:
+    """Build a continuity receipt after every original binding re-validates."""
+    task_id = str(target.get("id") or "")
+    task_plan_sha256 = task_plan_binding_digest(root, task_id, grill)
+    current_story_plan_sha256 = story_plan_digest(root)
+    receipts = stage.get("measurement_continuity")
+    story_plan_sha256 = current_story_plan_sha256
+    if isinstance(receipts, list) and receipts:
+        predecessor = receipts[0].get("story_plan_sha256")
+        permitted = {
+            current_story_plan_sha256,
+            *approved_story_plan_predecessors(root, current_story_plan_sha256),
+        }
+        if predecessor not in permitted:
+            raise SystemExit(
+                f"decomposition task {task_id}: measurement continuity is not "
+                "bound to the current or an approved predecessor story plan; "
+                "no decomposition state was written"
+            )
+        story_plan_sha256 = predecessor
+    semantic = grounding_digest(
+        root, target, in_stage=True, _plan_sha256=story_plan_sha256,
+    )
+    if (
+        not task_plan_sha256
+        or not story_plan_sha256
+        or semantic != grounding_digest(
+            root, source, in_stage=True, _plan_sha256=story_plan_sha256,
+        )
+    ):
+        raise SystemExit(
+            f"decomposition task {task_id}: cannot preserve the task grill across "
+            "this measurement amendment because its approved story or task plan "
+            "binding changed; no decomposition state was written"
+        )
+    if isinstance(receipts, list) and receipts:
+        launch_id = receipts[0].get("launch_id")
+        origin_measurement = receipts[0].get("from_measurement")
+        origin_sha256 = stage.get("task_sha256")
+        launch_task = {**target, **origin_measurement} \
+            if isinstance(origin_measurement, dict) else source
+    else:
+        launch_id = ""
+        origin_measurement = measurement_contract(source)
+        origin_sha256 = task_digest(source)
+        launch_task = source
+    launch = validated_measurement_launch(
+        root,
+        launch_task,
+        stage,
+        str(origin_sha256 or ""),
+        origin_measurement,
+        str(launch_id or ""),
+    )
+    if launch is None:
+        raise SystemExit(
+            f"decomposition task {task_id}: an active-stage measurement amendment "
+            "needs the exact successful write launch that the original task grill "
+            "authorized; the launch is missing, failed, ambiguous, or no longer "
+            "bound to this stage. No decomposition state was written"
+        )
+    return {
+        "generated_by": "record_decomposition_from_json",
+        "recorded_at": now_iso(),
+        "story": story,
+        "task_id": task_id,
+        "stage_started_at": stage.get("started_at"),
+        "stage_base_sha": stage.get("base_sha"),
+        "source_grill_input_sha256": grill.get("input_sha256"),
+        "story_plan_sha256": story_plan_sha256,
+        "task_plan_sha256": task_plan_sha256,
+        "semantic_grounding_sha256": semantic,
+        "from_task_sha256": task_digest(source),
+        "to_task_sha256": task_digest(target),
+        "from_measurement": measurement_contract(source),
+        "to_measurement": measurement_contract(target),
+        "launch_id": launch.get("launch_id"),
+    }
+
+
+def _bootstrap_measurement_source(
+    root: Path, stage: dict, target: dict, grill: dict,
+) -> dict | None:
+    """Recover a missed receipt from the exact stage-bound launch scope."""
+    from forge_cli.delegate import current_delegation
+
+    task_id = str(target.get("id") or "")
+    original_sha256 = str(stage.get("task_sha256") or "")
+    launch = current_delegation(
+        root,
+        task_id,
+        stage_started_at=str(stage.get("started_at") or ""),
+        task_sha256=original_sha256,
+        ignore_lock=True,
+    )
+    scope = launch.get("write_scope") if launch else None
+    if not isinstance(scope, list) or not all(isinstance(path, str) for path in scope):
+        return None
+    source = {**target, "write_scope": scope}
+    if (
+        task_digest(source) != original_sha256
+        or not grounding_matches(
+            root, source, grill.get("input_sha256"), in_stage=True,
+        )
+    ):
+        return None
+    return source
+
 # Stage transitions and decomposition publication share one protected state
 # lock. A re-record may amend an active task, but never rewrite the contract a
 # completed stage already attested or race that stage's done transition.
@@ -356,6 +475,12 @@ with delegation_exclusion(
     )
     prior_decomposition = load_json(
         protected_decomposition, default={})
+    reapproval_predecessors = approved_story_plan_predecessors(
+        root, approved_sha256,
+    )
+    reapproval_rebind = bool(
+        prior_decomposition.get("plan_sha256") in reapproval_predecessors
+    )
     prior_tasks = {
         task.get("id"): task
         for task in prior_decomposition.get("tasks") or []
@@ -378,7 +503,6 @@ with delegation_exclusion(
         "write_scope", "required_tests", "verify_commands", "reviewer_focus",
         "plan_contracts", "review_budget",
     )
-    graph_amended = False
     if first_recording:
         for task in tasks:
             for field in execution_fields:
@@ -393,34 +517,14 @@ with delegation_exclusion(
             task for task in prior_decomposition.get("tasks") or []
             if isinstance(task, dict)
         ]
-        # The prefix of tasks whose work has STARTED (an active or done stage) is
-        # HARD frozen: their ids, order, and dependencies never change here.
-        # Started work is never reordered or removed. (A done contract is frozen
-        # below; an active task's contract may still be amended — that stales its
-        # grill + approval, handled below. To change a task that is done but not
-        # yet shipped, reopen it — `./forge task reopen <id>` — which moves it
-        # back to active; to change shipped work, add a new follow-up task.)
-        started_statuses = {"active", "done"}
-        protected_len = 0
-        for index, task in enumerate(prior_task_list):
-            if stage_statuses.get(task.get("id")) in started_statuses:
-                protected_len = index + 1
-        prior_protected = _task_graph(prior_task_list[:protected_len])
-        if _task_graph(tasks[:protected_len]) != prior_protected:
+        # Approval freezes the complete ID/order/dependency graph. Contract
+        # detail may be enriched JIT, but graph changes require a new plan.
+        if _task_graph(tasks) != _task_graph(prior_task_list):
             raise SystemExit(
-                "decomposition task graph is frozen for work that has started; "
-                "tasks up to the last active/done task (their ids, order, and "
-                "dependencies) must remain an exact prefix — started work is never "
-                "reordered or removed. Reopen a done-but-unshipped task with "
-                "`./forge task reopen <id>` to change it, or add a new follow-up "
-                "task for shipped work."
+                "decomposition task graph is frozen after approval: task ids, "
+                "order, dependencies, and task count cannot change; amend and "
+                "reapprove the story plan before recording a new graph."
             )
-        # Beyond the started prefix the graph MAY change — a pending task may be
-        # reordered or removed, or a newly discovered task inserted among the
-        # pending ones (the mid-story case). That is never a silent reshuffle: it
-        # is an AMENDMENT of an approved plan. Flag it here; below it WITHDRAWS the
-        # plan approval so the flow is stuck until the human re-approves.
-        graph_amended = _task_graph(tasks) != _task_graph(prior_task_list)
     if frontier_index is not None:
         # Execution detail is authored just-in-time: a pending task may carry it
         # only once every dependency is done (a task without explicit
@@ -512,7 +616,60 @@ with delegation_exclusion(
                     f"decomposition task {task_id}: a completed stage's contract "
                     "cannot be changed or removed; add a new follow-up task instead."
                 )
-    if backfilled_stage_digest or stages_dirty:
+    # A pre-stage grill includes measurement fields so it can authorize stage
+    # start. Once the stage is active those fields are enforced mechanically.
+    # Preserve that transition as a protected receipt before publishing an
+    # amended measurement contract; never rewrite the original grill evidence.
+    for stage in stages_data.get("stages") or []:
+        if stage.get("status") != "active":
+            continue
+        task_id = stage.get("id")
+        target = current_tasks.get(task_id)
+        prior = prior_tasks.get(task_id)
+        if target is None or prior is None:
+            continue
+        grounding_moved = any(
+            prior.get(field) != target.get(field)
+            for field in IN_STAGE_GROUNDING_FIELDS
+        )
+        if grounding_moved:
+            continue
+        grill = load_json(
+            evidence_path(root, story, f"grills/tasks/{task_id}.json"),
+            default={},
+        )
+        if not grill or task_grill_grounding_matches(
+            root,
+            target,
+            grill,
+            allow_unbound_story_reapproval=reapproval_rebind,
+        ):
+            continue
+        source = (
+            prior if task_grill_grounding_matches(
+                root,
+                prior,
+                grill,
+                allow_unbound_story_reapproval=reapproval_rebind,
+            )
+            else _bootstrap_measurement_source(root, stage, target, grill)
+        )
+        if source is None:
+            raise SystemExit(
+                f"decomposition task {task_id}: cannot prove continuity from the "
+                "original task grill to this active-stage measurement contract; "
+                "no decomposition state was written"
+            )
+        receipt = _measurement_receipt(root, story, stage, source, target, grill)
+        receipts = stage.setdefault("measurement_continuity", [])
+        if not isinstance(receipts, list):
+            raise SystemExit(
+                f"decomposition task {task_id}: protected measurement continuity "
+                "state is malformed; no decomposition state was written"
+            )
+        receipts.append(receipt)
+        stages_dirty = True
+    if backfilled_stage_digest:
         write_stages(root, stages_data)
     # The saved task plans carry a rendered copy of their contract. Re-render
     # so the copy can never lag the record it is rendered from.
@@ -530,7 +687,7 @@ with delegation_exclusion(
                 "to the amended plan.\n"
                 "Re-grill and re-approve BEFORE the next delegate or stage close:\n"
                 f"  python3 factory/scripts/record_grill_from_json.py --gate task --task {task_id}\n"
-                f"  ./forge task approve {task_id} --by \"<name>\"\n"
+                "  display the exact amended plan in native Plan Mode and consume its approval\n"
                 "The review stamp, if any, stands: it binds to the product diff, "
                 "which this did not change.\n"
             )
@@ -548,35 +705,28 @@ with delegation_exclusion(
                 "For a substantive scope change prefer a follow-up task rather than re-approving "
                 "completed work.\n"
             )
-    if graph_amended:
-        # A pending task was inserted, reordered, or removed after the plan was
-        # approved. Allowed — but NEVER silently. Mirror the active-contract-change
-        # discipline above: the plan approval and the affected task grills are now
-        # STALE and do not carry to the amended graph. We do not flip plan_status
-        # here (that would deadlock the recorder, which itself requires an approved
-        # plan to re-record the amendment's own detail); the missing/stale frontier
-        # grill mechanically blocks delegate, and this NOTE + the constitution's
-        # "any post-approval change stops for the human" rule carry the rest.
-        # Started work is untouched (frozen above); this only reshapes the pending
-        # tail.
-        print(
-            "\nNOTE: the task graph was AMENDED beyond the started prefix (a pending "
-            "task was inserted, reordered, or removed). This is an amendment of an "
-            "APPROVED plan — its approval and the affected task grills are now STALE "
-            "and do NOT carry to the amended graph.\n"
-            "Re-present the amended plan to the HUMAN, then before any stage start / "
-            "delegate:\n"
-            "  ./forge plan approve --by \"<name>\"   # only after the human confirms\n"
-            "  python3 factory/scripts/record_grill_from_json.py --gate task "
-            "--task <frontier-id>\n"
-        )
     payload["commit"] = head_sha(root)
     dump_json(protected_decomposition_state_path(root), payload)
     dump_json(decomposition_state_path(root, for_write=True), payload)
     # The decomposition is immutable evidence; the stage tracker is its mutable
     # execution twin (decision 0007) — pr_ready refuses while stages are open.
     write_skeleton(root, state.get("issue_key", ""), tasks)
+    receipts_by_task = {
+        row.get("id"): row.get("measurement_continuity")
+        for row in stages_data.get("stages") or []
+        if row.get("measurement_continuity")
+    }
+    if receipts_by_task:
+        # write_skeleton preserves seal fields but deliberately rebuilds each
+        # row. Restore existing and newly validated receipts after that rebuild,
+        # while retaining any pending-tail graph changes it created.
+        refreshed_stages = load_stages(root)
+        for row in refreshed_stages.get("stages") or []:
+            if row.get("id") in receipts_by_task:
+                row["measurement_continuity"] = receipts_by_task[row.get("id")]
+        write_stages(root, refreshed_stages)
     state["decomposition_status"] = "recorded"
+    state["decomposition_plan_sha256"] = approved_sha256
     state["updated_at"] = now_iso()
     dump_json(run_state_path(root), state)
     from forge_cli.events import append_event  # noqa: E402

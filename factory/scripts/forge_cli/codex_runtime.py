@@ -1,11 +1,14 @@
 """Native Codex coordinator selection and exact exec contracts."""
 from __future__ import annotations
 
+import io
 import itertools
 import json
 import os
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import BinaryIO
 
 
 RUNTIMES = ("claude", "codex")
@@ -38,6 +41,32 @@ def native_argv(
         write_scope: list[str] | None = None,
 ) -> list[str]:
     """Build the complete shell-free native invocation used as launch evidence."""
+    argv = [
+        executable,
+        "exec",
+        "--json",
+        "--enable",
+        "hooks",
+        "-C",
+        str(base),
+        "--model",
+        model,
+        "--config",
+        f'model_reasoning_effort="{effort}"',
+        "--config",
+        'approval_policy="never"',
+        "--sandbox",
+        "danger-full-access",
+    ]
+    argv.append("-")
+    return argv
+
+
+def _legacy_native_argv(
+        executable: str, base: Path, model: str, effort: str, write: bool,
+        write_scope: list[str] | None = None,
+) -> list[str]:
+    """Reconstruct the exact retired sandbox argv for terminal history only."""
     argv = [
         executable,
         "exec",
@@ -99,25 +128,37 @@ def native_argv_valid(entry: dict, base: Path, write_scope: list[str]) -> bool:
         entry.get("write") is True,
         write_scope,
     )
-    legacy = native_argv(
+    legacy = _legacy_native_argv(
         executable,
         base,
         str(entry.get("model") or ""),
         str(entry.get("effort") or ""),
         entry.get("write") is True,
-        [],
+        write_scope,
     )
     terminal = entry.get("launch_status") in {"failed", "succeeded"}
     resume_session = entry.get("resume_session")
     if resume_session in (None, ""):
-        return argv == expected
+        return argv == expected or (terminal and argv == legacy)
     if not isinstance(resume_session, str):
         return False
     # Historical completed rows may carry the removed continuation shape. They
     # remain readable, while new launches cannot construct that argv.
-    return (terminal
-            and argv[:-3] in (expected[:-1], legacy[:-1])
-            and argv[-3:] == ["resume", resume_session, "-"])
+    historical = [legacy]
+    if write_scope:
+        historical.append(_legacy_native_argv(
+            executable,
+            base,
+            str(entry.get("model") or ""),
+            str(entry.get("effort") or ""),
+            entry.get("write") is True,
+            [],
+        ))
+    return (
+        terminal
+        and argv[-3:] == ["resume", resume_session, "-"]
+        and any(argv[:-3] == candidate[:-1] for candidate in historical)
+    )
 
 
 @dataclass(frozen=True)
@@ -127,8 +168,12 @@ class NativeResult:
     error: str = ""
 
 
-def scan_native_result(path: Path) -> NativeResult:
+def scan_native_result(
+    path: Path, *, data: bytes | None = None, stream: BinaryIO | None = None,
+) -> NativeResult:
     """Scan native JSONL once, retaining identity, terminal status, and message."""
+    if data is not None and stream is not None:
+        raise ValueError("native result accepts captured bytes or a stable stream, not both")
     starts: list[dict] = []
     message = ""
     last_type = ""
@@ -136,9 +181,11 @@ def scan_native_result(path: Path) -> NativeResult:
     syntax_error = ""
     preserve_session = True
     try:
-        with path.open("rb") as stream:
+        source = (nullcontext(stream) if stream is not None else
+                  io.BytesIO(data) if data is not None else path.open("rb"))
+        with source as opened_stream:
             raw_lines = itertools.chain.from_iterable(
-                block.splitlines(keepends=True) for block in stream)
+                block.splitlines(keepends=True) for block in opened_stream)
             for number, raw_line in enumerate(raw_lines, start=1):
                 terminated = raw_line.endswith((b"\n", b"\r"))
                 if terminated:

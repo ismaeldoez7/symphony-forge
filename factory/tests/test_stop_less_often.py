@@ -12,52 +12,108 @@ them it was allowed to resolve without asking.
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
 from test_gates import (  # noqa: F401
     HARNESS, STAGE_TASK, git, intake, load_factory_lib, record_skeleton_then_frontier,
-    record_task_grill, repo, run, save_plan, sign_off, story_state,
-    view_plan_on_board,
+    native_claude_approval, post_hook, record_task_grill, repo, run, save_plan,
+    sign_off, start_stage, story_state, write_in_scope, write_task_proof,
 )
 
 sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
 
 
 # ------------------------------------------------- a plan edited after approval
-def test_a_plan_edited_after_approval_goes_to_the_human_not_the_grill(
+def test_an_edited_story_plan_routes_to_native_reapproval_without_a_cold_read(
         repo: Path, tmp_path):
-    """The rule the human asked for: strict, but not another cold read.
+    sign_off(repo)
+    intake(repo)
+    code, out = save_plan(repo, tmp_path)
+    assert code == 0, out
+    lib = load_factory_lib(repo)
+    state = json.loads(lib.run_state_path(repo).read_text())
+    plan = repo / state["plan_file"]
+    grill = story_state(repo) / "grills" / "plan.json"
+    original_grill = grill.read_bytes()
+    plan.write_text(
+        plan.read_text(encoding="utf-8") + "\nApproved amendment.\n",
+        encoding="utf-8",
+    )
 
-    The grill already converged on this design and a human signed it off. When
-    the words then change, another adversarial read is not what is missing —
-    the human is, because they approved specific text and it is no longer that
-    text. One reworded sentence used to cost a full grill round; worse, a real
-    design change could be cleared by an agent re-grilling rather than by the
-    person who approved the original.
-    """
+    code, out = run(repo, "forge.py", "next")
+
+    assert code == 0, out
+    assert "PHASE: awaiting amended-plan approval" in out
+    assert "Display its exact current bytes in native Plan Mode" in out
+    assert "do not launch another plan cold read" in out
+    assert "re-record the same decomposition" in out
+    assert "keeps its existing cold proof and task approval" in out
+    assert grill.read_bytes() == original_grill
+
+
+def test_a_plan_edited_after_approval_cannot_reuse_stale_native_authority(
+        repo: Path, tmp_path):
+    """An old approval alone cannot authenticate a newly edited artifact."""
     sign_off(repo)
     intake(repo)
     save_plan(repo, tmp_path)
     record_skeleton_then_frontier(repo, [STAGE_TASK])
     code, out = record_task_grill(repo, STAGE_TASK, approve=False)
     assert code == 0, out
-    view_plan_on_board(repo, "T1")
-    code, out = run(repo, "forge.py", "task", "approve", "T1",
-                    "--by", "Test Human")
+    code, out = post_hook(repo, native_claude_approval(repo))
     assert code == 0, out
 
     saved = story_state(repo) / "task-plans" / "T1.md"
+    grill_path = story_state(repo) / "grills" / "tasks" / "T1.json"
+    original_grill = json.loads(grill_path.read_text())
+    preserved_cold_proof = {
+        field: original_grill.get(field)
+        for field in (
+            "cold_input_sha256", "finding_dispositions", "amendments",
+        )
+    }
+
+    def task_approval_events():
+        return [
+            event
+            for path in (story_state(repo) / "approval-events").glob("*.json")
+            if (event := json.loads(path.read_text())).get("task") == "T1"
+        ]
+
     saved.write_text(saved.read_text(encoding="utf-8") + "\nOne reworded line.\n",
                      encoding="utf-8")
 
-    code, out = run(repo, "forge.py", "task", "approve", "T1",
-                    "--by", "Test Human")
+    code, out = run(repo, "forge.py", "stage", "start", "T1", "--trunk")
     assert code != 0, out
-    # It must name the human and say re-approval, not re-grill.
-    assert "CHANGED after" in out and "Test Human" in out
-    assert "does not need another grill" in out
-    assert "re-grill" not in out.lower().replace("does not need another grill", "")
+    assert "Task plan approval required" in out
+    lib = load_factory_lib(repo)
+    assert not lib._task_plan_approval_matches_digest(
+        repo, STAGE_TASK, original_grill,
+        lib.plan_digest_without_assumptions(saved),
+    )
+    assert len(task_approval_events()) == 1
+    assert {
+        field: json.loads(grill_path.read_text()).get(field)
+        for field in preserved_cold_proof
+    } == preserved_cold_proof
+    code, out = post_hook(repo, native_claude_approval(repo))
+    assert code == 0, out
+    code, out = run(repo, "forge.py", "stage", "start", "T1", "--trunk")
+    assert code == 0, out
+    updated = json.loads(grill_path.read_text())
+    assert {
+        field: updated.get(field) for field in preserved_cold_proof
+    } == preserved_cold_proof
+    amended_digest = lib.plan_digest_without_assumptions(saved)
+    assert updated["final_artifact_sha256"] == amended_digest
+    assert updated["previous_approved_task_plan_sha256"] \
+        == original_grill["approved_task_plan_sha256"]
+    assert len(task_approval_events()) == 2
+    assert lib._task_plan_approval_matches_digest(
+        repo, STAGE_TASK, updated, amended_digest,
+    )
 
 
 def test_an_unapproved_plan_edit_still_needs_a_regrill(repo: Path, tmp_path):
@@ -73,11 +129,9 @@ def test_an_unapproved_plan_edit_still_needs_a_regrill(repo: Path, tmp_path):
     saved = story_state(repo) / "task-plans" / "T1.md"
     saved.write_text(saved.read_text(encoding="utf-8") + "\nEdited pre-approval.\n",
                      encoding="utf-8")
-    view_plan_on_board(repo, "T1")
-    code, out = run(repo, "forge.py", "task", "approve", "T1",
-                    "--by", "Test Human")
+    code, out = run(repo, "forge.py", "stage", "start", "T1", "--trunk")
     assert code != 0, out
-    assert "Re-grill the current plan" in out
+    assert "STALE" in out and "record_grill_from_json.py" in out
 
 
 # --------------------------------------------------- task start is not optional
@@ -96,9 +150,7 @@ def test_stage_start_refuses_when_task_start_was_skipped(repo: Path, tmp_path):
     record_skeleton_then_frontier(repo, [STAGE_TASK])
     code, out = record_task_grill(repo, STAGE_TASK, approve=False)
     assert code == 0, out
-    view_plan_on_board(repo, "T1")
-    code, out = run(repo, "forge.py", "task", "approve", "T1",
-                    "--by", "Test Human")
+    code, out = post_hook(repo, native_claude_approval(repo))
     assert code == 0, out
 
     code, out = run(repo, "forge.py", "stage", "start", "T1")
@@ -146,12 +198,49 @@ def test_forge_next_repeats_the_split_where_it_is_needed():
     assert "recommendation" in step
 
 
+def test_review_triage_is_the_frontier_and_blocks_only_real_write_launches(
+        repo: Path, tmp_path):
+    start_stage(repo, tmp_path, STAGE_TASK)
+    write_in_scope(repo, "src/core.py", "version = 1\n")
+    git(repo, "add", "src/core.py")
+    git(repo, "commit", "-qm", "reviewed work")
+    write_task_proof(repo, "T1", publish_review=True, review_blocked=True)
+
+    from forge_cli.review import selected_generation
+    generation = selected_generation(repo, "ENG-1", "T1")
+    assert generation is not None
+
+    code, out = run(repo, "forge.py", "next")
+    assert code == 0, out
+    assert "REVIEW TRIAGE for T1" in out
+    assert generation["generation_id"] in out
+    assert "1 of 1 actionable P0/P1 defect finding(s) untriaged" in out
+    assert './forge review T1 --triage "<finding text>"' in out
+    assert "Inspect them, then delegate the bounded fixes" not in out
+
+    code, out = run(
+        repo, "forge.py", "delegate", "T1",
+        env={"FORGE_COORDINATOR": "codex"},
+    )
+    assert code != 0, out
+    assert "write delegation refused" in out
+    assert generation["generation_id"] in out
+    assert './forge review T1 --triage "<finding text>"' in out
+
+    code, out = run(
+        repo, "forge.py", "delegate", "T1", "--print-only",
+        env={"FORGE_COORDINATOR": "codex"},
+    )
+    assert code == 0, out
+    assert "Write access: NO" in out and "not dispatched" in out
+
+
 # ------------------------------------------------------- reachable escalation
 def test_the_effort_escalation_harness_yaml_documents_is_reachable(repo: Path):
-    """Decision 0074 pins managed implementation to Sol/medium."""
+    """The delegated lead is pinned to Sol/medium; effort is not a CLI knob."""
     from forge_cli.delegate import pinned_run_config
 
-    assert pinned_run_config(HARNESS) == ("gpt-5.6-sol", "medium")
+    assert pinned_run_config(HARNESS) == ("gpt-6-sol", "medium")
     for args in (("--effort", "low"), ("--effort", "medium"),
                  ("--effort", "high"), ("--effort", "xhigh"),
                  ("--effort", "maximum"), ("--effort=medium",)):
