@@ -17,6 +17,7 @@ from test_gates import (  # noqa: F401
 
 sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
 from forge_cli import approval, upgrade  # noqa: E402
+from forge_cli.decisions import active_decision_ids  # noqa: E402
 
 
 def _event(candidate: approval.ApprovalCandidate, runtime: str = "claude") -> dict:
@@ -29,7 +30,7 @@ def _event(candidate: approval.ApprovalCandidate, runtime: str = "claude") -> di
                 "tool_input": {"plan": candidate.path.read_text(encoding="utf-8")},
                 "tool_response": {"status": "success"}}
     question_id = f"approve_plan_{candidate.digest}"
-    question = f"Approve exact plan digest {candidate.digest}?"
+    question = "Approve this plan?"
     return {
         **common,
         "tool_name": "request_user_input",
@@ -89,25 +90,41 @@ def _story_candidate(repo: Path, story: str = "APPROVE-1") -> approval.ApprovalC
     return candidate
 
 
-def test_plan_save_keeps_issue_grill_and_story_approval_authority(
+def test_plan_save_refuses_split_issue_and_story_keys_without_mutation(
         repo: Path, tmp_path: Path):
     sign_off(repo)
     intake(repo, "ISSUE-I", "Invoices")
+    ensure_story(repo, "ISSUE-I", "Invoices")
     ensure_story(repo, "STORY-S", "Roadmap story")
     draft = tmp_path / "distinct-identities.md"
     draft.write_text(plan_draft(repo), encoding="utf-8")
     code, output = record_grill(repo, "plan", digest_of=draft)
     assert code == 0, output
+    state_path = load_factory_lib(repo).run_state_path(repo)
+    state_before = state_path.read_bytes()
 
     code, output = run(
         repo, "forge.py", "plan", "save", "--from", str(draft),
         "--issue", "ISSUE-I", "--story", "STORY-S",
     )
+    assert code != 0 and "--story must match --issue" in output, output
+    assert state_path.read_bytes() == state_before
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert state["issue_key"] == "ISSUE-I"
+    assert state.get("plan_status") != "awaiting-approval"
+    assert not list((repo / "plans" / "active").glob("*.md"))
+    assert approval.eligible_candidates(repo) == []
+
+    # The default story remains the issue key and can still be saved normally.
+    code, output = run(
+        repo, "forge.py", "plan", "save", "--from", str(draft),
+        "--issue", "ISSUE-I",
+    )
     assert code == 0, output
     candidates = approval.eligible_candidates(repo)
     assert len(candidates) == 1
     candidate = candidates[0]
-    assert candidate.story == "STORY-S"
+    assert candidate.story == "ISSUE-I"
 
     lib = load_factory_lib(repo)
     grill = json.loads(
@@ -117,16 +134,208 @@ def test_plan_save_keeps_issue_grill_and_story_approval_authority(
     record = approval.record_native_approval(
         repo, _event(candidate), runtime="claude",
     )
-    assert record["story"] == "STORY-S"
+    assert record["story"] == "ISSUE-I"
     assert json.loads(
-        lib.evidence_path(repo, "STORY-S", "plan-approval.json").read_text()
-    )["story"] == "STORY-S"
+        lib.evidence_path(repo, "ISSUE-I", "plan-approval.json").read_text()
+    )["story"] == "ISSUE-I"
     state = json.loads(lib.run_state_path(repo).read_text())
     assert state["issue_key"] == "ISSUE-I"
-    assert state["story"] == "STORY-S"
-    # The normal implementation consumer must resolve authority through the
-    # roadmap story after native approval, while the grill remains issue-scoped.
+    assert state["story"] == "ISSUE-I"
     assert lib.require_approved_plan_digest(repo) == candidate.digest
+
+
+def test_plan_save_refuses_inline_list_frontmatter_and_accepts_canonical_form(
+        repo: Path, tmp_path: Path):
+    sign_off(repo)
+    code, output = intake(repo)
+    assert code == 0, output
+    draft = tmp_path / "frontmatter-plan.md"
+    canonical = plan_draft(repo)
+    frontmatter, body = canonical.split("\n---\n", 1)
+    decision_lines = [
+        line for line in frontmatter.splitlines() if line.startswith("  - ")
+    ]
+    inline_field = "decisions_reviewed: [" + ", ".join(
+        line[4:] for line in decision_lines
+    ) + "]"
+    inline_frontmatter = frontmatter.replace(
+        "decisions_reviewed:\n" + "\n".join(decision_lines), inline_field,
+    )
+    draft.write_text(inline_frontmatter + "\n---\n" + body, encoding="utf-8")
+    active_dir = repo / "plans" / "active"
+    active_dir_existed = active_dir.exists()
+    state_path = load_factory_lib(repo).run_state_path(repo)
+    state_before = state_path.read_bytes()
+    code, output = record_grill(repo, "plan", digest_of=draft)
+    assert code == 0, output
+
+    code, output = run(
+        repo, "forge.py", "plan", "save", "--from", str(draft),
+        "--story", "ENG-1",
+    )
+    assert code != 0 and "canonical" in output, output
+    assert state_path.read_bytes() == state_before
+    assert active_dir.exists() is active_dir_existed
+    assert not list(active_dir.glob("*.md"))
+    assert approval.eligible_candidates(repo) == []
+
+    draft.write_text(canonical, encoding="utf-8")
+    code, output = record_grill(repo, "plan", digest_of=draft)
+    assert code == 0, output
+    code, output = run(
+        repo, "forge.py", "plan", "save", "--from", str(draft),
+        "--story", "ENG-1",
+    )
+    assert code == 0, output
+    assert len(approval.eligible_candidates(repo)) == 1
+    saved = next((repo / "plans" / "active").glob("ENG-1-*.md"))
+    saved_text = saved.read_text(encoding="utf-8")
+    assert saved_text == body
+    assert not saved_text.startswith("---\n")
+    metadata = json.loads(
+        (repo / ".factory" / "stories" / "ENG-1" / "plan-meta.json").read_text()
+    )
+    assert metadata["decisions_reviewed"] == active_decision_ids(repo)
+
+
+def test_plan_resave_replaces_only_unapproved_story_plan(repo: Path, tmp_path: Path):
+    sign_off(repo)
+    code, output = intake(repo)
+    assert code == 0, output
+    draft = tmp_path / "resaved-plan.md"
+    draft.write_text(plan_draft(repo), encoding="utf-8")
+    code, output = record_grill(repo, "plan", digest_of=draft)
+    assert code == 0, output
+    code, output = run(
+        repo, "forge.py", "plan", "save", "--from", str(draft),
+        "--title", "First title",
+    )
+    assert code == 0, output
+    first = repo / "plans" / "active" / "ENG-1-first-title.md"
+    assert first.is_file()
+
+    code, output = run(
+        repo, "forge.py", "plan", "save", "--from", str(draft),
+        "--title", "Updated title",
+    )
+    assert code == 0, output
+    updated = repo / "plans" / "active" / "ENG-1-updated-title.md"
+    assert not first.exists()
+    assert list((repo / "plans" / "active").glob("ENG-1-*.md")) == [updated]
+
+    candidate = approval.eligible_candidates(repo)[0]
+    approved_bytes = updated.read_bytes()
+    approval.record_native_approval(repo, _event(candidate), runtime="claude")
+    code, output = run(
+        repo, "forge.py", "plan", "save", "--from", str(draft),
+        "--title", "Third title",
+    )
+    assert code != 0
+    assert ("an approved plan exists at plans/active/ENG-1-updated-title.md; "
+            "amend it rather than saving a new title") in output
+    assert updated.read_bytes() == approved_bytes
+    assert list((repo / "plans" / "active").glob("ENG-1-*.md")) == [updated]
+
+
+def test_brief_plan_saves_body_only_and_claude_approves_exact_text(
+        repo: Path, tmp_path: Path):
+    sign_off(repo)
+    code, output = intake(repo)
+    assert code == 0, output
+    brief = (
+        "## What and why\n\nPeople need a clear invoice workflow.\n\n"
+        "## What changes for you\n\nInvoices are easier to review.\n\n"
+        "## Done when\n\nA user can create and review an invoice.\n\n"
+        "## Risks\n\nExisting records must remain readable.\n\n"
+        "## Technical approach\n\nUse the existing invoice service.\n\n"
+        "## Task decomposition\n\nImplement the user flow and its checks.\n\n"
+        "## Verify plan\n\nRun the focused invoice checks.\n"
+    )
+    draft = tmp_path / "brief-plan.md"
+    draft.write_text(brief, encoding="utf-8")
+    code, output = record_grill(repo, "plan", digest_of=draft)
+    assert code == 0, output
+    code, output = run(
+        repo, "forge.py", "plan", "save", "--from", str(draft),
+        "--story", "ENG-1",
+    )
+    assert code == 0, output
+    saved = next((repo / "plans" / "active").glob("ENG-1-*.md"))
+    exact_text = saved.read_text(encoding="utf-8")
+    assert exact_text == brief
+    assert "---" not in exact_text
+    metadata_path = repo / ".factory" / "stories" / "ENG-1" / "plan-meta.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert set(metadata) == {
+        "issue", "story", "title", "status", "saved", "plan_file",
+        "decisions_in_force",
+    }
+    assert metadata["decisions_in_force"] == active_decision_ids(repo)
+    assert "decisions_reviewed" not in metadata
+    candidate = approval.eligible_candidates(repo)[0]
+    event = _event(candidate)
+    assert event["tool_input"]["plan"] == exact_text
+    record = approval.record_native_approval(repo, event, runtime="claude")
+    assert record["approved_plan_sha256"] == candidate.digest
+    assert saved.read_text(encoding="utf-8") == exact_text
+    assert json.loads(metadata_path.read_text(encoding="utf-8"))["status"] == "approved"
+    assert json.loads(load_factory_lib(repo).run_state_path(repo).read_text())["plan_status"] == "approved"
+
+
+def test_brief_plan_refuses_decision_accepted_after_its_grill(repo: Path, tmp_path: Path):
+    sign_off(repo)
+    code, output = intake(repo)
+    assert code == 0, output
+    brief = (
+        "## What and why\n\nPeople need a clear invoice workflow.\n\n"
+        "## What changes for you\n\nInvoices are easier to review.\n\n"
+        "## Done when\n\nA user can create and review an invoice.\n\n"
+        "## Risks\n\nExisting records must remain readable.\n\n"
+        "## Technical approach\n\nUse the existing invoice service.\n\n"
+        "## Task decomposition\n\nImplement the user flow and its checks.\n\n"
+        "## Verify plan\n\nRun the focused invoice checks.\n"
+    )
+    draft = tmp_path / "brief-plan.md"
+    draft.write_text(brief, encoding="utf-8")
+    code, output = record_grill(repo, "plan", digest_of=draft)
+    assert code == 0, output
+    code, output = run(repo, "forge.py", "decision", "new", "after-grill",
+                       "--repo", str(repo))
+    assert code == 0, output
+    code, output = run(repo, "forge.py", "decision", "accept", "after-grill",
+                       "--by", "PM", "--repo", str(repo))
+    assert code == 0, output
+
+    code, output = run(
+        repo, "forge.py", "plan", "save", "--from", str(draft),
+        "--story", "ENG-1",
+    )
+
+    assert code != 0
+    assert "a decision was accepted after the plan grill; re-grill" in output
+    assert not list((repo / "plans" / "active").glob("*.md"))
+
+
+def test_body_only_plan_approval_uses_matching_run_state(repo: Path):
+    candidate = _story_candidate(repo)
+    body = "# Brief plan\n\nApproved exact body.\n"
+    candidate.path.write_text(body, encoding="utf-8")
+    lib = load_factory_lib(repo)
+    digest = lib.plan_digest_without_assumptions(candidate.path)
+    grill_path = lib.evidence_path(repo, candidate.story, "grills/plan.json")
+    grill = json.loads(grill_path.read_text(encoding="utf-8"))
+    grill["input_sha256"] = digest
+    lib.dump_json(grill_path, grill)
+    metadata_path = repo / ".factory" / "stories" / candidate.story / "plan-meta.json"
+    metadata_path.unlink(missing_ok=True)
+
+    candidate = approval._story_candidate(repo)
+    assert candidate is not None
+    approval.record_native_approval(repo, _event(candidate), runtime="claude")
+
+    assert candidate.path.read_text(encoding="utf-8") == body
+    assert not metadata_path.exists()
+    assert json.loads(lib.run_state_path(repo).read_text())["plan_status"] == "approved"
 
 
 @pytest.mark.parametrize("body", ["{not json\n", "[]\n"])
@@ -264,8 +473,8 @@ def test_phase_refuses_approved_status_without_native_approval_authority(
     assert _approved_plan_authority_state(repo, state) == "changed"
 
 
-def test_legacy_exact_plan_approval_is_reachable_and_upgrade_refuses_before_mutation(
-        repo: Path, capsys: pytest.CaptureFixture[str]):
+def test_legacy_exact_plan_approval_is_reachable_and_upgrade_preflight_allows_it(
+        repo: Path):
     candidate = _story_candidate(repo)
     lib = load_factory_lib(repo)
     candidate.path.write_text(
@@ -283,15 +492,25 @@ def test_legacy_exact_plan_approval_is_reachable_and_upgrade_refuses_before_muta
         "issue": candidate.story, "story": candidate.story,
         "approver": "Legacy Human", "at": "2026-01-01T00:00:00+00:00",
     })
+    plan_grill = repo / ".factory" / "grills" / "plan.json"
+    lib.dump_json(plan_grill, {
+        "generated_by": "griller", "gate": "plan", "verdict": "pass",
+        "gaps": [], "contradictions": [], "resolutions": [],
+    })
     recovered = approval.eligible_candidates(repo)
     assert recovered == [candidate]
     before = {
         path: path.read_bytes() if path.exists() else None
-        for path in (candidate.path, candidate.evidence, state_path)
+        for path in (candidate.path, candidate.evidence, state_path, plan_grill)
     }
-    with pytest.raises(SystemExit):
-        upgrade.preflight_lean_migration(repo)
-    assert "genuine native approval" in capsys.readouterr().out
+    migration = upgrade.preflight_lean_migration(repo)
+    assert migration is not None
+    assert any(
+        entry.get("family") == "manual-plan-approval"
+        and entry.get("classification") == "eligible"
+        and entry.get("path") == candidate.evidence.relative_to(repo).as_posix()
+        for entry in migration.get("entries") or []
+    )
     assert {
         path: path.read_bytes() if path.exists() else None
         for path in before
@@ -422,6 +641,8 @@ def test_completed_deleted_plan_approval_searches_authenticated_prior_completion
 
 def test_public_upgrade_retry_after_native_reapproval_does_not_keep_legacy_gate(
         repo: Path):
+    sign_off(repo)
+    intake(repo)
     candidate = _story_candidate(repo)
     lib = load_factory_lib(repo)
     candidate.path.write_text(
@@ -455,17 +676,17 @@ def test_public_upgrade_retry_after_native_reapproval_does_not_keep_legacy_gate(
     git(repo, "commit", "-qm", "legacy approval recovery fixture")
     first = public_upgrade()
     code, output = first.returncode, first.stdout + first.stderr
-    assert code != 0
-    assert "genuine native approval" in output
+    assert code == 0, output
+    assert (
+        f"re-approve {candidate.path.relative_to(repo)} in native Plan Mode after upgrade"
+        in output
+    )
 
-    recovered = approval.eligible_candidates(repo)
-    assert recovered == [candidate]
+    assert approval.eligible_candidates(repo) == [candidate]
+    code, output = run(repo, "forge.py", "next")
+    assert code == 0, output
+    assert "native Plan Mode" in output
     approval.record_native_approval(repo, _event(candidate), runtime="claude")
-    git(repo, "add", "-A")
-    git(repo, "commit", "-qm", "native approval recovery fixture")
-    second = public_upgrade()
-    assert second.returncode == 0, second.stdout + second.stderr
-    assert "genuine native approval" not in second.stdout + second.stderr
     assert approval.eligible_candidates(repo) == []
 
 
@@ -737,6 +958,22 @@ def test_native_approval_refuses_zero_multiple_candidates_replay_and_missing_ide
         approval.record_native_approval(repo, event, runtime="claude")
 
 
+def test_claude_approval_refusal_reports_uncommitted_decision(repo: Path):
+    candidate = _story_candidate(repo)
+    decision = repo / "docs" / "decisions" / "decision-uncommitted.md"
+    decision.parent.mkdir(parents=True, exist_ok=True)
+    decision.write_text("# Pending decision\n", encoding="utf-8")
+
+    with pytest.raises(approval.ApprovalRefused) as refused:
+        approval.record_native_approval(
+            repo, _event(candidate), runtime="claude",
+        )
+
+    message = str(refused.value)
+    assert decision.relative_to(repo).as_posix() in message
+    assert "commit it, then run `forge grill run --gate plan` again" in message.lower()
+
+
 def test_codex_approval_refuses_non_list_options_without_raising_type_error(repo):
     candidate = _story_candidate(repo)
     event = _event(candidate, "codex")
@@ -789,6 +1026,90 @@ def test_claude_approval_hook_reports_refusal_and_recording(repo: Path):
     code, out = run(repo, "forge.py", "hook", "post_tool_use", stdin=json.dumps(event))
     context = json.loads(out)["hookSpecificOutput"]["additionalContext"]
     assert code == 0 and f"recorded native story plan approval {candidate.digest}" in context
+
+
+def test_codex_approval_hook_reports_refusal(repo: Path):
+    candidate = _story_candidate(repo)
+    event = _event(candidate, "codex")
+    event["tool_input"]["questions"][0]["question"] = "Review this plan?"
+
+    code, out = run(repo, "forge.py", "hook", "post_tool_use", stdin=json.dumps(event))
+
+    output = json.loads(out)
+    assert code == 0
+    assert output["hookSpecificOutput"]["hookEventName"] == "PostToolUse"
+    context = output["hookSpecificOutput"]["additionalContext"]
+    assert "Forge did NOT record this plan approval" in context
+    assert "unsupported" in context
+    assert not candidate.evidence.exists()
+
+
+def test_codex_ordinary_question_hook_is_silent(repo: Path):
+    event = {
+        "tool_name": "request_user_input",
+        "tool_input": {"questions": [{
+            "id": "clarify_environment", "header": "Environment",
+            "question": "Which environment should I use?", "options": [],
+        }]},
+        "tool_response": {"answers": {}},
+    }
+
+    code, output = run(
+        repo, "forge.py", "hook", "post_tool_use", stdin=json.dumps(event),
+    )
+
+    assert code == 0
+    assert output == ""
+
+
+def test_plan_save_and_awaiting_phase_show_codex_approval_identity(
+        repo: Path, tmp_path: Path):
+    sign_off(repo)
+    code, output = intake(repo)
+    assert code == 0, output
+    draft = tmp_path / "codex-plan.md"
+    draft.write_text(plan_draft(repo), encoding="utf-8")
+    code, output = record_grill(repo, "plan", digest_of=draft)
+    assert code == 0, output
+    code, output = run(
+        repo, "forge.py", "plan", "save", "--from", str(draft),
+        "--story", "ENG-1",
+    )
+    assert code == 0, output
+    candidates = approval.eligible_candidates(repo)
+    assert len(candidates) == 1
+    digest = candidates[0].digest
+    question_id = f"approve_plan_{digest}"
+    question = "Approve this plan?"
+    assert f"Semantic digest: {digest}" in output
+    assert question_id in output
+    assert 'header="Approve plan"' in output
+    assert f'question="{question}"' in output
+    assert "Approve exact plan digest" not in output
+
+    code, output = run(repo, "forge.py", "next")
+    assert code == 0, output
+    assert f'id="{question_id}"' in output
+    assert 'header="Approve plan"' in output
+    assert 'question="Approve this plan?"' in output
+
+
+@pytest.mark.parametrize("plan_file", ["", "plans/active/missing-plan.md"])
+def test_awaiting_approval_next_handles_missing_plan_file(repo: Path, plan_file: str):
+    sign_off(repo)
+    code, output = intake(repo)
+    assert code == 0, output
+    lib = load_factory_lib(repo)
+    state_path = lib.run_state_path(repo)
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state.update(plan_status="awaiting-approval", plan_file=plan_file)
+    lib.dump_json(state_path, state)
+
+    code, output = run(repo, "forge.py", "next")
+
+    assert code == 0, output
+    assert "saved plan file" in output
+    assert "is missing" in output
 
 
 def test_claude_no_argument_exit_plan_mode_approves_from_response(repo: Path):
@@ -871,9 +1192,11 @@ def test_codex_approval_uses_question_id_and_requires_displayed_digest(
             approval.record_native_approval(repo, event, runtime="codex")
 
     event = _event(candidate, "codex")
-    event["tool_input"]["questions"][0]["question"] = "Approve this plan?"
-    with pytest.raises(approval.ApprovalRefused, match="unsupported"):
-        approval.record_native_approval(repo, event, runtime="codex")
+    assert approval._codex_approved(event) == candidate.digest
+    event["tool_input"]["questions"][0]["question"] = (
+        f"Approve exact plan digest {candidate.digest}?"
+    )
+    assert approval._codex_approved(event) == candidate.digest
 
     stale_digest = "0" * 64
     stale_id = f"approve_plan_{stale_digest}"
@@ -970,7 +1293,78 @@ def test_native_approval_reuses_existing_story_and_task_approval_storage(
         repo, task_row, legacy, task.digest)
 
 
-def _lean_bootstrap_grill(lib) -> dict:
+def test_native_task_approval_preserves_exact_grill_artifact_digest(
+        repo: Path, monkeypatch: pytest.MonkeyPatch):
+    lib = load_factory_lib(repo)
+    plan = repo / ".factory" / "task.md"
+    plan.write_text("---\nstatus: approved\n---\n\n# task\n", encoding="utf-8")
+    exact_digest = hashlib.sha256(plan.read_bytes()).hexdigest()
+    semantic_digest = lib.plan_digest_without_assumptions(plan)
+    assert exact_digest != semantic_digest
+
+    grill = repo / ".factory" / "task-grill.json"
+    lib.dump_json(grill, {"verdict": "pass", "final_artifact_sha256": exact_digest})
+    candidate = approval.ApprovalCandidate(
+        "task", "APPROVE-1", "T1", plan, semantic_digest, grill,
+    )
+    monkeypatch.setattr(approval, "eligible_candidates", lambda _base: [candidate])
+
+    record = approval.record_native_approval(
+        repo, _event(candidate, "codex"), runtime="codex",
+    )
+
+    stored = json.loads(grill.read_text(encoding="utf-8"))
+    assert stored["final_artifact_sha256"] == exact_digest
+    assert stored["approved_task_plan_sha256"] == semantic_digest
+    assert record["approved_plan_sha256"] == semantic_digest
+
+
+def _recorded_lean_bootstrap_actor(lib, root: Path, runtime: str = "codex") -> str:
+    story = lib._LEAN_SELF_BOOTSTRAP_STORY
+    actor = {"claude": "human-via-Claude", "codex": "human-via-Codex"}[runtime]
+    story_plan = root / "plans" / "active" / "lean-bootstrap.md"
+    story_plan.parent.mkdir(parents=True, exist_ok=True)
+    story_plan.write_text(
+        f"# Story\n\n{lib._LEAN_SELF_BOOTSTRAP_CLAUSE}.\n",
+        encoding="utf-8",
+    )
+    digest = lib.plan_digest_without_assumptions(story_plan)
+    state = lib.load_json(lib.run_state_path(root), default={})
+    state.update({
+        "issue_key": story,
+        "story": story,
+        "plan_file": story_plan.relative_to(root).as_posix(),
+        "plan_status": "approved",
+        "approved_plan_sha256": digest,
+    })
+    lib.dump_json(lib.run_state_path(root), state)
+    session = "bootstrap-approval-session"
+    event = "bootstrap-approval-event"
+    approval_record = {
+        "approved_plan_sha256": digest,
+        "approved_by": actor,
+        "approved_at": "2026-09-18T12:00:00+00:00",
+        "runtime": runtime,
+        "session_id": session,
+        "event_id": event,
+        "plan_kind": "story",
+        "story": story,
+        "task": "",
+    }
+    event_key = hashlib.sha256(
+        f"{runtime}\0{session}\0{event}".encode("utf-8")
+    ).hexdigest()
+    for relative, payload in (
+        ("plan-approval.json", approval_record),
+        (f"approval-events/{event_key}.json", approval_record),
+    ):
+        path = lib.evidence_path(root, story, relative, for_write=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lib.dump_json(path, payload)
+    return actor
+
+
+def _lean_bootstrap_grill(lib, actor: str) -> dict:
     digest = lib._LEAN_SELF_BOOTSTRAP_DIGEST
     return {
         "generated_by": "griller",
@@ -980,7 +1374,7 @@ def _lean_bootstrap_grill(lib) -> dict:
         "task_id": lib._LEAN_SELF_BOOTSTRAP_TASK,
         "final_artifact_sha256": lib._LEAN_SELF_BOOTSTRAP_FINAL_ARTIFACT_SHA256,
         "approved_task_plan_sha256": digest,
-        "approved_by": lib._LEAN_SELF_BOOTSTRAP_ACTOR,
+        "approved_by": actor,
         "approved_at": "2026-09-18T12:00:00+00:00",
     }
 
@@ -999,7 +1393,8 @@ def _lean_bootstrap_grill(lib) -> dict:
 def test_lean_self_bootstrap_compatibility_is_exact(
         repo: Path, monkeypatch: pytest.MonkeyPatch, change: str, value: str):
     lib = load_factory_lib(repo)
-    grill = _lean_bootstrap_grill(lib)
+    actor = _recorded_lean_bootstrap_actor(lib, repo)
+    grill = _lean_bootstrap_grill(lib, actor)
     task = {"id": lib._LEAN_SELF_BOOTSTRAP_TASK}
     story = lib._LEAN_SELF_BOOTSTRAP_STORY
     digest = lib._LEAN_SELF_BOOTSTRAP_DIGEST
@@ -1025,28 +1420,54 @@ def test_lean_self_bootstrap_compatibility_is_exact(
     })
 
 
+def test_lean_self_bootstrap_actor_comes_from_current_story_approval(
+        repo: Path, monkeypatch: pytest.MonkeyPatch):
+    lib = load_factory_lib(repo)
+    actor = _recorded_lean_bootstrap_actor(lib, repo)
+    grill = _lean_bootstrap_grill(lib, actor)
+    task = {"id": lib._LEAN_SELF_BOOTSTRAP_TASK}
+    monkeypatch.setattr(
+        lib, "task_grill_grounding_matches", lambda _root, _task, _grill: True,
+    )
+
+    assert lib._lean_self_bootstrap_task_grill(
+        repo, task, grill, lib._LEAN_SELF_BOOTSTRAP_DIGEST,
+    )
+
+    grill["approved_by"] = "forged-grill-actor"
+    assert not lib._lean_self_bootstrap_task_grill(
+        repo, task, grill, lib._LEAN_SELF_BOOTSTRAP_DIGEST,
+    )
+
+    grill["approved_by"] = actor
+    story_plan = repo / "plans" / "active" / "lean-bootstrap.md"
+    original_plan = story_plan.read_bytes()
+    story_plan.write_bytes(original_plan + b"\nchanged\n")
+    assert not lib._lean_self_bootstrap_task_grill(
+        repo, task, grill, lib._LEAN_SELF_BOOTSTRAP_DIGEST,
+    )
+
+    story_plan.write_bytes(original_plan)
+    approval_path = lib.evidence_path(
+        repo, lib._LEAN_SELF_BOOTSTRAP_STORY, "plan-approval.json",
+    )
+    approval_path.unlink()
+    assert not lib._lean_self_bootstrap_task_grill(
+        repo, task, grill, lib._LEAN_SELF_BOOTSTRAP_DIGEST,
+    )
+
+
 def test_lean_self_bootstrap_records_once_without_native_event_identity(
         repo: Path, monkeypatch: pytest.MonkeyPatch):
     lib = load_factory_lib(repo)
     story = lib._LEAN_SELF_BOOTSTRAP_STORY
     task_id = lib._LEAN_SELF_BOOTSTRAP_TASK
     digest = lib._LEAN_SELF_BOOTSTRAP_DIGEST
-    actor = lib._LEAN_SELF_BOOTSTRAP_ACTOR
-    story_digest = "1" * 64
+    actor = _recorded_lean_bootstrap_actor(lib, repo)
+    story_digest = lib.require_approved_plan_digest(repo)
     task = {"id": task_id}
     decomposition = lib.protected_decomposition_state_path(repo)
     lib.dump_json(decomposition, {"plan_sha256": story_digest, "tasks": [task]})
-    story_plan = repo / "plans" / "active" / "lean.md"
-    story_plan.parent.mkdir(parents=True, exist_ok=True)
-    story_plan.write_text(
-        f"# Story\n\n{lib._LEAN_SELF_BOOTSTRAP_CLAUSE}.\n",
-        encoding="utf-8",
-    )
-    lib.dump_json(lib.run_state_path(repo), {
-        "issue_key": story,
-        "story": story,
-        "plan_file": story_plan.relative_to(repo).as_posix(),
-    })
     task_plan = lib.evidence_path(
         repo, story, f"task-plans/{task_id}.md", for_write=True,
     )
@@ -1070,18 +1491,15 @@ def test_lean_self_bootstrap_records_once_without_native_event_identity(
     lib.dump_json(grill_path, clean_grill)
     monkeypatch.setattr(lib, "_active_story_key", lambda _root: story)
     monkeypatch.setattr(
-        lib, "require_approved_plan_digest", lambda _root: story_digest,
-    )
-    monkeypatch.setattr(
         lib, "plan_digest_without_assumptions",
         lambda path: digest if path == task_plan else story_digest,
     )
-    monkeypatch.setattr(
-        lib.hashlib, "sha256",
-        lambda _body=b"": type("Digest", (), {
+    real_sha256 = hashlib.sha256
+    monkeypatch.setattr(lib.hashlib, "sha256", lambda body=b"": (
+        type("Digest", (), {
             "hexdigest": lambda self: lib._LEAN_SELF_BOOTSTRAP_FINAL_ARTIFACT_SHA256,
-        })(),
-    )
+        })() if body == task_plan.read_bytes() else real_sha256(body)
+    ))
     monkeypatch.setattr(
         lib, "require_task_grill",
         lambda _root, _task_id, _task, **_kwargs: clean_grill,

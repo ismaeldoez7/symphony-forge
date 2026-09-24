@@ -68,6 +68,7 @@ LEAN_ORIGINAL_EMPTY_RUNTIME_DIGEST = (
     "bb4b6c05b41897447063959fc782e9ca4c2e00f9b219559314b725485b91b2e8"
 )
 LEAN_LENSES = ("performance", "quality", "security")
+UPGRADE_PRESERVED_ROOT = ".factory/migrations/.upgrade-preserved"
 
 _FIXED_REVIEW_OPTIONAL_LIST_FIELDS = (
     "non_blocking_findings", "rejected_findings", "residual_risks",
@@ -104,12 +105,15 @@ KNOWN_FORGE_RETAINED_PROFILE_HASHES = {
         "ba68c9092378cb45ba632b76cbb1a3d0e9601da617f4bbc45588a2ada46e912c",
         "d0dbfbea103f552d31ec233eebb53094d6f21c01be4c8b5d4cf69768beb962d2",
         "ee02022932efe1dffd4a9e3402ec11df10c60221d3c33513925be7573bcbe96c",
+        "b22e54eef473edf628e6b1166bcf80ea93c97f09da4589c83fe069146b1503f2",
+        "55e2b801ee7fa3aa70453e982652caa0da1a53a42077f23258e1b62c5e970b7b",
     },
     "docs-decomposer.toml": {
         "4b8ee76734f910c242e15f2b89232b312f10410f22c9c4e3dbdadccbc781d6fa",
         "ebc2299566ed42b196700ad9393421c79804a737b863db2b0587f79868343f00",
         "23f1007533de1073e449f2e4b40d277c71e31b8b2256ea87e5594f537968881b",
         "c2696d86dd5de5098ef7ff9d2b9d77d061a69be7b58e60601544e93ee560da3d",
+        "b3bae16c3042a42762f717ff6357c060b9abec1ecb318182e9ad0a777820cfeb",
     },
     "functional-checker.toml": {
         "6411566c800dab5253346c63305fb61d6082533bf0f86d0283f1ecbb67d6d107",
@@ -306,6 +310,9 @@ def _lean_family(relative: str, data: bytes | None = None) -> str:
             value = json.loads(data.decode("utf-8")) if data else None
         except (UnicodeDecodeError, json.JSONDecodeError):
             value = None
+        if (isinstance(value, dict) and "stages" in value
+                and not isinstance(value["stages"], list)):
+            return "legacy-stage-stamp"
         records = value.get("stages") if isinstance(value, dict) \
             and "stages" in value else [value]
         stamps = [record.get("local_review_stamp") for record in records
@@ -1649,6 +1656,9 @@ def _raw_legacy_family(relative: str, data: bytes) -> str:
             stage_value = json.loads(data.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
             stage_value = None
+        if (isinstance(stage_value, dict) and "stages" in stage_value
+                and not isinstance(stage_value["stages"], list)):
+            return "legacy-stage-stamp"
         stage_records = stage_value.get("stages") \
             if isinstance(stage_value, dict) and "stages" in stage_value \
             else [stage_value]
@@ -1958,6 +1968,14 @@ def _revalidate_lean_inventory(target: Path, migration: dict) -> None:
                 and not (target / path).exists()
                 and not (target / path).is_symlink()):
             continue
+        if (migration.get("resume")
+                and original.get("family") == "fixed-review-lens"
+                and original.get("preserve") is False
+                and live is not None
+                and live.get("classification") == "excluded"
+                and live.get("reason") == "incomplete fixed review is display-only"
+                and live.get("sha256") == original.get("sha256")):
+            continue
         fail("Lean migration inventory changed before review publication")
     candidates, sentinels = _fixed_review_plan(target, migration)
     expected_candidates = migration.get("review_candidates", [])
@@ -2227,57 +2245,7 @@ def _prepare_review_outputs(target: Path, migration: dict) -> None:
     migration["prepared_reviews"] = prepared
 
 
-def _legacy_plan_approval_requires_native(target: Path) -> bool:
-    """Refuse migration until an unchanged legacy approval is consumed natively."""
-    try:
-        from factory_lib import (
-            _read_review_bytes, evidence_path,
-            plan_digest_without_assumptions, run_state_path,
-        )
-        state = load_json(run_state_path(target), default={})
-        if not isinstance(state, dict) or state.get("plan_status") != "approved":
-            return False
-        relative = state.get("plan_file")
-        approved = state.get("approved_plan_sha256")
-        if (not isinstance(relative, str) or Path(relative).is_absolute()
-                or ".." in Path(relative).parts
-                or not isinstance(approved, str)
-                or re.fullmatch(r"[0-9a-f]{64}", approved) is None):
-            return False
-        plan = target / relative
-        if (Path(relative).is_absolute() or ".." in Path(relative).parts):
-            return False
-        _read_review_bytes(target, plan)
-        digest = plan_digest_without_assumptions(plan)
-        if digest != approved:
-            return False
-        story = str(state.get("story") or state.get("issue_key") or "").strip()
-        issue = str(state.get("issue_key") or story).strip()
-        if (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", story)
-                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", issue)):
-            return False
-        evidence = evidence_path(target, story, "plan-approval.json")
-        record = json.loads(_read_review_bytes(target, evidence))
-        return (
-            isinstance(record, dict)
-            and record.get("approved_plan_sha256") == digest
-            and record.get("issue") == issue
-            and record.get("story") == story
-            and all(isinstance(record.get(field), str) and record[field].strip()
-                    for field in ("approver", "at"))
-            and "runtime" not in record
-        )
-    except (OSError, UnicodeError, ValueError, TypeError, json.JSONDecodeError,
-            SystemExit):
-        return False
-
-
 def preflight_lean_migration(target: Path) -> dict | None:
-    if _legacy_plan_approval_requires_native(target):
-        fail(
-            "Lean migration requires a genuine native approval for the unchanged "
-            "plan; run `forge next`, approve that exact plan, then retry `forge upgrade`."
-        )
     original_manifest = (
         target / ".factory" / "migrations" / f"{LEAN_MIGRATION_VERSION}.json"
     )
@@ -2557,6 +2525,26 @@ def _fixed_review_plan(
             ]
             marker = (target / ".factory" / "stories" / story / "tasks" / task
                       / "pr-ready.json")
+            if not expected:
+                if (marker.exists() or marker.is_symlink()
+                        or any(entry.get("preserve") is not False
+                               for entry in entries)):
+                    fail(f"active fixed review {story}/{task} cannot resume partial retirement")
+                reviews = marker.parent / "reviews"
+                generations = reviews / "generations"
+                _require_unlinked_path(target, generations)
+                if ((reviews / "selected.json").exists()
+                        or (reviews / "selected.json").is_symlink()
+                        or (generations.exists() and any(generations.iterdir()))):
+                    fail(f"active fixed review {story}/{task} cannot resume with durable output")
+                for entry, path in zip(entries, source_paths):
+                    if path in missing_sources:
+                        continue
+                    if (path.is_symlink() or not path.is_file()
+                            or hashlib.sha256(path.read_bytes()).hexdigest()
+                            != entry["sha256"]):
+                        fail(f"fixed review input {entry['path']} changed during resume")
+                continue
             marker_data = load_json(marker, default={})
             committed, marker_problem = _committed_task_marker(
                 target, story, task, marker_data, None,
@@ -2841,10 +2829,25 @@ def _upgrade_path_identity(path: Path) -> dict[str, object]:
             "sha256": hashlib.sha256(encoded).hexdigest()}
 
 
+def _upgrade_resume_harness_identity(
+        harness: Path, operations: list[dict[str, object]]) -> str:
+    commit = head_sha(harness)
+    if isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", commit):
+        return commit
+    inventory = [
+        {"source": row["source"], "identity": row["source_identity"]}
+        for row in operations if row.get("kind") in {"tree", "file"}
+    ]
+    return hashlib.sha256(json.dumps(
+        inventory, sort_keys=True, separators=(",", ":"),
+    ).encode()).hexdigest()
+
+
 def _upgrade_resume_plan(
         harness: Path, target: Path,
         preserve_sources: dict[str, Path],
         profile_replacements: list[tuple[Path, Path]],
+        preserve_backups: dict[str, Path] | None = None,
 ) -> dict[str, object]:
     """Describe every path the public upgrade may mutate before finalization."""
     operations: list[dict[str, object]] = []
@@ -2893,12 +2896,16 @@ def _upgrade_resume_plan(
             source_operation("file", source, target / destination_rel)
     for relative, source in preserve_sources.items():
         destination = target / relative
-        operations.append({
+        operation = {
             "kind": "preserve", "path": relative,
             "before": _upgrade_path_identity(destination),
             "source": source.relative_to(target).as_posix()
             if source.is_relative_to(target) else "",
-        })
+        }
+        backup = (preserve_backups or {}).get(relative)
+        if backup is not None:
+            operation["backup"] = backup.relative_to(target).as_posix()
+        operations.append(operation)
     for source, destination in profile_replacements:
         source_operation("file", source, destination)
 
@@ -2923,7 +2930,7 @@ def _upgrade_resume_plan(
                                     str(row["kind"])))
     plan = {
         "version": UPGRADE_RESUME_VERSION,
-        "harness_commit": head_sha(harness),
+        "harness_commit": _upgrade_resume_harness_identity(harness, operations),
         "operations": operations,
     }
     plan["plan_sha256"] = hashlib.sha256(json.dumps(
@@ -2938,10 +2945,10 @@ def _upgrade_resume_plan_is_valid(
     if not isinstance(plan, dict):
         return False
     operations = plan.get("operations")
+    recorded_commit = plan.get("harness_commit")
     if (plan.get("version") != UPGRADE_RESUME_VERSION
-            or not isinstance(plan.get("harness_commit"), str)
-            or not re.fullmatch(r"[0-9a-f]{40}", plan["harness_commit"])
-            or plan["harness_commit"] != head_sha(harness)
+            or not isinstance(recorded_commit, str)
+            or re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", recorded_commit) is None
             or not isinstance(operations, list)
             or plan.get("plan_sha256") != hashlib.sha256(json.dumps(
                 operations, sort_keys=True, separators=(",", ":"),
@@ -2959,7 +2966,7 @@ def _upgrade_resume_plan_is_valid(
             source = row.get("source")
             identity = row.get("source_identity")
             if (not isinstance(source, str) or Path(source).is_absolute()
-                    or ".." in Path(source).parts
+                    or ".." in Path(source).parts or "\\" in source
                     or not isinstance(identity, dict)
                     or _upgrade_path_identity(harness / source) != identity):
                 return False
@@ -2968,8 +2975,25 @@ def _upgrade_resume_plan_is_valid(
                     or (kind == "finalize" and "after" in row
                         and not isinstance(row.get("after"), dict))):
                 return False
+            if kind == "preserve" and "backup" in row:
+                backup = row["backup"]
+                if not isinstance(backup, str):
+                    return False
+                backup_path = Path(backup)
+                if (backup_path.is_absolute()
+                        or ".." in backup_path.parts or "\\" in backup
+                        or backup != f"{UPGRADE_PRESERVED_ROOT}/{row['path']}"
+                        or not backup.startswith(UPGRADE_PRESERVED_ROOT + "/")):
+                    return False
+                _require_unlinked_path(target, target / backup_path.parent)
+                if (_upgrade_path_identity(target / backup_path) != row["before"]
+                        and _upgrade_path_identity(target / row["path"])
+                        != row["before"]):
+                    return False
         elif kind not in {"remove", "state"}:
             return False
+    if recorded_commit != _upgrade_resume_harness_identity(harness, operations):
+        return False
     return True
 
 
@@ -2977,6 +3001,7 @@ def _persist_prepared_lean_manifest(
         target: Path, migration: dict, *, runtime_source: Path,
         profile_replacements: list[tuple[Path, Path]],
         preserve_sources: dict[str, Path] | None = None,
+        preserve_backups: dict[str, Path] | None = None,
 ) -> None:
     """Publish authenticated retry state before vendoring mutates the target."""
     from factory_lib import dump_json, now_iso, validate_payload
@@ -3054,6 +3079,7 @@ def _persist_prepared_lean_manifest(
         })
     migration["upgrade_resume"] = _upgrade_resume_plan(
         runtime_source, target, preserve_sources or {}, profile_replacements,
+        preserve_backups,
     )
     manifest["upgrade_resume"] = migration["upgrade_resume"]
     # This publishes retry state BEFORE vendoring mutates the target, so a target
@@ -3589,6 +3615,41 @@ def _keep_path(keep_root: Path, src: Path, dst: Path) -> None:
         )
 
 
+def _backup_upgrade_skills(
+        target: Path, preserve_sources: dict[str, Path],
+        backups: dict[str, Path],
+) -> None:
+    """Keep client factory skills recoverable until the upgrade is complete."""
+    for relative, backup in backups.items():
+        source = preserve_sources[relative]
+        _require_unlinked_path(target, source.parent)
+        identity = _upgrade_path_identity(source)
+        if identity.get("kind") in {"other", "nonregular-tree", "symlinked-tree"}:
+            fail(f"cannot record a safe upgrade backup for {relative}")
+        _require_unlinked_path(target, backup.parent)
+        if backup.exists() or backup.is_symlink():
+            fail(f"upgrade preservation backup already exists: {backup}")
+        _keep_path(target, source, backup)
+        if _upgrade_path_identity(backup) != identity:
+            fail(f"upgrade preservation backup readback differs: {relative}")
+
+
+def _restore_upgrade_backup(target: Path, source: Path, destination: Path) -> None:
+    """Restore one missing preserved path from its recorded target-local copy."""
+    if destination.exists() or destination.is_symlink():
+        fail(f"preserved upgrade destination changed before restore: {destination}")
+    assert_target_destination(target, destination.parent).mkdir(
+        parents=True, exist_ok=True,
+    )
+    if source.is_dir() and not source.is_symlink():
+        guarded_copytree(target, source, destination, symlinks=True)
+    else:
+        shutil.copy2(
+            source, assert_target_file_destination(target, destination),
+            follow_symlinks=False,
+        )
+
+
 def _check_legacy_retirable(target: Path, harness: Path) -> None:
     """Refuse BEFORE anything is written, or the repair cannot be run.
 
@@ -3911,6 +3972,13 @@ def _upgrade_resume_operation_matches(
 ) -> bool:
     """Check one dirty path against the authenticated overall-upgrade plan."""
     root = str(row.get("path") or "")
+    backup = row.get("backup")
+    if (row.get("kind") == "preserve" and isinstance(backup, str)
+            and (relative == backup or relative.startswith(backup + "/"))):
+        return (
+            _upgrade_path_identity(target / backup) == row.get("before")
+            or _upgrade_path_identity(target / root) == row.get("before")
+        )
     if relative != root and not relative.startswith(root + "/"):
         return False
     kind = row.get("kind")
@@ -3987,7 +4055,7 @@ def _authenticated_upgrade_resume_paths(
 ) -> set[str]:
     """Return only dirty paths matching an incomplete overall-upgrade plan."""
     plan = saved.get("upgrade_resume")
-    if not isinstance(plan, dict) or plan.get("completed_at"):
+    if not isinstance(plan, dict):
         return set()
     if not _upgrade_resume_plan_is_valid(target, harness, plan):
         return set()
@@ -3995,6 +4063,12 @@ def _authenticated_upgrade_resume_paths(
     return {
         relative for relative in changed
         if _upgrade_resume_path_matches(harness, target, operations, relative)
+        and (not plan.get("completed_at") or any(
+            row.get("kind") == "preserve" and isinstance(row.get("backup"), str)
+            and (relative == row["backup"]
+                 or relative.startswith(row["backup"] + "/"))
+            for row in operations if isinstance(row, dict)
+        ))
     }
 
 
@@ -4031,6 +4105,58 @@ def _complete_upgrade_resume(target: Path) -> None:
             )
         if load_json(manifest, default={}) != completed:
             fail("overall upgrade completion readback differs")
+
+
+def _cleanup_upgrade_preserve_backups(target: Path) -> None:
+    """Remove the authenticated skill backups after the resume receipt is sealed."""
+    migrations = target / ".factory" / "migrations"
+    for name in (f"{LEAN_MIGRATION_VERSION}.json", LEAN_MIGRATION_SUPPLEMENT):
+        manifest = migrations / name
+        if not manifest.is_file() or manifest.is_symlink():
+            continue
+        saved = load_json(manifest, default={})
+        plan = saved.get("upgrade_resume") if isinstance(saved, dict) else None
+        if not isinstance(plan, dict) or not plan.get("completed_at"):
+            continue
+        if not _upgrade_resume_plan_is_valid(target, repo_root(), plan):
+            fail("overall upgrade preservation backup plan is invalid")
+        for row in plan.get("operations") or []:
+            if not isinstance(row, dict) or row.get("kind") != "preserve":
+                continue
+            backup_relative = row.get("backup")
+            if not isinstance(backup_relative, str):
+                continue
+            backup = target / backup_relative
+            destination = target / row["path"]
+            if _upgrade_path_identity(destination) != row.get("before"):
+                fail(f"preserved upgrade path changed before backup cleanup: {row['path']}")
+            _require_unlinked_path(target, backup.parent)
+            identity = _upgrade_path_identity(backup)
+            if identity.get("kind") == "missing":
+                continue
+            expected = row.get("before")
+            partial_tree = (
+                isinstance(expected, dict) and expected.get("kind") == "tree"
+                and identity.get("kind") == "tree"
+                and isinstance(expected.get("entries"), list)
+                and isinstance(identity.get("entries"), list)
+                and all(entry in expected["entries"]
+                        for entry in identity["entries"])
+            )
+            if identity != expected and not partial_tree:
+                fail(f"upgrade preservation backup changed: {backup_relative}")
+            if identity.get("kind") == "tree":
+                shutil.rmtree(assert_target_destination(target, backup))
+            else:
+                (assert_target_destination(target, backup.parent) / backup.name).unlink()
+            root = target / UPGRADE_PRESERVED_ROOT
+            parent = backup.parent
+            while parent != root.parent:
+                try:
+                    parent.rmdir()
+                except OSError:
+                    break
+                parent = parent.parent
 
 
 def _record_upgrade_finalize_outputs(target: Path) -> None:
@@ -4097,6 +4223,16 @@ def _upgrade_resume_preserved_mismatches(
         destination = target / relative
         _require_unlinked_path(target, destination.parent)
         if _upgrade_path_identity(destination) != row["before"]:
+            backup_relative = row.get("backup")
+            if (isinstance(backup_relative, str)
+                    and _upgrade_path_identity(target / backup_relative)
+                    == row["before"]
+                    and _upgrade_path_identity(destination).get("kind") == "missing"):
+                _restore_upgrade_backup(
+                    target, target / backup_relative, destination,
+                )
+            if _upgrade_path_identity(destination) == row["before"]:
+                continue
             mismatches.append(relative)
     return mismatches
 
@@ -4205,6 +4341,10 @@ def _incomplete_lean_resume_paths(
         return (overall_allowed | _recorded_lean_temporary_paths(
             target, manifest, saved, changed,
         )) if changed else set()
+    if (saved.get("completed_at")
+            and isinstance(saved.get("upgrade_resume"), dict)
+            and saved["upgrade_resume"].get("completed_at")):
+        return overall_allowed if changed else set()
     profile_replacements = _profile_replacement_hashes(saved)
     if profile_replacements is None:
         return set()
@@ -4327,6 +4467,44 @@ def _incomplete_lean_resume_paths(
     return allowed
 
 
+def _active_lean_migration_manifest(target: Path) -> dict | None:
+    manifest = target / ".factory" / "migrations" / f"{LEAN_MIGRATION_VERSION}.json"
+    supplemental = manifest.with_name(LEAN_MIGRATION_SUPPLEMENT)
+    if supplemental.exists() or supplemental.is_symlink():
+        manifest = supplemental
+    try:
+        if manifest.is_symlink() or not manifest.is_file():
+            return None
+        saved = load_json(manifest, default={})
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    return saved if isinstance(saved, dict) else None
+
+
+def _is_client_owned_upgrade_skill_path(relative: str, harness: Path) -> bool:
+    parts = PurePosixPath(relative).parts
+    if len(parts) < 3 or parts[:2] != ("factory", "skills"):
+        return False
+    skill = parts[2]
+    return skill in {"proposed", "rejected"} or not (
+        harness / "factory" / "skills" / skill
+    ).exists()
+
+
+def _only_harness_owned_upgrade_paths(changed: set[str], harness: Path) -> bool:
+    resume_state = {
+        f".factory/migrations/{LEAN_MIGRATION_VERSION}.json",
+        f".factory/migrations/{LEAN_MIGRATION_SUPPLEMENT}",
+    }
+    return bool(changed) and all(
+        relative in resume_state or (
+            _is_harness_owned(relative, harness)
+            and not _is_client_owned_upgrade_skill_path(relative, harness)
+        )
+        for relative in changed
+    )
+
+
 def _require_clean_upgrade_target(
         target: Path, *, allow_lean_resume: bool = False) -> None:
     status = subprocess.run(
@@ -4362,6 +4540,35 @@ def _require_clean_upgrade_target(
             )
             if allowed and changed and changed <= allowed:
                 return
+            harness = repo_root()
+            if _only_harness_owned_upgrade_paths(changed, harness):
+                saved = _active_lean_migration_manifest(target)
+                plan = saved.get("upgrade_resume") if saved else None
+                if isinstance(plan, dict) and not plan.get("completed_at"):
+                    try:
+                        valid = _upgrade_resume_plan_is_valid(
+                            target, harness, plan,
+                        )
+                    except SystemExit:
+                        valid = False
+                    if not valid:
+                        recorded = plan.get("harness_commit")
+                        label = (
+                            recorded if isinstance(recorded, str) and re.fullmatch(
+                                r"[0-9a-f]{40}|[0-9a-f]{64}", recorded,
+                            ) else "<missing or invalid>"
+                        )
+                        fail(
+                            "incomplete upgrade resume plan for harness commit "
+                            f"{label} is invalid; reset/clean only the interrupted "
+                            "harness-owned paths to HEAD, then rerun forge upgrade."
+                        )
+                if saved and saved.get("completed_at"):
+                    fail(
+                        "the Lean migration is complete, but a later upgrade was "
+                        "interrupted; reset/clean only the changed harness-owned "
+                        "paths to HEAD, then rerun forge upgrade."
+                    )
         fail(
             f"{target} has uncommitted changes. Commit or stash first so the upgrade "
             "is a reviewable diff. Lean migration has no --force bypass."
@@ -4481,12 +4688,22 @@ def _cmd_upgrade_locked(
         _keep_path(keep_root, src, dest)
         preserved[rel] = dest
 
+    preserve_backups = {
+        relative: target / UPGRADE_PRESERVED_ROOT / relative
+        for relative, source in preserve_sources.items()
+        if (lean_migration is not None
+            and relative.startswith("factory/skills/")
+            and source.is_relative_to(target)
+            and source.relative_to(target).as_posix() == relative)
+    }
     if lean_migration is not None:
         _persist_prepared_lean_manifest(
             target, lean_migration, runtime_source=harness,
             profile_replacements=deferred_profile_replacements,
             preserve_sources=preserve_sources,
+            preserve_backups=preserve_backups,
         )
+        _backup_upgrade_skills(target, preserve_sources, preserve_backups)
 
     for tree in UPGRADE_TREES:
         src = harness / tree
@@ -4753,6 +4970,28 @@ def _cmd_upgrade_locked(
         drift = ("\nNOTE: harness.yaml differs from the harness default (project-owned, "
                  "left untouched) — diff manually if the phase contract changed upstream.")
     print(f"Upgraded {target} to symphony-forge @ {commit[:8]}")
+    migration_paths = (
+        target / ".factory" / "migrations" / f"{LEAN_MIGRATION_VERSION}.json",
+        target / ".factory" / "migrations" / LEAN_MIGRATION_SUPPLEMENT,
+    )
+    has_legacy_plan_approval = any(
+        isinstance(manifest, dict)
+        and any(entry.get("family") == "manual-plan-approval"
+                for entry in manifest.get("entries") or []
+                if isinstance(entry, dict))
+        for path in migration_paths
+        for manifest in [load_json(path, default={})]
+    )
+    if has_legacy_plan_approval:
+        try:
+            from .approval import ApprovalRefused, eligible_candidates
+            candidate = next((item for item in eligible_candidates(target)
+                              if item.kind == "story"), None)
+        except (ApprovalRefused, OSError, ValueError, SystemExit):
+            candidate = None
+        if candidate is not None:
+            plan_file = candidate.path.relative_to(target).as_posix()
+            print(f"Next: re-approve {plan_file} in native Plan Mode after upgrade.")
     print("Replaced (harness-owned): "
           + ", ".join(UPGRADE_TREES + UPGRADE_FILES + COPY_WORKFLOWS))
     print("Replaced doc contracts: " + ", ".join(replaced_doc_contracts))
@@ -4788,3 +5027,4 @@ def _cmd_upgrade_locked(
     print("Next: review with `git diff`, run `python3 factory/scripts/check_dual_runtime.py` "
           "and the gate tests, then commit.")
     _complete_upgrade_resume(target)
+    _cleanup_upgrade_preserve_backups(target)

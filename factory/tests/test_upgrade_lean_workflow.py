@@ -12,7 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from test_gates import HARNESS, git, load_factory_lib, repo, run  # noqa: F401
+from test_gates import (
+    HARNESS, _copy_harness_source, _init, git, load_factory_lib, repo, run,
+)  # noqa: F401
 
 sys.path.insert(0, str(HARNESS / "factory" / "scripts"))
 from forge_cli import upgrade  # noqa: E402
@@ -24,6 +26,40 @@ def _upgrade(target: Path, *extra: str) -> subprocess.CompletedProcess[str]:
          "upgrade", "--target", str(target), *extra],
         cwd=HARNESS, capture_output=True, text=True,
     )
+
+
+def test_forge_profile_hash_registry_covers_main_history():
+    if git(HARNESS, "rev-parse", "--is-shallow-repository") == "true":
+        pytest.skip("HEAD profile history cannot be checked in a shallow clone")
+
+    changes = subprocess.run(
+        ["git", "log", "--raw", "--no-abbrev", "--no-renames", "--format=",
+         "HEAD", "--", ".codex/agents/*.toml"],
+        cwd=HARNESS, capture_output=True, text=True, check=True,
+    ).stdout.splitlines()
+    known = upgrade._forge_profile_hashes(HARNESS)
+    forge_names = set(known) | set(upgrade.RETIRED_FORGE_PROFILE_HASHES)
+    unknown = []
+    for row in changes:
+        if not row.startswith(":") or "\t" not in row:
+            continue
+        metadata, relative = row.split("\t", 1)
+        fields = metadata.split()
+        if len(fields) != 5 or fields[4] == "D" or not relative.endswith(".toml"):
+            continue
+        name = Path(relative).name
+        if name not in forge_names:
+            continue
+        content = subprocess.run(
+            ["git", "cat-file", "blob", fields[3]], cwd=HARNESS,
+            capture_output=True, check=True,
+        ).stdout
+        digest = hashlib.sha256(content).hexdigest()
+        if (digest not in known.get(name, set())
+                and digest != upgrade.RETIRED_FORGE_PROFILE_HASHES.get(name)):
+            unknown.append((name, digest))
+
+    assert not unknown, f"unrecognized Forge profile history: {unknown}"
 
 
 def _legacy_round(target: Path) -> Path:
@@ -124,6 +160,128 @@ def _history_fixed_review(repo: Path, story: str = "H1") -> Path:
             "commit": "a" * 40, "recorded_at": "2026-01-01T00:00:00+00:00",
         }), encoding="utf-8")
     return reviews
+
+
+def _assert_migrated_fixed_reviews_are_history(
+        repo: Path, story: str, task_ids: list[str]):
+    import factory_lib
+    from forge_cli import findings
+    from pre_compact import snapshot
+
+    factory_lib.dump_json(factory_lib.run_state_path(
+        repo, key=story, for_write=True,
+    ), {"issue_key": story, "story": story})
+    for task_id in task_ids:
+        problems = factory_lib.task_proof_problems(
+            repo, story, {"id": task_id},
+        )
+        assert not any("legacy fixed review" in problem for problem in problems)
+    closeout = factory_lib.require_closeout_order(repo)
+    assert not any("legacy fixed review" in problem for problem in closeout)
+    assert findings.collect(repo) == []
+    assert snapshot(repo, "auto")
+
+
+def test_lite_reviews_reject_preserved_story_review(repo: Path):
+    import factory_lib
+
+    story = "LITE-HISTORY"
+    factory_lib.story_dir(repo, story).mkdir(parents=True)
+    factory_lib.dump_json(factory_lib.run_state_path(repo), {"issue_key": story})
+    head = git(repo, "rev-parse", "HEAD").strip()
+    factory_lib.dump_json(factory_lib.factory_dir(repo) / "quickfix.json", {
+        "id": "Q-0001-abcd", "profile": "lite", "base_sha": head,
+    })
+    value = {
+        "generated_by": "autoreview", "score": 9,
+        "blocking_findings": [], "commit": head, "review_base_sha": head,
+    }
+    reviews = factory_lib.story_dir(repo, story) / "reviews"
+    reviews.mkdir(parents=True)
+    for aspect in ("quality", "performance", "security"):
+        (reviews / f"{aspect}.json").write_text(
+            json.dumps(value) + "\n", encoding="utf-8",
+        )
+    loaded, problems = factory_lib.load_review_artifacts(
+        repo, require_head=True, blockers_only=True,
+    )
+    assert "quality" not in loaded
+    assert any("quality review does not belong to the open Lite window" in p
+               for p in problems)
+
+    relative = f".factory/stories/{story}/reviews/quality.json"
+    digest = hashlib.sha256((reviews / "quality.json").read_bytes()).hexdigest()
+    migrations = factory_lib.factory_dir(repo) / "migrations"
+    migrations.mkdir(parents=True, exist_ok=True)
+    (migrations / "lean-workflow-v2.json").write_text(json.dumps({
+        "generated_by": "upgrade", "version": "lean-workflow-v2",
+        "completed_at": "2026-09-23T00:00:00+00:00",
+        "preserved_entries": [{"path": relative, "sha256": digest}],
+    }) + "\n", encoding="utf-8")
+
+    loaded, problems = factory_lib.load_review_artifacts(
+        repo, require_head=True, blockers_only=True,
+    )
+
+    assert "quality" not in loaded
+    assert any("quality review is preserved migration history" in p
+               for p in problems)
+
+
+def test_findings_refuse_legacy_task_review_with_fresh_review_guidance(repo: Path):
+    import factory_lib
+    from forge_cli import findings
+
+    story = "S1"
+    task = "T1"
+    factory_lib.dump_json(factory_lib.run_state_path(repo), {"issue_key": story})
+    review = (
+        factory_lib.story_dir(repo, story) / "tasks" / task
+        / "reviews" / "quality.json"
+    )
+    review.parent.mkdir(parents=True)
+    review.write_text(
+        json.dumps({"blocking_findings": []}) + "\n", encoding="utf-8",
+    )
+    manifest = factory_lib.factory_dir(repo) / "migrations" / "lean-workflow-v2.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(json.dumps({
+        "generated_by": "upgrade", "version": "lean-workflow-v2",
+        "completed_at": "2026-09-23T00:00:00+00:00", "preserved_entries": [],
+    }) + "\n", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as refusal:
+        findings.collect(repo)
+
+    message = str(refusal.value)
+    assert f"forge review {task}" in message
+    assert "forge upgrade" not in message
+
+
+def test_findings_story_review_guidance_names_current_task(repo: Path):
+    import factory_lib
+    from forge_cli import findings
+
+    story = "S1"
+    factory_lib.dump_json(factory_lib.run_state_path(repo), {"issue_key": story})
+    review = factory_lib.story_dir(repo, story) / "reviews" / "quality.json"
+    review.parent.mkdir(parents=True)
+    review.write_text(
+        json.dumps({"blocking_findings": []}) + "\n", encoding="utf-8",
+    )
+    manifest = factory_lib.factory_dir(repo) / "migrations" / "lean-workflow-v2.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(json.dumps({
+        "generated_by": "upgrade", "version": "lean-workflow-v2",
+        "completed_at": "2026-09-23T00:00:00+00:00", "preserved_entries": [],
+    }) + "\n", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as refusal:
+        findings.collect(repo)
+
+    message = str(refusal.value)
+    assert "the story's current task" in message
+    assert "<task>" not in message
 
 
 def _story_fixed_review(repo: Path, story: str = "S2") -> Path:
@@ -490,6 +648,17 @@ def test_lean_migration_refuses_family_specific_malformed_objects(
         upgrade.preflight_lean_migration(repo)
     assert "invalid" in capsys.readouterr().out
     assert path.read_bytes() == before
+
+
+def test_lean_preflight_classifies_malformed_stage_container_as_invalid(
+        repo: Path, capsys: pytest.CaptureFixture[str]):
+    stage = repo / ".factory/stages.json"
+    stage.write_text(json.dumps({"stages": None}), encoding="utf-8")
+
+    with pytest.raises(SystemExit):
+        upgrade.preflight_lean_migration(repo)
+    assert "invalid legacy-stage-stamp input .factory/stages.json" \
+        in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(("field", "value"), [
@@ -978,6 +1147,119 @@ def test_public_upgrade_resumes_after_destination_removal_before_copy(
     assert factory.is_dir()
 
 
+def test_public_upgrade_invalid_resume_names_recorded_harness_commit(
+        repo: Path, monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str]):
+    for relative in upgrade.PRESERVE_IN_AGENTS:
+        path = repo / relative
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "no preserved skill paths")
+
+    original_copytree = upgrade.guarded_copytree
+    factory = repo / "factory"
+
+    def interrupt(target, source, destination, **kwargs):
+        if destination == factory:
+            raise OSError("interrupted between destination removal and copy")
+        return original_copytree(target, source, destination, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(upgrade, "guarded_copytree", interrupt)
+        with pytest.raises(OSError, match="between destination removal"):
+            upgrade.cmd_upgrade(argparse.Namespace(target=str(repo), force=False))
+
+    manifest = repo / ".factory/migrations/lean-workflow-v2.json"
+    saved = json.loads(manifest.read_text(encoding="utf-8"))
+    recorded_commit = saved["upgrade_resume"]["harness_commit"]
+    mismatch = "0" * 40 if recorded_commit != "0" * 40 else "1" * 40
+    saved["upgrade_resume"]["harness_commit"] = mismatch
+    manifest.write_text(json.dumps(saved) + "\n", encoding="utf-8")
+
+    with pytest.raises(SystemExit):
+        upgrade.cmd_upgrade(argparse.Namespace(target=str(repo), force=False))
+    output = capsys.readouterr().out
+    assert mismatch in output
+    assert "reset" in output.lower() and "clean" in output.lower()
+
+
+def test_public_upgrade_resumes_from_gitless_harness_inventory(
+        repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    harness = _copy_harness_source(tmp_path)
+    monkeypatch.setattr(upgrade, "repo_root", lambda: harness)
+    for relative in upgrade.PRESERVE_IN_AGENTS:
+        path = repo / relative
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "no preserved skill paths")
+
+    original_copytree = upgrade.guarded_copytree
+    factory = repo / "factory"
+
+    def interrupt(target, source, destination, **kwargs):
+        if destination == factory:
+            raise OSError("interrupted between destination removal and copy")
+        return original_copytree(target, source, destination, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(upgrade, "guarded_copytree", interrupt)
+        with pytest.raises(OSError, match="between destination removal"):
+            upgrade.cmd_upgrade(argparse.Namespace(target=str(repo), force=False))
+
+    manifest = repo / ".factory/migrations/lean-workflow-v2.json"
+    saved = json.loads(manifest.read_text(encoding="utf-8"))
+    assert len(saved["upgrade_resume"]["harness_commit"]) == 64
+
+    upgrade.cmd_upgrade(argparse.Namespace(target=str(repo), force=False))
+    assert json.loads(manifest.read_text(encoding="utf-8"))["upgrade_resume"][
+        "completed_at"]
+    assert factory.is_dir()
+
+
+def test_completed_upgrade_interruption_gives_targeted_reset_clean_guidance(
+        repo: Path, monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str]):
+    for relative in upgrade.PRESERVE_IN_AGENTS:
+        path = repo / relative
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "no preserved skill paths")
+
+    upgrade.cmd_upgrade(argparse.Namespace(target=str(repo), force=False))
+    manifest = repo / ".factory/migrations/lean-workflow-v2.json"
+    assert json.loads(manifest.read_text(encoding="utf-8"))["completed_at"]
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "complete first upgrade", "--allow-empty")
+    for relative in upgrade.PRESERVE_IN_AGENTS:
+        path = repo / relative
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "remove empty preserved directories")
+
+    original_copytree = upgrade.guarded_copytree
+    factory = repo / "factory"
+
+    def interrupt(target, source, destination, **kwargs):
+        if destination == factory:
+            raise OSError("interrupted between destination removal and copy")
+        return original_copytree(target, source, destination, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(upgrade, "guarded_copytree", interrupt)
+        with pytest.raises(OSError, match="between destination removal"):
+            upgrade.cmd_upgrade(argparse.Namespace(target=str(repo), force=False))
+
+    with pytest.raises(SystemExit):
+        upgrade.cmd_upgrade(argparse.Namespace(target=str(repo), force=False))
+    output = capsys.readouterr().out
+    assert "reset" in output.lower() and "clean" in output.lower()
+    assert "commit or stash" not in output
+
+
 def test_public_upgrade_refuses_resume_after_preserved_client_skill_is_lost(
         repo: Path, monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str]):
@@ -1004,16 +1286,44 @@ def test_public_upgrade_refuses_resume_after_preserved_client_skill_is_lost(
     assert not skill.exists()
     manifest = repo / ".factory/migrations/lean-workflow-v2.json"
     assert "completed_at" not in json.loads(manifest.read_text())
+    (repo / upgrade.UPGRADE_PRESERVED_ROOT / "factory/skills/client-skill.md").unlink()
     with pytest.raises(SystemExit):
         upgrade.cmd_upgrade(argparse.Namespace(target=str(repo), force=False))
-    assert "preserved path is missing or changed: factory/skills/client-skill.md" \
-        in capsys.readouterr().out
+    assert "uncommitted changes" in capsys.readouterr().out
     assert "completed_at" not in json.loads(manifest.read_text())
 
 
-def test_public_upgrade_refuses_to_complete_after_factory_replace_loses_ignored_client_skill(
-        repo: Path, monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture[str]):
+def test_public_upgrade_accepts_gitless_harness_snapshot_with_client_additions(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    source = _copy_harness_source(tmp_path)
+    target = tmp_path / "app"
+    initialized = _init(target)
+    assert initialized.returncode == 0, initialized.stdout + initialized.stderr
+
+    skill = target / "factory/skills/client-skill.md"
+    skill.write_text("client-owned skill\n", encoding="utf-8")
+    proposed = target / "factory/skills/proposed/client-note.md"
+    proposed.parent.mkdir(parents=True, exist_ok=True)
+    proposed.write_text("client proposal\n", encoding="utf-8")
+    profile = target / ".codex/agents/client-custom.toml"
+    profile.write_text('name = "client-custom"\n', encoding="utf-8")
+    _legacy_round(target)
+    git(target, "add", "-A")
+    git(target, "commit", "-q", "-m", "client additions and legacy input")
+
+    assert upgrade.head_sha(source) is None
+    monkeypatch.setattr(upgrade, "repo_root", lambda: source)
+    upgrade.cmd_upgrade(argparse.Namespace(target=str(target), force=False))
+
+    assert skill.read_text(encoding="utf-8") == "client-owned skill\n"
+    assert proposed.read_text(encoding="utf-8") == "client proposal\n"
+    assert profile.read_text(encoding="utf-8") == 'name = "client-custom"\n'
+    backup = target / upgrade.UPGRADE_PRESERVED_ROOT / skill.relative_to(target)
+    assert not backup.exists()
+
+
+def test_public_upgrade_restores_ignored_client_skill_after_factory_replace_interruption(
+        repo: Path, monkeypatch: pytest.MonkeyPatch):
     skill = repo / "factory/skills/client-skill.md"
     skill.write_text("client-owned skill\n", encoding="utf-8")
     exclude = repo / ".git/info/exclude"
@@ -1040,19 +1350,15 @@ def test_public_upgrade_refuses_to_complete_after_factory_replace_loses_ignored_
 
     assert not skill.exists()
     manifest = repo / ".factory/migrations/lean-workflow-v2.json"
-    git(repo, "add", "-A")
-    git(repo, "commit", "-q", "-m", "interrupted upgrade state")
-    assert git(repo, "status", "--porcelain", "--untracked-files=all") == ""
-    manifest_bytes = manifest.read_bytes()
-    head = git(repo, "rev-parse", "HEAD")
-    with pytest.raises(SystemExit):
-        upgrade.cmd_upgrade(argparse.Namespace(target=str(repo), force=False))
-    assert "preserved path is missing or changed: factory/skills/client-skill.md" \
-        in capsys.readouterr().out
-    assert git(repo, "rev-parse", "HEAD") == head
-    assert git(repo, "status", "--porcelain", "--untracked-files=all") == ""
-    assert manifest.read_bytes() == manifest_bytes
-    assert "completed_at" not in json.loads(manifest_bytes)
+    backup = repo / upgrade.UPGRADE_PRESERVED_ROOT / "factory/skills/client-skill.md"
+    assert backup.read_text(encoding="utf-8") == "client-owned skill\n"
+    assert backup.relative_to(repo).as_posix() in git(
+        repo, "status", "--porcelain", "--untracked-files=all",
+    )
+    upgrade.cmd_upgrade(argparse.Namespace(target=str(repo), force=False))
+    assert skill.read_text(encoding="utf-8") == "client-owned skill\n"
+    assert "completed_at" in json.loads(manifest.read_text(encoding="utf-8"))
+    assert not backup.exists()
 
 
 @pytest.mark.parametrize("destination", ["converted-stage", "migration-manifest"])
@@ -1482,6 +1788,51 @@ def test_lean_migration_resumes_after_one_fixed_lens_was_deleted(
         repo / ".factory/migrations/lean-workflow-v2.json"
     ).read_text())
     assert "completed_at" in manifest
+
+
+def test_lean_migration_resumes_after_active_fixed_lens_retirement_interruption(
+        repo: Path, monkeypatch: pytest.MonkeyPatch):
+    reviews = repo / ".factory/stories/S1/tasks/T1/reviews"
+    reviews.mkdir(parents=True, exist_ok=True)
+    for lens in upgrade.LEAN_LENSES:
+        (reviews / f"{lens}.json").write_text(
+            json.dumps(_fixed_lens()), encoding="utf-8",
+        )
+    migration = upgrade.preflight_lean_migration(repo)
+    assert migration is not None
+    rows = [entry for entry in migration["entries"]
+            if entry.get("family") == "fixed-review-lens"]
+    assert len(rows) == 3 and all(entry["preserve"] is False for entry in rows)
+    assert not (reviews.parent / "pr-ready.json").exists()
+
+    original_unlink = Path.unlink
+    deleted = 0
+
+    def interrupt_after_one_lens(path: Path, *args, **kwargs):
+        nonlocal deleted
+        if path.parent == reviews and path.name in {
+                f"{lens}.json" for lens in upgrade.LEAN_LENSES}:
+            if deleted == 1:
+                raise OSError("interrupted after active fixed lens")
+            deleted += 1
+        return original_unlink(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "unlink", interrupt_after_one_lens)
+        with pytest.raises(OSError, match="after active fixed lens"):
+            upgrade.apply_lean_migration(repo, migration)
+    assert deleted == 1
+
+    resumed = upgrade.preflight_lean_migration(repo)
+    assert resumed is not None and resumed["resume"] is True
+    assert resumed["review_candidates"] == []
+    assert resumed["review_sentinels"] == []
+    upgrade.apply_lean_migration(repo, resumed)
+    assert not any((reviews / f"{lens}.json").exists()
+                   for lens in upgrade.LEAN_LENSES)
+    completed = json.loads((repo / ".factory/migrations/lean-workflow-v2.json")
+                           .read_text(encoding="utf-8"))
+    assert "completed_at" in completed
 
 
 @pytest.mark.parametrize("count", [1, 2])
@@ -2328,6 +2679,7 @@ def test_lean_migration_preserves_ambiguous_pre_task_id_story_review(
     assert all((reviews / f"{lens}.json").is_file()
                for lens in upgrade.LEAN_LENSES)
     assert upgrade.preflight_lean_migration(repo) is None
+    _assert_migrated_fixed_reviews_are_history(repo, "S2", ["T1", "T2"])
 
 
 def test_lean_migration_revalidates_inventory_before_each_pointer_commit(
@@ -2430,6 +2782,10 @@ def test_lean_migration_preserves_reconciled_fixed_review_without_selection(
     assert {row["reason"] for row in fixed} == {
         "active fixed review requires a fresh review",
     }
+    upgrade.apply_lean_migration(repo, migration)
+    assert all((reviews / f"{lens}.json").is_file()
+               for lens in upgrade.LEAN_LENSES)
+    _assert_migrated_fixed_reviews_are_history(repo, "S1", ["T1"])
 
 
 def test_normal_runtime_refuses_lean_removed_formats_with_upgrade_guidance(repo: Path):

@@ -281,8 +281,8 @@ def main() -> None:
     p_task_reconcile.add_argument("id", help="task id")
     p_task_reconcile.add_argument(
         "--commit",
-        help="the merge/sealed commit that shipped the task (default: the "
-             "current trunk head); must be an ancestor of origin's trunk",
+        help="if given, must be one of this task's declared scoped commits on "
+             "origin/<trunk>; the marker uses the latest (default: latest)",
     )
     p_task_reconcile.add_argument(
         "--branch",
@@ -645,8 +645,11 @@ def main() -> None:
 
     p_review = sub.add_parser(
         "review",
-        help="release Codex for a task's three-lens review and record its proof")
-    p_review.add_argument("id", help="task id from the decomposition")
+        help="release Codex for a task or Lite window's three-lens review")
+    p_review.add_argument("id", nargs="?", help="task id from the decomposition")
+    p_review.add_argument(
+        "--lite", action="store_true",
+        help="review the open Lite window's committed diff")
     p_review.add_argument(
         "--lens", choices=list(review_mod.LENSES),
         help="run a single lens (default: all three)")

@@ -17,7 +17,7 @@ from typing import Any
 from factory_lib import (
     _plan_body_digest_bytes, _safe_review_leaf, _task_plan_state,
     _windows_reparse_point, dump_json, evidence_path, factory_dir, git_control_dir,
-    load_json, now_iso,
+    load_json, now_iso, story_dir,
     plan_digest_without_assumptions, protected_decomposition_state_path,
     approved_plan_digest,
     require_grill, run_state_path, task_frontier_state,
@@ -119,6 +119,21 @@ def _safe_key(value: str) -> bool:
     return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", value))
 
 
+def _legacy_plan_digest(path: Path, metadata: dict[str, Any]) -> str:
+    """Recreate the old attested digest for a stripped legacy plan source."""
+    decisions = metadata.get("decisions_reviewed")
+    if not isinstance(decisions, list) or not all(isinstance(item, str) for item in decisions):
+        return ""
+    lines = "\n".join(f"  - {decision}" for decision in decisions)
+    value = f"\n{lines}" if lines else " []"
+    frontmatter = f"---\ndecisions_reviewed:{value}\n---\n"
+    try:
+        body = path.read_bytes()
+    except OSError:
+        return ""
+    return _plan_body_digest_bytes(frontmatter.encode("utf-8") + body)
+
+
 def _legacy_plan_approval(
         base: Path, issue: str, story: str, path: Path, evidence: Path,
         digest: str) -> bool:
@@ -182,7 +197,9 @@ def _completed_deleted_plan_approval(base: Path, story: str, evidence: Path) -> 
     return False
 
 
-def _story_candidate(base: Path) -> ApprovalCandidate | None:
+def _story_candidate(
+    base: Path, refusal_reasons: list[str] | None = None,
+) -> ApprovalCandidate | None:
     state = _strict_run_state(base)
     status = state.get("plan_status")
     if status not in {"awaiting-approval", "approved"}:
@@ -198,24 +215,53 @@ def _story_candidate(base: Path) -> ApprovalCandidate | None:
     issue = _text(state.get("issue_key")) or story
     if not _safe_key(issue) or not _safe_key(story):
         return None
+    metadata_path = story_dir(base, story) / "plan-meta.json"
+    try:
+        _require_safe_destination(base, metadata_path, required=False)
+    except ApprovalRefused:
+        return None
+    metadata = load_json(metadata_path, default={})
+    if not isinstance(metadata, dict) or metadata.get("plan_file") != state.get("plan_file"):
+        metadata = {}
+    if (not metadata and not metadata_path.exists()
+            and state.get("plan_file") == path.relative_to(base).as_posix()):
+        metadata = {
+            "issue": issue, "story": story, "status": status,
+            "plan_file": state["plan_file"],
+        }
+    from .plans import parse_frontmatter
+
+    fields, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
+    if metadata:
+        if metadata.get("status") != status:
+            return None
+    elif (fields.get("status") not in {"awaiting-approval", "approved"}
+          or (status == "awaiting-approval"
+              and fields.get("status") != "awaiting-approval")):
+        return None
     digest = plan_digest_without_assumptions(path)
     previous_digest = ""
     if status == "awaiting-approval":
         grill = load_json(
             evidence_path(base, issue, "grills/plan.json"), default={},
         )
+        accepted_grill_digests = {digest}
+        legacy_digest = _legacy_plan_digest(path, metadata)
+        if legacy_digest:
+            accepted_grill_digests.add(legacy_digest)
         if (not isinstance(grill, dict)
                 or grill.get("issue") != issue
-                or grill.get("input_sha256") != digest):
+                or grill.get("input_sha256") not in accepted_grill_digests):
             return None
         try:
             require_grill(
                 base, "plan",
                 ("docs/product/", "docs/decisions/", "docs/architecture/"),
                 ignore_names=("client-signoff", "epics-approved"),
-                expect_digest_of=path,
             )
-        except SystemExit:
+        except SystemExit as exc:
+            if refusal_reasons is not None:
+                refusal_reasons.append(str(exc))
             return None
     else:
         approved = state.get("approved_plan_sha256")
@@ -383,7 +429,7 @@ def _codex_approved(payload: dict[str, Any]) -> str:
     if header != "Approve plan" or match is None:
         return ""
     digest = match.group(1)
-    if prompt != f"Approve exact plan digest {digest}?":
+    if prompt not in {"Approve this plan?", f"Approve exact plan digest {digest}?"}:
         return ""
     if set(answers) != {question_id}:
         return ""
@@ -416,18 +462,40 @@ def _event_runtime(payload: dict[str, Any], runtime: str | None) -> tuple[str, s
 def _approve_story(base: Path, candidate: ApprovalCandidate, record: dict[str, Any]) -> None:
     _require_safe_plan(base, candidate.path)
     text = candidate.path.read_text(encoding="utf-8")
-    updated, count = re.subn(
-        r"(?m)^(status:\s*)awaiting-approval\s*$", r"\1approved", text, count=1,
-    )
-    if count != 1:
-        if re.search(r"(?m)^status:\s*approved\s*$", text) is None:
+    metadata_path = story_dir(base, candidate.story) / "plan-meta.json"
+    metadata = load_json(metadata_path, default={})
+    from .plans import FRONTMATTER
+
+    if isinstance(metadata, dict) and metadata.get("plan_file") == candidate.path.relative_to(base).as_posix():
+        _require_safe_destination(base, metadata_path, required=True)
+        if metadata.get("status") not in {"awaiting-approval", "approved"}:
+            raise ApprovalRefused(
+                "story plan metadata has neither awaiting-approval nor approved status"
+            )
+        from .plans import write_plan_metadata
+
+        metadata["status"] = "approved"
+        write_plan_metadata(base, candidate.story, metadata)
+    elif not metadata_path.exists() and not FRONTMATTER.match(text):
+        state = _strict_run_state(base)
+        if (state.get("plan_file") != candidate.path.relative_to(base).as_posix()
+                or state.get("plan_status") not in {"awaiting-approval", "approved"}):
             raise ApprovalRefused(
                 "story plan has neither awaiting-approval nor approved status"
             )
-        updated = text
-    # The status line is frontmatter and excluded by the shared semantic digest.
-    _require_safe_plan(base, candidate.path)
-    candidate.path.write_text(updated, encoding="utf-8")
+    else:
+        updated, count = re.subn(
+            r"(?m)^(status:\s*)awaiting-approval\s*$", r"\1approved", text, count=1,
+        )
+        if count != 1:
+            if re.search(r"(?m)^status:\s*approved\s*$", text) is None:
+                raise ApprovalRefused(
+                    "story plan has neither awaiting-approval nor approved status"
+                )
+            updated = text
+        # The legacy status line is frontmatter and excluded from the digest.
+        _require_safe_plan(base, candidate.path)
+        candidate.path.write_text(updated, encoding="utf-8")
     if plan_digest_without_assumptions(candidate.path) != candidate.digest:
         _require_safe_plan(base, candidate.path)
         candidate.path.write_text(text, encoding="utf-8")
@@ -447,8 +515,6 @@ def _approve_task(candidate: ApprovalCandidate, record: dict[str, Any]) -> None:
         raise ApprovalRefused("task cold-read proof disappeared during approval")
     if candidate.previous_digest:
         grill["previous_approved_task_plan_sha256"] = candidate.previous_digest
-    if "final_artifact_sha256" in grill:
-        grill["final_artifact_sha256"] = candidate.digest
     grill.update({
         "approved_task_plan_sha256": candidate.digest,
         "approved_by": record["approved_by"],
@@ -490,9 +556,16 @@ def record_native_approval(
     with delegation_exclusion(base, "native-approval", kind="approval"):
         candidates = eligible_candidates(base)
         if len(candidates) != 1:
+            refusal_reasons: list[str] = []
+            if not candidates:
+                _story_candidate(base, refusal_reasons)
+            detail = (
+                f": {refusal_reasons[0]}"
+                if not candidates and refusal_reasons else ""
+            )
             raise ApprovalRefused(
                 "native approval requires exactly one eligible current-frontier "
-                f"candidate; found {len(candidates)}"
+                f"candidate; found {len(candidates)}{detail}"
             )
         candidate = candidates[0]
         _require_safe_plan(base, candidate.path)
@@ -520,7 +593,10 @@ def record_native_approval(
 
         authority_paths = {candidate.evidence}
         if candidate.kind == "story":
-            authority_paths.update({candidate.path, run_state_path(base)})
+            authority_paths.update({
+                candidate.path, run_state_path(base),
+                story_dir(base, candidate.story) / "plan-meta.json",
+            })
         for authority_path in authority_paths:
             _require_safe_destination(
                 base, authority_path, required=authority_path.exists())

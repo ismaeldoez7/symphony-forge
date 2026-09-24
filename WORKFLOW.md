@@ -32,13 +32,15 @@ routes preserve the active task, worktree and effective scope and produce the sa
 `.factory` artifacts, but native delivery deliberately has no Forge-managed
 process identity or lifecycle proof.
 
-Start the coordinator session, Claude Code or native Codex, inside the
-worktree you are working in. Every Forge hook (native approval, the write
-lockout, the grill and delegation recorders) resolves the repository from the
-session's working directory. A session started in another checkout runs that
-checkout's hooks against the wrong repository: native Plan Mode approval records
-nothing and the gates cannot see the work. Open a new session in the task
-worktree rather than pointing an existing one at it.
+Hooks resolve the repository from the session's working directory. A session in
+another checkout records no native Plan Mode approval, and task gates cannot see
+its in-session edits; open a new session in the task worktree for task approval
+and in-session edits. The primary checkout on the default branch is the
+coordinator's home for coordination work (status, merges, and Lite windows run
+by path). Reach other worktrees by absolute path (`git -C <path>` or subprocess
+cwd). Never `cd` a session shell to a directory that is not a checkout, because
+every hook then refuses every command; if stranded, resume the session from a
+checkout.
 
 The main coordinator model and reasoning remain the user's and host's choice.
 Decision 0083 routes native roles by work: Luna/max handles routine
@@ -59,8 +61,8 @@ native lane selects Luna/low.
   stages, deterministic verification, autoreview, and the remaining gates.
 - **Lite** is a human-opened, bounded write window for a small supervised fix:
   `./forge mode lite --by "<name>" --reason "<why>"`. It returns to Full when
-  the committed fix is within its file budget, its required review is clean,
-  and `./forge mode done` closes the window.
+  the committed fix is within its file budget, `./forge review --lite` records
+  all three clean aspects, and `./forge mode done` closes the window.
 
 ## Factory Phases
 0a. `discovery` — lightweight problem, stakeholder, and constraint discovery; no `.factory` ceremony required.
@@ -398,6 +400,10 @@ roadmap JSON fails the arming step loudly.
 
 ## Concurrency — one worktree and PR per task
 
+Hooks use session cwd: task approval and edits need a task worktree session.
+Coordinate from the primary checkout; reach other worktrees by absolute path.
+Never `cd` the session shell outside a checkout; if stranded, resume there.
+
 Each leaf task owns an isolated worktree, branch, proof set, and PR. A task
 starts from refreshed trunk only after its dependency markers are present;
 dependency-ready tasks may advance together when their measured scopes are
@@ -503,10 +509,14 @@ sequence a JIT contract loop for every pending task:
     `plan-contract-missing` rows remain acceptance blockers to implement and
     re-review, but are not host defect triage.
     The coordinator never relays a finding unread: it TRIAGES every actionable
-    one first -- opens the cited line and the code it
-    calls, decides real or not with a file:line it read, and for a real one
-    searches the repo for every other place the same contract applies -- and
-    records it (`forge review <id> --triage "<text>" --lens <l> --real
+    one first -- opens the cited line and the code it calls, and judges it against
+    the mechanism's stated purpose using a file:line it read. An outside-purpose
+    finding (e.g. an adversarial shape against a guard documented as a guardrail,
+    not containment) is recorded `--not-a-defect` with that reason. For a real
+    finding, it searches the repo for every other place the same contract applies.
+    Before briefing a second fix round on the same guard, the coordinator first
+    asks whether one simpler rule removes the whole class. It records the triage
+    (`forge review <id> --triage "<text>" --lens <l> --real
     --evidence <file:line> --instance <file:line> ... [--keep "<what must not
     change>"] --by <agent>`, or `--not-a-defect --evidence <file:line> --reason
     ...`). The fix brief carries the triage beside each finding, and `forge
@@ -625,48 +635,65 @@ visibility of what it does versus what it delegates, and only genuine
 human-only acts (decisions, sign-off) or unresolvable gate refusals pause it.
 
 ## Task Planning
-Story and task plans use the coordinator's native Plan Mode. Each plan gets
-one independent cold read at Sol/high. The cold proof binds the exact input it
-read; `finding_dispositions` maps every finding, and `amendments` explains every
-change between that input and the final artifact. If an already approved plan
-changes before stage start, record that amendment bridge against the existing
-cold proof and return directly to native approval of the exact amended digest;
-do not launch a second cold read solely for changed bytes. The exact final plan
-is then shown in Plan Mode. A successful Claude `ExitPlanMode` binds its exact
-`tool_input.plan`; Codex uses the synchronous `approve_plan_<digest>` question
-`Approve exact plan digest <digest>?` with `Approve plan / Request changes / Stop`
-and an id-keyed answer. Either records the human
-approval against the final digest through the shared recorder. There is no
-requirements grill, compulsory human round, `frontier_empty` question, manual
-`plan approve` / `task approve` command, board approval, or second unchanged
-save in the normal flow. Claude delegates read-heavy exploration through
-`/codex:rescue --model gpt-6-sol --effort medium`, read-only, and uses
-Sol/high for validation or architecture; it never runs raw `codex exec`.
-Native Codex uses the configured `planner-high` role through host `spawn_agent`
-without an override; that role's Sol/high defaults apply. Decomposition uses
-Sol/high, difficult diagnosis uses Sol/high before its Luna/max fix, and the
-independent grill uses Sol/high. The plan follows
-`factory/prompts/planner.md`, including the mandatory **Decisions** section: every choice not derivable from BRIEF,
-architecture, or existing records becomes a `docs/decisions/` record
-(`forge.py decision new`) before decomposition is recorded. `forge.py plan
-save --from <plan-file>` writes the exact awaiting-approval plan to
-`plans/active/<issue>-<slug>.md`. The draft frontmatter lists every ID from
-`forge decision list --active`, and `--story <key>` binds it to the roadmap;
-open contradiction signals or incomplete decision coverage refuse the save.
-`update_run.py` refuses
-`plan_status approved` without it.
+Story and task plans use the coordinator's native Plan Mode and follow
+`factory/prompts/planner.md`. They are briefs for the person approving the work:
+plain English first, with a short technical section last. A story plan uses
+`What and why`, `What changes for you`, `Done when`, `Risks`, and optional
+`What I need from you`, then a divider, `Technical approach`, a concise
+`Task decomposition` table, and `Verify plan`. Keep the plain-English portion
+to about 25 lines. A task plan uses `What and why`, `Workflow`, `Manual
+verification`, `Risks`, then a divider and `Technical notes`. Neither plan
+body contains frontmatter, IDs or ID lists, status or date lines, SHAs,
+digests, file paths, or scope lists. Mention a decision by title in the
+technical section only when it changes the design.
 
-During implementation, any call the plan does not cover is recorded the moment
-it is made — `forge.py plan assume "<one sentence>"` appends it, dated, under
-`## Implementation Assumptions` on the active plan AND as a structured row in
-`plans/assumptions.md` (id, date, issue, assumption, status, guidance). The
-ledger is the orchestrator's console: it reviews `open` rows and guides each
-one — `forge.py assumptions resolve <id> --status confirmed|fix-needed|promoted
---notes "..."`. `pr_ready.py` refuses to ship a task with unguided
-(`open`/`fix-needed`) rows; the session-start hook and `forge next` surface
-the open count. Promoted assumptions become `docs/decisions/` records. An
-assumption that would change scope or acceptance criteria is a report back
-to the dev, not an assumption.
+Each plan gets one independent wide cold read at Sol/high. The griller sweeps
+every feature the artifact touches and shipped features next to them against
+their contracts, checking current behavior, tests, and docs for dead ends,
+bypassed or unpassable gates, impractical advice, upgrade data loss, and stale
+docs. Every finding cites an exact `file:line`. The coordinator resolves
+repository-answerable findings; only genuine human choices go to the human,
+as option questions with a recommended option and its reason. The cold proof
+binds the exact input it read; `finding_dispositions` maps every finding, and
+`amendments` explains every change between that input and the final artifact.
+Commit spec, decision, and roadmap changes before launching the grill because
+its staleness check compares commit order.
+
+Before saving, the planner reviews every active decision. `forge plan save`
+records that attestation itself in `.factory/stories/<story>/plan-meta.json`,
+without adding decision IDs to the brief. Plan status, dates, and reviewed decisions live in
+`.factory/stories/<story>/plan-meta.json`, written only by `forge plan save`.
+The saved plan body is shown exactly as saved in native approval, with no Forge
+bookkeeping inserted. Claude `ExitPlanMode` binds its exact `tool_input.plan`;
+Codex retains the synchronous question id `approve_plan_<digest>` and asks
+`Approve this plan?`; the digest travels only in the question id, with the
+`Approve plan / Request changes / Stop` choices as recorder details. The human
+approval binds the digest of the body the person read. There is no requirements grill, compulsory human round,
+`frontier_empty` question, manual `plan approve` / `task approve` command,
+board approval, or second unchanged save in the normal flow.
+
+If an already approved plan changes before stage start, record the amendment
+bridge against the existing cold proof and return directly to native approval
+of the exact amended body; do not launch another cold read solely for changed
+bytes. Claude delegates read-heavy exploration through
+`/codex:rescue --model gpt-6-sol --effort medium`, read-only, and uses Sol/high
+for validation or architecture; it never runs raw `codex exec`. Native Codex
+uses the configured `planner-high` role through host `spawn_agent` without an
+override; that role's Sol/high defaults apply. Decomposition uses Sol/high,
+difficult diagnosis uses Sol/high before its Luna/max fix, and the independent
+grill uses Sol/high. Every new decision record is made before decomposition
+is recorded. `--story <key>` binds the saved plan to the roadmap; open
+contradiction signals or incomplete decision coverage refuse the save.
+
+During implementation, record any call the plan does not cover with
+`forge.py plan assume "<one sentence>"` and guide it through
+`forge.py assumptions resolve <id> --status confirmed|fix-needed|promoted
+--notes "..."`. Assumptions stay in the structured ledger, not in the approved
+plan body. `pr_ready.py` refuses to ship a task with unguided (`open` or
+`fix-needed`) rows; the session-start hook and `forge next` surface the open
+count. Promoted assumptions become decision records. An assumption that would
+change scope or acceptance criteria is a report back to the dev, not an
+assumption.
 
 ## Artifacts
 Required run artifacts:
