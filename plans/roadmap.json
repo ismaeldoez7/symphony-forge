@@ -1,4 +1,5 @@
 {
+  "generated_by": "human",
   "items": [
     {
       "key": "harness-v2-wedge",
@@ -996,10 +997,86 @@
       "completed_at": "2026-09-23T01:35:07+00:00",
       "history": ".factory/history/GATES-1/",
       "outcome": "T1-T3 shipped to main (#215 round provenance, #220 launch-row collapse, #226 shared requirements digest). T4 and T5 retired as obsolete: they extended grill-round and manifest machinery that the Lean workflow (PR #229) removes. Closed by owner decision, 2026-09-23."
+    },
+    {
+      "key": "FORGE-ACCESS-1",
+      "title": "Full access: Forge judges the result, not each write",
+      "story": "As a developer driving Forge with coding agents, I am never blocked by write-lock refusals, so that agents work freely and proof, review and CI judge what ships.",
+      "acceptance_criteria": [
+        "No hook refuses a write because of the file it writes; retained command gates still apply",
+        "task close succeeds without a launch record and shows out-of-scope files to the reviewer and in the PR",
+        "Lite mode done reviews every committed change and keeps the five-file budget",
+        "Degraded and quickfix windows are removed; the lock code and its tests are deleted"
+      ],
+      "order": 48,
+      "status": "active",
+      "epic": "symphony-forge",
+      "skill": "backend",
+      "kind": "refactor",
+      "depends_on": [],
+      "spec": "docs/specs/full-access.md"
+    },
+    {
+      "key": "FORGE-WARM-1",
+      "title": "Hybrid mode reuses warm Codex worker threads",
+      "story": "As a developer running Forge in hybrid mode, I get review-fix rounds from a Codex worker that already knows the task, so fixes land faster without re-reading the repo",
+      "acceptance_criteria": [
+        "FORGE_EXECUTOR selects hybrid (default), codex or claude per decision 0085",
+        "Hybrid delegation uses the pinned SDK route when doctor passes, else the plugin route pre-dispatch",
+        "Every SDK turn is admitted by a recorded ledger row; close needs a terminal turn",
+        "Review-fix rounds resume the task's worker thread with brief, HEAD, diff and findings",
+        "A recorded benchmark shows resumed fix rounds use fewer uncached tokens and less time",
+        "Live event stream with reattach; signals steer or interrupt the active turn",
+        "One lease-held app-server per repository",
+        "forge upgrade adds the SDK route to existing clients idempotently; plugin tasks keep working",
+        "Forge threads are archived at task merge and story close; pruning touches Forge threads only",
+        "Parity matrix covers claude, codex and hybrid on macOS, Linux and Windows"
+      ],
+      "order": 48,
+      "status": "active",
+      "epic": "symphony-forge",
+      "skill": "backend",
+      "kind": "feature",
+      "depends_on": [],
+      "spec": "docs/specs/warm-codex-threads.md"
+    },
+    {
+      "key": "FORGE-UPG-2",
+      "title": "Simple upgrade: one safe step from any factory-era client",
+      "story": "As an FDE maintaining a client repo, I upgrade it to the current Forge in one safe command, so that clients get fixes without half-upgraded repos or stranded stories.",
+      "acceptance_criteria": [
+        "Idle clients from 8563f8c6, 43f6bede and 47516c55 upgrade cleanly and Forge's everyday commands run afterwards",
+        "Work in progress, a dirty tree, a downgrade or a non-Forge repo is refused before anything is written; --park lets a story through",
+        "A failure leaves the client exactly as before; a second upgrade changes nothing",
+        "The upgrade PR passes the ticket check; the old migration machinery is deleted"
+      ],
+      "order": 49,
+      "status": "active",
+      "epic": "symphony-forge",
+      "skill": "backend",
+      "kind": "refactor",
+      "depends_on": [],
+      "spec": "docs/specs/simple-upgrade.md"
+    },
+    {
+      "key": "FORGE-FDE-1",
+      "title": "The agent works as a forward deployed engineer; gstack removed",
+      "story": "As an FDE without product training, the agent guides me through problem discovery, options and a payback-based choice, so that we build what measurably pays off.",
+      "acceptance_criteria": [
+        "Discovery asks one question per turn with a Why-I-ask line and fills a problem card",
+        "New specs carry a complete success measure, checked after ship via a dated reminder in forge next",
+        "The payback rule gives the same recommendation for the same inputs",
+        "gstack and direnv are removed from Forge; client gstack files are untouched"
+      ],
+      "order": 50,
+      "status": "active",
+      "epic": "symphony-forge",
+      "skill": "backend",
+      "kind": "feature",
+      "depends_on": [],
+      "spec": "docs/specs/fde-discovery.md"
     }
   ],
-  "generated_by": "human",
-  "updated_at": "2026-09-23T01:35:07+00:00",
   "epics": [
     {
       "id": "symphony-forge",
@@ -1073,5 +1150,6 @@
         "docs/specs/factory-event-export.md"
       ]
     }
-  ]
+  ],
+  "updated_at": "2026-09-24T17:22:27+00:00"
 }
