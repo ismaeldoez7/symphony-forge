@@ -102,6 +102,17 @@ regression, test_gap, maintainability. Priorities: P0/P1 block the task; P2/P3
 must be resolved or explicitly deferred with a reason before it ships.
 """
 
+TEST_AUDIT_RULE = """\
+Apply the test-audit rules to new or changed tests: each must protect observable
+behavior or an independent contract, fail on a credible regression not already
+covered, and avoid test-only production seams. Flag source or implementation
+assertions, self-derived expected values, fabricated mocks or fixtures that
+supply the behavior or receipts under test, duplicate coverage, and negative
+controls that fail for an unrelated reason. Preserve tests of independent
+contracts; a bug regression must fail before the fix for the intended reason.
+See factory/skills/test-audit/SKILL.md for the full checklist.
+"""
+
 LENS_FOCUS = {
     "quality": """\
 LENS: QUALITY. Correctness, regressions, gaps in the implementer's tests,
@@ -358,7 +369,7 @@ def _lens_prompt(task: dict, lens: str, base: Path | None = None, *,
                  repo_readable: bool = True) -> bytes:
     preamble = COMMON_PREAMBLE if repo_readable else DIFF_ONLY_PREAMBLE
     lines = [f"# Review brief — {task.get('id', '')} — {lens} lens", "",
-             preamble, LENS_FOCUS[lens], LEFTOVER_INSTRUCTION]
+             preamble, TEST_AUDIT_RULE, LENS_FOCUS[lens], LEFTOVER_INSTRUCTION]
     if lens == "quality":
         lines += [QUALITY_VERDICT_FORMAT, VERDICT_INSTRUCTION, ""]
     lines += _task_section(task, None)
@@ -416,7 +427,8 @@ def _combined_prompt(task: dict, *, repo_readable: bool = True,
         "at 3000 characters in total and holds ONLY these three assessments. Never "
         "write VERDICT lines in it; a verdict is a finding record.", "",
         "Prefix every finding title with exactly one matching token: [quality] , "
-        "[performance] , or [security] .", "", FINDING_FORM, "", LENS_FOCUS["quality"],
+        "[performance] , or [security] .", "", FINDING_FORM, "", TEST_AUDIT_RULE,
+        LENS_FOCUS["quality"],
         VERDICT_RECORD_FORMAT.format(dataset=REVIEW_DATASET_REL),
         chunk_verdict_rule, "",
         LENS_FOCUS["performance"],
