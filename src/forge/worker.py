@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -10,7 +11,7 @@ from pathlib import Path
 from string import Template
 from typing import Any
 
-from forge import repo, task
+from forge import codex, doctor, repo, task
 from forge.repo import git, refuse
 
 HERE = Path(__file__).parent
@@ -24,10 +25,12 @@ SERIOUS = ("P0", "P1")
 COMMANDS = ["git add", "git commit", "git status", "git diff", "git log"]
 
 REFUSALS = {
-    "codex": ("Codex workers come with the warm-threads story; v1 runs its workers on Claude Code.",
-              'set workers = "claude" in forge.toml, then forge work {item}'),
     "no_checkout": ("{item} has no checkout here, so it hasn't been started.", "forge next"),
     "failed": ("The worker stopped with exit code {status}; its log is {log}.", "forge work {item}"),
+    "sdk": ("{problem}", "forge doctor --fix"),
+    "untrusted": ("Codex doesn't trust this project, so it would skip Forge's hooks; Forge starts "
+                  "no Codex worker here.", "forge doctor"),
+    "turn": ("The Codex turn didn't complete: {why}; its log is {log}.", "forge work {item}"),
 }
 
 
@@ -36,17 +39,46 @@ def work(args: argparse.Namespace) -> None:
     match = repo.ITEM.fullmatch(item)
     if not match or not (match["task"] or match["fix"]):
         refuse(repo.REFUSALS["bad_item"], item=item)
-    config = repo.config()
-    if config["workers"] == "codex":
-        refuse(REFUSALS["codex"], item=item)
     top = _checkout(item, [f"task/{match['key']}-{match['task']}"] if match["task"]
                     else [f"fix/{item}", f"forge/{item}"])
+    config = repo.config(top)  # the item's own forge.toml, not the caller's
+    on_codex = config["workers"] == "codex"
+    kind = "Build" if match["task"] else "Lite"
+    # Every check refuses before the status commit, so a refused call changes nothing.
+    if on_codex:
+        problem = codex.sdk_problem()  # includes the declining handler's place in the SDK
+        if problem:
+            refuse(REFUSALS["sdk"], problem=problem)
+        codex.settings(config, kind)
+        codex_config = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex") / "config.toml"
+        if not doctor._codex_trusts(top, codex_config):
+            refuse(REFUSALS["untrusted"])
+    else:
+        claude = _claude_models(config, kind.lower())
     state = repo.read_state(item, top) or {}
     findings, failing = _fix_round(state)
-    brief = _brief(match, top, state, findings, failing)
+    brief, subject = _brief(match, top, state, findings, failing)
     state["status"] = "fixing" if findings or failing else "working"
     repo.commit_state(f"{item} is {state['status']}", repo.write_state(item, state, top), top=top)
-    _run(item, top, config, brief)
+    if not on_codex:
+        _run(item, top, config, brief, claude)
+        return
+    result = codex.run(top, item, kind, f"{kind} · {item} · {subject}", brief, "full-access")
+    if result["status"] != "completed":
+        why = (f"Codex reported it {result['status']}" if result["status"]
+               else "Codex never reported its end")
+        refuse(REFUSALS["turn"], why=why, log=repo.work_log(top, item), item=item)
+
+
+def _claude_models(config: dict[str, Any], kind: str) -> list[str]:
+    """claude's --model and --effort for this kind of work; the single `model` without a table."""
+    if not config["models"]:
+        return ["--model", config["model"]]
+    chosen = repo.models(config, kind)
+    if "subagents" in chosen:
+        refuse(repo.REFUSALS["models"], problem=f"Claude workers take model and effort, so "
+                                                 f"[models.{kind}] can't set subagents")
+    return ["--model", chosen["model"], "--effort", chosen["effort"]]
 
 
 def _checkout(item: str, branches: list[str]) -> Path:
@@ -85,13 +117,15 @@ def _failing(branch: str) -> list[tuple[str, str]]:
 
 
 def _brief(match: re.Match[str], top: Path, state: dict[str, Any],
-           findings: list[dict[str, Any]], failing: list[tuple[str, str]]) -> str:
-    """The brief from templates/brief.md: `<!-- if NAME -->` blocks stay only when NAME is on."""
+           findings: list[dict[str, Any]], failing: list[tuple[str, str]]) -> tuple[str, str]:
+    """The brief from templates/brief.md, where `<!-- if NAME -->` blocks stay only when NAME is
+    on, and its subject: the task's name, or the fix's why."""
     on: set[str] = set()
     values: dict[str, str] = {}
     if match["task"]:
         doc = task.sections((top / "plans" / f"{match['key']}.md").read_text(encoding="utf-8"))
         row = task.rows(doc).get(match["task"], {})
+        subject = row.get("Name", "")
         moving = re.search(r"^New moving parts:.*", doc.get("Tasks", ""), re.M | re.S)
         on |= {"task"} | ({"user-facing"} if row.get("User-facing", "").lower() in ("yes", "true")
                           else set())
@@ -105,7 +139,8 @@ def _brief(match: re.Match[str], top: Path, state: dict[str, Any],
             existing_tests=_existing_tests(top, task.cell_list(row.get("Scope", ""))))
     else:
         on.add("fix")
-        values.update(why=state.get("why", ""), done=state.get("done_when", ""))
+        subject = state.get("why", "")
+        values.update(why=subject, done=state.get("done_when", ""))
     if findings or failing:
         on.add("fix-round")
         values["findings"] = "\n".join(
@@ -123,7 +158,7 @@ def _brief(match: re.Match[str], top: Path, state: dict[str, Any],
     text = (HERE / "templates" / "brief.md").read_text(encoding="utf-8")
     text = re.sub(r"<!-- if ([\w-]+) -->\n(.*?)<!-- end -->\n",
                   lambda block: block[2] if block[1] in on else "", text, flags=re.S)
-    return Template(text).safe_substitute(values)
+    return Template(text).safe_substitute(values), subject
 
 
 def _existing_tests(top: Path, scope: list[str]) -> str:
@@ -138,14 +173,14 @@ def _existing_tests(top: Path, scope: list[str]) -> str:
     return ", ".join(f"`{path}`" for path in found) or "none found"
 
 
-def _run(item: str, top: Path, config: dict[str, Any], brief: str) -> None:
+def _run(item: str, top: Path, config: dict[str, Any], brief: str, models: list[str]) -> None:
     """Run Claude Code headless in the checkout; its output goes to the terminal and the log."""
     exe = shutil.which("claude")
     if exe is None:
         refuse(repo.REFUSALS["missing_tool"], tool="claude")
-    log = repo.forge_dir(top) / f"work-{item.replace('/', '-')}.log"
+    log = repo.work_log(top, item)
     allowed = [f"Bash({command}:*)" for command in [*COMMANDS, config["test"]] if command]
-    command = [exe, "-p", "--model", config["model"], "--permission-mode", "acceptEdits",
+    command = [exe, "-p", *models, "--permission-mode", "acceptEdits",
                "--add-dir", str(CONVENTIONS), "--allowedTools", *allowed]
     with log.open("a", encoding="utf-8") as out, subprocess.Popen(
             command, cwd=top, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
