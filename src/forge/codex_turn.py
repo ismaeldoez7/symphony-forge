@@ -1,24 +1,40 @@
 """One Codex turn for Forge, run by the Codex SDK's own Python; Forge itself never imports the SDK.
 
-Forge sends one JSON request on stdin: the checkout (cwd), the conversation's name, the prompt, the
-sandbox and the kind's settings (config). This prints one JSON line per step, in order: the
-app-server's process id, before anything else; the thread; the turn; each event and each declined
+This prints its own process id first, and once Forge has it on record, Forge sends one JSON
+request line on stdin: the checkout (cwd), the conversation's name, the prompt, the sandbox and the
+kind's settings (config). This then prints one JSON line per step, in order: the app-server's
+process id, before Codex starts; the thread; the turn; each event and each declined
 request; then the turn's end with its status, error, final text and token usage, only when Codex
-reports it.
+reports it. After the app-server's id and after the thread's, this waits for Forge to answer with
+a line saying it has them on record, so nothing starts that Forge hasn't recorded. Codex gets two
+minutes to start, or this prints a refusal and ends.
+
+Forge starts this in its own process group and keeps stdin open while it runs. Once stdin closes,
+Forge has gone, and this ends the whole group, itself and the app-server it started, even while
+Codex is still starting. Windows has no such group, so there this ends the app-server's process
+tree by the id it kept when the app-server started.
 """
 from __future__ import annotations
 
 import json
+import os
+import signal
+import subprocess
 import sys
 import threading
 from typing import Any
 
-from openai_codex import ApprovalMode, Codex, Sandbox
+from openai_codex import ApprovalMode, Codex, Sandbox, api
+from openai_codex.client import CodexClient
 from openai_codex._run import _final_assistant_response_from_items
 from openai_codex.models import (ItemCompletedNotification, ThreadTokenUsageUpdatedNotification,
                                  TurnCompletedNotification, UnknownNotification)
 
 LOCK = threading.Lock()
+START = 120  # the seconds Codex gets to start: Codex() waits on initialize with no timeout
+STARTING = threading.Lock()  # end() never falls between the app-server starting and SERVER
+SERVER: list[int] = []  # the app-server's process id once it has started, for end() on Windows
+RECORDED = threading.Semaphore(0)  # a release per line Forge sends once it has recorded an id
 
 
 def emit(**line: Any) -> None:
@@ -33,13 +49,58 @@ def decline(method: str, params: dict[str, Any] | None) -> dict[str, Any]:
     return {"decision": "decline"}
 
 
+class Client(CodexClient):
+    """The SDK's client, which prints the app-server's id as soon as it starts, before Codex()
+    waits on initialize, so Forge has it on record even when Codex never answers."""
+
+    def start(self) -> None:
+        with STARTING:
+            super().start()
+            SERVER.append(self._proc.pid)
+        emit(pid=self._proc.pid)
+        RECORDED.acquire()
+
+
+# ponytail: Codex() makes its client from this module global and takes no other; SDK_PIN keeps it.
+api.CodexClient = Client
+
+
+def end() -> None:
+    """End this driver and everything it started: the process group Forge made for it."""
+    with STARTING:
+        if os.name == "nt":  # no group to end: end the app-server's process tree
+            for pid in SERVER:
+                subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True)
+        else:
+            os.killpg(0, signal.SIGTERM)
+        os._exit(1)
+
+
+def watch() -> None:
+    """Pass on each line saying Forge recorded an id, and end everything once Forge, the calling
+    process, goes away: its end of stdin closes."""
+    for _ in sys.stdin:
+        RECORDED.release()
+    end()
+
+
+def late() -> None:
+    emit(refused="start")
+    end()
+
+
 def main() -> int:
-    request = json.load(sys.stdin)
+    emit(driver=os.getpid())  # Forge records this process, as it now runs, before it sends a request
+    request = json.loads(sys.stdin.readline())
     sandbox = Sandbox(request["sandbox"])
+    threading.Thread(target=watch, daemon=True).start()
+    timer = threading.Timer(START, late)
+    timer.daemon = True
+    timer.start()
     codex = Codex()  # starts `codex app-server`; a failed start stops it again
+    timer.cancel()
     try:
         client = getattr(codex, "_client", None)
-        emit(pid=getattr(getattr(client, "_proc", None), "pid", None))
         # ponytail: Codex() takes no handler and its default accepts commands and file changes, so
         # Forge swaps the private one. SDK_PIN keeps it where this looks; a moved one refuses here.
         if not hasattr(client, "_approval_handler"):
@@ -49,6 +110,7 @@ def main() -> int:
         thread = codex.thread_start(approval_mode=ApprovalMode.deny_all, sandbox=sandbox,
                                     cwd=request["cwd"], config=request["config"] or None)
         emit(thread=thread.id)
+        RECORDED.acquire()
         thread.set_name(request["name"])
         turn = thread.turn(request["prompt"], approval_mode=ApprovalMode.deny_all, sandbox=sandbox)
         emit(turn=turn.id)
