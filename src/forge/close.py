@@ -12,11 +12,12 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
 
-from forge import checks, codex, init, repo, review
+from forge import __version__, checks, codex, init, repo, review, story
 
 REFUSALS = {
     "not_started": ("Forge has not started {item} in any worktree of this repo.", "forge next"),
@@ -36,6 +37,12 @@ REFUSALS = {
     "blocked": ("The review left serious findings open: {findings}.",
                 'forge work {item}, or forge close {item} --dismiss <n> --because '
                 '"<file:line> <reason>"'),
+    "unsynced": ("This {kind} changes Forge's version, but {files} {verb} what forge sync writes "
+                 "for it.", "forge sync in {path}, commit what it wrote, then forge close {item}"),
+    "unsynced_forge": ("This {kind} pins Forge {pinned}, but Forge {installed} is running close, "
+                       "so it can't tell whether the {kind}'s files are what {pinned} writes.",
+                       "uv tool install git+https://github.com/knacklabs/symphony-forge@{pinned}, "
+                       "then forge close {item}"),
     "question": ("The worker is waiting for an answer:\n{question}",
                  'forge work {item} --note "<answer>"'),
 }
@@ -62,6 +69,8 @@ def close(args: argparse.Namespace) -> int:
         return _merged(top, item)
 
     _merge_default(top, item, branch, default)
+    if not migrating:
+        _synced(top, item)
     light = review.blocking_level(top, item, state, f"origin/{default}") == "P0"
     previous = state.get("review") or {}
     result = previous
@@ -187,6 +196,36 @@ def _merge_default(top: Path, item: str, branch: str, default: str) -> None:
     repo.git("merge", "--abort", cwd=top)
     repo.refuse(REFUSALS["conflict"], default=default, branch=branch, files=", ".join(files),
                 path=top, item=item)
+
+
+def _synced(top: Path, item: str) -> None:
+    """An upgrade is ready only once forge sync, run by the Forge it pins on a copy of the commit
+    close pushes, changes and deletes nothing."""
+    toml = story.show(top, "HEAD", "forge.toml") or ""
+    pinned = repo._pin(toml)  # pyright: ignore[reportPrivateUsage]
+    if pinned == repo.default_config(top)["version"].removeprefix("v"):
+        return
+    kind = "task" if "/" in item else "fix"
+    if pinned != __version__:
+        repo.refuse(REFUSALS["unsynced_forge"], kind=kind, pinned=f"v{pinned}",
+                    installed=f"v{__version__}", item=item)
+    # forge sync refuses a detached HEAD, so the throwaway checkout gets a throwaway branch.
+    check, branch = Path(tempfile.mkdtemp()) / "sync", f"forge-synced-{os.getpid()}"
+    repo.git("worktree", "add", "-q", "-b", branch, str(check), "HEAD", cwd=top)
+    try:
+        done = repo.run("forge", "sync", cwd=check)
+        if done.returncode:
+            raise subprocess.CalledProcessError(done.returncode, ["forge", "sync"], done.stdout,
+                                                done.stderr)
+        status = repo.run("git", "status", "--porcelain", "-z", "--untracked-files=all",
+                          cwd=check).stdout
+        stale = [entry[3:] for entry in status.split("\0") if entry]
+    finally:
+        repo.git("worktree", "remove", "-f", str(check), cwd=top)
+        repo.git("branch", "-D", branch, cwd=top)
+    if stale:
+        repo.refuse(REFUSALS["unsynced"], kind=kind, files=", ".join(stale),
+                    verb="aren't" if len(stale) > 1 else "isn't", path=top, item=item)
 
 
 def _save(top: Path, item: str, state: dict[str, Any], message: str) -> None:
