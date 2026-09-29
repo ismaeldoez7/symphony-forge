@@ -47,6 +47,8 @@ REFUSALS = {
                  'forge work {item} --note "<answer>"'),
 }
 BEGIN, END = "<!-- forge:begin -->", "<!-- forge:end -->"
+# forge merge enable's fix is known by these; only the repo owner merges it.
+WHY, DONE = "Let the agent merge this repo's ready pull requests.", 'The default branch\'s forge.toml sets merge = "agent".'
 
 
 def close(args: argparse.Namespace) -> int:
@@ -139,7 +141,7 @@ def close(args: argparse.Namespace) -> int:
         repo.record_timing(top, item, "CI wait", start, clock, outcome)
     if pr and pr.get("isDraft"):  # a blocked review left it a draft
         _gh(top, "pr", "ready", str(pr["number"]))
-    merge = "human" if migrating else repo.merge_setting(top)
+    merge = "human" if migrating or state.get("why") == WHY else repo.merge_setting(top)
     path = repo.ready_path(item, top)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
