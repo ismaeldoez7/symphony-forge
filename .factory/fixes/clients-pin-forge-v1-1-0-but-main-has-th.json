@@ -1,0 +1,42 @@
+{
+  "allow_large": "The owner asked for the v1.2.0 release on 2026-09-29 once all stories were done; a version bump touches the version, the pin and their tests",
+  "base": "eb5c132768bed861a67c11ae3469b811c71fe5f9",
+  "branch": "fix/clients-pin-forge-v1-1-0-but-main-has-th",
+  "done_when": "Forge's version is 1.2.0 everywhere it is recorded (the package version, this repo's forge.toml pin, and the tests that track the current version), so the v1.2.0 tag installs as 1.2.0",
+  "kind": "fix",
+  "review": {
+    "blocking_level": "P1",
+    "changed": "ad84a3b0f038ecae49435f479eb2225c5e94699322bd3a9a8e27e8b9abd07550",
+    "commit": "91c84b0e0990db614cd04a55d17c54e2b6b380d8",
+    "dismissals": [
+      {
+        "because": "scripts/install-mac.sh:4 the release procedure tags this merge commit v1.2.0 and publishes the release immediately after the merge, as for v1.1.0, so the instructions point at a tag that exists within minutes",
+        "finding": 1,
+        "from_base": false
+      }
+    ],
+    "findings": [
+      {
+        "body": "This branch changes the Mac installer to request `@v1.2.0`; the Windows installer and README install command now do the same. The release-order ruling explicitly requires these paths to stay on v1.1.0 until the v1.2.0 tag exists. A user running either installer after this branch merges but before tagging will get a failed Forge installation. Revert these three install references for this change.",
+        "file": "scripts/install-mac.sh",
+        "line": 4,
+        "priority": "P1",
+        "title": "Keep install instructions on v1.1.0 until the v1.2.0 tag exists"
+      }
+    ],
+    "status": "clean",
+    "tree": "a8a18173460e964f55bf0d77a6f99dead78f411f749267939bb44bc84523a60c"
+  },
+  "status": "waiting for checks",
+  "steps": [
+    {
+      "at": "2026-09-29T17:13:59+00:00",
+      "step": "start"
+    },
+    {
+      "at": "2026-09-29T17:45:53+00:00",
+      "step": "review"
+    }
+  ],
+  "why": "Clients pin Forge v1.1.0, but main has the prototype, salesperson, live-app, aha, cold-read loop, short plan, upgrade and merge-switch work since then"
+}
