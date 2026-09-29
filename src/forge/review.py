@@ -101,6 +101,8 @@ def task(top: Path, item: str) -> tuple[str, dict[str, str], dict[str, str]]:
     row = next((r for r in rows(doc.get("Tasks", "")) if r.get("id", "").strip("`") == name), None)
     if row is None:
         repo.refuse(REFUSALS["bad_doc"], key=key, task=name, item=item)
+    from forge import story  # story imports review indirectly
+    story._parsed(path, f"plans/{key}.md")  # pyright: ignore[reportPrivateUsage]
     return text, doc, row
 
 
@@ -200,9 +202,9 @@ def instructions(top: Path, item: str, state: dict[str, Any], cfg: dict[str, Any
               "test_run": _test_run(top, repo.config(top)["test"])}
     if "/" in item:
         doc_text, doc, row = task(top, item)
-        items = re.split(r"^(\d+)\.\s+", doc.get("Done when", ""), flags=re.M)
-        items = {items[i]: " ".join(items[i + 1].split()) for i in range(1, len(items), 2)}
-        covers = set(re.findall(r"\d+", row.get("covers", "")))
+        from forge import story  # story imports review indirectly
+        parsed = story.parse(doc_text)
+        covers = {int(n) for n in re.findall(r"\d+", row.get("covers", ""))}
         scope, tests = cells(row.get("scope", "")), cells(row.get("tests", ""))
         existing_tests = set(repo.git("ls-tree", "-r", "--name-only", base,
                                       cwd=top).splitlines())
@@ -211,8 +213,8 @@ def instructions(top: Path, item: str, state: dict[str, Any], cfg: dict[str, Any
             scope=_bullets(scope), tests=_bullets(tests),
             outside=_bullets(p for p in changed if not any(_within(p, s) for s in scope + tests)
                              and not (p in existing_tests and _test_file(p))),
-            covered=_bullets(f"{n}. {t}" for n, t in items.items() if n in covers),
-            context=_bullets(f"{n}. {t}" for n, t in items.items() if n not in covers),
+            covered=_bullets(story.item(parsed, n, True) for n in parsed["done"] if n in covers),
+            context=_bullets(story.item(parsed, n, False) for n in parsed["done"] if n not in covers),
             risks=doc.get("Risks", "Risks: none"), notes=doc.get("Notes", "none"),
             moving_parts=moving_parts(doc_text))
         chosen = ["task", "rules"]
